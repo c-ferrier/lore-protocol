@@ -1,8 +1,10 @@
 import { Command } from 'commander';
 import { createRequire } from 'node:module';
-
 const require = createRequire(import.meta.url);
-const { version } = require('../package.json') as { version: string };
+const updateNotifier = require('simple-update-notifier');
+
+const pkg = require('../package.json');
+const { version } = pkg;
 
 import type { IGitClient } from './interfaces/git-client.js';
 import type { IConfigLoader } from './interfaces/config-loader.js';
@@ -53,24 +55,7 @@ import { LoreError, ValidationError } from './util/errors.js';
  * GRASP: Creator -- main.ts creates all service instances.
  */
 async function main(): Promise<void> {
-  const program = new Command();
-
-  program
-    .name('lore')
-    .description('CLI tool for the Lore protocol -- structured decision context in git commits')
-    .version(version);
-
-  // Global options (display/format only — query flags live on subcommands)
-  program
-    .option('--json', 'Shorthand for --format json')
-    .option('--format <type>', 'Output format: text or json', 'text')
-    .option('--no-color', 'Disable colored output');
-
-  // 1. Create concrete implementations
-  const gitClient: IGitClient = new GitClient();
-  const trailerParser = new TrailerParser();
-  const pathResolver = new PathResolver();
-  const loreIdGenerator = new LoreIdGenerator();
+  // 1. Create essential services for configuration and startup
   const configLoader: IConfigLoader = new ConfigLoader();
 
   // 2. Load config (best-effort: default if not found)
@@ -83,7 +68,42 @@ async function main(): Promise<void> {
     config = DEFAULT_CONFIG;
   }
 
-  // 3. Create services that depend on others
+  // 3. Initialize CLI program to parse global options
+  const program = new Command();
+  program
+    .name('lore')
+    .description('CLI tool for the Lore protocol -- structured decision context in git commits')
+    .version(version)
+    .option('--json', 'Shorthand for --format json')
+    .option('--format <type>', 'Output format: text or json', 'text')
+    .option('--no-color', 'Disable colored output')
+    .option('--no-update-notifier', 'Disable update notification');
+
+  // Parse only global options to check for suppression flags
+  // This allows us to run the update check before full command execution
+  program.parseOptions(process.argv);
+  const opts = program.opts();
+
+  // 4. Update notification (respects flags, env vars, and config)
+  const isJson = opts.json || opts.format === 'json';
+  const skipUpdate =
+    opts.updateNotifier === false ||
+    ['1', 'true'].includes(process.env.LORE_NO_UPDATE_CHECK ?? '') ||
+    ['1', 'true'].includes(process.env.NO_UPDATE_NOTIFIER ?? '') ||
+    ['1', 'true'].includes(process.env.CI ?? '') ||
+    config.cli.updateCheck === false;
+
+  if (!isJson && !skipUpdate) {
+    updateNotifier({ pkg });
+  }
+
+  // 5. Create concrete implementations
+  const gitClient: IGitClient = new GitClient();
+  const trailerParser = new TrailerParser();
+  const pathResolver = new PathResolver();
+  const loreIdGenerator = new LoreIdGenerator();
+
+  // 5. Create services that depend on others
   const atomRepository = new AtomRepository(gitClient, trailerParser, config.trailers.custom);
   const supersessionResolver = new SupersessionResolver();
   const stalenessDetector = new StalenessDetector(gitClient, config);

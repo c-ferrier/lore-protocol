@@ -25,6 +25,9 @@ default_format = "text"
 
 [follow]
 max_depth = 3
+
+[cli]
+update_check = true
 `;
 
 /**
