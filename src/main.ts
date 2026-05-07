@@ -2,12 +2,9 @@ import { Command } from 'commander';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const pkg = require('../package.json') as { name: string; version: string };
+const simpleUpdateNotifier = require('simple-update-notifier');
+const pkg = require('../package.json');
 const { version } = pkg;
-
-// simple-update-notifier is CJS-only; use require for interop
-const simpleUpdateNotifier = require('simple-update-notifier') as
-  (args: { pkg: { name: string; version: string } }) => Promise<void>;
 
 import type { IGitClient } from './interfaces/git-client.js';
 import type { IConfigLoader } from './interfaces/config-loader.js';
