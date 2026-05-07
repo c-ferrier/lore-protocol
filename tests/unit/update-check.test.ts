@@ -55,6 +55,11 @@ describe('shouldCheckForUpdate', () => {
     expect(shouldCheckForUpdate(true)).toBe(false);
   });
 
+  it('returns false when --format json (space-separated) is in argv', () => {
+    process.argv = ['node', 'lore', 'log', '--format', 'json'];
+    expect(shouldCheckForUpdate(true)).toBe(false);
+  });
+
   it('returns false when --no-update-notifier is in argv', () => {
     process.argv = ['node', 'lore', 'log', '--no-update-notifier'];
     expect(shouldCheckForUpdate(true)).toBe(false);

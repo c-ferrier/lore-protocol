@@ -91,7 +91,7 @@ async function main(): Promise<void> {
 
   // 3. Update notification (fire-and-forget, respects env vars and config)
   if (shouldCheckForUpdate(config.cli.updateCheck)) {
-    simpleUpdateNotifier({ pkg });
+    simpleUpdateNotifier({ pkg }).catch(() => {});
   }
 
   // 4. Create services that depend on others
@@ -217,6 +217,8 @@ export function shouldCheckForUpdate(configUpdateCheck: boolean): boolean {
 
   const argv = process.argv;
   if (argv.includes('--json') || argv.includes('--format=json')) return false;
+  const formatIdx = argv.indexOf('--format');
+  if (formatIdx !== -1 && argv[formatIdx + 1] === 'json') return false;
   if (argv.includes('--no-update-notifier')) return false;
 
   if (!configUpdateCheck) return false;
