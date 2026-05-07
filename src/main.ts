@@ -1,10 +1,13 @@
 import { Command } from 'commander';
 import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const updateNotifier = require('simple-update-notifier');
 
-const pkg = require('../package.json');
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json') as { name: string; version: string };
 const { version } = pkg;
+
+// simple-update-notifier is CJS-only; use require for interop
+const simpleUpdateNotifier = require('simple-update-notifier') as
+  (args: { pkg: { name: string; version: string } }) => Promise<void>;
 
 import type { IGitClient } from './interfaces/git-client.js';
 import type { IConfigLoader } from './interfaces/config-loader.js';
@@ -55,7 +58,25 @@ import { LoreError, ValidationError } from './util/errors.js';
  * GRASP: Creator -- main.ts creates all service instances.
  */
 async function main(): Promise<void> {
-  // 1. Create essential services for configuration and startup
+  const program = new Command();
+
+  program
+    .name('lore')
+    .description('CLI tool for the Lore protocol -- structured decision context in git commits')
+    .version(version);
+
+  // Global options (display/format only — query flags live on subcommands)
+  program
+    .option('--json', 'Shorthand for --format json')
+    .option('--format <type>', 'Output format: text or json', 'text')
+    .option('--no-color', 'Disable colored output')
+    .option('--no-update-notifier', 'Disable update notification');
+
+  // 1. Create concrete implementations
+  const gitClient: IGitClient = new GitClient();
+  const trailerParser = new TrailerParser();
+  const pathResolver = new PathResolver();
+  const loreIdGenerator = new LoreIdGenerator();
   const configLoader: IConfigLoader = new ConfigLoader();
 
   // 2. Load config (best-effort: default if not found)
@@ -68,42 +89,12 @@ async function main(): Promise<void> {
     config = DEFAULT_CONFIG;
   }
 
-  // 3. Initialize CLI program to parse global options
-  const program = new Command();
-  program
-    .name('lore')
-    .description('CLI tool for the Lore protocol -- structured decision context in git commits')
-    .version(version)
-    .option('--json', 'Shorthand for --format json')
-    .option('--format <type>', 'Output format: text or json', 'text')
-    .option('--no-color', 'Disable colored output')
-    .option('--no-update-notifier', 'Disable update notification');
-
-  // Parse only global options to check for suppression flags
-  // This allows us to run the update check before full command execution
-  program.parseOptions(process.argv);
-  const opts = program.opts();
-
-  // 4. Update notification (respects flags, env vars, and config)
-  const isJson = opts.json || opts.format === 'json';
-  const skipUpdate =
-    opts.updateNotifier === false ||
-    ['1', 'true'].includes(process.env.LORE_NO_UPDATE_CHECK ?? '') ||
-    ['1', 'true'].includes(process.env.NO_UPDATE_NOTIFIER ?? '') ||
-    ['1', 'true'].includes(process.env.CI ?? '') ||
-    config.cli.updateCheck === false;
-
-  if (!isJson && !skipUpdate) {
-    updateNotifier({ pkg });
+  // 3. Update notification (fire-and-forget, respects env vars and config)
+  if (shouldCheckForUpdate(config.cli.updateCheck)) {
+    simpleUpdateNotifier({ pkg });
   }
 
-  // 5. Create concrete implementations
-  const gitClient: IGitClient = new GitClient();
-  const trailerParser = new TrailerParser();
-  const pathResolver = new PathResolver();
-  const loreIdGenerator = new LoreIdGenerator();
-
-  // 5. Create services that depend on others
+  // 4. Create services that depend on others
   const atomRepository = new AtomRepository(gitClient, trailerParser, config.trailers.custom);
   const supersessionResolver = new SupersessionResolver();
   const stalenessDetector = new StalenessDetector(gitClient, config);
@@ -115,7 +106,7 @@ async function main(): Promise<void> {
   const commitInputResolver = new CommitInputResolver(prompt);
   const headLoreIdReader = new HeadLoreIdReader(gitClient, trailerParser);
 
-  // 4. Formatter factory (reads --format/--json from program options at call time)
+  // 5. Formatter factory (reads --format/--json from program options at call time)
   // Memoized: the formatter is created once on first call and reused thereafter.
   let cachedFormatter: IOutputFormatter | null = null;
   const getFormatter = (): IOutputFormatter => {
@@ -131,7 +122,7 @@ async function main(): Promise<void> {
     return cachedFormatter;
   };
 
-  // 5. Register all commands with their dependencies
+  // 6. Register all commands with their dependencies
 
   registerInitCommand(program, { getFormatter });
 
@@ -208,8 +199,29 @@ async function main(): Promise<void> {
     getFormatter,
   });
 
-  // 6. Parse and run
+  // 7. Parse and run
   await program.parseAsync(process.argv);
+}
+
+/**
+ * Determine whether the update check should run.
+ * Skips in CI, non-TTY, JSON output, or when explicitly disabled.
+ */
+export function shouldCheckForUpdate(configUpdateCheck: boolean): boolean {
+  if (!process.stderr.isTTY) return false;
+
+  const env = process.env;
+  if (env['CI']) return false;
+  if (env['NO_UPDATE_NOTIFIER']) return false;
+  if (env['LORE_NO_UPDATE_CHECK']) return false;
+
+  const argv = process.argv;
+  if (argv.includes('--json') || argv.includes('--format=json')) return false;
+  if (argv.includes('--no-update-notifier')) return false;
+
+  if (!configUpdateCheck) return false;
+
+  return true;
 }
 
 // Top-level error handler
