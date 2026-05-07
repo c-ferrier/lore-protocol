@@ -119,8 +119,11 @@ describe('lore commit --amend', () => {
 
   it('should bypass Lore processing with --amend --no-edit', async () => {
     const deps = createDeps();
+    const originalIsTTY = process.stdin.isTTY;
+    Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
 
-    await runCommitCommand(['--amend', '--no-edit'], deps);
+    try {
+      await runCommitCommand(['--amend', '--no-edit'], deps);
 
     expect(deps.commitInputResolver.resolve).not.toHaveBeenCalled();
     expect(deps.commitBuilder.build).not.toHaveBeenCalled();
@@ -129,6 +132,44 @@ describe('lore commit --amend', () => {
       '',
       { amend: true, noEdit: true },
     );
+    } finally {
+      Object.defineProperty(process.stdin, 'isTTY', { value: originalIsTTY, configurable: true });
+    }
+  });
+
+  it('should throw when --no-edit is combined with --file', async () => {
+    const deps = createDeps();
+    await expect(
+      runCommitCommand(['--amend', '--no-edit', '--file', 'input.json'], deps),
+    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
+  });
+
+  it('should throw when --no-edit is combined with --intent', async () => {
+    const deps = createDeps();
+    await expect(
+      runCommitCommand(['--amend', '--no-edit', '--intent', 'new'], deps),
+    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
+  });
+
+  it('should throw when --no-edit is combined with --interactive', async () => {
+    const deps = createDeps();
+    await expect(
+      runCommitCommand(['--amend', '--no-edit', '-i'], deps),
+    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
+  });
+
+  it('should throw when --no-edit is combined with --body', async () => {
+    const deps = createDeps();
+    await expect(
+      runCommitCommand(['--amend', '--no-edit', '--body', 'some context'], deps),
+    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
+  });
+
+  it('should throw when --no-edit is combined with trailer flags', async () => {
+    const deps = createDeps();
+    await expect(
+      runCommitCommand(['--amend', '--no-edit', '--constraint', 'must use X'], deps),
+    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
   });
 
   it('should throw when --no-edit is used without --amend', async () => {

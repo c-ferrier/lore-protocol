@@ -56,6 +56,18 @@ export function registerCommitCommand(
 
       // --amend --no-edit: pass through to git, no Lore processing
       if (options.amend && options.edit === false) {
+        const INPUT_FLAG_KEYS: ReadonlyArray<keyof CommitCommandOptions> = [
+          'file', 'interactive', 'intent', 'body', 'constraint', 'rejected',
+          'confidence', 'scopeRisk', 'reversibility', 'directive', 'tested',
+          'notTested', 'supersedes', 'dependsOn', 'related',
+        ];
+        const hasInputFlags = INPUT_FLAG_KEYS.some(k => options[k] !== undefined) || !process.stdin.isTTY;
+        if (hasInputFlags) {
+          throw new LoreError(
+            '--no-edit keeps the existing message unchanged. Remove --no-edit to update trailers, or remove the input flags/payload to keep the message as-is.',
+            1,
+          );
+        }
         const result = await gitClient.commit('', { amend: true, noEdit: true });
         console.log(formatter.formatSuccess(`Commit amended: ${result.hash}`, { hash: result.hash }));
         return;
