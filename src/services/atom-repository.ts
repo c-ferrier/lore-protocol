@@ -1,23 +1,28 @@
 import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
-import type { PathQueryOptions } from '../types/query.js';
-import type { LoreAtom, LoreId, LoreTrailers } from '../types/domain.js';
+import type { QueryOptions, AtomsResult } from '../types/query.js';
+import type { LoreAtom, LoreId, LoreTrailers, TrailerKey } from '../types/domain.js';
 import type { TrailerParser } from '../services/trailer-parser.js';
 import type { IAtomCache } from '../interfaces/atom-cache.js';
-import { LORE_ID_PATTERN, REFERENCE_TRAILER_KEYS, GIT_FILES_CHANGED_BATCH_SIZE } from '../util/constants.js';
+import type { IQueryCache } from '../interfaces/query-cache.js';
+import type { SupersessionResolver } from '../services/supersession-resolver.js';
+import { LORE_ID_PATTERN, REFERENCE_TRAILER_KEYS, GIT_FILES_CHANGED_BATCH_SIZE, ARRAY_TRAILER_KEYS, ENUM_TRAILER_KEYS } from '../util/constants.js';
 import { NullAtomCache } from './atom-cache.js';
+import { NullQueryCache } from './query-cache.js';
 
 /**
  * Retrieves LoreAtoms from git history.
  * The central query engine for all Lore-related git log queries.
  *
  * GRASP: Pure Fabrication -- persistence access abstracted from domain.
- * SOLID: DIP -- depends on IGitClient interface, not child_process.
+ * SOLID: DIP -- depends on IGitClient interface, not child_process
  */
 export class AtomRepository {
   constructor(
     private readonly gitClient: IGitClient,
     private readonly trailerParser: TrailerParser,
+    private readonly supersessionResolver: SupersessionResolver,
     private readonly atomCache: IAtomCache = new NullAtomCache(),
+    private readonly queryCache: IQueryCache = new NullQueryCache(),
     private readonly customTrailerKeys: readonly string[] = [],
   ) {}
 
@@ -27,12 +32,8 @@ export class AtomRepository {
    * Accepts pre-resolved git log args (from PathResolver) so that
    * path resolution is the caller's responsibility (DIP).
    */
-  async findByTarget(gitLogArgs: readonly string[], options: PathQueryOptions): Promise<LoreAtom[]> {
-    const logArgs = this.buildLogArgs(options);
-    const allArgs = [...logArgs, ...gitLogArgs];
-    const rawCommits = await this.gitClient.log(allArgs);
-    const atoms = await this.parseRawCommits(rawCommits);
-    return this.applyFilters(atoms, options);
+  async findByTarget(gitLogArgs: readonly string[], options: Partial<QueryOptions>): Promise<AtomsResult> {
+    return this.findAtoms(gitLogArgs, this.makeDefaultOptions(options));
   }
 
   /**
@@ -67,46 +68,23 @@ export class AtomRepository {
    * Find atoms within a git revision range (e.g., "main..HEAD").
    * Passes the range directly to git log.
    */
-  async findByRange(range: string): Promise<LoreAtom[]> {
-    const rawCommits = await this.gitClient.log([range]);
-    return this.parseRawCommits(rawCommits);
+  async findByRange(range: string): Promise<AtomsResult> {
+    return this.findAtoms([range], this.makeDefaultOptions());
   }
 
   /**
    * Find all Lore atoms, optionally filtered by date range and limit.
    */
-  async findAll(options: { since?: string; until?: string; maxCommits?: number } = {}): Promise<LoreAtom[]> {
-    const args = this.buildBaseLogArgs();
-
-    if (options.since) {
-      args.push(`--since=${options.since}`);
-    }
-    if (options.until) {
-      args.push(`--until=${options.until}`);
-    }
-    if (options.maxCommits !== undefined && options.maxCommits > 0) {
-      args.push(`--max-count=${options.maxCommits}`);
-    }
-
-    const rawCommits = await this.gitClient.log(args);
-    return this.parseRawCommits(rawCommits);
+  async findAll(options: Partial<QueryOptions> = {}): Promise<AtomsResult> {
+    return this.findAtoms([], this.makeDefaultOptions(options));
   }
 
   /**
    * Find atoms matching a conventional commit scope.
    * Parses the subject line to extract scope from `type(scope): description`.
    */
-  async findByScope(scope: string, options: PathQueryOptions): Promise<LoreAtom[]> {
-    const logArgs = this.buildLogArgs(options);
-    const rawCommits = await this.gitClient.log(logArgs);
-    const atoms = await this.parseRawCommits(rawCommits);
-
-    const scopeFiltered = atoms.filter((atom) => {
-      const extractedScope = this.extractScope(atom.intent);
-      return extractedScope !== null && extractedScope.toLowerCase() === scope.toLowerCase();
-    });
-
-    return this.applyFilters(scopeFiltered, options);
+  async findByScope(scope: string, options: Partial<QueryOptions>): Promise<AtomsResult> {
+    return this.findAtoms([], this.makeDefaultOptions({ ...options, scope }));
   }
 
   /**
@@ -165,34 +143,58 @@ export class AtomRepository {
   }
 
   /**
-   * Build the base git log format arguments.
-   * Uses NUL-separated fields for reliable parsing.
+   * Build git log arguments based on query options.
+   * Uses optimized coarse discovery by pushing filters to the Git layer.
    */
-  private buildBaseLogArgs(): string[] {
-    return [];
-  }
-
-  /**
-   * Build git log arguments including optional filters from PathQueryOptions.
-   */
-  private buildLogArgs(options: PathQueryOptions): string[] {
-    const args = this.buildBaseLogArgs();
-
+  private buildLogArgs(options: QueryOptions): string[] {
+    const args: string[] = [];
     if (options.since) {
       args.push(`--since=${options.since}`);
     }
-    if (options.maxCommits !== null && options.maxCommits > 0) {
+    if (options.until) {
+      args.push(`--until=${options.until}`);
+    }
+    if (options.maxCommits && options.maxCommits > 0) {
       args.push(`--max-count=${options.maxCommits}`);
     }
-    if (options.author) {
-      args.push(`--author=${options.author}`);
+    
+    // Atom Discovery Mode:
+    // We always include a check for a valid Lore-id so Git only returns valid atoms.
+    // This allows us to skip non-Lore commits (merges, chores, etc.) at the Git layer.
+    args.push('--grep=Lore-id: [0-9a-f]{8}');
+    args.push('--extended-regexp');
+    
+    // Use --all-match to ensure the Lore-id AND any other filters match (Lore semantics)
+    args.push('--all-match');
+
+    // Coarse Filtering (Discovery Phase):
+    // We push as many filters as possible to the Git layer for performance.
+    // Git's --grep searches the entire message (subject + body), which may produce
+    // false positives. We handle these in applyFilters() via Fine Filtering.
+    const filters = [
+      options.author ? { type: 'author', val: options.author } : null,
+      options.text ? { type: 'grep', val: options.text } : null,
+      options.scope ? { type: 'grep', val: `\\(${options.scope}\\):`, regex: true } : null,
+    ].filter((f): f is NonNullable<typeof f> => f !== null);
+
+    if (filters.length > 0) {
+      args.push('--regexp-ignore-case');
+
+      for (const filter of filters) {
+        if (filter.type === 'author') {
+          args.push(`--author=${filter.val}`);
+        } else {
+          args.push(`--grep=${filter.val}`);
+        }
+      }
     }
 
     return args;
   }
 
   /**
-   * Parse an array of RawCommit into LoreAtom[], filtering out non-Lore commits.
+   * Filter and parse raw Git commits into LoreAtoms.
+   * Uses AtomCache for file lists to optimize performance.
    */
   private async parseRawCommits(rawCommits: readonly RawCommit[]): Promise<LoreAtom[]> {
     // First pass: filter to Lore commits and parse trailers (synchronous work)
@@ -200,11 +202,13 @@ export class AtomRepository {
 
     for (const raw of rawCommits) {
       if (!this.trailerParser.containsLoreTrailers(raw.trailers)) {
+        console.log(`Commit ${raw.hash} skipped: No Lore trailers found in [${raw.trailers}]`);
         continue;
       }
 
       const trailers = this.trailerParser.parse(raw.trailers, this.customTrailerKeys);
       if (!LORE_ID_PATTERN.test(trailers['Lore-id'])) {
+        console.log(`Commit ${raw.hash} skipped: Invalid Lore-id [${trailers['Lore-id']}]`);
         continue;
       }
 
@@ -238,15 +242,13 @@ export class AtomRepository {
 
 
     // Build atoms by pairing parsed trailers with their file lists
-    const atoms: LoreAtom[] = loreCommits.map(({ raw, trailers }, index) =>
+    return loreCommits.map(({ raw, trailers }, index) =>
       this.buildAtom(raw, trailers, filesPerCommit[index] as readonly string[]),
     );
-
-    return atoms;
   }
 
   /**
-   * Construct a LoreAtom from its constituent parts.
+   * Construct a LoreAtom from Git data and parsed trailers.
    * Single source of truth for RawCommit -> LoreAtom mapping.
    * GRASP: Creator -- AtomRepository owns the data needed to create atoms.
    */
@@ -287,32 +289,47 @@ export class AtomRepository {
   }
 
   /**
-   * Apply post-query filters (author, since) that weren't handled at the git level.
+   * Apply application-level filters to a set of atoms.
    * Note: author and since are also passed to git log, but this provides a second
-   * layer of filtering for edge cases.
+   * layer of filtering for edge cases and absolute precision.
    */
-  private applyFilters(atoms: LoreAtom[], options: PathQueryOptions): LoreAtom[] {
+  private applyFilters(atoms: LoreAtom[], options: QueryOptions): LoreAtom[] {
     let result = atoms;
 
-    if (options.author) {
-      const authorLower = options.author.toLowerCase();
-      result = result.filter(
-        (atom) => atom.author.toLowerCase().includes(authorLower),
-      );
+    if (options.scope) {
+      const scopeLower = options.scope.toLowerCase();
+      result = result.filter((a) => {
+        const extracted = this.extractScope(a.intent);
+        return extracted !== null && extracted.toLowerCase() === scopeLower;
+      });
     }
 
-    if (options.since) {
-      const sinceDate = new Date(options.since);
-      if (!isNaN(sinceDate.getTime())) {
-        result = result.filter((atom) => atom.date >= sinceDate);
-      }
+    if (options.confidence) {
+      result = result.filter((a) => a.trailers.Confidence === options.confidence);
+    }
+
+    if (options.scopeRisk) {
+      result = result.filter((a) => a.trailers['Scope-risk'] === options.scopeRisk);
+    }
+
+    if (options.reversibility) {
+      result = result.filter((a) => a.trailers.Reversibility === options.reversibility);
+    }
+
+    if (options.has) {
+      result = result.filter((a) => this.atomHasTrailer(a, options.has!));
+    }
+
+    if (options.text) {
+      const textLower = options.text.toLowerCase();
+      result = result.filter((a) => this.atomMatchesText(a, textLower));
     }
 
     return result;
   }
 
   /**
-   * Extract the scope from a conventional commit subject line.
+   * Extract the conventional commit scope from a subject line.
    * Pattern: `type(scope): description`
    * Returns null if no scope is found.
    */
@@ -338,5 +355,152 @@ export class AtomRepository {
     }
 
     return ids;
+  }
+
+ /**
+   * Check if an atom contains a specific trailer key with at least one value.
+   */
+  private atomHasTrailer(atom: LoreAtom, trailerKey: TrailerKey): boolean {
+    if (trailerKey === 'Lore-id') {
+      return !!atom.trailers['Lore-id'];
+    }
+    if ((ARRAY_TRAILER_KEYS as readonly string[]).includes(trailerKey)) {
+      const val = atom.trailers[trailerKey as keyof typeof atom.trailers];
+      return Array.isArray(val) && val.length > 0;
+    }
+    if ((ENUM_TRAILER_KEYS as readonly string[]).includes(trailerKey)) {
+      return atom.trailers[trailerKey as keyof typeof atom.trailers] !== null;
+    }
+    return false;
+  }
+
+  /**
+   * Perform thorough text search across an atom's intent, body, and trailers.
+   */
+  private atomMatchesText(atom: LoreAtom, textLower: string): boolean {
+    if (atom.intent.toLowerCase().includes(textLower)) {
+      return true;
+    }
+    if (atom.body.toLowerCase().includes(textLower)) {
+      return true;
+    }
+    for (const key of ARRAY_TRAILER_KEYS) {
+      if (atom.trailers[key].some(v => v.toLowerCase().includes(textLower))) {
+        return true;
+      }
+    }
+    for (const key of ENUM_TRAILER_KEYS) {
+      if (atom.trailers[key]?.toLowerCase().includes(textLower)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Internal centralized discovery engine with result-level caching.
+   */
+  private async findAtoms(gitLogArgs: readonly string[], options: QueryOptions): Promise<AtomsResult> {
+    const headHash = await this.gitClient.resolveRef('HEAD');
+
+    // 1. Check Query Cache (Result-level)
+    const cachedHashes = await this.queryCache.get(headHash, gitLogArgs, options);
+    if (cachedHashes) {
+      const totalCount = cachedHashes.length;
+      if (totalCount === 0) {
+        return { atoms: [], totalCount: 0, oldest: null, newest: null };
+      }
+
+      // Efficient Bound Hydration: hydrate first and last for date range.
+      // Since the cache is sorted by date descending, index 0 is newest, last is oldest.
+      const boundHashes = [cachedHashes[0], cachedHashes[totalCount - 1]];
+      const boundCommits = await this.gitClient.getCommitsByHashes(boundHashes);
+      const boundAtoms = await this.parseRawCommits(boundCommits);
+      const newest = boundAtoms.length > 0 ? boundAtoms[0].date : null;
+      const oldest = boundAtoms.length > 1 ? boundAtoms[1].date : newest;
+
+      // Efficient Hydration: only hydrate the required slice
+      const start = options.page && options.limit ? (options.page - 1) * options.limit : 0;
+      const end = options.limit ? start + options.limit : totalCount;
+      const slice = cachedHashes.slice(start, end);
+
+      // Batch hydration to avoid command-line length limits on large result sets
+      const rawCommits: RawCommit[] = [];
+      for (let i = 0; i < slice.length; i += GIT_FILES_CHANGED_BATCH_SIZE) {
+        const batch = slice.slice(i, i + GIT_FILES_CHANGED_BATCH_SIZE);
+        const batchCommits = await this.gitClient.getCommitsByHashes(batch);
+        rawCommits.push(...batchCommits);
+      }
+      
+      const atoms = await this.parseRawCommits(rawCommits);
+      // Ensure we trigger a prune on hit to manage cache size
+      void this.queryCache.prune();
+      return { atoms, totalCount, oldest, newest };
+    }
+
+    // 2. Cache Miss: Perform discovery + filtering
+    const logArgs = this.buildLogArgs(options);
+    const allArgs = [...logArgs, ...gitLogArgs];
+    const rawCommits = await this.gitClient.log(allArgs);
+    const allAtoms = await this.parseRawCommits(rawCommits);
+    let filteredAtoms = this.applyFilters(allAtoms, options);
+
+    // 2.5 Transitively resolve follow links if requested (Internalized Follow)
+    // Moving this inside the repository ensures follow links are included in the query cache.
+    if (options.follow) {
+      filteredAtoms = await this.resolveFollowLinks(filteredAtoms, options.followDepth ?? 1);
+    }
+
+    // 2.6 Apply supersession filtering on the FINAL complete set (Targets + Follow Links)
+    // This must happen after follow links are resolved to ensure pulled-in links aren't superseded.
+    if (!options.all) {
+      const supersessionMap = this.supersessionResolver.resolve(filteredAtoms);
+      filteredAtoms = this.supersessionResolver.filterActive(filteredAtoms, supersessionMap);
+    }
+
+    // Sort by date descending (newest first) to ensure bounds are at index 0 and length-1.
+    // This also ensures stable ordering when links are appended via follow logic.
+    filteredAtoms.sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    const totalCount = filteredAtoms.length;
+    const newest = totalCount > 0 ? filteredAtoms[0].date : null;
+    const oldest = totalCount > 0 ? filteredAtoms[totalCount - 1].date : null;
+
+    // 3. Persist the FULL final narrowed result set
+    const finalHashes = filteredAtoms.map((atom) => atom.commitHash);
+    await this.queryCache.set(headHash, gitLogArgs, options, finalHashes);
+    // Ensure we trigger a prune on miss too
+    void this.queryCache.prune();
+
+    // Apply paging to the in-memory results
+    const start = options.page && options.limit ? (options.page - 1) * options.limit : 0;
+    const end = options.limit ? start + options.limit : totalCount;
+    const atoms = filteredAtoms.slice(start, end);
+
+    return { atoms, totalCount, oldest, newest };
+  }
+
+  /**
+   * Create a complete QueryOptions object from partial overrides.
+   */
+  private makeDefaultOptions(overrides: Partial<QueryOptions> = {}): QueryOptions {
+    return {
+      scope: null,
+      text: null,
+      confidence: null,
+      scopeRisk: null,
+      reversibility: null,
+      has: null,
+      follow: false,
+      followDepth: null,
+      all: false,
+      author: null,
+      limit: null,
+      page: null,
+      maxCommits: null,
+      since: null,
+      until: null,
+      ...overrides,
+    };
   }
 }

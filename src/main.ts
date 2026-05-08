@@ -17,6 +17,7 @@ import { LoreIdGenerator } from './services/lore-id-generator.js';
 import { ConfigLoader } from './services/config-loader.js';
 import { AtomRepository } from './services/atom-repository.js';
 import { AtomCache, NullAtomCache } from './services/atom-cache.js';
+import { QueryCache, NullQueryCache } from './services/query-cache.js';
 import { SupersessionResolver } from './services/supersession-resolver.js';
 import { StalenessDetector } from './services/staleness-detector.js';
 import { CommitBuilder } from './services/commit-builder.js';
@@ -25,7 +26,6 @@ import { Validator } from './services/validator.js';
 import { TerminalPrompt } from './services/terminal-prompt.js';
 import { CommitInputResolver } from './services/commit-input-resolver.js';
 import { HeadLoreIdReader } from './services/head-lore-id-reader.js';
-import { SearchFilter } from './services/search-filter.js';
 
 import { join } from 'node:path';
 import { TextFormatter } from './formatters/text-formatter.js';
@@ -99,6 +99,7 @@ async function main(): Promise<void> {
 
   const cacheDir = join(loreRoot, '.lore', 'cache');
   const atomCacheDir = join(cacheDir, 'atoms');
+  const queryCacheDir = join(cacheDir, 'query');
 
   // 4. Update notification (fire-and-forget, respects env vars and config)
   if (shouldCheckForUpdate(config.cli.updateCheck)) {
@@ -112,19 +113,24 @@ async function main(): Promise<void> {
     ? new NullAtomCache()
     : new AtomCache(atomCacheDir);
 
+  const queryCache = bypassCache
+    ? new NullQueryCache()
+    : new QueryCache(queryCacheDir);
+
   // 6. Create services that depend on others
+  const supersessionResolver = new SupersessionResolver();
   const atomRepository = new AtomRepository(
     gitClient,
     trailerParser,
+    supersessionResolver,
     atomCache,
+    queryCache,
     config.trailers.custom,
   );
-  const supersessionResolver = new SupersessionResolver();
   const stalenessDetector = new StalenessDetector(gitClient, config);
   const commitBuilder = new CommitBuilder(trailerParser, loreIdGenerator, config);
   const squashMerger = new SquashMerger(loreIdGenerator);
   const validator = new Validator(trailerParser, atomRepository, config);
-  const searchFilter = new SearchFilter();
   const prompt = new TerminalPrompt();
   const commitInputResolver = new CommitInputResolver(prompt);
   const headLoreIdReader = new HeadLoreIdReader(gitClient, trailerParser);
@@ -174,7 +180,6 @@ async function main(): Promise<void> {
   registerSearchCommand(program, {
     atomRepository,
     supersessionResolver,
-    searchFilter,
     getFormatter,
   });
 

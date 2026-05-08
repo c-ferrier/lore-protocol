@@ -5,7 +5,7 @@ import type { StalenessDetector } from '../services/staleness-detector.js';
 import type { PathResolver } from '../services/path-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { LoreAtom, SupersessionStatus } from '../types/domain.js';
-import type { PathQueryOptions } from '../types/query.js';
+import type { QueryOptions } from '../types/query.js';
 import type { FormattableStalenessResult, StaleAtomReport } from '../types/output.js';
 import { STALE_SIGNAL } from '../util/constants.js';
 import { mergeOptions } from './helpers/merge-options.js';
@@ -41,12 +41,12 @@ export function registerStaleCommand(
       const options = mergeOptions<StaleCommandOptions>(command);
       const { atomRepository, supersessionResolver, stalenessDetector, pathResolver, getFormatter } = deps;
 
-      let atoms: LoreAtom[];
+      let atoms: readonly LoreAtom[];
 
       if (target) {
         const parsedTarget = pathResolver.parseTarget(target);
         const gitLogArgs = pathResolver.toGitLogArgs(parsedTarget);
-        const queryOptions: PathQueryOptions = {
+        const queryOptions: Partial<QueryOptions> = {
           scope: null,
           follow: false,
           all: false,
@@ -55,9 +55,11 @@ export function registerStaleCommand(
           maxCommits: null,
           since: null,
         };
-        atoms = await atomRepository.findByTarget(gitLogArgs, queryOptions);
+        const result = await atomRepository.findByTarget(gitLogArgs, queryOptions);
+        atoms = result.atoms;
       } else {
-        atoms = await atomRepository.findAll();
+        const result = await atomRepository.findAll();
+        atoms = result.atoms;
       }
 
       // Compute supersession for dependency-orphan detection

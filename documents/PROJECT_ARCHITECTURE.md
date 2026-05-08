@@ -1,7 +1,7 @@
 # Lore CLI -- Project Architecture
 
 > Authoritative reference for contributors (human or AI) to the lore-cli codebase.
-> Last updated 2026-05-11. Reflects the codebase after the Atom Cache implementation.
+> Last updated 2026-05-11. Reflects the codebase after the Query Cache implementation.
 
 ---
 
@@ -154,6 +154,12 @@ No command or service instantiates its own dependencies. All wiring is centraliz
 - **Dependencies**: None.
 - **Dependents**: `AtomCache` (implements), `NullAtomCache` (implements), `AtomRepository`.
 
+#### `src/interfaces/query-cache.ts`
+- **Contains**: `IQueryCache` interface.
+- **Single Responsibility**: Contract for persistent result-level query caching.
+- **Dependencies**: `query.ts`.
+- **Dependents**: `QueryCache` (implements), `NullQueryCache` (implements), `AtomRepository`.
+
 #### `src/interfaces/commit-input-reader.ts`
 - **Contains**: `ICommitInputReader` interface.
 - **Single Responsibility**: Strategy contract for reading commit input from any source.
@@ -216,10 +222,17 @@ No command or service instantiates its own dependencies. All wiring is centraliz
 - **Dependents**: `main.ts`, `AtomRepository`.
 - **Key methods**: `getFiles()`, `setFiles()`.
 
+#### `src/services/query-cache.ts`
+- **Contains**: `QueryCache` and `NullQueryCache` classes.
+- **Single Responsibility**: Implements persistent result-level query caching. Caches commit hashes matching specific `QueryOptions` for a given HEAD hash.
+- **Dependencies**: `IQueryCache`, `query.ts`, Node.js `fs`, `path`.
+- **Dependents**: `main.ts`, `AtomRepository`.
+- **Key methods**: `get()`, `set()`.
+
 #### `src/services/atom-repository.ts`
 - **Contains**: `AtomRepository` class.
-- **Single Responsibility**: Central query engine. Retrieves `LoreAtom` objects from git history by target path, Lore-id, revision range, scope, or globally. Handles follow-link BFS traversal and file-list caching.
-- **Dependencies**: `IGitClient`, `TrailerParser`, `IAtomCache`, `domain.ts`, `query.ts`, `constants.ts`.
+- **Single Responsibility**: Central query engine. Retrieves `LoreAtom` objects from git history. Handles follow-link BFS traversal, file-list caching (via `IAtomCache`), and result-level caching (via `IQueryCache`).
+- **Dependencies**: `IGitClient`, `TrailerParser`, `SupersessionResolver`, `IAtomCache`, `IQueryCache`, `domain.ts`, `query.ts`, `constants.ts`.
 - **Dependents**: Commands (`context`, `constraints`, `rejected`, `directives`, `tested`, `search`, `log`, `stale`, `trace`, `squash`, `doctor`), `Validator`, `main.ts`.
 - **Key methods**: `findByTarget()`, `findByLoreId()`, `findByRange()`, `findAll()`, `findByScope()`, `resolveFollowLinks()`.
 
@@ -316,12 +329,6 @@ No command or service instantiates its own dependencies. All wiring is centraliz
 - **Single Responsibility**: Configuration site — creates all 11 trailer collectors with their prompt strings and enum values.
 - **Pattern**: GRASP Creator — owns the initializing data.
 
-#### `src/services/search-filter.ts`
-- **Contains**: `SearchFilter` class.
-- **Single Responsibility**: Filtering and text matching logic for the `lore search` command. Extracted from `search.ts` per GRASP Controller (commands coordinate, not compute).
-- **Dependencies**: `LoreAtom`, `SearchOptions`, `ARRAY_TRAILER_KEYS`, `ENUM_TRAILER_KEYS`.
-- **Dependents**: `search.ts`, `main.ts`.
-
 ### Formatters Layer
 
 #### `src/formatters/text-formatter.ts`
@@ -387,7 +394,7 @@ No command or service instantiates its own dependencies. All wiring is centraliz
 - **Dependencies**: `TrailerParser`, `IGitClient`, `PathResolver`, `IOutputFormatter`, `constants.ts`, `errors.ts`.
 
 #### `src/commands/search.ts`
-- **Contains**: `registerSearchCommand()` function, `applySearchFilters()`, `atomHasTrailer()`, `atomMatchesText()`, `buildSearchTargetDescription()` helper functions.
+- **Contains**: `registerSearchCommand()` function, `buildSearchTargetDescription()` helper function.
 - **Single Responsibility**: Cross-cutting search across all Lore atoms with filters (confidence, scope-risk, reversibility, has-trailer, author, scope, text, date range).
 - **Dependencies**: `AtomRepository`, `SupersessionResolver`, `IOutputFormatter`, types, `constants.ts`.
 
@@ -555,11 +562,7 @@ Each command calls `executePathQuery()` with its specific `visibleTrailers` para
 - The `CommitBuilder` separates validation (`validate()`) from message construction (`build()`), but both relate to the single responsibility of "preparing a commit message."
 - Commands are thin controllers. Business logic is in services.
 - The `path-query.ts` helper eliminates duplication across five commands by extracting the shared pipeline.
-
-**Gaps / Risks:**
-- `AtomRepository` has the most methods of any service (7 public: `findByTarget`, `findByLoreId`, `findByCommitHash`, `findByRange`, `findAll`, `findByScope`, `resolveFollowLinks`). While all relate to "retrieving atoms from git," the `resolveFollowLinks` BFS traversal is a distinct concern that could be extracted into a `FollowLinkResolver` service.
-- `Validator` has 10 validation rules implemented as private methods within a single class. If the rule set grows, a rule-based dispatch pattern (array of validation rule objects) would improve OCP compliance.
-- Search filtering is extracted into the `SearchFilter` service class with `applyFilters()`, `atomHasTrailer()`, and `atomMatchesText()` methods.
+- Filtering and text matching logic is centralized in the `AtomRepository`.
 
 ### O -- Open/Closed Principle
 
@@ -568,7 +571,7 @@ Each command calls `executePathQuery()` with its specific `visibleTrailers` para
 - Adding a new path-scoped query command (e.g., `lore risks`) requires only a new file calling `executePathQuery()` with a different `visibleTrailers` list.
 
 **Gaps / Risks:**
-- `atomHasTrailer()` in `SearchFilter` uses a data-driven lookup via `ARRAY_TRAILER_KEYS` and `ENUM_TRAILER_KEYS`, which is OCP-compliant for standard trailer types.
+- `atomHasTrailer()` in `AtomRepository` uses a data-driven lookup via `ARRAY_TRAILER_KEYS` and `ENUM_TRAILER_KEYS`, which is OCP-compliant for standard trailer types.
 - `TextFormatter.formatTrailers()` has an `if` block for each trailer key. Adding a new trailer type requires modifying this method. A data-driven approach (iterating over `LORE_TRAILER_KEYS` with a config for display) would eliminate this.
 - `Validator.trailerHasValue()` has a `switch` over all trailer keys. Same structural issue.
 - The staleness signals in `StalenessDetector.analyze()` are hardcoded as five sequential method calls. A signal-registry approach would make it open for extension.
@@ -622,6 +625,7 @@ graph LR
         CL[ConfigLoader]
         TMP[TerminalPrompt]
         AC[AtomCache]
+        QC[QueryCache]
     end
 
     subgraph Composed Services
@@ -640,6 +644,7 @@ graph LR
     MAIN --> CL
     MAIN --> TMP
     MAIN --> AC
+    MAIN --> QC
 
     MAIN --> AR
     MAIN --> SR
@@ -650,7 +655,9 @@ graph LR
 
     AR -.->|IGitClient| GC
     AR -.-> TP
+    AR -.-> SR
     AR -.->|IAtomCache| AC
+    AR -.->|IQueryCache| QC
     SD -.->|IGitClient| GC
     CB -.-> TP
     CB -.-> LIG
@@ -724,7 +731,9 @@ graph LR
 AtomRepository(
   gitClient: IGitClient,
   trailerParser: TrailerParser,
+  supersessionResolver: SupersessionResolver,
   atomCache: IAtomCache,
+  queryCache: IQueryCache,
   customTrailerKeys: readonly string[]
 )
 
@@ -1081,7 +1090,7 @@ Several services use **concrete class types** as constructor parameters instead 
 
 | Service | Concrete dependency | Should be |
 |---------|-------------------|-----------|
-| `AtomRepository` | `TrailerParser` | `ITrailerParser` |
+| `AtomRepository` | `TrailerParser`, `SupersessionResolver` | `ITrailerParser`, `ISupersessionResolver` |
 | `CommitBuilder` | `TrailerParser`, `LoreIdGenerator` | `ITrailerParser`, `ILoreIdGenerator` |
 | `Validator` | `TrailerParser`, `AtomRepository` | `ITrailerParser`, `IAtomRepository` |
 | `SquashMerger` | `LoreIdGenerator` | `ILoreIdGenerator` |
@@ -1126,9 +1135,9 @@ Adding a new trailer type requires modifying all four locations. **Recommendatio
 
 ---
 
-### `search.ts` Search Logic Extraction (Resolved)
+### Search Logic Centralization (Resolved)
 
-Search filtering logic (`applyFilters`, `atomHasTrailer`, `atomMatchesText`) has been extracted into the `SearchFilter` service class (`src/services/search-filter.ts`). The command file now delegates to this service.
+Search filtering logic (`applyFilters`, `atomHasTrailer`, `atomMatchesText`) has been centralized into the `AtomRepository` (`src/services/atom-repository.ts`). This allows for consistent filtering and Tier B (result-level) caching across all query commands.
 
 ---
 

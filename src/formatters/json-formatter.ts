@@ -39,6 +39,8 @@ export class JsonFormatter implements IOutputFormatter {
           filtered_atoms: result.meta.filteredAtoms,
           oldest: result.meta.oldest?.toISOString() ?? null,
           newest: result.meta.newest?.toISOString() ?? null,
+          page: result.page,
+          limit: result.limit,
         },
         results,
       },

@@ -93,6 +93,8 @@ export function registerWhyCommand(
         targetType: 'line-range',
         atoms,
         meta,
+        page: 1,
+        limit: atoms.length,
       };
 
       // Build a minimal supersession map (no supersession filtering for why)

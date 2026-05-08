@@ -53,6 +53,8 @@ describe('TextFormatter', () => {
           targetType: 'file',
           atoms: [],
           meta: { totalAtoms: 0, filteredAtoms: 0, oldest: null, newest: null },
+          page: 1,
+          limit: 10,
         },
         supersessionMap: new Map(),
         visibleTrailers: 'all',
@@ -81,6 +83,8 @@ describe('TextFormatter', () => {
             oldest: atom.date,
             newest: atom.date,
           },
+          page: 1,
+          limit: 10,
         },
         supersessionMap: new Map(),
         visibleTrailers: 'all',
@@ -109,6 +113,8 @@ describe('TextFormatter', () => {
           targetType: 'file',
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+          page: 1,
+          limit: 10,
         },
         supersessionMap,
         visibleTrailers: 'all',
@@ -133,6 +139,8 @@ describe('TextFormatter', () => {
           targetType: 'file',
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+          page: 1,
+          limit: 10,
         },
         supersessionMap: new Map(),
         visibleTrailers: ['Constraint'],
@@ -154,6 +162,8 @@ describe('TextFormatter', () => {
           targetType: 'file',
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+          page: 1,
+          limit: 10,
         },
         supersessionMap: new Map(),
         visibleTrailers: 'all',
@@ -172,13 +182,15 @@ describe('TextFormatter', () => {
           targetType: 'file',
           atoms: [atom],
           meta: { totalAtoms: 5, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+          page: 1,
+          limit: 1,
         },
         supersessionMap: new Map(),
         visibleTrailers: 'all',
       };
 
       const output = formatter.formatQueryResult(data);
-      expect(output).toContain('1 of 5 atoms shown');
+      expect(output).toContain('Atom 1 of 5 atoms found on 2025-01-15');
     });
   });
 
