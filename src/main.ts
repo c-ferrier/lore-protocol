@@ -16,6 +16,7 @@ import { PathResolver } from './services/path-resolver.js';
 import { LoreIdGenerator } from './services/lore-id-generator.js';
 import { ConfigLoader } from './services/config-loader.js';
 import { AtomRepository } from './services/atom-repository.js';
+import { AtomCache, NullAtomCache } from './services/atom-cache.js';
 import { SupersessionResolver } from './services/supersession-resolver.js';
 import { StalenessDetector } from './services/staleness-detector.js';
 import { CommitBuilder } from './services/commit-builder.js';
@@ -26,10 +27,12 @@ import { CommitInputResolver } from './services/commit-input-resolver.js';
 import { HeadLoreIdReader } from './services/head-lore-id-reader.js';
 import { SearchFilter } from './services/search-filter.js';
 
+import { join } from 'node:path';
 import { TextFormatter } from './formatters/text-formatter.js';
 import { JsonFormatter } from './formatters/json-formatter.js';
 
 import { registerInitCommand } from './commands/init.js';
+import { registerCacheCommand } from './commands/cache.js';
 import { registerContextCommand } from './commands/context.js';
 import { registerConstraintsCommand } from './commands/constraints.js';
 import { registerRejectedCommand } from './commands/rejected.js';
@@ -47,6 +50,7 @@ import { registerDoctorCommand } from './commands/doctor.js';
 
 import { LoreError, ValidationError } from './util/errors.js';
 import { shouldCheckForUpdate } from './util/update-check.js';
+import { shouldBypassCache } from './util/cache-check.js';
 
 /**
  * Composition root: constructs all dependencies and wires them together.
@@ -68,7 +72,9 @@ async function main(): Promise<void> {
     .option('--json', 'Shorthand for --format json')
     .option('--format <type>', 'Output format: text or json', 'text')
     .option('--no-color', 'Disable colored output')
-    .option('--no-update-notifier', 'Disable update notification');
+    .option('--no-update-notifier', 'Disable update notification')
+    .option('--no-cache', 'Bypass caching in the CLI');
+
 
   // 1. Create concrete implementations
   const gitClient: IGitClient = new GitClient();
@@ -92,8 +98,20 @@ async function main(): Promise<void> {
     simpleUpdateNotifier({ pkg }).catch(() => {});
   }
 
-  // 4. Create services that depend on others
-  const atomRepository = new AtomRepository(gitClient, trailerParser, config.trailers.custom);
+  // 4. Determine if caching is bypassed via command line, env, or config
+  const bypassCache = shouldBypassCache(config.cli.cache);
+  
+  const atomCache = bypassCache
+    ? new NullAtomCache()
+    : new AtomCache(join(process.cwd(), '.lore', 'cache', 'atoms'));
+
+  // 5. Create services that depend on others
+  const atomRepository = new AtomRepository(
+    gitClient,
+    trailerParser,
+    atomCache,
+    config.trailers.custom,
+  );
   const supersessionResolver = new SupersessionResolver();
   const stalenessDetector = new StalenessDetector(gitClient, config);
   const commitBuilder = new CommitBuilder(trailerParser, loreIdGenerator, config);
@@ -104,7 +122,7 @@ async function main(): Promise<void> {
   const commitInputResolver = new CommitInputResolver(prompt);
   const headLoreIdReader = new HeadLoreIdReader(gitClient, trailerParser);
 
-  // 5. Formatter factory (reads --format/--json from program options at call time)
+  // 6. Formatter factory (reads --format/--json from program options at call time)
   // Memoized: the formatter is created once on first call and reused thereafter.
   let cachedFormatter: IOutputFormatter | null = null;
   const getFormatter = (): IOutputFormatter => {
@@ -120,9 +138,10 @@ async function main(): Promise<void> {
     return cachedFormatter;
   };
 
-  // 6. Register all commands with their dependencies
+  // 7. Register all commands with their dependencies
 
   registerInitCommand(program, { getFormatter });
+  registerCacheCommand(program, { getFormatter });
 
   const pathQueryDeps = {
     atomRepository,
@@ -197,7 +216,7 @@ async function main(): Promise<void> {
     getFormatter,
   });
 
-  // 7. Parse and run
+  // 8. Parse and run
   await program.parseAsync(process.argv);
 }
 
