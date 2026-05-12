@@ -131,6 +131,55 @@ describe('lore commit --amend', () => {
     );
   });
 
+  it('should throw when --no-edit is combined with --file', async () => {
+    const deps = createDeps();
+    await expect(
+      runCommitCommand(['--amend', '--no-edit', '--file', 'input.json'], deps),
+    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
+  });
+
+  it('should throw when --no-edit is combined with --intent', async () => {
+    const deps = createDeps();
+    await expect(
+      runCommitCommand(['--amend', '--no-edit', '--intent', 'new'], deps),
+    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
+  });
+
+  it('should throw when --no-edit is combined with --interactive', async () => {
+    const deps = createDeps();
+    await expect(
+      runCommitCommand(['--amend', '--no-edit', '-i'], deps),
+    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
+  });
+
+  it('should throw when --no-edit is combined with --body', async () => {
+    const deps = createDeps();
+    await expect(
+      runCommitCommand(['--amend', '--no-edit', '--body', 'some context'], deps),
+    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
+  });
+
+  it('should throw when --no-edit is combined with trailer flags', async () => {
+    const deps = createDeps();
+    await expect(
+      runCommitCommand(['--amend', '--no-edit', '--constraint', 'must use X'], deps),
+    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
+  });
+
+  it('should throw when --no-edit is combined with enum trailer flags', async () => {
+    const deps = createDeps();
+    await expect(
+      runCommitCommand(['--amend', '--no-edit', '--confidence', 'high'], deps),
+    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
+  });
+
+  it('should throw when --no-edit is combined with reference trailer flags', async () => {
+    const deps = createDeps();
+    await expect(
+      runCommitCommand(['--amend', '--no-edit', '--related', 'abc12345'], deps),
+    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
+  });
+
   it('should throw when --no-edit is used without --amend', async () => {
     const deps = createDeps();
 
