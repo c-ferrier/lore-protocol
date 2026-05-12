@@ -130,6 +130,7 @@ lore search --text "session" --confidence high
 | `--json` | Output as JSON (shorthand for `--format json`) |
 | `--format <type>` | Output format: `text` (default) or `json` |
 | `--no-color` | Disable colored output |
+| `--no-update-notifier` | Disable update notification |
 | `--limit <n>` | Limit number of results |
 | `--since <ref>` | Only consider commits since ref/date |
 
@@ -178,7 +179,18 @@ default_format = "text"
 
 [follow]
 max_depth = 3          # Max depth for reference traversal (trace, depends-on chains)
+
+[cli]
+update_check = true    # Set to false to disable update notifications
 ```
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `LORE_NO_UPDATE_CHECK` | Set to `1` or `true` to disable update notifications |
+| `NO_UPDATE_NOTIFIER` | Standard variable to disable update notifications (set to `1` or `true`) |
+| `CI` | Set to `true` or `1` to disable notifications (automatic in most CI) |
 
 ## Output Formats
 

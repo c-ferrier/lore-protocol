@@ -2,7 +2,9 @@ import { Command } from 'commander';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { version } = require('../package.json') as { version: string };
+const simpleUpdateNotifier = require('simple-update-notifier');
+const pkg = require('../package.json');
+const { version } = pkg;
 
 import type { IGitClient } from './interfaces/git-client.js';
 import type { IConfigLoader } from './interfaces/config-loader.js';
@@ -44,6 +46,7 @@ import { registerSquashCommand } from './commands/squash.js';
 import { registerDoctorCommand } from './commands/doctor.js';
 
 import { LoreError, ValidationError } from './util/errors.js';
+import { shouldCheckForUpdate } from './util/update-check.js';
 
 /**
  * Composition root: constructs all dependencies and wires them together.
@@ -64,7 +67,8 @@ async function main(): Promise<void> {
   program
     .option('--json', 'Shorthand for --format json')
     .option('--format <type>', 'Output format: text or json', 'text')
-    .option('--no-color', 'Disable colored output');
+    .option('--no-color', 'Disable colored output')
+    .option('--no-update-notifier', 'Disable update notification');
 
   // 1. Create concrete implementations
   const gitClient: IGitClient = new GitClient();
@@ -83,7 +87,12 @@ async function main(): Promise<void> {
     config = DEFAULT_CONFIG;
   }
 
-  // 3. Create services that depend on others
+  // 3. Update notification (fire-and-forget, respects env vars and config)
+  if (shouldCheckForUpdate(config.cli.updateCheck)) {
+    simpleUpdateNotifier({ pkg }).catch(() => {});
+  }
+
+  // 4. Create services that depend on others
   const atomRepository = new AtomRepository(gitClient, trailerParser, config.trailers.custom);
   const supersessionResolver = new SupersessionResolver();
   const stalenessDetector = new StalenessDetector(gitClient, config);
@@ -95,7 +104,7 @@ async function main(): Promise<void> {
   const commitInputResolver = new CommitInputResolver(prompt);
   const headLoreIdReader = new HeadLoreIdReader(gitClient, trailerParser);
 
-  // 4. Formatter factory (reads --format/--json from program options at call time)
+  // 5. Formatter factory (reads --format/--json from program options at call time)
   // Memoized: the formatter is created once on first call and reused thereafter.
   let cachedFormatter: IOutputFormatter | null = null;
   const getFormatter = (): IOutputFormatter => {
@@ -111,7 +120,7 @@ async function main(): Promise<void> {
     return cachedFormatter;
   };
 
-  // 5. Register all commands with their dependencies
+  // 6. Register all commands with their dependencies
 
   registerInitCommand(program, { getFormatter });
 
@@ -188,7 +197,7 @@ async function main(): Promise<void> {
     getFormatter,
   });
 
-  // 6. Parse and run
+  // 7. Parse and run
   await program.parseAsync(process.argv);
 }
 
