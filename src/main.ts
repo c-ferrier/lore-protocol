@@ -46,6 +46,7 @@ import { registerSquashCommand } from './commands/squash.js';
 import { registerDoctorCommand } from './commands/doctor.js';
 
 import { LoreError, ValidationError } from './util/errors.js';
+import { shouldCheckForUpdate } from './util/update-check.js';
 
 /**
  * Composition root: constructs all dependencies and wires them together.
@@ -198,29 +199,6 @@ async function main(): Promise<void> {
 
   // 7. Parse and run
   await program.parseAsync(process.argv);
-}
-
-/**
- * Determine whether the update check should run.
- * Skips in CI, non-TTY, JSON output, or when explicitly disabled.
- */
-export function shouldCheckForUpdate(configUpdateCheck: boolean): boolean {
-  if (!process.stderr.isTTY) return false;
-
-  const env = process.env;
-  if (env['CI']) return false;
-  if (env['NO_UPDATE_NOTIFIER']) return false;
-  if (env['LORE_NO_UPDATE_CHECK']) return false;
-
-  const argv = process.argv;
-  if (argv.includes('--json') || argv.includes('--format=json')) return false;
-  const formatIdx = argv.indexOf('--format');
-  if (formatIdx !== -1 && argv[formatIdx + 1] === 'json') return false;
-  if (argv.includes('--no-update-notifier')) return false;
-
-  if (!configUpdateCheck) return false;
-
-  return true;
 }
 
 // Top-level error handler

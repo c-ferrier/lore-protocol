@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { shouldCheckForUpdate } from '../../src/main.js';
+import { shouldCheckForUpdate } from '../../src/util/update-check.js';
 
 describe('shouldCheckForUpdate', () => {
   const originalEnv = { ...process.env };
