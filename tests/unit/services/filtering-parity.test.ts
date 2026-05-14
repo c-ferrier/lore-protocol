@@ -73,7 +73,7 @@ describe('AtomRepository Filtering Parity', () => {
       const options = (repo as any).makeDefaultOptions();
       const args = (repo as any).buildLogArgs(options);
 
-      expect(args).toContain('--grep=Lore-id: [0-9a-f]{8}');
+      expect(args).toContain('--grep=^Lore-id: [0-9a-f]{8}');
       expect(args).toContain('--extended-regexp');
       expect(args).toContain('--regexp-ignore-case');
       expect(args).toContain('--all-match');

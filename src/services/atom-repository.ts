@@ -41,7 +41,7 @@ export class AtomRepository {
       return null;
     }
 
-    const logArgs = ['--all', `--grep=Lore-id: ${loreId}`];
+    const logArgs = ['--all', '--extended-regexp', '--all-match', `--grep=^Lore-id: ${loreId}`];
     const rawCommits = await this.gitClient.log(logArgs);
     const atoms = await this.parseRawCommits(rawCommits);
 
@@ -165,7 +165,7 @@ export class AtomRepository {
     // Atom Discovery Mode:
     // We always include a check for a valid Lore-id so Git only returns valid atoms.
     // This allows us to skip non-Lore commits (merges, chores, etc.) at the Git layer.
-    args.push('--grep=Lore-id: [0-9a-f]{8}');
+    args.push('--grep=^Lore-id: [0-9a-f]{8}');
     args.push('--extended-regexp');
     args.push('--regexp-ignore-case');
 
