@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AtomCache, NullAtomCache } from '../../../src/services/atom-cache.js';
-import { rm, mkdir, access } from 'node:fs/promises';
-import { join } from 'node:path';
+import { rm, mkdir, access, writeFile } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
 
 describe('AtomCache', () => {
   const cacheDir = join(process.cwd(), '.lore-test-cache');
@@ -40,6 +40,28 @@ describe('AtomCache', () => {
     const cache = new AtomCache(cacheDir);
     await cache.setFiles('emptyhash', []);
     expect(await cache.getFiles('emptyhash')).toEqual([]);
+  });
+
+  it('should return null for corrupted cache files', async () => {
+    const cache = new AtomCache(cacheDir);
+    const hash = 'corrupt123';
+    const shard = hash.substring(0, 2);
+    const rest = hash.substring(2);
+    const path = join(cacheDir, shard, rest);
+
+    await mkdir(dirname(path), { recursive: true });
+
+    // Case 1: NUL bytes
+    await writeFile(path, Buffer.from([0, 1, 2, 3]));
+    expect(await cache.getFiles(hash)).toBeNull();
+
+    // Case 2: Empty file
+    await writeFile(path, '');
+    expect(await cache.getFiles(hash)).toBeNull();
+
+    // Case 3: Only whitespace
+    await writeFile(path, '   \n  ');
+    expect(await cache.getFiles(hash)).toBeNull();
   });
 });
 

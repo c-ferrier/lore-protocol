@@ -46,12 +46,14 @@ describe('registerCacheCommand', () => {
     const error = new Error('Permission denied');
     vi.mocked(rm).mockRejectedValue(error);
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('exit'); });
+    const initialExitCode = process.exitCode;
 
-    await expect(program.parseAsync(['node', 'lore', 'cache', '--clean']))
-      .rejects.toThrow('exit');
+    await program.parseAsync(['node', 'lore', 'cache', '--clean']);
 
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to clear cache: Permission denied'));
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(process.exitCode).toBe(1);
+    
+    // Reset exitCode for other tests/runs
+    process.exitCode = initialExitCode;
   });
 });

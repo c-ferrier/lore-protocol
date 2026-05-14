@@ -27,9 +27,11 @@ export function registerCacheCommand(
         try {
           await rm(cacheDir, { recursive: true, force: true });
           console.log(formatter.formatSuccess('Successfully cleared local cache.'));
-        } catch (error: any) {
-          console.error(formatter.formatError(1, [{ severity: 'error', message: `Failed to clear cache: ${error.message}` }]));
-          process.exit(1);
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(formatter.formatError(1, [{ severity: 'error', message: `Failed to clear cache: ${message}` }]));
+          process.exitCode = 1;
+          return;
         }
         return;
       }
