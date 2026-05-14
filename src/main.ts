@@ -51,6 +51,7 @@ import { registerDoctorCommand } from './commands/doctor.js';
 import { LoreError, ValidationError } from './util/errors.js';
 import { shouldCheckForUpdate } from './util/update-check.js';
 import { shouldBypassCache } from './util/cache-check.js';
+import { resolveLoreRoot } from './util/root-resolver.js';
 
 /**
  * Composition root: constructs all dependencies and wires them together.
@@ -93,19 +94,25 @@ async function main(): Promise<void> {
     config = DEFAULT_CONFIG;
   }
 
-  // 3. Update notification (fire-and-forget, respects env vars and config)
+  // 3. Resolve project root for caching and config
+  const loreRoot = await resolveLoreRoot(process.cwd(), configLoader, gitClient);
+
+  const cacheDir = join(loreRoot, '.lore', 'cache');
+  const atomCacheDir = join(cacheDir, 'atoms');
+
+  // 4. Update notification (fire-and-forget, respects env vars and config)
   if (shouldCheckForUpdate(config.cli.updateCheck)) {
     simpleUpdateNotifier({ pkg }).catch(() => {});
   }
 
-  // 4. Determine if caching is bypassed via command line, env, or config
+  // 5. Determine if caching is bypassed via command line, env, or config
   const bypassCache = shouldBypassCache(config.cli.cache);
   
   const atomCache = bypassCache
     ? new NullAtomCache()
-    : new AtomCache(join(process.cwd(), '.lore', 'cache', 'atoms'));
+    : new AtomCache(atomCacheDir);
 
-  // 5. Create services that depend on others
+  // 6. Create services that depend on others
   const atomRepository = new AtomRepository(
     gitClient,
     trailerParser,
@@ -122,7 +129,7 @@ async function main(): Promise<void> {
   const commitInputResolver = new CommitInputResolver(prompt);
   const headLoreIdReader = new HeadLoreIdReader(gitClient, trailerParser);
 
-  // 6. Formatter factory (reads --format/--json from program options at call time)
+  // 7. Formatter factory (reads --format/--json from program options at call time)
   // Memoized: the formatter is created once on first call and reused thereafter.
   let cachedFormatter: IOutputFormatter | null = null;
   const getFormatter = (): IOutputFormatter => {
@@ -138,10 +145,10 @@ async function main(): Promise<void> {
     return cachedFormatter;
   };
 
-  // 7. Register all commands with their dependencies
+  // 8. Register all commands with their dependencies
 
   registerInitCommand(program, { getFormatter });
-  registerCacheCommand(program, { getFormatter });
+  registerCacheCommand(program, { getFormatter, cacheDir });
 
   const pathQueryDeps = {
     atomRepository,

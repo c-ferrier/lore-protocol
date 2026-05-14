@@ -12,6 +12,7 @@ export function registerCacheCommand(
   program: Command,
   deps: {
     getFormatter: () => IOutputFormatter;
+    cacheDir: string;
   },
 ): void {
   program
@@ -22,10 +23,8 @@ export function registerCacheCommand(
       const formatter = deps.getFormatter();
 
       if (options.clean) {
-        const cacheDir = join(process.cwd(), CONFIG_DIR, 'cache');
-        
         try {
-          await rm(cacheDir, { recursive: true, force: true });
+          await rm(deps.cacheDir, { recursive: true, force: true });
           console.log(formatter.formatSuccess('Successfully cleared local cache.'));
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : String(error);

@@ -23,7 +23,10 @@ describe('registerCacheCommand', () => {
 
     program = new Command();
     program.exitOverride();
-    registerCacheCommand(program, { getFormatter: () => formatter });
+    registerCacheCommand(program, {
+      getFormatter: () => formatter,
+      cacheDir: join(process.cwd(), '.lore', 'cache'),
+    });
   });
 
   afterEach(() => {
