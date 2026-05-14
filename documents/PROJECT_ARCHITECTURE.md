@@ -202,7 +202,7 @@ No command or service instantiates its own dependencies. All wiring is centraliz
 - **Single Responsibility**: Central query engine. Retrieves `LoreAtom` objects from git history by target path, Lore-id, revision range, scope, or globally. Handles follow-link BFS traversal.
 - **Dependencies**: `IGitClient`, `TrailerParser`, `domain.ts`, `query.ts`, `constants.ts`.
 - **Dependents**: Commands (`context`, `constraints`, `rejected`, `directives`, `tested`, `search`, `log`, `stale`, `trace`, `squash`, `doctor`), `Validator`, `main.ts`.
-- **Key methods**: `findByTarget()`, `findByLoreId()`, `findByRange()`, `findAll()`, `findByScope()`, `resolveFollowLinks()`.
+- **Key methods**: `findByTarget()`, `findByLoreId()`, `findByRange()`, `findAll()`, `resolveFollowLinks()`.
 
 #### `src/services/supersession-resolver.ts`
 - **Contains**: `SupersessionResolver` class.

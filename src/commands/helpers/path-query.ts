@@ -37,6 +37,7 @@ export interface PathQueryCommandOptions {
   readonly limit?: number;
   readonly maxCommits?: number;
   readonly since?: string;
+  readonly until?: string;
 }
 
 /**
@@ -63,6 +64,7 @@ export async function executePathQuery(
     limit: options.limit ?? null,
     maxCommits: options.maxCommits ?? null,
     since: options.since ?? null,
+    until: options.until ?? null,
   };
 
   // Step 1: Resolve target or use --scope
@@ -71,7 +73,7 @@ export async function executePathQuery(
   let targetDisplay: string;
 
   if (queryOptions.scope) {
-    atoms = await atomRepository.findByScope(queryOptions.scope, queryOptions);
+    atoms = await atomRepository.findAll(queryOptions);
     targetType = 'global';
     targetDisplay = `scope:${queryOptions.scope}`;
   } else {

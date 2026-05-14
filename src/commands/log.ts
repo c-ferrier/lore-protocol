@@ -13,6 +13,7 @@ interface LogCommandOptions {
   readonly limit?: number;
   readonly maxCommits?: number;
   readonly since?: string;
+  readonly until?: string;
 }
 
 /**
@@ -50,16 +51,15 @@ export function registerLogCommand(
           limit: null,
           maxCommits: options.maxCommits ?? null,
           since: options.since ?? null,
+          until: options.until ?? null,
         };
         atoms = await atomRepository.findByTarget(['--', ...paths], queryOptions);
       } else {
-        const findOptions: { since?: string; maxCommits?: number } = {};
-        if (options.since) {
-          findOptions.since = options.since;
-        }
-        if (options.maxCommits !== undefined && options.maxCommits > 0) {
-          findOptions.maxCommits = options.maxCommits;
-        }
+        const findOptions: Partial<PathQueryOptions> = {
+          ...(options.since ? { since: options.since } : {}),
+          ...(options.until ? { until: options.until } : {}),
+          ...(options.maxCommits !== undefined && options.maxCommits > 0 ? { maxCommits: options.maxCommits } : {}),
+        };
         atoms = await atomRepository.findAll(findOptions);
       }
 

@@ -76,6 +76,8 @@ export function registerSearchCommand(
         since: searchOptions.since ?? undefined,
         until: searchOptions.until ?? undefined,
         maxCommits: searchOptions.maxCommits ?? undefined,
+        author: searchOptions.author,
+        scope: searchOptions.scope,
       });
 
       // Apply filters via SearchFilter service

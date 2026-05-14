@@ -11,14 +11,20 @@ export interface QueryTarget {
 }
 
 export interface PathQueryOptions {
+  /**
+   * Filter by conventional commit scope.
+   * Pattern: `type(scope): description`
+   */
   readonly scope: string | null;
   readonly follow: boolean;
   readonly all: boolean;
+  /** Filter by author email (partial match supported). */
   readonly author: string | null;
   /** Result-level cap applied by the command layer after querying. Not used by the repository. */
   readonly limit: number | null;
   readonly maxCommits: number | null;
   readonly since: string | null;
+  readonly until: string | null;
 }
 
 export interface SearchOptions {

@@ -69,40 +69,17 @@ export class AtomRepository {
   }
 
   /**
-   * Find all Lore atoms, optionally filtered by date range and limit.
+   * Find Lore atoms across the entire repository.
+   *
+   * Uses "Atom Discovery Mode" to push filters (Lore-id, author, scope) down to
+   * the Git layer for optimized performance on large repositories.
    */
-  async findAll(options: { since?: string; until?: string; maxCommits?: number } = {}): Promise<LoreAtom[]> {
-    const args = this.buildBaseLogArgs();
-
-    if (options.since) {
-      args.push(`--since=${options.since}`);
-    }
-    if (options.until) {
-      args.push(`--until=${options.until}`);
-    }
-    if (options.maxCommits !== undefined && options.maxCommits > 0) {
-      args.push(`--max-count=${options.maxCommits}`);
-    }
-
+  async findAll(options: Partial<PathQueryOptions> = {}): Promise<LoreAtom[]> {
+    const queryOptions = this.makeDefaultOptions(options);
+    const args = this.buildLogArgs(queryOptions);
     const rawCommits = await this.gitClient.log(args);
-    return this.parseRawCommits(rawCommits);
-  }
-
-  /**
-   * Find atoms matching a conventional commit scope.
-   * Parses the subject line to extract scope from `type(scope): description`.
-   */
-  async findByScope(scope: string, options: PathQueryOptions): Promise<LoreAtom[]> {
-    const logArgs = this.buildLogArgs(options);
-    const rawCommits = await this.gitClient.log(logArgs);
     const atoms = await this.parseRawCommits(rawCommits);
-
-    const scopeFiltered = atoms.filter((atom) => {
-      const extractedScope = this.extractScope(atom.intent);
-      return extractedScope !== null && extractedScope.toLowerCase() === scope.toLowerCase();
-    });
-
-    return this.applyFilters(scopeFiltered, options);
+    return this.applyFilters(atoms, queryOptions);
   }
 
   /**
@@ -170,6 +147,7 @@ export class AtomRepository {
 
   /**
    * Build git log arguments including optional filters from PathQueryOptions.
+   * Uses optimized coarse discovery by pushing filters to the Git layer.
    */
   private buildLogArgs(options: PathQueryOptions): string[] {
     const args = this.buildBaseLogArgs();
@@ -177,11 +155,31 @@ export class AtomRepository {
     if (options.since) {
       args.push(`--since=${options.since}`);
     }
+    if (options.until) {
+      args.push(`--until=${options.until}`);
+    }
     if (options.maxCommits !== null && options.maxCommits > 0) {
       args.push(`--max-count=${options.maxCommits}`);
     }
+
+    // Atom Discovery Mode:
+    // We always include a check for a valid Lore-id so Git only returns valid atoms.
+    // This allows us to skip non-Lore commits (merges, chores, etc.) at the Git layer.
+    args.push('--grep=Lore-id: [0-9a-f]{8}');
+    args.push('--extended-regexp');
+    args.push('--regexp-ignore-case');
+
+    // Use --all-match to ensure the Lore-id AND any other filters match (Lore semantics)
+    args.push('--all-match');
+
     if (options.author) {
       args.push(`--author=${options.author}`);
+    }
+
+    if (options.scope) {
+      // Improved precision: Match conventional commit type prefix and start of line.
+      // Note: We don't currently enforce the ':' after the scope to match our TS parser.
+      args.push(`--grep=^[a-zA-Z]+\\(${options.scope}\\)`);
     }
 
     return args;
@@ -270,10 +268,18 @@ export class AtomRepository {
   /**
    * Apply post-query filters (author, since) that weren't handled at the git level.
    * Note: author and since are also passed to git log, but this provides a second
-   * layer of filtering for edge cases.
+   * layer of filtering for edge cases and absolute precision.
    */
   private applyFilters(atoms: LoreAtom[], options: PathQueryOptions): LoreAtom[] {
     let result = atoms;
+
+    if (options.scope) {
+      const scopeLower = options.scope.toLowerCase();
+      result = result.filter((a) => {
+        const extracted = this.extractScope(a.intent);
+        return extracted !== null && extracted.toLowerCase() === scopeLower;
+      });
+    }
 
     if (options.author) {
       const authorLower = options.author.toLowerCase();
@@ -289,7 +295,31 @@ export class AtomRepository {
       }
     }
 
+    if ((options as any).until) {
+      const untilDate = new Date((options as any).until);
+      if (!isNaN(untilDate.getTime())) {
+        result = result.filter((atom) => atom.date <= untilDate);
+      }
+    }
+
     return result;
+  }
+
+  /**
+   * Create a complete PathQueryOptions object from partial overrides.
+   */
+  private makeDefaultOptions(overrides: Partial<PathQueryOptions> = {}): PathQueryOptions {
+    return {
+      scope: null,
+      follow: false,
+      all: false,
+      author: null,
+      limit: null,
+      maxCommits: null,
+      since: null,
+      until: null,
+      ...overrides,
+    };
   }
 
   /**
