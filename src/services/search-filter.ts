@@ -56,9 +56,9 @@ export class SearchFilter {
   /**
    * Check if an atom has a non-empty value for the given trailer key.
    * Uses data-driven lookup via ARRAY_TRAILER_KEYS and ENUM_TRAILER_KEYS
-   * instead of a per-key switch statement.
+   * for standard trailers, and checks the custom collection for others.
    */
-  atomHasTrailer(atom: LoreAtom, trailerKey: TrailerKey): boolean {
+  atomHasTrailer(atom: LoreAtom, trailerKey: string): boolean {
     if (trailerKey === 'Lore-id') {
       return !!atom.trailers['Lore-id'];
     }
@@ -75,7 +75,8 @@ export class SearchFilter {
       return value !== null;
     }
 
-    return false;
+    // Custom trailers
+    return atom.trailers.custom.has(trailerKey);
   }
 
   /**
@@ -98,6 +99,13 @@ export class SearchFilter {
     for (const key of ENUM_TRAILER_KEYS) {
       const value = trailers[key];
       if (value?.toLowerCase().includes(textLower)) return true;
+    }
+
+    // Check custom trailers
+    for (const [, values] of trailers.custom) {
+      for (const value of values) {
+        if (value.toLowerCase().includes(textLower)) return true;
+      }
     }
 
     return false;

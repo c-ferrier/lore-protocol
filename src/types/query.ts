@@ -25,7 +25,7 @@ export interface SearchOptions {
   readonly confidence: ConfidenceLevel | null;
   readonly scopeRisk: ScopeRiskLevel | null;
   readonly reversibility: ReversibilityLevel | null;
-  readonly has: TrailerKey | null;
+  readonly has: string | null;
   readonly author: string | null;
   readonly scope: string | null;
   readonly text: string | null;

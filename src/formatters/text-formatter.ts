@@ -291,6 +291,16 @@ export class TextFormatter implements IOutputFormatter {
       }
     }
 
+    // Custom trailers
+    for (const [key, values] of trailers.custom) {
+      // Use TrailerKey type for standard trailers only, cast for shouldShow
+      if (shouldShow(key as TrailerKey)) {
+        for (const v of values) {
+          lines.push(`${this.c.dim(`${key}:`)} ${v}`);
+        }
+      }
+    }
+
     return lines;
   }
 

@@ -6,9 +6,12 @@ import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { TrailerKey, LoreAtom, SupersessionStatus } from '../types/domain.js';
 import type { SearchOptions, QueryResult } from '../types/query.js';
 import type { FormattableQueryResult } from '../types/output.js';
+import type { LoreConfig } from '../types/config.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
 import { parsePositiveInt } from './helpers/path-query.js';
+import { LORE_TRAILER_KEYS } from '../util/constants.js';
+import { LoreError } from '../util/errors.js';
 
 interface SearchCommandOptions {
   readonly confidence?: string;
@@ -36,6 +39,7 @@ export function registerSearchCommand(
     supersessionResolver: SupersessionResolver;
     searchFilter: SearchFilter;
     getFormatter: () => IOutputFormatter;
+    config: LoreConfig;
   },
 ): void {
   program
@@ -55,13 +59,27 @@ export function registerSearchCommand(
     .option('--max-commits <n>', 'Maximum git commits to scan (supersession may be incomplete)', parsePositiveInt)
     .action(async (_options: SearchCommandOptions, command: Command) => {
       const options = mergeOptions<SearchCommandOptions>(command);
-      const { atomRepository, supersessionResolver, searchFilter, getFormatter } = deps;
+      const { atomRepository, supersessionResolver, searchFilter, getFormatter, config } = deps;
+
+      // Validate --has trailer if specified
+      if (options.has) {
+        const isStandard = (LORE_TRAILER_KEYS as readonly string[]).includes(options.has);
+        const customWhitelist = config.trailers.custom;
+
+        // If strict mode (whitelist populated) and not a standard/whitelisted key, throw error
+        if (customWhitelist.length > 0 && !isStandard && !customWhitelist.includes(options.has)) {
+          throw new LoreError(
+            `Trailer "${options.has}" is not recognized. In this repository, you can only search for standard Lore trailers or registered custom trailers: ${customWhitelist.join(', ')}.`,
+            1,
+          );
+        }
+      }
 
       const searchOptions: SearchOptions = {
         confidence: (options.confidence as SearchOptions['confidence']) ?? null,
         scopeRisk: (options.scopeRisk as SearchOptions['scopeRisk']) ?? null,
         reversibility: (options.reversibility as SearchOptions['reversibility']) ?? null,
-        has: (options.has as TrailerKey) ?? null,
+        has: options.has ?? null,
         author: options.author ?? null,
         scope: options.scope ?? null,
         text: options.text ?? null,

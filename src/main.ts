@@ -150,6 +150,7 @@ async function main(): Promise<void> {
     supersessionResolver,
     searchFilter,
     getFormatter,
+    config,
   });
 
   registerLogCommand(program, {
