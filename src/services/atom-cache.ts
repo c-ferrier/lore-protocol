@@ -3,10 +3,13 @@ import { join, dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { IAtomCache } from '../interfaces/atom-cache.js';
 
+const HEX_HASH = /^[0-9a-f]{7,64}$/i;
+
 export class AtomCache implements IAtomCache {
   constructor(private readonly cacheDir: string) {}
 
   async getFiles(hash: string): Promise<readonly string[] | null> {
+    if (!HEX_HASH.test(hash)) return null;
     const path = this.getCachePath(hash);
     try {
       const content = await readFile(path, 'utf8');
@@ -38,6 +41,7 @@ export class AtomCache implements IAtomCache {
   }
 
   async setFiles(hash: string, files: readonly string[]): Promise<void> {
+    if (!HEX_HASH.test(hash)) return;
     const path = this.getCachePath(hash);
     const tempPath = `${path}.tmp.${randomUUID()}`;
 
@@ -61,7 +65,6 @@ export class AtomCache implements IAtomCache {
   }
 
   private getCachePath(hash: string): string {
-
     const shard = hash.substring(0, 2);
     const rest = hash.substring(2);
     return join(this.cacheDir, shard, rest);

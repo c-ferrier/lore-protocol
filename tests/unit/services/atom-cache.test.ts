@@ -38,8 +38,15 @@ describe('AtomCache', () => {
 
   it('should handle empty file list', async () => {
     const cache = new AtomCache(cacheDir);
-    await cache.setFiles('emptyhash', []);
-    expect(await cache.getFiles('emptyhash')).toEqual([]);
+    const hash = 'aabbccdd11223344';
+    await cache.setFiles(hash, []);
+    expect(await cache.getFiles(hash)).toEqual([]);
+  });
+
+  it('should reject invalid hashes', async () => {
+    const cache = new AtomCache(cacheDir);
+    expect(await cache.getFiles('../../../etc/passwd')).toBeNull();
+    expect(await cache.getFiles('not-a-hash!')).toBeNull();
   });
 
   it('should return null for corrupted cache files', async () => {

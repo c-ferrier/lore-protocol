@@ -83,6 +83,7 @@ export function registerInitCommand(
 
 /**
  * Ensures that .lore/cache is added to the .gitignore in the current directory.
+ * Uses process.cwd() to match where `lore init` creates .lore/config.toml.
  * Idempotent: does nothing if the pattern is already present.
  */
 async function ensureCacheIgnored(formatter: IOutputFormatter): Promise<void> {

@@ -223,7 +223,7 @@ async function main(): Promise<void> {
     getFormatter,
   });
 
-  // 8. Parse and run
+  // 9. Parse and run
   await program.parseAsync(process.argv);
 }
 

@@ -1,8 +1,6 @@
 import type { Command } from 'commander';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import { rm } from 'node:fs/promises';
-import { join } from 'node:path';
-import { CONFIG_DIR } from '../util/constants.js';
 
 /**
  * Register the `lore cache` command.

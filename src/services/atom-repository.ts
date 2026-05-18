@@ -4,7 +4,6 @@ import type { LoreAtom, LoreId, LoreTrailers } from '../types/domain.js';
 import type { TrailerParser } from '../services/trailer-parser.js';
 import type { IAtomCache } from '../interfaces/atom-cache.js';
 import { LORE_ID_PATTERN, REFERENCE_TRAILER_KEYS, GIT_FILES_CHANGED_BATCH_SIZE } from '../util/constants.js';
-import { NullAtomCache } from './atom-cache.js';
 
 /**
  * Retrieves LoreAtoms from git history.
@@ -17,10 +16,9 @@ export class AtomRepository {
   constructor(
     private readonly gitClient: IGitClient,
     private readonly trailerParser: TrailerParser,
-    private readonly atomCache: IAtomCache = new NullAtomCache(),
+    private readonly atomCache: IAtomCache,
     private readonly customTrailerKeys: readonly string[] = [],
   ) {}
-
 
   /**
    * Find atoms that touched the given target path/file/directory.
@@ -236,11 +234,12 @@ export class AtomRepository {
       );
     }
 
-
     // Build atoms by pairing parsed trailers with their file lists
-    const atoms: LoreAtom[] = loreCommits.map(({ raw, trailers }, index) =>
-      this.buildAtom(raw, trailers, filesPerCommit[index] as readonly string[]),
-    );
+    const atoms: LoreAtom[] = loreCommits.map(({ raw, trailers }, index) => {
+      const files = filesPerCommit[index];
+      if (!files) throw new Error(`BUG: filesChanged not resolved for commit ${raw.hash}`);
+      return this.buildAtom(raw, trailers, files);
+    });
 
     return atoms;
   }
