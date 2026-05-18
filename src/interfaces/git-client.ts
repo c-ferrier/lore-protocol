@@ -34,4 +34,5 @@ export interface IGitClient {
   countCommitsSince(path: string, sinceCommitHash: string): Promise<number>;
   resolveRef(ref: string): Promise<string>;
   getHeadMessage(): Promise<string>;
+  getCommitsByHashes(hashes: readonly string[]): Promise<readonly RawCommit[]>;
 }

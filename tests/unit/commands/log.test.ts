@@ -52,8 +52,23 @@ interface Harness {
 }
 
 function buildHarness(atoms: LoreAtom[], filteredAtoms?: LoreAtom[]): Harness {
-  const findAll = vi.fn().mockResolvedValue(atoms);
-  const findByTarget = vi.fn().mockResolvedValue(filteredAtoms ?? atoms);
+  const findAll = vi.fn().mockImplementation((options) => {
+    const list = atoms;
+    const limit = options?.limit ?? list.length;
+    const page = options?.page ?? 1;
+    const start = (page - 1) * limit;
+    const atomsSlice = list.slice(start, start + limit);
+    return Promise.resolve({ atoms: atomsSlice, totalCount: list.length });
+  });
+
+  const findByTarget = vi.fn().mockImplementation((_args, options) => {
+    const list = filteredAtoms ?? atoms;
+    const limit = options?.limit ?? list.length;
+    const page = options?.page ?? 1;
+    const start = (page - 1) * limit;
+    const atomsSlice = list.slice(start, start + limit);
+    return Promise.resolve({ atoms: atomsSlice, totalCount: list.length });
+  });
   const atomRepository = { findAll, findByTarget } as unknown as AtomRepository;
 
   const supersessionResolver = {
@@ -167,7 +182,7 @@ describe('registerLogCommand (issue #22 path arguments)', () => {
     expect(result.atoms[0].loreId).toBe('limit001');
   });
 
-  it('passes --max-commits to findByTarget as maxCommits in PathQueryOptions', async () => {
+  it('passes --max-commits to findByTarget as maxCommits in QueryOptions', async () => {
     const atom = makeAtom({ loreId: 'mc000001', filesChanged: ['src/main.ts'] });
     const h = buildHarness([], [atom]);
 

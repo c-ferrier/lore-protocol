@@ -55,7 +55,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
       atomRepository: {
         findByTarget: mockFindByTarget,
         findByScope: vi.fn(),
-        resolveFollowLinks: vi.fn(),
+        resolveFollowLinks: vi.fn().mockImplementation((atoms) => Promise.resolve(atoms)),
       } as any,
       supersessionResolver: {
         resolve: mockResolve,
@@ -84,7 +84,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     };
   });
 
-  it('should apply --limit after supersession filtering', async () => {
+  it('should apply --limit via AtomRepository', async () => {
     // 5 atoms from git, 2 are superseded, limit 2
     const atoms = [
       makeAtom('aaaa1111'),
@@ -94,27 +94,25 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
       makeAtom('eeee5555'),
     ];
 
-    mockFindByTarget.mockResolvedValue(atoms);
+    mockFindByTarget.mockImplementation((_args, options) => {
+      const limit = options.limit ?? atoms.length;
+      const page = options.page ?? 1;
+      const start = (page - 1) * limit;
+      // In reality, repository would also filter superseded atoms if !options.all
+      // but for this test we'll let executePathQuery handle filtering as it does
+      // and just verify that the repository slicing works.
+      const sliced = atoms.slice(start, start + limit);
+      return Promise.resolve({ atoms: sliced, totalCount: atoms.length });
+    });
 
-    const supersessionMap = new Map<string, SupersessionStatus>([
-      ['aaaa1111', { superseded: true, supersededBy: 'cccc3333' }],
-      ['bbbb2222', { superseded: true, supersededBy: 'dddd4444' }],
-      ['cccc3333', { superseded: false, supersededBy: null }],
-      ['dddd4444', { superseded: false, supersededBy: null }],
-      ['eeee5555', { superseded: false, supersededBy: null }],
-    ]);
-    mockResolve.mockReturnValue(supersessionMap);
-
-    // filterActive returns only 3 non-superseded atoms
-    const activeAtoms = [atoms[2], atoms[3], atoms[4]];
-    mockFilterActive.mockReturnValue(activeAtoms);
+    mockResolve.mockReturnValue(new Map());
+    mockFilterActive.mockImplementation((a) => a); // Pass through for this test
 
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
 
     const options: PathQueryCommandOptions = { limit: 2 };
     await executePathQuery('src/test.ts', options, deps, 'context', 'all');
 
-    // The output should have exactly 2 atoms (limit applied after supersession)
     const output = JSON.parse(consoleSpy.mock.calls[0][0]);
     expect(output.atoms).toBe(2);
     expect(output.filteredAtoms).toBe(2);
@@ -122,8 +120,8 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     consoleSpy.mockRestore();
   });
 
-  it('should not pass limit to atomRepository (only maxCommits)', async () => {
-    mockFindByTarget.mockResolvedValue([]);
+  it('should pass limit to atomRepository', async () => {
+    mockFindByTarget.mockResolvedValue({ atoms: [], totalCount: 0 });
     mockResolve.mockReturnValue(new Map());
     mockFilterActive.mockReturnValue([]);
     vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -131,10 +129,9 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     const options: PathQueryCommandOptions = { limit: 5, maxCommits: 100 };
     await executePathQuery('src/test.ts', options, deps, 'context', 'all');
 
-    // Verify findByTarget received maxCommits in PathQueryOptions
+    // Verify findByTarget received limit and maxCommits in QueryOptions
     const queryOptions = mockFindByTarget.mock.calls[0][1];
     expect(queryOptions.maxCommits).toBe(100);
-    // limit is in the options but should NOT affect git scan
     expect(queryOptions.limit).toBe(5);
 
     vi.mocked(console.log).mockRestore();
@@ -143,7 +140,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
   it('should return all atoms when limit is not specified', async () => {
     const atoms = [makeAtom('aaaa1111'), makeAtom('bbbb2222'), makeAtom('cccc3333')];
 
-    mockFindByTarget.mockResolvedValue(atoms);
+    mockFindByTarget.mockResolvedValue({ atoms, totalCount: atoms.length });
     mockResolve.mockReturnValue(new Map());
     mockFilterActive.mockReturnValue(atoms);
 
@@ -161,7 +158,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
   it('should treat limit 0 as no limit', async () => {
     const atoms = [makeAtom('aaaa1111'), makeAtom('bbbb2222')];
 
-    mockFindByTarget.mockResolvedValue(atoms);
+    mockFindByTarget.mockResolvedValue({ atoms, totalCount: atoms.length });
     mockResolve.mockReturnValue(new Map());
     mockFilterActive.mockReturnValue(atoms);
 

@@ -30,7 +30,8 @@ export function registerSquashCommand(
     .action(async (range: string, options: SquashCommandOptions) => {
       const { atomRepository, squashMerger } = deps;
 
-      const atoms = await atomRepository.findByRange(range);
+      const result = await atomRepository.findByRange(range);
+      const atoms = result.atoms;
 
       if (atoms.length === 0) {
         throw new LoreError('No Lore atoms found in the specified range.', 1);

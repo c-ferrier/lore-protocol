@@ -49,11 +49,35 @@ export class TextFormatter implements IOutputFormatter {
       lines.push('');
     }
 
-    lines.push(
-      this.c.dim(
-        `${result.meta.filteredAtoms} of ${result.meta.totalAtoms} atoms shown`,
-      ),
-    );
+    const { filteredAtoms, totalAtoms, oldest, newest } = result.meta;
+    
+    const startIdx = (result.page - 1) * result.limit + 1;
+    const endIdx = startIdx + filteredAtoms - 1;
+
+    let summary = '';
+    
+    if (totalAtoms > filteredAtoms) {
+      // Pagination context
+      const range = startIdx === endIdx ? `Atom ${startIdx}` : `Atoms ${startIdx}-${endIdx}`;
+      summary = `${range} of ${totalAtoms} atoms found`;
+    } else {
+      // No pagination (showing everything)
+      const countLabel = totalAtoms === 1 ? '1 atom found' : `${totalAtoms} atoms found`;
+      summary = countLabel;
+    }
+    
+    if (oldest && newest) {
+      const start = this.formatDate(oldest);
+      const end = this.formatDate(newest);
+      
+      if (start === end) {
+        summary += ` on ${start}`;
+      } else {
+        summary += ` spanning ${start} to ${end}`;
+      }
+    }
+
+    lines.push(this.c.dim(summary));
 
     return lines.join('\n');
   }

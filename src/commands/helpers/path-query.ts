@@ -5,7 +5,7 @@ import type { PathResolver } from '../../services/path-resolver.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { LoreConfig } from '../../types/config.js';
 import type { TrailerKey, LoreAtom, SupersessionStatus } from '../../types/domain.js';
-import type { PathQueryOptions, QueryResult, TargetType } from '../../types/query.js';
+import type { QueryOptions, QueryResult, TargetType } from '../../types/query.js';
 import type { FormattableQueryResult } from '../../types/output.js';
 import { buildQueryMeta } from './build-query-meta.js';
 
@@ -35,6 +35,7 @@ export interface PathQueryCommandOptions {
   readonly all?: boolean;
   readonly author?: string;
   readonly limit?: number;
+  readonly page?: number;
   readonly maxCommits?: number;
   readonly since?: string;
 }
@@ -55,63 +56,70 @@ export async function executePathQuery(
 ): Promise<void> {
   const { atomRepository, supersessionResolver, pathResolver, getFormatter, config } = deps;
 
-  const queryOptions: PathQueryOptions = {
+  const queryOptions: QueryOptions = {
     scope: options.scope ?? null,
+    text: null,
+    confidence: null,
+    scopeRisk: null,
+    reversibility: null,
+    has: null,
     follow: options.follow ?? false,
+    followDepth: options.follow ? config.follow.maxDepth : null,
     all: options.all ?? false,
     author: options.author ?? null,
     limit: options.limit ?? null,
+    page: options.page ?? null,
     maxCommits: options.maxCommits ?? null,
     since: options.since ?? null,
+    until: null,
   };
 
-  // Step 1: Resolve target or use --scope
-  let atoms: LoreAtom[];
+  // Step 1: Resolve target and perform Discovery
+  // The repository handles the full discovery pipeline: Git log (Coarse),
+  // narrowing filters (Fine), link resolution (Follow), and supersession.
+  let atoms: readonly LoreAtom[];
+  let totalAtoms: number;
   let targetType: TargetType | 'search' | 'global';
   let targetDisplay: string;
+  let oldest: Date | null;
+  let newest: Date | null;
 
   if (queryOptions.scope) {
-    atoms = await atomRepository.findByScope(queryOptions.scope, queryOptions);
+    const result = await atomRepository.findByScope(queryOptions.scope, queryOptions);
+    atoms = result.atoms;
+    totalAtoms = result.totalCount;
+    oldest = result.oldest;
+    newest = result.newest;
     targetType = 'global';
     targetDisplay = `scope:${queryOptions.scope}`;
   } else {
     const parsedTarget = pathResolver.parseTarget(target);
     const gitLogArgs = pathResolver.toGitLogArgs(parsedTarget);
-    atoms = await atomRepository.findByTarget(gitLogArgs, queryOptions);
+    const result = await atomRepository.findByTarget(gitLogArgs, queryOptions);
+    atoms = result.atoms;
+    totalAtoms = result.totalCount;
+    oldest = result.oldest;
+    newest = result.newest;
     targetType = parsedTarget.type;
     targetDisplay = target;
   }
 
-  // Step 2: Follow links if requested
-  if (queryOptions.follow && atoms.length > 0) {
-    atoms = await atomRepository.resolveFollowLinks(atoms, config.follow.maxDepth);
-  }
+  // Step 2: Compute supersession status for the result set
+  // The map is only needed if --all is set, to identify which atoms to 'dim' in the UI.
+  // If --all is false, the repository has already removed all superseded atoms.
+  const supersessionMap = queryOptions.all
+    ? supersessionResolver.resolve(atoms)
+    : new Map<string, SupersessionStatus>();
 
-  const totalAtoms = atoms.length;
-
-  // Step 3: Compute supersession
-  const supersessionMap: Map<string, SupersessionStatus> = supersessionResolver.resolve(atoms);
-
-  // Step 4: Filter superseded atoms unless --all
-  let displayAtoms: readonly LoreAtom[];
-  if (queryOptions.all) {
-    displayAtoms = atoms;
-  } else {
-    displayAtoms = supersessionResolver.filterActive(atoms, supersessionMap);
-  }
-
-  // Step 4b: Apply result limit (--limit) after supersession filtering
-  if (queryOptions.limit !== null && queryOptions.limit > 0) {
-    displayAtoms = displayAtoms.slice(0, queryOptions.limit);
-  }
-
-  // Step 5: Build QueryResult
+  // Step 3: Build QueryResult
   const result: QueryResult = {
     command: commandName,
     target: targetDisplay,
     targetType,
-    atoms: displayAtoms,
-    meta: buildQueryMeta(totalAtoms, displayAtoms),
+    atoms,
+    meta: buildQueryMeta(totalAtoms, atoms, { oldest, newest }),
+    page: queryOptions.page ?? 1,
+    limit: queryOptions.limit ?? atoms.length,
   };
 
   const formattable: FormattableQueryResult = {
@@ -120,7 +128,7 @@ export async function executePathQuery(
     visibleTrailers,
   };
 
-  // Step 6: Format and output
+  // Step 4: Format and output
   const formatter = getFormatter();
   console.log(formatter.formatQueryResult(formattable));
 }
@@ -135,6 +143,7 @@ export function addPathQueryOptions(cmd: Command): Command {
     .option('--all', 'Include superseded entries')
     .option('--author <email>', 'Filter by commit author')
     .option('--limit <n>', 'Maximum number of results to display', parsePositiveInt)
+    .option('--page <n>', 'Page number for pagination', parsePositiveInt)
     .option('--max-commits <n>', 'Maximum git commits to scan (supersession may be incomplete)', parsePositiveInt)
     .option('--since <ref>', 'Only consider commits since ref/date');
 }

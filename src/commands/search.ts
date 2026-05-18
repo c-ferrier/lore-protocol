@@ -1,10 +1,9 @@
 import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { SupersessionResolver } from '../services/supersession-resolver.js';
-import type { SearchFilter } from '../services/search-filter.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { TrailerKey, LoreAtom, SupersessionStatus } from '../types/domain.js';
-import type { SearchOptions, QueryResult } from '../types/query.js';
+import type { TrailerKey, SupersessionStatus } from '../types/domain.js';
+import type { QueryOptions, QueryResult } from '../types/query.js';
 import type { FormattableQueryResult } from '../types/output.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
@@ -21,6 +20,7 @@ interface SearchCommandOptions {
   readonly since?: string;
   readonly until?: string;
   readonly limit?: number;
+  readonly page?: number;
   readonly maxCommits?: number;
   readonly all?: boolean;
 }
@@ -34,7 +34,6 @@ export function registerSearchCommand(
   deps: {
     atomRepository: AtomRepository;
     supersessionResolver: SupersessionResolver;
-    searchFilter: SearchFilter;
     getFormatter: () => IOutputFormatter;
   },
 ): void {
@@ -52,15 +51,16 @@ export function registerSearchCommand(
     .option('--until <ref>', 'Upper time/revision bound')
     .option('--all', 'Include superseded entries')
     .option('--limit <n>', 'Maximum number of results to display', parsePositiveInt)
+    .option('--page <n>', 'Page number for pagination', parsePositiveInt)
     .option('--max-commits <n>', 'Maximum git commits to scan (supersession may be incomplete)', parsePositiveInt)
     .action(async (_options: SearchCommandOptions, command: Command) => {
       const options = mergeOptions<SearchCommandOptions>(command);
-      const { atomRepository, supersessionResolver, searchFilter, getFormatter } = deps;
+      const { atomRepository, supersessionResolver, getFormatter } = deps;
 
-      const searchOptions: SearchOptions = {
-        confidence: (options.confidence as SearchOptions['confidence']) ?? null,
-        scopeRisk: (options.scopeRisk as SearchOptions['scopeRisk']) ?? null,
-        reversibility: (options.reversibility as SearchOptions['reversibility']) ?? null,
+      const queryOptions: QueryOptions = {
+        confidence: (options.confidence as QueryOptions['confidence']) ?? null,
+        scopeRisk: (options.scopeRisk as QueryOptions['scopeRisk']) ?? null,
+        reversibility: (options.reversibility as QueryOptions['reversibility']) ?? null,
         has: (options.has as TrailerKey) ?? null,
         author: options.author ?? null,
         scope: options.scope ?? null,
@@ -68,43 +68,30 @@ export function registerSearchCommand(
         since: options.since ?? null,
         until: options.until ?? null,
         limit: options.limit ?? null,
+        page: options.page ?? null,
         maxCommits: options.maxCommits ?? null,
+        follow: false,
+        followDepth: null,
+        all: options.all ?? false,
       };
 
-      // Get all atoms with date range and scan-level filters
-      let atoms = await atomRepository.findAll({
-        since: searchOptions.since ?? undefined,
-        until: searchOptions.until ?? undefined,
-        maxCommits: searchOptions.maxCommits ?? undefined,
-      });
+      // Repository handles all discovery, filtering, and supersession
+      const { atoms: displayAtoms, totalCount, oldest, newest } = await atomRepository.findAll(queryOptions);
 
-      // Apply filters via SearchFilter service
-      atoms = searchFilter.applyFilters(atoms, searchOptions);
-
-      // Compute supersession on full set so each atom's status is available to the formatter
-      const supersessionMap: Map<string, SupersessionStatus> = supersessionResolver.resolve(atoms);
-
-      const totalAtoms = atoms.length;
-
-      // Filter superseded atoms unless --all
-      let displayAtoms: readonly LoreAtom[];
-      if (options.all) {
-        displayAtoms = atoms;
-      } else {
-        displayAtoms = supersessionResolver.filterActive(atoms, supersessionMap);
-      }
-
-      // Apply result limit (--limit) after all filtering and supersession
-      if (searchOptions.limit !== null && searchOptions.limit > 0) {
-        displayAtoms = displayAtoms.slice(0, searchOptions.limit);
-      }
+      // Compute supersession on result set so each atom's status is available to the formatter
+      // The map is only needed if --all is set; otherwise every atom in the list is Active.
+      const supersessionMap = queryOptions.all
+        ? supersessionResolver.resolve(displayAtoms)
+        : new Map<string, SupersessionStatus>();
 
       const result: QueryResult = {
         command: 'search',
-        target: buildSearchTargetDescription(searchOptions),
+        target: buildSearchTargetDescription(queryOptions),
         targetType: 'search',
         atoms: displayAtoms,
-        meta: buildQueryMeta(totalAtoms, displayAtoms),
+        meta: buildQueryMeta(totalCount, displayAtoms, { oldest, newest }),
+        page: queryOptions.page ?? 1,
+        limit: queryOptions.limit ?? displayAtoms.length,
       };
 
       const formattable: FormattableQueryResult = {
@@ -118,7 +105,7 @@ export function registerSearchCommand(
     });
 }
 
-function buildSearchTargetDescription(options: SearchOptions): string {
+function buildSearchTargetDescription(options: QueryOptions): string {
   const parts: string[] = [];
 
   if (options.confidence) parts.push(`confidence=${options.confidence}`);

@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { PathQueryOptions, QueryResult } from '../types/query.js';
+import type { QueryOptions, QueryResult } from '../types/query.js';
 import type { LoreAtom } from '../types/domain.js';
 import type { FormattableQueryResult } from '../types/output.js';
 import { mergeOptions } from './helpers/merge-options.js';
@@ -11,6 +11,7 @@ import { parsePositiveInt } from './helpers/path-query.js';
 
 interface LogCommandOptions {
   readonly limit?: number;
+  readonly page?: number;
   readonly maxCommits?: number;
   readonly since?: string;
 }
@@ -32,52 +33,46 @@ export function registerLogCommand(
     .command('log [paths...]')
     .description('Lore-enriched git log')
     .option('--limit <n>', 'Maximum number of results to display', parsePositiveInt)
+    .option('--page <n>', 'Page number for pagination', parsePositiveInt)
     .option('--max-commits <n>', 'Maximum git commits to scan (supersession may be incomplete)', parsePositiveInt)
     .option('--since <ref>', 'Only consider commits since ref/date')
     .action(async (paths: string[], _options: LogCommandOptions, command: Command) => {
       const options = mergeOptions<LogCommandOptions>(command);
       const { atomRepository, supersessionResolver, getFormatter } = deps;
 
-      let atoms: LoreAtom[];
+      const queryOptions: QueryOptions = {
+        since: options.since ?? null,
+        until: null,
+        maxCommits: options.maxCommits ?? null,
+        author: null,
+        scope: null,
+        text: null,
+        confidence: null,
+        scopeRisk: null,
+        reversibility: null,
+        has: null,
+        follow: false,
+        followDepth: null,
+        all: true, // Log traditionally shows everything
+        limit: options.limit ?? null,
+        page: options.page ?? null,
+      };
 
-      if (paths.length > 0) {
-        // Use git-level path filtering via findByTarget (#24)
-        const queryOptions: PathQueryOptions = {
-          scope: null,
-          follow: false,
-          all: false,
-          author: null,
-          limit: null,
-          maxCommits: options.maxCommits ?? null,
-          since: options.since ?? null,
-        };
-        atoms = await atomRepository.findByTarget(['--', ...paths], queryOptions);
-      } else {
-        const findOptions: { since?: string; maxCommits?: number } = {};
-        if (options.since) {
-          findOptions.since = options.since;
-        }
-        if (options.maxCommits !== undefined && options.maxCommits > 0) {
-          findOptions.maxCommits = options.maxCommits;
-        }
-        atoms = await atomRepository.findAll(findOptions);
-      }
+      const { atoms: displayAtoms, totalCount, oldest, newest } = paths.length > 0
+        ? await atomRepository.findByTarget(['--', ...paths], queryOptions)
+        : await atomRepository.findAll(queryOptions);
 
       // Build supersession map (show everything, including superseded atoms)
-      const supersessionMap = supersessionResolver.resolve(atoms);
-      const totalAtoms = atoms.length;
-
-      // Apply result limit (--limit) after all filtering
-      const displayAtoms = (options.limit !== undefined && options.limit > 0)
-        ? atoms.slice(0, options.limit)
-        : atoms;
+      const supersessionMap = supersessionResolver.resolve(displayAtoms);
 
       const result: QueryResult = {
         command: 'log',
         target: paths.length > 0 ? paths.join(', ') : 'all',
         targetType: 'global',
         atoms: displayAtoms,
-        meta: buildQueryMeta(totalAtoms, displayAtoms),
+        meta: buildQueryMeta(totalCount, displayAtoms, { oldest, newest }),
+        page: queryOptions.page ?? 1,
+        limit: queryOptions.limit ?? displayAtoms.length,
       };
 
       const formattable: FormattableQueryResult = {

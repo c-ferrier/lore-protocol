@@ -149,6 +149,16 @@ export class GitClient implements IGitClient {
     return stdout.trim();
   }
 
+  async getCommitsByHashes(hashes: readonly string[]): Promise<readonly RawCommit[]> {
+    if (hashes.length === 0) {
+      return [];
+    }
+    // git log --no-walk=unsorted allows fetching specific commit objects in O(1)
+    // while ensuring the output order matches the input list order exactly.
+    const stdout = await this.exec(['log', `--format=${LOG_FORMAT}`, '--no-walk=unsorted', ...hashes]);
+    return this.parseLogOutput(stdout);
+  }
+
   /**
    * Parse the standard git log output with our custom format.
    * Records are separated by double null bytes; fields within a record
