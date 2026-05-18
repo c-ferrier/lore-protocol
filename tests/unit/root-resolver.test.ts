@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { resolveLoreRoot } from '../../src/util/root-resolver.js';
+import { resolveLoreRoot } from '../../src/services/root-resolver.js';
 import type { IConfigLoader } from '../../src/interfaces/config-loader.js';
 import type { IGitClient } from '../../src/interfaces/git-client.js';
 import { join } from 'node:path';

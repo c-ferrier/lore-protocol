@@ -51,7 +51,7 @@ import { registerDoctorCommand } from './commands/doctor.js';
 import { LoreError, ValidationError } from './util/errors.js';
 import { shouldCheckForUpdate } from './util/update-check.js';
 import { shouldBypassCache } from './util/cache-check.js';
-import { resolveLoreRoot } from './util/root-resolver.js';
+import { resolveLoreRoot } from './services/root-resolver.js';
 
 /**
  * Composition root: constructs all dependencies and wires them together.
