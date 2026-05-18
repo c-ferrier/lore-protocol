@@ -70,6 +70,29 @@ describe('AtomCache', () => {
     await writeFile(path, '   \n  ');
     expect(await cache.getFiles(hash)).toBeNull();
   });
+
+  it('should recover from and overwrite corrupted cache files', async () => {
+    const cache = new AtomCache(cacheDir);
+    const hash = 'abc12345';
+    const shard = hash.substring(0, 2);
+    const rest = hash.substring(2);
+    const path = join(cacheDir, shard, rest);
+
+    await mkdir(dirname(path), { recursive: true });
+
+    // 1. Create a corrupted file (with NUL bytes)
+    await writeFile(path, Buffer.from([0, 0, 0]));
+    
+    // 2. Verify it's detected as a miss (returns null)
+    expect(await cache.getFiles(hash)).toBeNull();
+
+    // 3. Overwrite it with valid data
+    const validFiles = ['file1.ts', 'file2.ts'];
+    await cache.setFiles(hash, validFiles);
+
+    // 4. Verify it's now a hit with the correct data
+    expect(await cache.getFiles(hash)).toEqual(validFiles);
+  });
 });
 
 describe('NullAtomCache', () => {
