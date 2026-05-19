@@ -1,13 +1,15 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'node:child_process';
-import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { rmSync, mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
-import { AtomRepository } from '../../../src/services/atom-repository.js';
-import { GitClient } from '../../../src/services/git-client.js';
-import { TrailerParser } from '../../../src/services/trailer-parser.js';
+import { tmpdir } from 'node:os';
+import { SearchFilter } from "../../src/services/search-filter.js";
+import { AtomRepository } from '../../src/services/atom-repository.js';
+import { GitClient } from '../../src/services/git-client.js';
+import { TrailerParser } from '../../src/services/trailer-parser.js';
 
 describe('AtomRepository Git Integration', () => {
-  const testDir = join(process.cwd(), 'tests/tmp-git-test');
+  const testDir = realpathSync(tmpdir()) + '/lore-git-test-' + Math.random().toString(36).slice(2);
   let repo: AtomRepository;
 
   beforeAll(() => {
@@ -46,9 +48,11 @@ describe('AtomRepository Git Integration', () => {
     const gitClient = new GitClient(testDir);
     const trailerParser = new TrailerParser();
     
+    const searchFilter = new SearchFilter();
+    
     repo = new AtomRepository(
       gitClient,
-      trailerParser,
+      trailerParser, searchFilter,
     );
   });
 

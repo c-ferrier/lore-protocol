@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { SearchFilter } from "../../../src/services/search-filter.js";
 import { AtomRepository } from '../../../src/services/atom-repository.js';
 import { TrailerParser } from '../../../src/services/trailer-parser.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
@@ -62,16 +63,20 @@ describe('AtomRepository Filtering Parity', () => {
 
     trailerParser = new TrailerParser();
 
+    const searchFilter = new SearchFilter();
+
     repo = new AtomRepository(
       gitClient,
-      trailerParser,
+      trailerParser, searchFilter,
     );
   });
 
   describe('Discovery Phase (Git Coarse Filtering)', () => {
     it('should always include Atom Discovery Mode flags (Lore-id sentinel)', async () => {
-      const options = (repo as any).makeDefaultOptions();
-      const args = (repo as any).buildLogArgs(options);
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+      await repo.findAll();
+      
+      const args = vi.mocked(gitClient.log).mock.calls[0][0];
 
       expect(args).toContain('--grep=^Lore-id: [0-9a-f]{8}');
       expect(args).toContain('--extended-regexp');
@@ -80,13 +85,14 @@ describe('AtomRepository Filtering Parity', () => {
     });
 
     it('should generate correct Git flags for author and scope with Discovery Mode', async () => {
-      const options: Partial<PathQueryOptions> = {
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+      const options = {
         author: 'cole',
         scope: 'auth',
       };
 
-      // Access private buildLogArgs for inspection
-      const args = (repo as any).buildLogArgs((repo as any).makeDefaultOptions(options));
+      await repo.findAll(options);
+      const args = vi.mocked(gitClient.log).mock.calls[0][0];
 
       expect(args).toContain('--author=cole');
       expect(args).toContain('--regexp-ignore-case');
@@ -95,6 +101,52 @@ describe('AtomRepository Filtering Parity', () => {
       expect(args).toContain('--grep=^[a-zA-Z]+\\(auth\\)');
       expect(args).toContain('--extended-regexp');
     });
+
+    it('should generate correct Git flags for the "has" trailer filter', async () => {
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+      await repo.findAll({ has: 'Constraint' });
+      
+      const args = vi.mocked(gitClient.log).mock.calls[0][0];
+      expect(args).toContain('--grep=^Constraint: ');
+    });
+
+    it('should generate correct Git flags for Enum filters (pushdown)', async () => {
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+      await repo.findAll({
+        confidence: 'high',
+        scopeRisk: 'narrow',
+        reversibility: 'clean',
+      });
+      
+      const args = vi.mocked(gitClient.log).mock.calls[0][0];
+      expect(args).toContain('--grep=^Confidence: high');
+      expect(args).toContain('--grep=^Scope-risk: narrow');
+      expect(args).toContain('--grep=^Reversibility: clean');
+    });
+
+    it('should generate correct Git flags for full-text search (pushdown)', async () => {
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+      await repo.findAll({ text: 'login logic' });
+      
+      const args = vi.mocked(gitClient.log).mock.calls[0][0];
+      expect(args).toContain('--grep=login logic');
+    });
+
+    it('should escape regex special characters in scope and loreId (Security)', async () => {
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+      
+      // Test scope escaping
+      await repo.findAll({ scope: 'auth)' });
+      let args = vi.mocked(gitClient.log).mock.calls[0][0];
+      // Expected: ^[a-zA-Z]+\(auth\)\)
+      // Since it's passed as a literal string to execFile, no extra JS backslashes are needed in the match
+      expect(args).toContain('--grep=^[a-zA-Z]+\\(auth\\)\\)');
+
+      // Test loreId in findByLoreId (which also uses escapeRegex)
+      await repo.findByLoreId('abc12345');
+      args = vi.mocked(gitClient.log).mock.calls[1][0];
+      expect(args).toContain('--grep=^Lore-id: abc12345');
+    });
   });
 
   describe('Refinement Phase (Lore Fine Filtering)', () => {
@@ -102,19 +154,37 @@ describe('AtomRepository Filtering Parity', () => {
       // Simulate Git returning everything (no coarse filtering)
       vi.mocked(gitClient.log).mockResolvedValue(mockAtoms);
 
-      const options: Partial<PathQueryOptions> = {
+      const result = await repo.findAll({
         author: 'cole',
         scope: 'auth',
-      };
+      });
 
-      const result = await repo.findAll(options);
-
-      // Should only find hash1
-      // hash2: different author, different scope
-      // hash3: same author, different scope
-      // hash5: different author, different scope
       expect(result).toHaveLength(1);
       expect(result[0].commitHash).toBe('hash1');
+    });
+
+    it('should correctly refine results for Enums and Has', async () => {
+      vi.mocked(gitClient.log).mockResolvedValue(mockAtoms);
+
+      // Only hash1 is high confidence
+      const resultConf = await repo.findAll({ confidence: 'high' });
+      expect(resultConf).toHaveLength(2); // hash1 and hash5
+      
+      // hash5 has a Constraint trailer
+      const resultHas = await repo.findAll({ has: 'Constraint' });
+      expect(resultHas).toHaveLength(1);
+      expect(resultHas[0].commitHash).toBe('hash5');
+    });
+
+    it('should correctly refine results for full-text search', async () => {
+      vi.mocked(gitClient.log).mockResolvedValue(mockAtoms);
+
+      // Search for "login" which is in body of hash3 but not subject
+      const result = await repo.findAll({ text: 'login' });
+      expect(result).toHaveLength(2); // hash1 (subject) and hash3 (body)
+      const hashes = result.map(a => a.commitHash);
+      expect(hashes).toContain('hash1');
+      expect(hashes).toContain('hash3');
     });
   });
 
@@ -122,7 +192,7 @@ describe('AtomRepository Filtering Parity', () => {
     it('behaves as an AND operation across different filter types', async () => {
       vi.mocked(gitClient.log).mockResolvedValue(mockAtoms);
 
-      const options: Partial<PathQueryOptions> = {
+      const options: Partial<QueryOptions> = {
         author: 'cole',
         scope: 'api',
       };

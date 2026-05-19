@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { execSync } from 'node:child_process';
 import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { SearchFilter } from "../../src/services/search-filter.js";
 import { AtomRepository } from '../../src/services/atom-repository.js';
 import { GitClient } from '../../src/services/git-client.js';
 import { TrailerParser } from '../../src/services/trailer-parser.js';
@@ -34,9 +35,10 @@ describe('AtomRepository False Positive Repro', () => {
     gitClient = new GitClient(testDir);
     const trailerParser = new TrailerParser();
     
+    const searchFilter = new SearchFilter();
     repo = new AtomRepository(
       gitClient,
-      trailerParser,
+      trailerParser, searchFilter,
     );
   });
 

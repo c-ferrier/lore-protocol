@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { SearchFilter } from '../../../src/services/search-filter.js';
 import { AtomRepository } from '../../../src/services/atom-repository.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
 import type { PathQueryOptions } from '../../../src/types/query.js';
@@ -139,7 +140,8 @@ describe('AtomRepository', () => {
   beforeEach(() => {
     gitClient = createMockGitClient();
     trailerParser = createMockTrailerParser();
-    repo = new AtomRepository(gitClient, trailerParser as any);
+    const searchFilter = new SearchFilter();
+    repo = new AtomRepository(gitClient, trailerParser as any, searchFilter);
   });
 
   describe('findByTarget', () => {
@@ -186,7 +188,7 @@ describe('AtomRepository', () => {
       await repo.findByTarget(makeGitLogArgs(), options);
 
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--author=alice@example.com');
+      expect(logArgs).toContain('--author=alice@example\\.com');
     });
 
     it('should pass since filter to git log args', async () => {

@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { PathQueryOptions, QueryResult } from '../types/query.js';
+import type { QueryOptions, QueryResult } from '../types/query.js';
 import type { LoreAtom } from '../types/domain.js';
 import type { FormattableQueryResult } from '../types/output.js';
 import { mergeOptions } from './helpers/merge-options.js';
@@ -43,10 +43,10 @@ export function registerLogCommand(
 
       if (paths.length > 0) {
         // Use git-level path filtering via findByTarget (#24)
-        const queryOptions: PathQueryOptions = {
+        const queryOptions: QueryOptions = {
           scope: null,
-          follow: false,
-          all: false,
+          followLinks: false,
+          includeSuperseded: false,
           author: null,
           limit: null,
           maxCommits: options.maxCommits ?? null,
@@ -55,7 +55,7 @@ export function registerLogCommand(
         };
         atoms = await atomRepository.findByTarget(['--', ...paths], queryOptions);
       } else {
-        const findOptions: Partial<PathQueryOptions> = {
+        const findOptions: QueryOptions = {
           ...(options.since ? { since: options.since } : {}),
           ...(options.until ? { until: options.until } : {}),
           ...(options.maxCommits !== undefined && options.maxCommits > 0 ? { maxCommits: options.maxCommits } : {}),
