@@ -42,6 +42,7 @@ export const LORE_ID_LENGTH = 8;
 export const REFERENCE_TRAILER_KEYS = ['Supersedes', 'Depends-on', 'Related'] as const;
 
 export const DEFAULT_QUERY_LIMIT = 100;
+export const DEFAULT_CACHE_PRUNE_THRESHOLD = 100;
 export const DEFAULT_STALE_OLDER_THAN = '6m';
 export const DEFAULT_STALE_DRIFT_THRESHOLD = 20;
 export const GIT_FILES_CHANGED_BATCH_SIZE = 20;

@@ -27,6 +27,9 @@ const CAMEL_TO_SNAKE: Record<string, Record<string, string>> = {
   follow: {
     maxDepth: 'max_depth',
   },
+  cache: {
+    pruneThreshold: 'prune_threshold',
+  },
   cli: {
     updateCheck: 'update_check',
   },

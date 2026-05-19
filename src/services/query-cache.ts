@@ -1,13 +1,17 @@
 import { readFile, writeFile, mkdir, readdir, stat, unlink, utimes, rename } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
+import { DEFAULT_CACHE_PRUNE_THRESHOLD } from '../util/constants.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import type { QueryOptions } from '../types/query.js';
 
 const HEX_HASH = /^[0-9a-f]{7,64}$/i;
 
 export class QueryCache implements IQueryCache {
-  constructor(private readonly cacheDir: string) {}
+  constructor(
+    private readonly cacheDir: string,
+    private readonly pruneThreshold: number = DEFAULT_CACHE_PRUNE_THRESHOLD,
+  ) {}
 
   async get(
     headHash: string,
@@ -95,7 +99,7 @@ export class QueryCache implements IQueryCache {
       // Filter out non-cache files (like .tmp files or .gitignore)
       const cacheFiles = files.filter(f => !f.startsWith('.') && !f.includes('.tmp.'));
       
-      if (cacheFiles.length <= 100) return;
+      if (cacheFiles.length <= this.pruneThreshold) return;
 
       // Get stats for all files to find oldest by access time
       const stats = await Promise.all(
@@ -116,8 +120,8 @@ export class QueryCache implements IQueryCache {
       // Sort by atime ascending (oldest first)
       fileStats.sort((a, b) => a.atime - b.atime);
 
-      // Delete oldest files until we are at exactly 100
-      const toDelete = fileStats.slice(0, fileStats.length - 100);
+      // Delete oldest files until we are at exactly the threshold
+      const toDelete = fileStats.slice(0, fileStats.length - this.pruneThreshold);
       await Promise.all(
         toDelete.map(async (f) => {
           try {

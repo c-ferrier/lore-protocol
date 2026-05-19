@@ -115,7 +115,7 @@ async function main(): Promise<void> {
 
   const queryCache = bypassCache
     ? new NullQueryCache()
-    : new QueryCache(queryCacheDir);
+    : new QueryCache(queryCacheDir, config.cache.pruneThreshold);
 
   // 6. Create services that depend on others
   const supersessionResolver = new SupersessionResolver();

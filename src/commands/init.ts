@@ -2,7 +2,13 @@ import type { Command } from 'commander';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
-import { CONFIG_DIR, CONFIG_FILENAME } from '../util/constants.js';
+import {
+  CONFIG_DIR,
+  CONFIG_FILENAME,
+  DEFAULT_CACHE_PRUNE_THRESHOLD,
+  DEFAULT_STALE_OLDER_THAN,
+  DEFAULT_STALE_DRIFT_THRESHOLD,
+} from '../util/constants.js';
 
 const DEFAULT_CONFIG_CONTENT = `[protocol]
 version = "1.0"
@@ -17,14 +23,17 @@ max_message_lines = 50
 intent_max_length = 72
 
 [stale]
-older_than = "6m"
-drift_threshold = 20
+older_than = "${DEFAULT_STALE_OLDER_THAN}"
+drift_threshold = ${DEFAULT_STALE_DRIFT_THRESHOLD}
 
 [output]
 default_format = "text"
 
 [follow]
 max_depth = 3
+
+[cache]
+prune_threshold = ${DEFAULT_CACHE_PRUNE_THRESHOLD}
 
 [cli]
 cache = true

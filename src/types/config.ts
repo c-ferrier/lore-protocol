@@ -1,3 +1,5 @@
+import { DEFAULT_CACHE_PRUNE_THRESHOLD } from '../util/constants.js';
+
 export interface LoreConfig {
   readonly protocol: {
     readonly version: string;
@@ -21,6 +23,9 @@ export interface LoreConfig {
   readonly follow: {
     readonly maxDepth: number;
   };
+  readonly cache: {
+    readonly pruneThreshold: number;
+  };
   readonly cli: {
     readonly cache: boolean;
     readonly updateCheck: boolean;
@@ -34,5 +39,6 @@ export const DEFAULT_CONFIG: LoreConfig = {
   stale: { olderThan: '6m', driftThreshold: 20 },
   output: { defaultFormat: 'text' },
   follow: { maxDepth: 3 },
+  cache: { pruneThreshold: DEFAULT_CACHE_PRUNE_THRESHOLD },
   cli: { cache: true, updateCheck: true },
 };

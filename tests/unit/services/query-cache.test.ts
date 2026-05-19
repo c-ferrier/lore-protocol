@@ -140,6 +140,20 @@ describe('QueryCache', () => {
 
     expect(remaining).toBe(100);
   });
+
+  it('should honor custom prune threshold', async () => {
+    const threshold = 5;
+    const cache = new QueryCache(cacheDir, threshold);
+    
+    // Create 10 dummy files
+    for (let i = 0; i < 10; i++) {
+        await writeFile(join(cacheDir, `f-${i}`), 'data');
+    }
+    
+    await cache.prune();
+    const files = await (await import('node:fs/promises')).readdir(cacheDir);
+    expect(files.length).toBe(threshold);
+  });
 });
 
 describe('NullQueryCache', () => {
