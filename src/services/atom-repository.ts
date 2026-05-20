@@ -2,13 +2,19 @@ import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
 import type { QueryOptions, DiscoveryOptions } from '../types/query.js';
 import type { LoreAtom, LoreId, LoreTrailers } from '../types/domain.js';
 import type { TrailerParser } from '../services/trailer-parser.js';
-import type { SearchFilter } from '../services/search-filter.js';
+import type { SearchFilter, FilterOptions } from '../services/search-filter.js';
 import {
   LORE_ID_PATTERN,
   REFERENCE_TRAILER_KEYS,
   GIT_FILES_CHANGED_BATCH_SIZE,
 } from '../util/constants.js';
 import { escapeRegex } from '../util/regex.js';
+
+/**
+ * Internal extension of QueryOptions that includes pre-resolved dates.
+ * This ensures the Authoritative Pass in SearchFilter is deterministic.
+ */
+interface ResolvedQueryOptions extends QueryOptions, FilterOptions {}
 
 /**
  * Retrieves LoreAtoms from git history.
@@ -31,11 +37,12 @@ export class AtomRepository {
    * path resolution is the caller's responsibility (DIP).
    */
   async findByTarget(gitLogArgs: readonly string[], options: QueryOptions): Promise<LoreAtom[]> {
-    const logArgs = this.buildLogArgs(options);
+    const resolved = await this.resolveQueryDates(options);
+    const logArgs = this.buildLogArgs(resolved);
     const allArgs = [...logArgs, ...gitLogArgs];
     const rawCommits = await this.gitClient.log(allArgs);
     const atoms = await this.parseRawCommits(rawCommits);
-    return this.searchFilter.applyFilters(atoms, options);
+    return this.searchFilter.applyFilters(atoms, resolved);
   }
 
   /**
@@ -92,10 +99,25 @@ export class AtomRepository {
    */
   async findAll(options: DiscoveryOptions = {}): Promise<LoreAtom[]> {
     const queryOptions = this.makeDefaultOptions(options);
-    const args = this.buildLogArgs(queryOptions);
+    const resolved = await this.resolveQueryDates(queryOptions);
+    const args = this.buildLogArgs(resolved);
     const rawCommits = await this.gitClient.log(args);
     const atoms = await this.parseRawCommits(rawCommits);
-    return this.searchFilter.applyFilters(atoms, queryOptions);
+    return this.searchFilter.applyFilters(atoms, resolved);
+  }
+
+  /**
+   * Resolve symbolic dates (relative, refs, ISO) into absolute JS Date objects.
+   */
+  private async resolveQueryDates(options: QueryOptions): Promise<ResolvedQueryOptions> {
+    const sinceDate = options.since ? await this.gitClient.resolveDate(options.since) : null;
+    const untilDate = options.until ? await this.gitClient.resolveDate(options.until) : null;
+
+    return {
+      ...options,
+      sinceDate,
+      untilDate,
+    };
   }
 
   /**
@@ -167,15 +189,17 @@ export class AtomRepository {
    * Lore-id grep pattern. Any additional `--grep` patterns added by callers will
    * be joined with AND semantics.
    */
-  private buildLogArgs(options: DiscoveryOptions): string[] {
+  private buildLogArgs(options: ResolvedQueryOptions): string[] {
     const args: string[] = [];
 
-    if (options.since) {
-      args.push(`--since=${options.since}`);
+    if (options.sinceDate) {
+      args.push(`--since=${options.sinceDate.toISOString()}`);
     }
-    if (options.until) {
-      args.push(`--until=${options.until}`);
+
+    if (options.untilDate) {
+      args.push(`--until=${options.untilDate.toISOString()}`);
     }
+
     if (options.maxCommits !== null && options.maxCommits !== undefined && options.maxCommits > 0) {
       args.push(`--max-count=${options.maxCommits}`);
     }

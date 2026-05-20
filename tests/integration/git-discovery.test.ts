@@ -27,6 +27,9 @@ describe('AtomRepository Git Integration', () => {
     writeFileSync(join(testDir, 'file1.txt'), 'content1');
     run('git add .');
     run('git commit -m "feat(auth): login feature\n\nLore-id: 00000001\nConfidence: high"');
+    
+    // Add delay to ensure distinct timestamps for --since tests
+    run('sleep 1.1');
 
     // 2. Another Valid Lore Atom (different scope/author)
     run('git config user.name "Other User"');
@@ -35,6 +38,7 @@ describe('AtomRepository Git Integration', () => {
     run('git commit -m "fix(ui): layout\n\nLore-id: 00000002\nConfidence: low"');
 
     // 3. Non-Lore Commit (Should be filtered by discovery mode)
+    run('sleep 1.1');
     writeFileSync(join(testDir, 'file3.txt'), 'content3');
     run('git add .');
     run('git commit -m "chore: just a cleanup"');
@@ -98,5 +102,60 @@ describe('AtomRepository Git Integration', () => {
     yesterday.setDate(yesterday.getDate() - 1);
     const resultPast = await repo.findAll({ since: yesterday.toISOString() });
     expect(resultPast).toHaveLength(2);
+  });
+
+  it('Coarse Filtering: should handle relative dates (e.g., "1 hour ago")', async () => {
+    const result = await repo.findAll({ since: '1 hour ago' });
+    // Since we just created the commits in beforeAll, they should be found.
+    expect(result).toHaveLength(2);
+  });
+
+  it('Coarse Filtering: should handle commit references (e.g., "HEAD~2")', async () => {
+    // In our setup:
+    // HEAD   = #4 (Fake)
+    // HEAD~1 = #3 (Chore)
+    // HEAD~2 = #2 (Atom 00000002) - Date of this commit
+    // HEAD~3 = #1 (Atom 00000001) - Date of this commit
+    
+    // Everything since the date of Atom 00000002 (inclusive)
+    const result = await repo.findAll({ since: 'HEAD~2' });
+    expect(result).toHaveLength(1);
+    expect(result[0].loreId).toBe('00000002');
+  });
+
+  it('Coarse Filtering: should handle until filtering with refs (e.g., "HEAD~1")', async () => {
+    // HEAD~1 is the chore commit (#3). 
+    // Everything UNTIL chore commit should include both atoms #1 and #2.
+    const result = await repo.findAll({ until: 'HEAD~1' });
+    expect(result).toHaveLength(2);
+    const ids = result.map(a => a.loreId);
+    expect(ids).toContain('00000001');
+    expect(ids).toContain('00000002');
+  });
+
+  it('Coarse Filtering: should handle commit hashes', async () => {
+    // Get the hash of Atom 00000002
+    const atoms = await repo.findAll({});
+    const atom2 = atoms.find(a => a.loreId === '00000002')!;
+    const hash = atom2.commitHash;
+
+    // since that hash should include it
+    const resultSince = await repo.findAll({ since: hash });
+    expect(resultSince.map(a => a.loreId)).toContain('00000002');
+
+    // short hash should also work
+    const resultShort = await repo.findAll({ since: hash.substring(0, 7) });
+    expect(resultShort.map(a => a.loreId)).toContain('00000002');
+  });
+
+  it('Coarse Filtering: should handle garbage date strings gracefully', async () => {
+    // Git resolves garbage to "now", so --since="garbage" should return nothing.
+    const result = await repo.findAll({ since: 'not-a-date-at-all' });
+    expect(result).toHaveLength(0);
+
+    // Git resolves garbage to "now", so --until="garbage" should return everything 
+    // up to the current second (which is all commits in this test setup).
+    const resultUntil = await repo.findAll({ until: 'garbage-date' });
+    expect(resultUntil).toHaveLength(2);
   });
 });

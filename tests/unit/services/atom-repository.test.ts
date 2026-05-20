@@ -90,6 +90,8 @@ function createMockGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
     getFilesChanged: vi.fn(async () => []),
     countCommitsSince: vi.fn(async () => 0),
     resolveRef: vi.fn(async () => 'abc123'),
+    resolveDate: vi.fn(async (date) => new Date(date)),
+    getHeadMessage: vi.fn(async () => 'feat(auth): initial commit'),
     ...overrides,
   };
 }
@@ -193,12 +195,14 @@ describe('AtomRepository', () => {
 
     it('should pass since filter to git log args', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
+      const testDate = new Date('2025-01-01');
+      vi.mocked(gitClient.resolveDate).mockResolvedValue(testDate);
 
       const options = makeQueryOptions({ since: '2025-01-01' });
       await repo.findByTarget(makeGitLogArgs(), options);
 
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--since=2025-01-01');
+      expect(logArgs).toContain(`--since=${testDate.toISOString()}`);
     });
 
     it('should pass maxCommits to git log args', async () => {
@@ -319,20 +323,24 @@ describe('AtomRepository', () => {
 
     it('should pass since option to git log', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
+      const testDate = new Date('2025-01-01');
+      vi.mocked(gitClient.resolveDate).mockResolvedValue(testDate);
 
       await repo.findAll({ since: '2025-01-01' });
 
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--since=2025-01-01');
+      expect(logArgs).toContain(`--since=${testDate.toISOString()}`);
     });
 
     it('should pass until option to git log', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
+      const testDate = new Date('2025-06-01');
+      vi.mocked(gitClient.resolveDate).mockResolvedValue(testDate);
 
       await repo.findAll({ until: '2025-06-01' });
 
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--until=2025-06-01');
+      expect(logArgs).toContain(`--until=${testDate.toISOString()}`);
     });
 
     it('should pass maxCommits option to git log', async () => {

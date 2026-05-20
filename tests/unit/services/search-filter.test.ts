@@ -70,7 +70,10 @@ describe('SearchFilter', () => {
   });
 
   it('should filter by date range (since)', () => {
-    const results = filter.applyFilters(mockAtoms, { since: '2026-05-05' });
+    const results = filter.applyFilters(mockAtoms, { 
+      since: '2026-05-05',
+      sinceDate: new Date('2026-05-05') 
+    });
     expect(results).toHaveLength(1);
     expect(results[0].loreId).toBe('def67890');
   });

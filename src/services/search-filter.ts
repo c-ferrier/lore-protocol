@@ -3,6 +3,14 @@ import type { DiscoveryOptions } from '../types/query.js';
 import { ARRAY_TRAILER_KEYS, ENUM_TRAILER_KEYS } from '../util/constants.js';
 
 /**
+ * Internal options for filtering that include pre-resolved absolute dates.
+ */
+export interface FilterOptions extends DiscoveryOptions {
+  readonly sinceDate?: Date | null;
+  readonly untilDate?: Date | null;
+}
+
+/**
  * Applies authoritative application-level filtering to a collection of LoreAtoms.
  *
  * GRASP: Information Expert -- knows how to match atoms against search criteria.
@@ -19,7 +27,7 @@ export class SearchFilter {
    * in the AtomRepository, but this method provides the authoritative second
    * layer of filtering for absolute precision and Lore-specific semantics.
    */
-  applyFilters(atoms: readonly LoreAtom[], options: DiscoveryOptions): LoreAtom[] {
+  applyFilters(atoms: readonly LoreAtom[], options: FilterOptions): LoreAtom[] {
     let result = [...atoms];
 
     if (options.confidence !== null && options.confidence !== undefined) {
@@ -56,18 +64,12 @@ export class SearchFilter {
       });
     }
 
-    if (options.since !== null && options.since !== undefined) {
-      const sinceDate = new Date(options.since);
-      if (!isNaN(sinceDate.getTime())) {
-        result = result.filter((atom) => atom.date >= sinceDate);
-      }
+    if (options.sinceDate) {
+      result = result.filter((atom) => atom.date >= options.sinceDate!);
     }
 
-    if (options.until !== null && options.until !== undefined) {
-      const untilDate = new Date(options.until);
-      if (!isNaN(untilDate.getTime())) {
-        result = result.filter((atom) => atom.date <= untilDate);
-      }
+    if (options.untilDate) {
+      result = result.filter((atom) => atom.date <= options.untilDate!);
     }
 
     if (options.text !== null && options.text !== undefined) {
