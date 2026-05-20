@@ -75,6 +75,10 @@ function buildHarness(atoms: LoreAtom[], filteredAtoms?: LoreAtom[]): Harness {
     resolve: vi.fn().mockReturnValue(new Map()),
   } as unknown as SupersessionResolver;
 
+  const pathResolver = {
+    toGitLogArgsMulti: vi.fn((paths: string[]) => ['--', ...paths]),
+  } as any;
+
   const capturedResult: { data: unknown } = { data: undefined };
   const formatQueryResult = vi.fn((data: unknown) => {
     capturedResult.data = data;
@@ -98,6 +102,7 @@ function buildHarness(atoms: LoreAtom[], filteredAtoms?: LoreAtom[]): Harness {
   registerLogCommand(program, {
     atomRepository,
     supersessionResolver,
+    pathResolver,
     getFormatter: () => formatter,
   });
 

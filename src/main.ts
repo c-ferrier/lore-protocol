@@ -77,31 +77,34 @@ async function main(): Promise<void> {
     .option('--no-cache', 'Bypass caching in the CLI');
 
 
-  // 1. Create concrete implementations
-  const gitClient: IGitClient = new GitClient();
-  const trailerParser = new TrailerParser();
-  const pathResolver = new PathResolver();
-  const loreIdGenerator = new LoreIdGenerator();
+  // 1. Create bootstrap services for root discovery
   const configLoader: IConfigLoader = new ConfigLoader();
+  const bootstrapGitClient: IGitClient = new GitClient(); // Default CWD
 
-  // 2. Load config (best-effort: default if not found)
+  // 2. Resolve project root for caching and config
+  const loreRoot = await resolveLoreRoot(process.cwd(), configLoader, bootstrapGitClient);
+
+  // 3. Load config (best-effort: default if not found)
   let config;
   try {
-    config = await configLoader.loadForPath(process.cwd());
+    config = await configLoader.loadForPath(loreRoot);
   } catch {
     // Fall back to defaults if config can't be loaded
     const { DEFAULT_CONFIG } = await import('./types/config.js');
     config = DEFAULT_CONFIG;
   }
 
-  // 3. Resolve project root for caching and config
-  const loreRoot = await resolveLoreRoot(process.cwd(), configLoader, gitClient);
+  // 4. Create primary services with resolved root context
+  const gitClient: IGitClient = new GitClient(loreRoot);
+  const trailerParser = new TrailerParser();
+  const pathResolver = new PathResolver(process.cwd(), loreRoot);
+  const loreIdGenerator = new LoreIdGenerator();
 
   const cacheDir = join(loreRoot, '.lore', 'cache');
   const atomCacheDir = join(cacheDir, 'atoms');
   const queryCacheDir = join(cacheDir, 'query');
 
-  // 4. Update notification (fire-and-forget, respects env vars and config)
+  // 5. Update notification (fire-and-forget, respects env vars and config)
   if (shouldCheckForUpdate(config.cli.updateCheck)) {
     simpleUpdateNotifier({ pkg }).catch(() => {});
   }
@@ -186,6 +189,7 @@ async function main(): Promise<void> {
   registerLogCommand(program, {
     atomRepository,
     supersessionResolver,
+    pathResolver,
     getFormatter,
   });
 

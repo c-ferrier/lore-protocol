@@ -1,8 +1,48 @@
 import { describe, it, expect } from 'vitest';
+import { resolve } from 'node:path';
 import { PathResolver } from '../../../src/services/path-resolver.js';
 
 describe('PathResolver', () => {
-  const resolver = new PathResolver();
+  // We use process.cwd() as root for basic classification tests to maintain original behavior
+  const root = process.cwd();
+  const resolver = new PathResolver(root, root);
+
+  describe('Path Normalization (Multi-directory awareness)', () => {
+    const mockRoot = resolve('/project');
+    const mockSrc = resolve('/project/src');
+
+    it('should normalize "main.ts" to "src/main.ts" when CWD is src', () => {
+      const srcResolver = new PathResolver(mockSrc, mockRoot);
+      const result = srcResolver.parseTarget('main.ts');
+      expect(result.filePath).toBe('src/main.ts');
+    });
+
+    it('should normalize "." to "src" when CWD is src', () => {
+      const srcResolver = new PathResolver(mockSrc, mockRoot);
+      const result = srcResolver.parseTarget('.');
+      expect(result.filePath).toBe('src');
+    });
+
+    it('should normalize ".." to "." when CWD is src', () => {
+      const srcResolver = new PathResolver(mockSrc, mockRoot);
+      const result = srcResolver.parseTarget('..');
+      expect(result.filePath).toBe('.');
+    });
+
+    it('should normalize absolute paths to be relative to root', () => {
+      const srcResolver = new PathResolver(mockSrc, mockRoot);
+      const result = srcResolver.parseTarget(resolve('/project/tests/foo.ts'));
+      expect(result.filePath).toBe('tests/foo.ts');
+    });
+
+    it('should normalize Windows-style backslashes to POSIX forward slashes', () => {
+      const winResolver = new PathResolver(root, root);
+      // Manually trigger normalization on a path with backslashes
+      // We use any to test the private method logic
+      const result = (winResolver as any).normalizePath('src\\subdir\\file.ts');
+      expect(result).toBe('src/subdir/file.ts');
+    });
+  });
 
   describe('parseTarget', () => {
     describe('line-range targets', () => {
@@ -50,7 +90,8 @@ describe('PathResolver', () => {
       it('should classify trailing slash as directory', () => {
         const result = resolver.parseTarget('src/');
         expect(result.type).toBe('directory');
-        expect(result.filePath).toBe('src/');
+        // Normalization strips trailing slash for consistency
+        expect(result.filePath).toBe('src');
         expect(result.lineStart).toBeNull();
         expect(result.lineEnd).toBeNull();
       });
@@ -58,12 +99,13 @@ describe('PathResolver', () => {
       it('should classify nested path with trailing slash as directory', () => {
         const result = resolver.parseTarget('src/services/db/');
         expect(result.type).toBe('directory');
-        expect(result.filePath).toBe('src/services/db/');
+        expect(result.filePath).toBe('src/services/db');
       });
 
       it('should classify root-relative directory', () => {
         const result = resolver.parseTarget('./src/');
         expect(result.type).toBe('directory');
+        expect(result.filePath).toBe('src');
       });
     });
 
@@ -111,21 +153,25 @@ describe('PathResolver', () => {
       it('should classify a dotfile as file', () => {
         const result = resolver.parseTarget('.gitignore');
         expect(result.type).toBe('file');
+        expect(result.filePath).toBe('.gitignore');
       });
 
       it('should classify a deeply nested file as file', () => {
         const result = resolver.parseTarget('src/services/db/connection.ts');
         expect(result.type).toBe('file');
+        expect(result.filePath).toBe('src/services/db/connection.ts');
       });
 
       it('should classify a file with spaces as file', () => {
         const result = resolver.parseTarget('my file.ts');
         expect(result.type).toBe('file');
+        expect(result.filePath).toBe('my file.ts');
       });
 
       it('should classify a relative path as file', () => {
         const result = resolver.parseTarget('./src/main.ts');
         expect(result.type).toBe('file');
+        expect(result.filePath).toBe('src/main.ts');
       });
     });
 
@@ -155,7 +201,7 @@ describe('PathResolver', () => {
     it('should produce -- filePath for directory targets', () => {
       const target = resolver.parseTarget('src/services/');
       const args = resolver.toGitLogArgs(target);
-      expect(args).toEqual(['--', 'src/services/']);
+      expect(args).toEqual(['--', 'src/services/db' === 'src/services' ? 'src/services' : 'src/services']);
     });
 
     it('should produce -- filePath for glob targets', () => {
@@ -212,7 +258,7 @@ describe('PathResolver', () => {
       const target = resolver.parseTarget('src/');
       const args = resolver.toGitBlameArgs(target);
       expect(args).toEqual({
-        file: 'src/',
+        file: 'src',
         lineStart: 1,
         lineEnd: -1,
       });

@@ -26,6 +26,7 @@ export function registerLogCommand(
   deps: {
     atomRepository: AtomRepository;
     supersessionResolver: SupersessionResolver;
+    pathResolver: PathResolver;
     getFormatter: () => IOutputFormatter;
   },
 ): void {
@@ -38,7 +39,7 @@ export function registerLogCommand(
     .option('--since <ref>', 'Only consider commits since ref/date')
     .action(async (paths: string[], _options: LogCommandOptions, command: Command) => {
       const options = mergeOptions<LogCommandOptions>(command);
-      const { atomRepository, supersessionResolver, getFormatter } = deps;
+      const { atomRepository, supersessionResolver, pathResolver, getFormatter } = deps;
 
       const queryOptions: QueryOptions = {
         since: options.since ?? null,
@@ -58,8 +59,9 @@ export function registerLogCommand(
         page: options.page ?? null,
       };
 
+      const gitLogArgs = pathResolver.toGitLogArgsMulti(paths);
       const { atoms: displayAtoms, totalCount, oldest, newest } = paths.length > 0
-        ? await atomRepository.findByTarget(['--', ...paths], queryOptions)
+        ? await atomRepository.findByTarget(gitLogArgs, queryOptions)
         : await atomRepository.findAll(queryOptions);
 
       // Build supersession map (show everything, including superseded atoms)
