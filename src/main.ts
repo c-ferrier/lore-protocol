@@ -77,6 +77,10 @@ async function main(): Promise<void> {
 
   // 2. Resolve project root for caching and config
   const loreRoot = await resolveLoreRoot(process.cwd(), configLoader, bootstrapGitClient);
+  const gitRoot = await bootstrapGitClient.isInsideRepo() 
+    ? await bootstrapGitClient.getRepoRoot() 
+    : loreRoot;
+  const isScoped = loreRoot !== gitRoot;
 
   // 3. Load config (best-effort: default if not found)
   let config;
@@ -100,7 +104,12 @@ async function main(): Promise<void> {
   }
 
   // 6. Create services that depend on others
-  const atomRepository = new AtomRepository(gitClient, trailerParser, config.trailers.custom);
+  const atomRepository = new AtomRepository(
+    gitClient, 
+    trailerParser, 
+    config.trailers.custom,
+    isScoped
+  );
   const supersessionResolver = new SupersessionResolver();
   const stalenessDetector = new StalenessDetector(gitClient, config);
   const commitBuilder = new CommitBuilder(trailerParser, loreIdGenerator, config);

@@ -16,6 +16,7 @@ export class AtomRepository {
     private readonly gitClient: IGitClient,
     private readonly trailerParser: TrailerParser,
     private readonly customTrailerKeys: readonly string[] = [],
+    private readonly isScoped: boolean = false,
   ) {}
 
   /**
@@ -41,7 +42,10 @@ export class AtomRepository {
       return null;
     }
 
-    const logArgs = ['--all', `--grep=Lore-id: ${loreId}`, '--', '.'];
+    const logArgs = ['--all', `--grep=Lore-id: ${loreId}`];
+    if (this.isScoped) {
+      logArgs.push('--', '.');
+    }
     const rawCommits = await this.gitClient.log(logArgs);
     const atoms = await this.parseRawCommits(rawCommits);
 
@@ -54,7 +58,11 @@ export class AtomRepository {
    * Returns null if the commit has no valid Lore trailers.
    */
   async findByCommitHash(hash: string): Promise<LoreAtom | null> {
-    const rawCommits = await this.gitClient.log(['-1', hash, '--', '.']);
+    const logArgs = ['-1', hash];
+    if (this.isScoped) {
+      logArgs.push('--', '.');
+    }
+    const rawCommits = await this.gitClient.log(logArgs);
     const atoms = await this.parseRawCommits(rawCommits);
     return atoms.length > 0 ? atoms[0] : null;
   }
@@ -64,7 +72,11 @@ export class AtomRepository {
    * Passes the range directly to git log.
    */
   async findByRange(range: string): Promise<LoreAtom[]> {
-    const rawCommits = await this.gitClient.log([range, '--', '.']);
+    const logArgs = [range];
+    if (this.isScoped) {
+      logArgs.push('--', '.');
+    }
+    const rawCommits = await this.gitClient.log(logArgs);
     return this.parseRawCommits(rawCommits);
   }
 
@@ -84,8 +96,10 @@ export class AtomRepository {
       args.push(`--max-count=${options.maxCommits}`);
     }
 
-    // Implicitly scope to loreRoot
-    args.push('--', '.');
+    // Implicitly scope to loreRoot if in a sub-project (monorepo)
+    if (this.isScoped) {
+      args.push('--', '.');
+    }
 
     const rawCommits = await this.gitClient.log(args);
     return this.parseRawCommits(rawCommits);
@@ -98,8 +112,10 @@ export class AtomRepository {
   async findByScope(scope: string, options: PathQueryOptions): Promise<LoreAtom[]> {
     const logArgs = this.buildLogArgs(options);
     
-    // Implicitly scope to loreRoot
-    logArgs.push('--', '.');
+    // Implicitly scope to loreRoot if in a sub-project (monorepo)
+    if (this.isScoped) {
+      logArgs.push('--', '.');
+    }
 
     const rawCommits = await this.gitClient.log(logArgs);
     const atoms = await this.parseRawCommits(rawCommits);
