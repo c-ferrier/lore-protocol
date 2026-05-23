@@ -135,7 +135,7 @@ async function main(): Promise<void> {
 
   // 8. Register all commands with their dependencies
 
-  registerInitCommand(program, { getFormatter });
+  registerInitCommand(program, { getFormatter, protocolName: config.protocol.name });
 
   const pathQueryDeps = {
     atomRepository,

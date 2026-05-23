@@ -49,6 +49,7 @@ export interface CustomTrailerDefinition {
 
 export interface LoreConfig {
   readonly protocol: {
+    readonly name: string;
     readonly version: string;
   };
   readonly trailers: {

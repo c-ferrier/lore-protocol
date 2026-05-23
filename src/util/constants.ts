@@ -20,6 +20,7 @@ import {
   LORE_ID_KEY as CORE_LORE_ID_KEY,
   LORE_ID_JSON_KEY as CORE_LORE_ID_JSON_KEY,
   LORE_VERSION_JSON_KEY as CORE_LORE_VERSION_JSON_KEY,
+  PROTOCOL_NAME as CORE_PROTOCOL_NAME,
   CORE_TRAILER_DEFINITIONS as MASTER_CORE_TRAILER_DEFINITIONS,
   STALE_SIGNAL_METADATA as CORE_STALE_SIGNAL_METADATA,
 } from './core-definitions.js';
@@ -32,6 +33,9 @@ export const LORE_ID_JSON_KEY = CORE_LORE_ID_JSON_KEY;
 
 /** The structural JSON key for protocol version */
 export const LORE_VERSION_JSON_KEY = CORE_LORE_VERSION_JSON_KEY;
+
+/** The name of the protocol (e.g. Lore, Fred, etc.) */
+export const PROTOCOL_NAME = CORE_PROTOCOL_NAME;
 
 /** The master specification for core protocol trailers */
 export const CORE_TRAILER_DEFINITIONS = MASTER_CORE_TRAILER_DEFINITIONS;
@@ -70,7 +74,7 @@ export const DEFAULT_MAX_COMMITS = 1000;
 
 /** The default configuration for the Lore protocol */
 export const DEFAULT_CONFIG: LoreConfig = {
-  protocol: { version: '1.0' },
+  protocol: { name: CORE_PROTOCOL_NAME, version: '1.0' },
   trailers: { required: [], custom: [], definitions: {}, permissive: true },
   validation: { strict: false, maxMessageLines: 50, intentMaxLength: 72 },
   stale: { olderThan: '6m', driftThreshold: 20 },
