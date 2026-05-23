@@ -24,7 +24,7 @@ export class CommitBuilder {
   /**
    * Builds a full git commit message with subject, body, and Lore trailer block.
    */
-  build(input: CommitInput, existingLoreId?: LoreId): string {
+  build(input: CommitInput, existingLoreId?: LoreId): { message: string; loreId: LoreId } {
     const loreId = existingLoreId || this.loreIdGenerator.generate();
     const trailers = this.buildTrailers(loreId, input);
     const trailerBlock = this.trailerParser.serialize(trailers);
@@ -35,7 +35,7 @@ export class CommitBuilder {
     }
     message += `\n\n${trailerBlock}`;
 
-    return message;
+    return { message, loreId };
   }
 
   /**

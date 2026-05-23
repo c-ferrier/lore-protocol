@@ -122,7 +122,7 @@ export function registerCommitCommand(
         existingLoreId = await headLoreIdReader.read();
       }
 
-      const message = commitBuilder.build(input, existingLoreId ?? undefined);
+      const { message, loreId } = commitBuilder.build(input, existingLoreId ?? undefined);
       const result = await gitClient.commit(message, { amend: !!options.amend });
 
       // Output
@@ -130,7 +130,7 @@ export function registerCommitCommand(
       console.log(
         formatter.formatSuccess(
           `Commit ${verb}: ${result.hash}`,
-          { hash: result.hash },
+          { hash: result.hash, lore_id: loreId },
         ),
       );
     });

@@ -42,7 +42,7 @@ function createMockFormatter(): IOutputFormatter {
 
 function createMockCommitBuilder(): CommitBuilder {
   return {
-    build: vi.fn().mockReturnValue('built message'),
+    build: vi.fn().mockReturnValue({ message: 'built message', loreId: 'a1b2c3d4' }),
     validate: vi.fn().mockReturnValue([]),
   } as unknown as CommitBuilder;
 }

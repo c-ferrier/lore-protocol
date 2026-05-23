@@ -3,7 +3,7 @@ import { SquashMerger } from '../../../src/services/squash-merger.js';
 import { Protocol } from '../../../src/services/protocol.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 import { LORE_ID_KEY } from '../../../src/util/constants.js';
-import type { LoreAtom, LoreTrailers } from '../../../src/types/domain.js';
+import type { LoreAtom, LoreTrailers, LoreId } from '../../../src/types/domain.js';
 
 function createMockIdGenerator(id = 'deadbeef') {
   return {
@@ -59,18 +59,19 @@ describe('SquashMerger', () => {
 
   it(`should generate a new ${LORE_ID_KEY}`, () => {
     const atom = makeAtom();
-    const result = merger.merge([atom], {});
+    const { message, loreId } = merger.merge([atom], {});
 
     expect(mockIdGen.generate).toHaveBeenCalledOnce();
-    expect(result).toContain(`${LORE_ID_KEY}: deadbeef`);
+    expect(message).toContain(`${LORE_ID_KEY}: deadbeef`);
+    expect(loreId).toBe('deadbeef');
   });
 
   describe('intent merging', () => {
     it('should use options.intent when provided', () => {
       const atom = makeAtom({ intent: 'old intent' });
-      const result = merger.merge([atom], { intent: 'new intent' });
+      const { message } = merger.merge([atom], { intent: 'new intent' });
 
-      expect(result.startsWith('new intent')).toBe(true);
+      expect(message.startsWith('new intent')).toBe(true);
     });
 
     it('should use newest atom intent when no option provided', () => {
@@ -85,38 +86,38 @@ describe('SquashMerger', () => {
         intent: 'newer intent',
       });
 
-      const result = merger.merge([older, newer], {});
+      const { message } = merger.merge([older, newer], {});
 
-      expect(result.startsWith('newer intent')).toBe(true);
+      expect(message.startsWith('newer intent')).toBe(true);
     });
   });
 
   describe('body merging', () => {
     it('should use options.body when provided', () => {
       const atom = makeAtom({ body: 'original body' });
-      const result = merger.merge([atom], { body: 'override body' });
+      const { message } = merger.merge([atom], { body: 'override body' });
 
-      expect(result).toContain('override body');
-      expect(result).not.toContain('original body');
+      expect(message).toContain('override body');
+      expect(message).not.toContain('original body');
     });
 
     it('should concatenate body summaries from all atoms', () => {
       const a1 = makeAtom({ loreId: 'aaaa0001', body: 'First body', date: new Date('2025-01-01') });
       const a2 = makeAtom({ loreId: 'aaaa0002', body: 'Second body', date: new Date('2025-02-01') });
 
-      const result = merger.merge([a1, a2], {});
+      const { message } = merger.merge([a1, a2], {});
 
-      expect(result).toContain('First body');
-      expect(result).toContain('Second body');
+      expect(message).toContain('First body');
+      expect(message).toContain('Second body');
     });
 
     it('should skip empty bodies', () => {
       const a1 = makeAtom({ loreId: 'aaaa0001', body: '', date: new Date('2025-01-01') });
       const a2 = makeAtom({ loreId: 'aaaa0002', body: 'Has body', date: new Date('2025-02-01') });
 
-      const result = merger.merge([a1, a2], {});
+      const { message } = merger.merge([a1, a2], {});
 
-      expect(result).toContain('Has body');
+      expect(message).toContain('Has body');
     });
   });
 
@@ -139,12 +140,12 @@ describe('SquashMerger', () => {
         }),
       });
 
-      const result = merger.merge([a1, a2], {});
+      const { message } = merger.merge([a1, a2], {});
 
-      expect(result).toContain('Constraint: Must use HTTPS');
-      expect(result).toContain('Constraint: No external deps');
-      expect(result).toContain('Constraint: Max 100ms latency');
-      const matches = result.match(/Constraint: Must use HTTPS/g);
+      expect(message).toContain('Constraint: Must use HTTPS');
+      expect(message).toContain('Constraint: No external deps');
+      expect(message).toContain('Constraint: Max 100ms latency');
+      const matches = message.match(/Constraint: Must use HTTPS/g);
       expect(matches).toHaveLength(1);
     });
   });
@@ -160,8 +161,8 @@ describe('SquashMerger', () => {
         trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], Confidence: ['low'] }),
       });
 
-      const result = merger.merge([a1, a2], {});
-      expect(result).toContain('Confidence: low');
+      const { message } = merger.merge([a1, a2], {});
+      expect(message).toContain('Confidence: low');
     });
 
     it('should pick widest scope-risk', () => {
@@ -174,8 +175,8 @@ describe('SquashMerger', () => {
         trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], 'Scope-risk': ['wide'] }),
       });
 
-      const result = merger.merge([a1, a2], {});
-      expect(result).toContain('Scope-risk: wide');
+      const { message } = merger.merge([a1, a2], {});
+      expect(message).toContain('Scope-risk: wide');
     });
 
     it('should pick least reversible', () => {
@@ -188,8 +189,8 @@ describe('SquashMerger', () => {
         trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], Reversibility: ['irreversible'] }),
       });
 
-      const result = merger.merge([a1, a2], {});
-      expect(result).toContain('Reversibility: irreversible');
+      const { message } = merger.merge([a1, a2], {});
+      expect(message).toContain('Reversibility: irreversible');
     });
 
     it('should handle null enum values gracefully', () => {
@@ -202,8 +203,8 @@ describe('SquashMerger', () => {
         trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], Confidence: [] }),
       });
 
-      const result = merger.merge([a1, a2], {});
-      expect(result).toContain('Confidence: medium');
+      const { message } = merger.merge([a1, a2], {});
+      expect(message).toContain('Confidence: medium');
     });
 
     it('should pick medium over high for confidence', () => {
@@ -216,8 +217,8 @@ describe('SquashMerger', () => {
         trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], Confidence: ['medium'] }),
       });
 
-      const result = merger.merge([a1, a2], {});
-      expect(result).toContain('Confidence: medium');
+      const { message } = merger.merge([a1, a2], {});
+      expect(message).toContain('Confidence: medium');
     });
 
     it('should pick moderate over narrow for scope-risk', () => {
@@ -230,8 +231,8 @@ describe('SquashMerger', () => {
         trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], 'Scope-risk': ['moderate'] }),
       });
 
-      const result = merger.merge([a1, a2], {});
-      expect(result).toContain('Scope-risk: moderate');
+      const { message } = merger.merge([a1, a2], {});
+      expect(message).toContain('Scope-risk: moderate');
     });
 
     it('should pick migration-needed over clean for reversibility', () => {
@@ -244,8 +245,8 @@ describe('SquashMerger', () => {
         trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], Reversibility: ['migration-needed'] }),
       });
 
-      const result = merger.merge([a1, a2], {});
-      expect(result).toContain('Reversibility: migration-needed');
+      const { message } = merger.merge([a1, a2], {});
+      expect(message).toContain('Reversibility: migration-needed');
     });
   });
 
@@ -266,9 +267,9 @@ describe('SquashMerger', () => {
         }),
       });
 
-      const result = merger.merge([a1, a2], {});
-      expect(result).not.toContain('Related: aaaa0002');
-      expect(result).not.toContain('Depends-on: aaaa0001');
+      const { message } = merger.merge([a1, a2], {});
+      expect(message).not.toContain('Related: aaaa0002');
+      expect(message).not.toContain('Depends-on: aaaa0001');
     });
 
     it('should merge and preserve custom trailers', () => {
@@ -288,25 +289,25 @@ describe('SquashMerger', () => {
         } as any),
       });
 
-      const result = merger.merge([a1, a2], {});
-      expect(result).toContain('Team: platform');
-      expect(result).toContain('Team: core');
-      expect(result).toContain('Ticket: PROJ-123');
+      const { message } = merger.merge([a1, a2], {});
+      expect(message).toContain('Team: platform');
+      expect(message).toContain('Team: core');
+      expect(message).toContain('Ticket: PROJ-123');
     });
 
     describe('squash strategies', () => {
       it('should respect rank-min (Confidence: low < high)', () => {
         const a1 = makeAtom({ trailers: makeTrailers({ Confidence: ['high'] }) });
         const a2 = makeAtom({ trailers: makeTrailers({ Confidence: ['low'] }) });
-        const result = merger.merge([a1, a2], {});
-        expect(result).toContain('Confidence: low');
+        const { message } = merger.merge([a1, a2], {});
+        expect(message).toContain('Confidence: low');
       });
 
       it('should respect rank-max (Scope-risk: wide > narrow)', () => {
         const a1 = makeAtom({ trailers: makeTrailers({ 'Scope-risk': ['narrow'] }) });
         const a2 = makeAtom({ trailers: makeTrailers({ 'Scope-risk': ['wide'] }) });
-        const result = merger.merge([a1, a2], {});
-        expect(result).toContain('Scope-risk: wide');
+        const { message } = merger.merge([a1, a2], {});
+        expect(message).toContain('Scope-risk: wide');
       });
 
       it('should support rank-max for custom enums', () => {
@@ -333,8 +334,8 @@ describe('SquashMerger', () => {
         const a1 = makeAtom({ trailers: makeTrailers({ Priority: ['low'] } as any) });
         const a2 = makeAtom({ trailers: makeTrailers({ Priority: ['urgent'] } as any) });
         
-        const result = customMerger.merge([a1, a2], {});
-        expect(result).toContain('Priority: urgent');
+        const { message } = customMerger.merge([a1, a2], {});
+        expect(message).toContain('Priority: urgent');
       });
     });
   });
@@ -350,12 +351,13 @@ describe('SquashMerger', () => {
         }),
       });
 
-      const result = merger.merge([atom], {});
+      const { message, loreId } = merger.merge([atom], {});
 
-      expect(result).toContain('single atom intent');
-      expect(result).toContain(`${LORE_ID_KEY}: deadbeef`);
-      expect(result).toContain('Constraint: Some constraint');
-      expect(result).toContain('Confidence: high');
+      expect(message).toContain('single atom intent');
+      expect(message).toContain(`${LORE_ID_KEY}: deadbeef`);
+      expect(message).toContain('Constraint: Some constraint');
+      expect(message).toContain('Confidence: high');
+      expect(loreId).toBe('deadbeef');
     });
   });
 
@@ -367,8 +369,8 @@ describe('SquashMerger', () => {
         trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0001'], Confidence: ['high'] }),
       });
 
-      const result = merger.merge([atom], { intent: 'Merged intent' });
-      const lines = result.split('\n');
+      const { message } = merger.merge([atom], { intent: 'Merged intent' });
+      const lines = message.split('\n');
 
       expect(lines[0]).toBe('Merged intent');
       expect(lines[1]).toBe('');

@@ -36,12 +36,12 @@ export function registerSquashCommand(
         throw new LoreError('No Lore atoms found in the specified range.', 1);
       }
 
-      const mergedMessage = squashMerger.merge(atoms, {
+      const { message } = squashMerger.merge(atoms, {
         intent: options.intent,
         body: options.body,
       });
 
       // Output to stdout (raw message, not formatted)
-      console.log(mergedMessage);
+      console.log(message);
     });
 }

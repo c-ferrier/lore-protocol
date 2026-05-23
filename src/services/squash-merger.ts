@@ -30,7 +30,7 @@ export class SquashMerger {
   merge(
     atoms: readonly LoreAtom[],
     options: { intent?: string; body?: string },
-  ): string {
+  ): { message: string; loreId: LoreId } {
     if (atoms.length === 0) {
       throw new Error('Cannot merge zero atoms');
     }
@@ -114,7 +114,7 @@ export class SquashMerger {
     parts.push('');
     parts.push(trailerLines.join('\n'));
 
-    return parts.join('\n');
+    return { message: parts.join('\n'), loreId: newLoreId };
   }
 
   /**

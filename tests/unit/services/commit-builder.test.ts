@@ -76,12 +76,13 @@ describe('CommitBuilder', () => {
         intent: 'feat(auth): add login flow',
       };
 
-      const result = builder.build(input);
+      const { message, loreId } = builder.build(input);
 
       expect(mockIdGen.generate).toHaveBeenCalledOnce();
       expect(mockParser.serialize).toHaveBeenCalledOnce();
-      expect(result).toContain('feat(auth): add login flow');
-      expect(result).toContain(`${LORE_ID_KEY}: a1b2c3d4`);
+      expect(message).toContain('feat(auth): add login flow');
+      expect(message).toContain(`${LORE_ID_KEY}: a1b2c3d4`);
+      expect(loreId).toBe('a1b2c3d4');
     });
 
     it('should include body separated by blank lines', () => {
@@ -90,10 +91,10 @@ describe('CommitBuilder', () => {
         body: 'This is a detailed explanation.',
       };
 
-      const result = builder.build(input);
+      const { message } = builder.build(input);
 
-      expect(result).toContain('feat: add feature');
-      expect(result).toContain('\n\nThis is a detailed explanation.\n\n');
+      expect(message).toContain('feat: add feature');
+      expect(message).toContain('\n\nThis is a detailed explanation.\n\n');
     });
 
     it('should include all trailer types', () => {
@@ -114,46 +115,49 @@ describe('CommitBuilder', () => {
         },
       };
 
-      const result = builder.build(input);
+      const { message } = builder.build(input);
 
-      expect(result).toContain('Constraint: Must use HTTPS');
-      expect(result).toContain('Constraint: No external deps');
-      expect(result).toContain('Rejected: Polling approach');
-      expect(result).toContain('Confidence: high');
-      expect(result).toContain('Scope-risk: narrow');
-      expect(result).toContain('Reversibility: clean');
-      expect(result).toContain('Directive: Review in 3 months');
-      expect(result).toContain('Tested: Unit tests for auth module');
-      expect(result).toContain('Not-tested: Edge case with expired tokens');
-      expect(result).toContain('Supersedes: bbccddee');
-      expect(result).toContain('Depends-on: 11223344');
-      expect(result).toContain('Related: aabbccdd');
+      expect(message).toContain('Constraint: Must use HTTPS');
+      expect(message).toContain('Constraint: No external deps');
+      expect(message).toContain('Rejected: Polling approach');
+      expect(message).toContain('Confidence: high');
+      expect(message).toContain('Scope-risk: narrow');
+      expect(message).toContain('Reversibility: clean');
+      expect(message).toContain('Directive: Review in 3 months');
+      expect(message).toContain('Tested: Unit tests for auth module');
+      expect(message).toContain('Not-tested: Edge case with expired tokens');
+      expect(message).toContain('Supersedes: bbccddee');
+      expect(message).toContain('Depends-on: 11223344');
+      expect(message).toContain('Related: aabbccdd');
     });
 
     it(`should auto-generate ${LORE_ID_KEY}`, () => {
       mockIdGen.generate.mockReturnValue('deadbeef');
       const input: CommitInput = { intent: 'test' };
 
-      const result = builder.build(input);
+      const { message, loreId } = builder.build(input);
 
-      expect(result).toContain(`${LORE_ID_KEY}: deadbeef`);
+      expect(message).toContain(`${LORE_ID_KEY}: deadbeef`);
+      expect(loreId).toBe('deadbeef');
     });
 
     it('should use provided existingLoreId instead of generating one', () => {
       const input: CommitInput = { intent: 'amend: update commit' };
 
-      const result = builder.build(input, 'cafebabe');
+      const { message, loreId } = builder.build(input, 'cafebabe');
 
-      expect(result).toContain(`${LORE_ID_KEY}: cafebabe`);
+      expect(message).toContain(`${LORE_ID_KEY}: cafebabe`);
+      expect(loreId).toBe('cafebabe');
       expect(mockIdGen.generate).not.toHaveBeenCalled();
     });
 
     it(`should generate new ${LORE_ID_KEY} when no existingLoreId is provided`, () => {
       const input: CommitInput = { intent: 'new commit' };
 
-      builder.build(input);
+      const { loreId } = builder.build(input);
 
       expect(mockIdGen.generate).toHaveBeenCalledOnce();
+      expect(loreId).toBe('a1b2c3d4');
     });
 
     it('should pass correct trailers to serialize', () => {
