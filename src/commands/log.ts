@@ -60,16 +60,11 @@ export function registerLogCommand(
         };
         atoms = await atomRepository.findByTarget(['--', ...paths], queryOptions);
       } else {
-        const findOptions: { since?: string; until?: string; maxCommits?: number } = {};
-        if (options.since) {
-          findOptions.since = options.since;
-        }
-        if (options.until) {
-          findOptions.until = options.until;
-        }
-        if (options.maxCommits !== undefined && options.maxCommits > 0) {
-          findOptions.maxCommits = options.maxCommits;
-        }
+        const findOptions: Partial<PathQueryOptions> = {
+          since: options.since ?? null,
+          until: options.until ?? null,
+          maxCommits: options.maxCommits ?? null,
+        };
         atoms = await atomRepository.findAll(findOptions);
       }
 
@@ -90,7 +85,6 @@ export function registerLogCommand(
         meta: buildQueryMeta(totalAtoms, displayAtoms),
       };
 
-      const { config } = deps;
       const formattable: FormattableQueryResult = {
         result,
         supersessionMap,

@@ -2,10 +2,13 @@ import type { LoreAtom, TrailerKey } from '../types/domain.js';
 import type { SearchOptions } from '../types/query.js';
 
 /**
- * Applies search filters to a collection of Lore atoms.
+ * Applies authoritative application-level filtering to a collection of Lore atoms.
  * 
  * GRASP: Information Expert -- knows how to match atoms against search criteria.
  * SOLID: SRP -- only responsible for filtering logic, no git interaction or formatting.
+ *
+ * This service provides the "Authoritative Pass" in the discovery pipeline, 
+ * ensuring absolute precision after Git's coarse --grep pass.
  */
 export class SearchFilter {
   /**
@@ -22,6 +25,7 @@ export class SearchFilter {
     }
 
     // 2. Exact match enum filters
+    // Note: Enum values are stored as single-element arrays in the flat model.
     if (options.confidence && atom.trailers.Confidence[0] !== options.confidence) {
       return false;
     }
@@ -33,19 +37,35 @@ export class SearchFilter {
     }
 
     // 3. Author filter
+    // Authoritative pass: Git --author matches full "Name <email>"; Lore
+    // atoms only store the email (%ae). This pass ensures consistency.
     if (options.author) {
       const authorLower = options.author.toLowerCase();
       if (!atom.author.toLowerCase().includes(authorLower)) return false;
     }
 
     // 4. Intent/Scope filter
+    // Precise pass: Git --grep might match code snippets in the body.
+    // This pass ensures we only match the actual intent line's scope.
     if (options.scope) {
       const scopeLower = options.scope.toLowerCase();
       const extractedScope = this.extractScope(atom.intent);
       if (!extractedScope || extractedScope.toLowerCase() !== scopeLower) return false;
     }
 
-    // 5. Full text search
+    // 5. Date filters (authoritative pass for non-git sources or edge cases)
+    if (options.since) {
+      const sinceDate = new Date(options.since);
+      if (!isNaN(sinceDate.getTime()) && atom.date < sinceDate) return false;
+    }
+    if (options.until) {
+      const untilDate = new Date(options.until);
+      if (!isNaN(untilDate.getTime()) && atom.date > untilDate) return false;
+    }
+
+    // 6. Full text search
+    // Semantic pass: Git matches keywords anywhere. This pass precisely
+    // checks context (intent, body, and all Lore trailers).
     if (options.text && !this.atomMatchesText(atom, options.text)) {
       return false;
     }

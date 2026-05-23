@@ -427,14 +427,14 @@ describe('AtomRepository', () => {
     });
   });
 
-  describe('findByScope', () => {
+  describe('findAll with scope', () => {
     it('should find atoms matching the scope', async () => {
       const authCommit = makeLoreCommit({ subject: 'feat(auth): add login', loreId: 'aaaa1111' });
       const dbCommit = makeLoreCommit({ subject: 'fix(database): fix query', loreId: 'bbbb2222' });
       vi.mocked(gitClient.log).mockResolvedValue([authCommit, dbCommit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[authCommit.hash, []], [dbCommit.hash, []]]));
 
-      const result = await repo.findByScope('auth', makeQueryOptions());
+      const result = await repo.findAll({ ...makeQueryOptions(), scope: 'auth' });
 
       expect(result).toHaveLength(1);
       expect(result[0].loreId).toBe('aaaa1111');
@@ -445,7 +445,7 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, []]]));
 
-      const result = await repo.findByScope('auth', makeQueryOptions());
+      const result = await repo.findAll({ ...makeQueryOptions(), scope: 'auth' });
 
       expect(result).toHaveLength(1);
     });
@@ -455,7 +455,7 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, []]]));
 
-      const result = await repo.findByScope('payments', makeQueryOptions());
+      const result = await repo.findAll({ ...makeQueryOptions(), scope: 'payments' });
 
       expect(result).toEqual([]);
     });
@@ -465,7 +465,7 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, []]]));
 
-      const result = await repo.findByScope('auth', makeQueryOptions());
+      const result = await repo.findAll({ ...makeQueryOptions(), scope: 'auth' });
 
       expect(result).toEqual([]);
     });

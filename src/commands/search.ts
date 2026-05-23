@@ -1,7 +1,6 @@
 import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { SupersessionResolver } from '../services/supersession-resolver.js';
-import type { SearchFilter } from '../services/search-filter.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { LoreConfig } from '../types/config.js';
 import type { TrailerKey, LoreAtom, SupersessionStatus } from '../types/domain.js';
@@ -12,6 +11,7 @@ import { buildQueryMeta } from './helpers/build-query-meta.js';
 import { parsePositiveInt } from './helpers/path-query.js';
 import { LoreError } from '../util/errors.js';
 import type { Protocol } from '../services/protocol.js';
+import type { SearchFilter } from '../services/search-filter.js';
 
 interface SearchCommandOptions {
   readonly confidence?: string;
@@ -60,7 +60,7 @@ export function registerSearchCommand(
     .option('--max-commits <n>', 'Maximum git commits to scan (supersession may be incomplete)', parsePositiveInt)
     .action(async (_options: SearchCommandOptions, command: Command) => {
       const options = mergeOptions<SearchCommandOptions>(command);
-      const { atomRepository, supersessionResolver, searchFilter, getFormatter, config, protocol } = deps;
+      const { atomRepository, supersessionResolver, searchFilter, getFormatter, protocol } = deps;
 
       // Validate 'has' trailer key against protocol
       let authorizedHas: TrailerKey | null = null;
@@ -88,14 +88,10 @@ export function registerSearchCommand(
         maxCommits: options.maxCommits ?? null,
       };
 
-      // Get all atoms with date range and scan-level filters
-      let atoms = await atomRepository.findAll({
-        since: searchOptions.since ?? undefined,
-        until: searchOptions.until ?? undefined,
-        maxCommits: searchOptions.maxCommits ?? undefined,
-      });
+      // Get all atoms with date range and scan-level filters (Optimized via Git layer push-down)
+      let atoms = await atomRepository.findAll(searchOptions);
 
-      // Apply filters via SearchFilter service
+      // Apply text search and absolute precision filters via SearchFilter service
       atoms = searchFilter.applyFilters(atoms, searchOptions);
 
       // Compute supersession on full set so each atom's status is available to the formatter
@@ -112,7 +108,7 @@ export function registerSearchCommand(
       }
 
       // Apply result limit (--limit) after all filtering and supersession
-      if (searchOptions.limit !== null && searchOptions.limit > 0) {
+      if (searchOptions.limit !== null && searchOptions.limit !== undefined && searchOptions.limit > 0) {
         displayAtoms = displayAtoms.slice(0, searchOptions.limit);
       }
 

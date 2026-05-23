@@ -1,4 +1,4 @@
-import type { LoreAtom, ConfidenceLevel, ScopeRiskLevel, ReversibilityLevel, TrailerKey } from './domain.js';
+import type { LoreAtom, TrailerKey } from './domain.js';
 
 export type TargetType = 'file' | 'line-range' | 'directory' | 'glob';
 
@@ -22,18 +22,16 @@ export interface PathQueryOptions {
   readonly until: string | null;
 }
 
-export interface SearchOptions {
-  readonly confidence: ConfidenceLevel | null;
-  readonly scopeRisk: ScopeRiskLevel | null;
-  readonly reversibility: ReversibilityLevel | null;
+/**
+ * Enhanced options for cross-cutting search queries.
+ * Pushes coarse filtering down to the Git layer where possible.
+ */
+export interface SearchOptions extends PathQueryOptions {
+  readonly confidence: string | null;
+  readonly scopeRisk: string | null;
+  readonly reversibility: string | null;
   readonly has: TrailerKey | null;
-  readonly author: string | null;
-  readonly scope: string | null;
   readonly text: string | null;
-  readonly since: string | null;
-  readonly until: string | null;
-  readonly limit: number | null;
-  readonly maxCommits: number | null;
 }
 
 export interface QueryResult {
