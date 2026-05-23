@@ -5,6 +5,7 @@ import type { TrailerParser } from '../services/trailer-parser.js';
 import { LORE_ID_PATTERN, GIT_FILES_CHANGED_BATCH_SIZE, LORE_ID_KEY } from '../util/constants.js';
 import type { Protocol } from './protocol.js';
 import type { SearchFilter } from './search-filter.js';
+import type { IAtomCache } from '../interfaces/atom-cache.js';
 import { escapeRegex } from '../util/regex.js';
 
 /**
@@ -21,6 +22,7 @@ export class AtomRepository {
     private readonly trailerParser: TrailerParser,
     private readonly protocol: Protocol,
     private readonly searchFilter: SearchFilter,
+    private readonly atomCache: IAtomCache,
     private readonly isScoped: boolean = false,
   ) {}
 
@@ -286,13 +288,35 @@ export class AtomRepository {
       loreCommits.push({ raw, trailers });
     }
 
-    // Second pass: bulk fetch file lists using high-performance batch mode.
-    const hashes = loreCommits.map(c => c.raw.hash);
-    const filesMap = await this.gitClient.getFilesChanged(hashes);
+    // Second pass: get files changed using a 2-stage strategy.
+    // Stage 1: Fast concurrent cache check for all identified Lore commits.
+    const filesPerCommit: (readonly string[] | null)[] = await Promise.all(
+      loreCommits.map(({ raw }) => this.atomCache.getFiles(raw.hash)),
+    );
 
-    // Build atoms by pairing parsed trailers with their file lists from the batch result
-    const atoms: LoreAtom[] = loreCommits.map(({ raw, trailers }) =>
-      this.buildAtom(raw, trailers, filesMap.get(raw.hash) ?? []),
+    const misses: Array<{ index: number; hash: string }> = [];
+    for (let i = 0; i < filesPerCommit.length; i++) {
+      if (filesPerCommit[i] === null) {
+        misses.push({ index: i, hash: loreCommits[i].raw.hash });
+      }
+    }
+
+    // Stage 2: Batched Git fetch for cache misses only (respecting concurrency limit).
+    if (misses.length > 0) {
+      const hashes = misses.map(m => m.hash);
+      const filesMap = await this.gitClient.getFilesChanged(hashes);
+
+      for (const miss of misses) {
+        const files = filesMap.get(miss.hash) ?? [];
+        filesPerCommit[miss.index] = files;
+        // Background: fire-and-forget cache update
+        this.atomCache.setFiles(miss.hash, files).catch(() => {});
+      }
+    }
+
+    // Build atoms by pairing parsed trailers with their file lists (now guaranteed non-null)
+    const atoms: LoreAtom[] = loreCommits.map(({ raw, trailers }, index) =>
+      this.buildAtom(raw, trailers, filesPerCommit[index]!),
     );
 
     return atoms;

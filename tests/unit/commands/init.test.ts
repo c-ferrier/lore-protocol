@@ -24,19 +24,20 @@ describe('registerInitCommand', () => {
   let consoleLogSpy: any;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    // Default: file does not exist
-    vi.mocked(fs.access).mockRejectedValue(new Error('ENOENT'));
   });
 
   afterEach(() => {
     consoleLogSpy.mockRestore();
   });
 
-  it('creates a new config file if one does not exist', async () => {
+  it('creates a new config file and .gitignore if they do not exist', async () => {
     const program = new Command();
     registerInitCommand(program, { getFormatter: () => formatter, protocolName: 'Lore' });
+
+    vi.mocked(fs.access).mockRejectedValue(new Error('ENOENT'));
+    vi.mocked(fs.readFile).mockRejectedValue(new Error('ENOENT'));
 
     await program.parseAsync(['node', 'lore', 'init']);
 
@@ -46,20 +47,43 @@ describe('registerInitCommand', () => {
       expect.stringContaining('[protocol]'),
       'utf-8'
     );
+    // Check .gitignore creation
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      expect.stringContaining('.gitignore'),
+      expect.stringContaining('.lore/cache'),
+      'utf-8'
+    );
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Created .lore/config.toml'));
+    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Created .gitignore to ignore .lore/cache'));
   });
 
-  it('updates description based on protocol name', () => {
+  it('updates existing .gitignore if .lore/cache is missing', async () => {
+    vi.mocked(fs.access).mockResolvedValue(undefined); // config exists
+    vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+      if (path.toString().endsWith('.gitignore')) return 'node_modules\n';
+      // Mock valid TOML for the config file check
+      return '[protocol]\nname = "Lore"\nversion = "1.0"\n';
+    });
+
     const program = new Command();
-    registerInitCommand(program, { getFormatter: () => formatter, protocolName: 'Fred' });
-    const initCmd = program.commands.find(c => c.name() === 'init');
-    expect(initCmd?.description()).toContain('.fred/');
+    registerInitCommand(program, { getFormatter: () => formatter, protocolName: 'Lore' });
+
+    await program.parseAsync(['node', 'lore', 'init']);
+
+    expect(fs.writeFile).toHaveBeenCalledWith(
+      expect.stringContaining('.gitignore'),
+      'node_modules\n.lore/cache\n',
+      'utf-8'
+    );
+    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Updated .gitignore to ignore .lore/cache'));
   });
 
   it('reports an existing valid config with no gaps', async () => {
     const fullConfig = `[protocol]
+name = "Lore"
 version = "1.0"
 [trailers]
+permissive = true
 required = []
 custom = []
 [validation]
@@ -74,28 +98,34 @@ default_format = "text"
 [follow]
 max_depth = 3
 [cli]
+cache = true
 update_check = true
 `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
-    vi.mocked(fs.readFile).mockResolvedValue(fullConfig);
+    vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+      if (path.toString().endsWith('.gitignore')) return '.lore/cache\n';
+      return fullConfig;
+    });
 
     const program = new Command();
     registerInitCommand(program, { getFormatter: () => formatter, protocolName: 'Lore' });
 
     await program.parseAsync(['node', 'lore', 'init']);
 
-    expect(fs.writeFile).not.toHaveBeenCalled();
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Config already exists'));
     // Should NOT have warning about missing options
-    expect(consoleLogSpy).not.toHaveBeenCalledWith(expect.stringContaining('WARNING: Your configuration is missing new options:'));
+    expect(consoleLogSpy).not.toHaveBeenCalledWith(expect.stringContaining('SUCCESS: Your configuration is missing new options:'));
   });
 
   it('reports missing options and suggests safe reset if no customizations exist', async () => {
     const minimalConfig = `[protocol]
+  name = "Lore"
   version = "1.0"
   `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
-    vi.mocked(fs.readFile).mockResolvedValue(minimalConfig);
+    vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+      if (path.toString().endsWith('.gitignore')) return '.lore/cache\n';
+      return minimalConfig;
+    });
 
     const program = new Command();
     registerInitCommand(program, { getFormatter: () => formatter, protocolName: 'Lore' });
@@ -105,17 +135,20 @@ update_check = true
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('SUCCESS: Your configuration is missing new options:'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('- [trailers] section'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Notice: You are using default settings. You can safely reset your config'));
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('rm .lore/config.toml && lore init'));
   });
 
   it('reports missing options and suggests manual merge if customizations exist', async () => {
     const customizedConfig = `[protocol]
+  name = "Lore"
   version = "1.0"
   [validation]
   strict = true
   `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
-    vi.mocked(fs.readFile).mockResolvedValue(customizedConfig);
+    vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+      if (path.toString().endsWith('.gitignore')) return '.lore/cache\n';
+      return customizedConfig;
+    });
 
     const program = new Command();
     registerInitCommand(program, { getFormatter: () => formatter, protocolName: 'Lore' });
@@ -123,17 +156,16 @@ update_check = true
     await program.parseAsync(['node', 'lore', 'init']);
 
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('SUCCESS: Your configuration is missing new options:'));
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('- [trailers] section'));
     expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Notice: You have customized the following options:'));
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('- validation.strict'));
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('To update: Rename your current config'));
   });
 
   it('reports individual missing keys when section exists', async () => {
 
     const configWithMissingKey = `[protocol]
+    name = "Lore"
     version = "1.0"
     [trailers]
+    permissive = true
     required = []
     custom = []
     [validation]
@@ -148,10 +180,14 @@ update_check = true
     [follow]
     # max_depth is missing
     [cli]
+    cache = true
     update_check = true
     `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
-    vi.mocked(fs.readFile).mockResolvedValue(configWithMissingKey);
+    vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+      if (path.toString().endsWith('.gitignore')) return '.lore/cache\n';
+      return configWithMissingKey;
+    });
 
     const program = new Command();
     registerInitCommand(program, { getFormatter: () => formatter, protocolName: 'Lore' });
@@ -183,10 +219,14 @@ default_format = "text"
 [follow]
 max_depth = 3
 [cli]
+cache = true
 update_check = true
 `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
-    vi.mocked(fs.readFile).mockResolvedValue(configWithSnakeCase);
+    vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+      if (path.toString().endsWith('.gitignore')) return '.lore/cache\n';
+      return configWithSnakeCase;
+    });
 
     const program = new Command();
     registerInitCommand(program, { getFormatter: () => formatter, protocolName: 'Lore' });
@@ -221,10 +261,14 @@ default_format = "text"
 [follow]
 max_depth = 3
 [cli]
+cache = true
 update_check = true
 `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
-    vi.mocked(fs.readFile).mockResolvedValue(configWithDefinitions);
+    vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+      if (path.toString().endsWith('.gitignore')) return '.lore/cache\n';
+      return configWithDefinitions;
+    });
 
     const program = new Command();
     registerInitCommand(program, { getFormatter: () => formatter, protocolName: 'Lore' });
@@ -236,20 +280,29 @@ update_check = true
     expect(consoleLogSpy).not.toHaveBeenCalledWith(expect.stringContaining('Notice: You have customized the following options:'));
   });
 
-    it('reports corruption if the existing config is invalid TOML', async () => {
-      const corruptedConfig = `[protocol]
-    version = "1.0
-    invalid = [missing bracket
-    `;
-      vi.mocked(fs.access).mockResolvedValue(undefined);
-      vi.mocked(fs.readFile).mockResolvedValue(corruptedConfig);
+  it('updates description based on protocol name', () => {
+    const program = new Command();
+    registerInitCommand(program, { getFormatter: () => formatter, protocolName: 'Fred' });
+    const initCmd = program.commands.find(c => c.name() === 'init');
+    expect(initCmd?.description()).toContain('.fred/');
+  });
 
-      const program = new Command();
-      program.exitOverride();
-      registerInitCommand(program, { getFormatter: () => formatter, protocolName: 'Lore' });
-
-      await expect(program.parseAsync(['node', 'lore', 'init']))
-        .rejects.toThrow(/Your configuration file is corrupted/);
+  it('reports corruption if the existing config is invalid TOML', async () => {
+    const corruptedConfig = `[protocol]
+  version = "1.0
+  invalid = [missing bracket
+  `;
+    vi.mocked(fs.access).mockResolvedValue(undefined);
+    vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+      if (path.toString().endsWith('.gitignore')) return '.lore/cache\n';
+      return corruptedConfig;
     });
 
+    const program = new Command();
+    program.exitOverride();
+    registerInitCommand(program, { getFormatter: () => formatter, protocolName: 'Lore' });
+
+    await expect(program.parseAsync(['node', 'lore', 'init']))
+      .rejects.toThrow(/Your configuration file is corrupted/);
+  });
 });

@@ -109,6 +109,19 @@ driftThreshold = 10
       expect(config.protocol).toEqual(DEFAULT_CONFIG.protocol);
     });
 
+    it('should parse cli section options', async () => {
+      const configPath = await createConfigFile(tempDir, `
+[cli]
+cache = false
+update_check = false
+`);
+
+      const config = await loader.loadFromFile(configPath);
+
+      expect(config.cli.cache).toBe(false);
+      expect(config.cli.updateCheck).toBe(false);
+    });
+
     it('should throw on invalid TOML syntax', async () => {
       const configPath = await createConfigFile(tempDir, 'not valid toml [[[');
 

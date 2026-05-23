@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/services/atom-repository.js';
 import { Protocol } from '../../../src/services/protocol.js';
 import { SearchFilter } from '../../../src/services/search-filter.js';
+import { NullAtomCache } from '../../../src/services/atom-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
 import type { PathQueryOptions } from '../../../src/types/query.js';
 import type { LoreTrailers } from '../../../src/types/domain.js';
@@ -131,13 +132,15 @@ describe('AtomRepository', () => {
   let repo: AtomRepository;
   let protocol: Protocol;
   let searchFilter: SearchFilter;
+  let atomCache: NullAtomCache;
 
   beforeEach(() => {
     gitClient = createMockGitClient();
     trailerParser = createMockTrailerParser();
     protocol = new Protocol(DEFAULT_CONFIG);
     searchFilter = new SearchFilter();
-    repo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter);
+    atomCache = new NullAtomCache();
+    repo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, atomCache);
   });
 
   describe('findByTarget', () => {
@@ -290,7 +293,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, atomCache, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByLoreId('deadbeef');
@@ -321,7 +324,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, atomCache, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByCommitHash('abc123');
@@ -339,7 +342,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, atomCache, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByRange('main..HEAD');
@@ -425,7 +428,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, atomCache, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findAll();
@@ -480,7 +483,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, atomCache, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByScope('auth', makeQueryOptions());

@@ -80,12 +80,14 @@ export const DEFAULT_CONFIG: LoreConfig = {
   stale: { olderThan: '6m', driftThreshold: 20 },
   output: { defaultFormat: 'text' },
   follow: { maxDepth: 3 },
-  cli: { updateCheck: true },
+  cli: { updateCheck: true, cache: true },
 };
 
 /** Filesystem paths for Lore configuration */
 export const CONFIG_DIR = '.lore';
 export const CONFIG_FILENAME = 'config.toml';
+/** Subdirectory within CONFIG_DIR used for atom metadata caching */
+export const CACHE_DIR = 'cache';
 
 /** Prompt strings for interactive mode (Intent and Body only) */
 export const PROMPT_STRINGS = {

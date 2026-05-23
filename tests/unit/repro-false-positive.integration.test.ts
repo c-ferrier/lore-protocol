@@ -7,6 +7,7 @@ import { AtomRepository } from '../../src/services/atom-repository.js';
 import { GitClient } from '../../src/services/git-client.js';
 import { TrailerParser } from '../../src/services/trailer-parser.js';
 import { Protocol } from '../../src/services/protocol.js';
+import { NullAtomCache } from '../../src/services/atom-cache.js';
 import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../src/util/constants.js';
 
 describe('AtomRepository False Positive Repro', () => {
@@ -36,13 +37,15 @@ describe('AtomRepository False Positive Repro', () => {
     const protocol = new Protocol(DEFAULT_CONFIG);
     const trailerParser = new TrailerParser(protocol);
     const searchFilter = new SearchFilter();
+    const atomCache = new NullAtomCache();
     repo = new AtomRepository(
       gitClient,
       trailerParser,
       protocol,
       searchFilter,
+      atomCache
     );
-  });
+    });
 
   afterAll(() => {
     rmSync(testDir, { recursive: true, force: true });

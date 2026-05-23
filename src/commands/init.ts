@@ -105,6 +105,9 @@ update_check = true
             console.log(`Example: mv ${CONFIG_DIR}/${CONFIG_FILENAME} ${CONFIG_DIR}/${CONFIG_FILENAME}.bak && lore init`);
           }
         }
+        
+        // Ensure cache is ignored even if config already exists
+        await ensureCacheIgnored(formatter);
         return;
       }
 
@@ -115,7 +118,45 @@ update_check = true
       console.log(formatter.formatSuccess(
         `Created ${CONFIG_DIR}/${CONFIG_FILENAME} with protocol version 1.0`,
       ));
+
+      // Ensure cache is ignored
+      await ensureCacheIgnored(formatter);
     });
+}
+
+/**
+ * Ensures that .lore/cache is added to the .gitignore in the current directory.
+ * Uses process.cwd() to match where `lore init` creates .lore/config.toml.
+ * Idempotent: does nothing if the pattern is already present.
+ */
+async function ensureCacheIgnored(formatter: IOutputFormatter): Promise<void> {
+  const gitignorePath = join(process.cwd(), '.gitignore');
+  const ignorePattern = '.lore/cache';
+  let content = '';
+  let exists = false;
+
+  try {
+    content = await readFile(gitignorePath, 'utf-8');
+    exists = true;
+  } catch {
+    // File does not exist
+  }
+
+  const lines = content.split('\n').map((l) => l.trim());
+  if (lines.includes(ignorePattern)) {
+    return;
+  }
+
+  const suffix = content === '' || content.endsWith('\n') ? '' : '\n';
+  const newContent = `${content}${suffix}${ignorePattern}\n`;
+
+  await writeFile(gitignorePath, newContent, 'utf-8');
+
+  if (exists) {
+    console.log(formatter.formatSuccess(`Updated .gitignore to ignore ${ignorePattern}`));
+  } else {
+    console.log(formatter.formatSuccess(`Created .gitignore to ignore ${ignorePattern}`));
+  }
 }
 
 function findConfigDiff(parsed: Record<string, unknown>): { missing: string[]; customized: string[] } {

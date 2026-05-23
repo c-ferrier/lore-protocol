@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { createRequire } from 'node:module';
+import { join } from 'node:path';
 
 const require = createRequire(import.meta.url);
 const simpleUpdateNotifier = require('simple-update-notifier');
@@ -82,10 +83,14 @@ import { registerValidateCommand } from './commands/validate.js';
 import { registerSquashCommand } from './commands/squash.js';
 import { registerDoctorCommand } from './commands/doctor.js';
 import { registerConfigCommand } from './commands/config.js';
+import { registerCacheCommand } from './commands/cache.js';
 
 import { LoreError, ValidationError } from './util/errors.js';
 import { shouldCheckForUpdate } from './util/update-check.js';
 import { resolveLoreRoot } from './services/root-resolver.js';
+import { AtomCache, NullAtomCache } from './services/atom-cache.js';
+import { shouldBypassCache } from './util/cache-check.js';
+import { CACHE_DIR, CONFIG_DIR } from './util/constants.js';
 
 /**
  * Composition root: constructs all dependencies and wires them together.
@@ -133,16 +138,21 @@ async function main(): Promise<void> {
   const pathResolver = new PathResolver(process.cwd(), loreRoot);
   const loreIdGenerator = new LoreIdGenerator();
 
-  // 5. Update notification (fire-and-forget, respects env vars and config)
+  // 5. Setup caching
+  const cacheDir = join(loreRoot, CONFIG_DIR, CACHE_DIR);
+  const bypassCache = shouldBypassCache(config.cli.cache);
+  const atomCache = bypassCache ? new NullAtomCache() : new AtomCache(cacheDir);
+
+  // 6. Update notification (fire-and-forget, respects env vars and config)
   if (shouldCheckForUpdate(config.cli.updateCheck)) {
     simpleUpdateNotifier({ pkg }).catch(() => {});
   }
 
-  // 6. Create services that depend on others
+  // 7. Create services that depend on others
   // In a sub-project (monorepo), scope discovery to loreRoot implicitly
   const isScoped = loreRoot !== gitRoot;
   const searchFilter = new SearchFilter();
-  const atomRepository = new AtomRepository(gitClient, trailerParser, protocol, searchFilter, isScoped);
+  const atomRepository = new AtomRepository(gitClient, trailerParser, protocol, searchFilter, atomCache, isScoped);
 
   const supersessionResolver = new SupersessionResolver();
   const stalenessDetector = new StalenessDetector(gitClient, config);
@@ -254,6 +264,11 @@ async function main(): Promise<void> {
     configLoader,
     getFormatter,
     protocol,
+  });
+
+  registerCacheCommand(program, {
+    getFormatter,
+    cacheDir,
   });
 
   registerConfigCommand(program, {

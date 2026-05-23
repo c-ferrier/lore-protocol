@@ -75,6 +75,7 @@ export interface LoreConfig {
   };
   readonly cli: {
     readonly updateCheck: boolean;
+    readonly cache?: boolean;
   };
 }
 

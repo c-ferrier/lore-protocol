@@ -3,6 +3,7 @@ import { SearchFilter } from "../../../src/services/search-filter.js";
 import { AtomRepository } from '../../../src/services/atom-repository.js';
 import { TrailerParser } from '../../../src/services/trailer-parser.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { NullAtomCache } from '../../../src/services/atom-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
 import type { PathQueryOptions } from '../../../src/types/query.js';
 import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../../src/util/constants.js';
@@ -11,7 +12,6 @@ describe('AtomRepository Filtering Parity', () => {
   let gitClient: IGitClient;
   let trailerParser: TrailerParser;
   let repo: AtomRepository;
-  let protocol: Protocol;
 
   const mockAtoms: RawCommit[] = [
     {
@@ -20,7 +20,7 @@ describe('AtomRepository Filtering Parity', () => {
       author: 'cole@example.com',
       subject: 'feat(auth): valid login',
       body: 'Body text here',
-      trailers: `${LORE_ID_KEY}: abc12345\nConfidence: high`,
+      trailers: 'Lore-id: abc12345\nConfidence: high',
     },
     {
       hash: 'hash2',
@@ -28,7 +28,7 @@ describe('AtomRepository Filtering Parity', () => {
       author: 'ivan@example.com',
       subject: 'fix(ui): layout bug',
       body: 'Body text here',
-      trailers: `${LORE_ID_KEY}: def67890\nConfidence: low`,
+      trailers: 'Lore-id: def67890\nConfidence: low',
     },
     {
       hash: 'hash3',
@@ -36,7 +36,7 @@ describe('AtomRepository Filtering Parity', () => {
       author: 'cole@example.com',
       subject: 'feat(api): endpoint',
       body: 'Search for "login" here but not in subject',
-      trailers: `${LORE_ID_KEY}: 01234567\nConfidence: medium`,
+      trailers: 'Lore-id: 01234567\nConfidence: medium',
     },
     {
       hash: 'hash4',
@@ -52,26 +52,26 @@ describe('AtomRepository Filtering Parity', () => {
       author: 'false-positive-login@example.com',
       subject: 'feat(api): false positive',
       body: 'No match here',
-      trailers: `${LORE_ID_KEY}: fedcba98\nConfidence: high\nConstraint: This commit matches in email only`,
+      trailers: 'Lore-id: fedcba98\nConfidence: high\nConstraint: This commit matches in email only',
     },
   ];
 
   beforeEach(() => {
     gitClient = {
       log: vi.fn(),
-      resolveRef: vi.fn().mockResolvedValue('head-hash'),
-      getFilesChanged: vi.fn().mockImplementation(async (hashes: string[]) => {
+      getFilesChanged: vi.fn(async (hashes: string[]) => {
         const map = new Map<string, string[]>();
-        for (const hash of hashes) map.set(hash, ['src/file.ts']);
+        hashes.forEach(h => map.set(h, ['src/main.ts']));
         return map;
       }),
       resolveDate: vi.fn(async (d: string) => new Date(d)),
     } as any;
 
-    protocol = new Protocol(DEFAULT_CONFIG);
+    const protocol = new Protocol(DEFAULT_CONFIG);
     trailerParser = new TrailerParser(protocol);
     const searchFilter = new SearchFilter();
-    repo = new AtomRepository(gitClient, trailerParser, protocol, searchFilter);
+    const atomCache = new NullAtomCache();
+    repo = new AtomRepository(gitClient, trailerParser, protocol, searchFilter, atomCache);
   });
 
   describe('Discovery Phase (Git Coarse Filtering)', () => {
@@ -81,7 +81,7 @@ describe('AtomRepository Filtering Parity', () => {
       
       const args = vi.mocked(gitClient.log).mock.calls[0][0];
 
-      expect(args).toContain(`--grep=^${LORE_ID_KEY}: [0-9a-f]{8}`);
+      expect(args).toContain('--grep=^Lore-id: [0-9a-f]{8}');
       expect(args).toContain('--extended-regexp');
       expect(args).toContain('--regexp-ignore-case');
       expect(args).toContain('--all-match');
@@ -107,7 +107,7 @@ describe('AtomRepository Filtering Parity', () => {
 
     it('should generate correct Git flags for the "has" trailer filter', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
-      await repo.findAll({ has: 'Constraint' } as any);
+      await repo.findAll({ has: 'Constraint' });
       
       const args = vi.mocked(gitClient.log).mock.calls[0][0];
       expect(args).toContain('--grep=^Constraint: ');
@@ -119,7 +119,7 @@ describe('AtomRepository Filtering Parity', () => {
         confidence: 'high',
         scopeRisk: 'narrow',
         reversibility: 'clean',
-      } as any);
+      });
       
       const args = vi.mocked(gitClient.log).mock.calls[0][0];
       expect(args).toContain('--grep=^Confidence: high');
@@ -129,7 +129,7 @@ describe('AtomRepository Filtering Parity', () => {
 
     it('should generate correct Git flags for full-text search (pushdown)', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
-      await repo.findAll({ text: 'login logic' } as any);
+      await repo.findAll({ text: 'login logic' });
       
       const args = vi.mocked(gitClient.log).mock.calls[0][0];
       expect(args).toContain('--grep=login logic');
@@ -139,14 +139,16 @@ describe('AtomRepository Filtering Parity', () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
       
       // Test scope escaping
-      await repo.findAll({ scope: 'auth)' } as any);
+      await repo.findAll({ scope: 'auth)' });
       let args = vi.mocked(gitClient.log).mock.calls[0][0];
+      // Expected: ^[a-zA-Z]+\(auth\)\)
+      // Since it's passed as a literal string to execFile, no extra JS backslashes are needed in the match
       expect(args).toContain('--grep=^[a-zA-Z]+\\(auth\\)\\)');
 
-      // Test loreId in findByLoreId
+      // Test loreId in findByLoreId (which also uses escapeRegex)
       await repo.findByLoreId('abc12345');
       args = vi.mocked(gitClient.log).mock.calls[1][0];
-      expect(args).toContain(`--grep=^${LORE_ID_KEY}: abc12345`);
+      expect(args).toContain('--grep=^Lore-id: abc12345');
     });
   });
 
@@ -168,11 +170,11 @@ describe('AtomRepository Filtering Parity', () => {
       vi.mocked(gitClient.log).mockResolvedValue(mockAtoms);
 
       // Only hash1 is high confidence
-      const resultConf = await repo.findAll({ confidence: 'high' } as any);
+      const resultConf = await repo.findAll({ confidence: 'high' });
       expect(resultConf).toHaveLength(2); // hash1 and hash5
       
       // hash5 has a Constraint trailer
-      const resultHas = await repo.findAll({ has: 'Constraint' } as any);
+      const resultHas = await repo.findAll({ has: 'Constraint' });
       expect(resultHas).toHaveLength(1);
       expect(resultHas[0].commitHash).toBe('hash5');
     });
@@ -181,7 +183,7 @@ describe('AtomRepository Filtering Parity', () => {
       vi.mocked(gitClient.log).mockResolvedValue(mockAtoms);
 
       // Search for "login" which is in body of hash3 but not subject
-      const result = await repo.findAll({ text: 'login' } as any);
+      const result = await repo.findAll({ text: 'login' });
       expect(result).toHaveLength(2); // hash1 (subject) and hash3 (body)
       const hashes = result.map(a => a.commitHash);
       expect(hashes).toContain('hash1');
@@ -193,7 +195,7 @@ describe('AtomRepository Filtering Parity', () => {
     it('behaves as an AND operation across different filter types', async () => {
       vi.mocked(gitClient.log).mockResolvedValue(mockAtoms);
 
-      const options = {
+      const options: Partial<QueryOptions> = {
         author: 'cole',
         scope: 'api',
       };
