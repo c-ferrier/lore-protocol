@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/services/atom-repository.js';
+import { Protocol } from '../../../src/services/protocol.js';
+import { SearchFilter } from '../../../src/services/search-filter.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
 import type { PathQueryOptions } from '../../../src/types/query.js';
 import type { LoreTrailers } from '../../../src/types/domain.js';
-import { Protocol } from '../../../src/services/protocol.js';
 import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../../src/util/constants.js';
 
 /**
@@ -76,6 +77,10 @@ function createMockGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
     }),
     countCommitsSince: vi.fn(async () => 0),
     resolveRef: vi.fn(async () => 'abc123'),
+    resolveDate: vi.fn(async (d: string) => {
+      const date = new Date(d);
+      return isNaN(date.getTime()) ? null : date;
+    }),
     getHeadMessage: vi.fn(async () => 'message'),
     ...overrides,
   } as any;
@@ -125,12 +130,14 @@ describe('AtomRepository', () => {
   let trailerParser: ReturnType<typeof createMockTrailerParser>;
   let repo: AtomRepository;
   let protocol: Protocol;
+  let searchFilter: SearchFilter;
 
   beforeEach(() => {
     gitClient = createMockGitClient();
     trailerParser = createMockTrailerParser();
     protocol = new Protocol(DEFAULT_CONFIG);
-    repo = new AtomRepository(gitClient, trailerParser as any, protocol);
+    searchFilter = new SearchFilter();
+    repo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter);
   });
 
   describe('findByTarget', () => {
@@ -187,7 +194,7 @@ describe('AtomRepository', () => {
       await repo.findByTarget(makeGitLogArgs(), options);
 
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--since=2025-01-01');
+      expect(logArgs).toContain('--since=2025-01-01T00:00:00.000Z');
     });
 
     it('should pass until filter to git log args', async () => {
@@ -197,7 +204,7 @@ describe('AtomRepository', () => {
       await repo.findByTarget(makeGitLogArgs(), options);
 
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--until=2025-06-01');
+      expect(logArgs).toContain('--until=2025-06-01T00:00:00.000Z');
     });
 
     it('should pass maxCommits to git log args', async () => {
@@ -283,7 +290,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByLoreId('deadbeef');
@@ -314,7 +321,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByCommitHash('abc123');
@@ -332,7 +339,9 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, true);
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+
       await scopedRepo.findByRange('main..HEAD');
 
       expect(gitClient.log).toHaveBeenCalledWith(['main..HEAD', '--', '.']);
@@ -378,7 +387,7 @@ describe('AtomRepository', () => {
       await repo.findAll({ since: '2025-01-01' });
 
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--since=2025-01-01');
+      expect(logArgs).toContain('--since=2025-01-01T00:00:00.000Z');
     });
 
     it('should pass until option to git log', async () => {
@@ -387,7 +396,7 @@ describe('AtomRepository', () => {
       await repo.findAll({ until: '2025-06-01' });
 
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--until=2025-06-01');
+      expect(logArgs).toContain('--until=2025-06-01T00:00:00.000Z');
     });
 
     it('should pass maxCommits option to git log', async () => {
@@ -416,7 +425,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findAll();
@@ -471,7 +480,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByScope('auth', makeQueryOptions());

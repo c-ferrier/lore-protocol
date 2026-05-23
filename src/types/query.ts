@@ -32,6 +32,11 @@ export interface SearchOptions extends PathQueryOptions {
   readonly reversibility: string | null;
   readonly has: TrailerKey | null;
   readonly text: string | null;
+
+  /** Pre-resolved date for the authoritative application-level filter pass. */
+  readonly sinceDate?: Date | null;
+  /** Pre-resolved date for the authoritative application-level filter pass. */
+  readonly untilDate?: Date | null;
 }
 
 export interface QueryResult {

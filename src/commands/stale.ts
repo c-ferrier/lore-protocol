@@ -5,7 +5,7 @@ import type { StalenessDetector } from '../services/staleness-detector.js';
 import type { PathResolver } from '../services/path-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { LoreAtom, SupersessionStatus } from '../types/domain.js';
-import type { QueryOptions } from '../types/query.js';
+import type { PathQueryOptions } from '../types/query.js';
 import type { FormattableStalenessResult, StaleAtomReport } from '../types/output.js';
 import { STALE_SIGNAL } from '../util/constants.js';
 import { mergeOptions } from './helpers/merge-options.js';
@@ -46,10 +46,10 @@ export function registerStaleCommand(
       if (target) {
         const parsedTarget = pathResolver.parseTarget(target);
         const gitLogArgs = pathResolver.toGitLogArgs(parsedTarget);
-        const queryOptions: QueryOptions = {
+        const queryOptions: PathQueryOptions = {
           scope: null,
-          followLinks: false,
-          includeSuperseded: false,
+          follow: false,
+          all: false,
           author: null,
           limit: null,
           maxCommits: null,

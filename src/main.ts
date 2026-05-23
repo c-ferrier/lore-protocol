@@ -105,14 +105,14 @@ async function main(): Promise<void> {
   // 6. Create services that depend on others
   // In a sub-project (monorepo), scope discovery to loreRoot implicitly
   const isScoped = loreRoot !== gitRoot;
-  const atomRepository = new AtomRepository(gitClient, trailerParser, protocol, isScoped);
+  const searchFilter = new SearchFilter();
+  const atomRepository = new AtomRepository(gitClient, trailerParser, protocol, searchFilter, isScoped);
 
   const supersessionResolver = new SupersessionResolver();
   const stalenessDetector = new StalenessDetector(gitClient, config);
   const commitBuilder = new CommitBuilder(trailerParser, loreIdGenerator, config, protocol);
   const squashMerger = new SquashMerger(loreIdGenerator, protocol);
   const validator = new Validator(trailerParser, atomRepository, config, protocol);
-  const searchFilter = new SearchFilter();
   const prompt = new TerminalPrompt();
   const commitInputResolver = new CommitInputResolver(prompt, protocol);
   const headLoreIdReader = new HeadLoreIdReader(gitClient, trailerParser);

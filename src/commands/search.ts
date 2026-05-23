@@ -86,6 +86,8 @@ export function registerSearchCommand(
         until: options.until ?? null,
         limit: options.limit ?? null,
         maxCommits: options.maxCommits ?? null,
+        follow: false,
+        all: options.all ?? false,
       };
 
       // Get all atoms with date range and scan-level filters (Optimized via Git layer push-down)

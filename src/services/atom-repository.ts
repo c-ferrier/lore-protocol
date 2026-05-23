@@ -1,9 +1,11 @@
 import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
-import type { PathQueryOptions } from '../types/query.js';
+import type { PathQueryOptions, SearchOptions } from '../types/query.js';
 import type { LoreAtom, LoreId, LoreTrailers } from '../types/domain.js';
 import type { TrailerParser } from '../services/trailer-parser.js';
 import { LORE_ID_PATTERN, GIT_FILES_CHANGED_BATCH_SIZE, LORE_ID_KEY } from '../util/constants.js';
 import type { Protocol } from './protocol.js';
+import type { SearchFilter } from './search-filter.js';
+import { escapeRegex } from '../util/regex.js';
 
 /**
  * Retrieves LoreAtoms from git history.
@@ -18,6 +20,7 @@ export class AtomRepository {
     private readonly gitClient: IGitClient,
     private readonly trailerParser: TrailerParser,
     private readonly protocol: Protocol,
+    private readonly searchFilter: SearchFilter,
     private readonly isScoped: boolean = false,
   ) {}
 
@@ -27,11 +30,13 @@ export class AtomRepository {
    * path resolution is the caller's responsibility (DIP).
    */
   async findByTarget(gitLogArgs: readonly string[], options: PathQueryOptions): Promise<LoreAtom[]> {
-    const logArgs = this.buildLogArgs(options);
+    const searchOptions = this.makeDefaultSearchOptions(options);
+    const resolved = await this.resolveQueryDates(searchOptions);
+    const logArgs = this.buildLogArgs(resolved);
     const allArgs = [...logArgs, ...gitLogArgs];
     const rawCommits = await this.gitClient.log(allArgs);
     const atoms = await this.parseRawCommits(rawCommits);
-    return this.applyFilters(atoms, options);
+    return this.applyFilters(atoms, resolved);
   }
 
   /**
@@ -44,7 +49,7 @@ export class AtomRepository {
       return null;
     }
 
-    const logArgs = ['--all', '--extended-regexp', '--all-match', `--grep=^${LORE_ID_KEY}: ${loreId}`];
+    const logArgs = ['--all', '--extended-regexp', '--all-match', `--grep=^${LORE_ID_KEY}: ${escapeRegex(loreId)}`];
     if (this.isScoped) {
       logArgs.push('--', '.');
     }
@@ -85,12 +90,13 @@ export class AtomRepository {
   /**
    * Find Lore atoms across the entire repository.
    *
-   * Uses "Atom Discovery Mode" to push filters (Lore-id, author, scope) down to
+   * Uses "Atom Discovery Mode" to push filters (Lore-id, author, scope, enums) down to
    * the Git layer for optimized performance on large repositories.
    */
-  async findAll(options: Partial<PathQueryOptions> = {}): Promise<LoreAtom[]> {
-    const queryOptions = this.makeDefaultOptions(options);
-    const args = this.buildLogArgs(queryOptions);
+  async findAll(options: Partial<SearchOptions> = {}): Promise<LoreAtom[]> {
+    const queryOptions = this.makeDefaultSearchOptions(options);
+    const resolved = await this.resolveQueryDates(queryOptions);
+    const args = this.buildLogArgs(resolved);
 
     if (this.isScoped) {
       args.push('--', '.');
@@ -98,7 +104,7 @@ export class AtomRepository {
 
     const rawCommits = await this.gitClient.log(args);
     const atoms = await this.parseRawCommits(rawCommits);
-    return this.applyFilters(atoms, queryOptions);
+    return this.applyFilters(atoms, resolved);
   }
 
   /**
@@ -106,8 +112,9 @@ export class AtomRepository {
    * Parses the subject line to extract scope from `type(scope): description`.
    */
   async findByScope(scope: string, options: PathQueryOptions): Promise<LoreAtom[]> {
-    const queryOptions = { ...options, scope };
-    const logArgs = this.buildLogArgs(queryOptions);
+    const queryOptions = this.makeDefaultSearchOptions({ ...options, scope });
+    const resolved = await this.resolveQueryDates(queryOptions);
+    const logArgs = this.buildLogArgs(resolved);
     
     if (this.isScoped) {
       logArgs.push('--', '.');
@@ -115,7 +122,7 @@ export class AtomRepository {
 
     const rawCommits = await this.gitClient.log(logArgs);
     const atoms = await this.parseRawCommits(rawCommits);
-    return this.applyFilters(atoms, queryOptions);
+    return this.applyFilters(atoms, resolved);
   }
 
   /**
@@ -174,9 +181,19 @@ export class AtomRepository {
   }
 
   /**
-   * Build the base git log format arguments.
-   * Uses NUL-separated fields for reliable parsing.
+   * Resolve symbolic dates (relative, refs, ISO) into absolute JS Date objects.
    */
+  private async resolveQueryDates(options: SearchOptions): Promise<SearchOptions> {
+    const sinceDate = options.since ? await this.gitClient.resolveDate(options.since) : null;
+    const untilDate = options.until ? await this.gitClient.resolveDate(options.until) : null;
+
+    return {
+      ...options,
+      sinceDate,
+      untilDate,
+    };
+  }
+
   private buildBaseLogArgs(): string[] {
     return [];
   }
@@ -185,37 +202,65 @@ export class AtomRepository {
    * Build git log arguments including optional filters from PathQueryOptions.
    * Uses optimized coarse discovery by pushing filters to the Git layer.
    */
-  private buildLogArgs(options: PathQueryOptions): string[] {
+  private buildLogArgs(options: SearchOptions): string[] {
     const args = this.buildBaseLogArgs();
 
-    if (options.since) {
+    // 1. Core Selection (Date, Author)
+    if (options.author) {
+      args.push(`--author=${options.author}`);
+    }
+    
+    // Always use ISO dates for Git filters if we have them resolved,
+    // ensuring parity with the authoritative JS pass.
+    if (options.sinceDate) {
+      args.push(`--since=${options.sinceDate.toISOString()}`);
+    } else if (options.since) {
       args.push(`--since=${options.since}`);
     }
-    if (options.until) {
+
+    if (options.untilDate) {
+      args.push(`--until=${options.untilDate.toISOString()}`);
+    } else if (options.until) {
       args.push(`--until=${options.until}`);
     }
+
     if (options.maxCommits !== null && options.maxCommits > 0) {
       args.push(`--max-count=${options.maxCommits}`);
     }
 
-    // Atom Discovery Mode:
-    // We always include a check for a valid Lore-id so Git only returns valid atoms.
-    // This allows us to skip non-Lore commits (merges, chores, etc.) at the Git layer.
-    args.push(`--grep=^${LORE_ID_KEY}: [0-9a-f]{8}`);
+    // 2. Regex Engine Setup
     args.push('--extended-regexp');
     args.push('--regexp-ignore-case');
-
-    // Use --all-match to ensure the Lore-id AND any other filters match (Lore semantics)
-    args.push('--all-match');
-
-    if (options.author) {
-      args.push(`--author=${options.author}`);
-    }
+    
+    // 3. Atom Discovery Sentinel
+    args.push(`--grep=^${LORE_ID_KEY}: [0-9a-f]{8}`);
 
     if (options.scope) {
-      // Improved precision: Match conventional commit type prefix and start of line.
-      args.push(`--grep=^[a-zA-Z]+\\(${options.scope}\\)`);
+      args.push(`--grep=^[a-zA-Z]+\\(${escapeRegex(options.scope)}\\)`);
     }
+
+    if (options.has) {
+      args.push(`--grep=^${escapeRegex(options.has)}: `);
+    }
+
+    if (options.confidence) {
+      args.push(`--grep=^Confidence: ${escapeRegex(options.confidence)}`);
+    }
+
+    if (options.scopeRisk) {
+      args.push(`--grep=^Scope-risk: ${escapeRegex(options.scopeRisk)}`);
+    }
+
+    if (options.reversibility) {
+      args.push(`--grep=^Reversibility: ${escapeRegex(options.reversibility)}`);
+    }
+
+    if (options.text) {
+      args.push(`--grep=${escapeRegex(options.text)}`);
+    }
+
+    // 4. Conjunction logic: requires ALL specific patterns to match.
+    args.push('--all-match');
 
     return args;
   }
@@ -302,39 +347,30 @@ export class AtomRepository {
    * Note: author and since are also passed to git log, but this provides a second
    * layer of filtering for edge cases and absolute precision.
    */
-  private applyFilters(atoms: LoreAtom[], options: PathQueryOptions): LoreAtom[] {
-    let result = atoms;
+  private applyFilters(atoms: LoreAtom[], options: SearchOptions): LoreAtom[] {
+    return this.searchFilter.applyFilters(atoms, options);
+  }
 
-    if (options.scope) {
-      const scopeLower = options.scope.toLowerCase();
-      result = result.filter((a) => {
-        const extracted = this.extractScope(a.intent);
-        return extracted !== null && extracted.toLowerCase() === scopeLower;
-      });
-    }
-
-    if (options.author) {
-      const authorLower = options.author.toLowerCase();
-      result = result.filter(
-        (atom) => atom.author.toLowerCase().includes(authorLower),
-      );
-    }
-
-    if (options.since) {
-      const sinceDate = new Date(options.since);
-      if (!isNaN(sinceDate.getTime())) {
-        result = result.filter((atom) => atom.date >= sinceDate);
-      }
-    }
-
-    if (options.until) {
-      const untilDate = new Date(options.until);
-      if (!isNaN(untilDate.getTime())) {
-        result = result.filter((atom) => atom.date <= untilDate);
-      }
-    }
-
-    return result;
+  /**
+   * Create a complete SearchOptions object from partial overrides.
+   */
+  private makeDefaultSearchOptions(overrides: Partial<SearchOptions> = {}): SearchOptions {
+    return {
+      scope: null,
+      follow: false,
+      all: false,
+      author: null,
+      limit: null,
+      maxCommits: null,
+      since: null,
+      until: null,
+      confidence: null,
+      scopeRisk: null,
+      reversibility: null,
+      has: null,
+      text: null,
+      ...overrides,
+    };
   }
 
   /**

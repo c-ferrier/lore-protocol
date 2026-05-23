@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { SearchFilter } from '../../../src/services/search-filter.js';
 import type { LoreAtom } from '../../../src/types/domain.js';
-import { CustomTrailerCollection } from '../../../src/types/custom-trailer-collection.js';
 
 describe('SearchFilter', () => {
   const filter = new SearchFilter();
@@ -15,10 +14,10 @@ describe('SearchFilter', () => {
       intent: 'feat(auth): valid login',
       body: 'Body text here',
       trailers: {
-        'Lore-id': 'abc12345',
-        Confidence: 'high',
-        'Scope-risk': 'narrow',
-        Reversibility: 'clean',
+        'Lore-id': ['abc12345'],
+        Confidence: ['high'],
+        'Scope-risk': ['narrow'],
+        Reversibility: ['clean'],
         Constraint: ['c1'],
         Rejected: [],
         Directive: [],
@@ -27,7 +26,6 @@ describe('SearchFilter', () => {
         Supersedes: [],
         'Depends-on': [],
         Related: [],
-        custom: CustomTrailerCollection.empty(),
       },
       filesChanged: ['f1.ts'],
     },
@@ -39,10 +37,10 @@ describe('SearchFilter', () => {
       intent: 'fix(ui): layout bug',
       body: 'Body text here',
       trailers: {
-        'Lore-id': 'def67890',
-        Confidence: 'low',
-        'Scope-risk': 'wide',
-        Reversibility: 'migration-needed',
+        'Lore-id': ['def67890'],
+        Confidence: ['low'],
+        'Scope-risk': ['wide'],
+        Reversibility: ['migration-needed'],
         Constraint: [],
         Rejected: ['r1'],
         Directive: [],
@@ -51,20 +49,19 @@ describe('SearchFilter', () => {
         Supersedes: [],
         'Depends-on': [],
         Related: [],
-        custom: CustomTrailerCollection.empty(),
       },
       filesChanged: ['f2.ts'],
     },
   ];
 
   it('should filter by scope', () => {
-    const results = filter.applyFilters(mockAtoms, { scope: 'auth' });
+    const results = filter.applyFilters(mockAtoms, { scope: 'auth' } as any);
     expect(results).toHaveLength(1);
     expect(results[0].loreId).toBe('abc12345');
   });
 
   it('should filter by author', () => {
-    const results = filter.applyFilters(mockAtoms, { author: 'ivan' });
+    const results = filter.applyFilters(mockAtoms, { author: 'ivan' } as any);
     expect(results).toHaveLength(1);
     expect(results[0].loreId).toBe('def67890');
   });
@@ -72,26 +69,25 @@ describe('SearchFilter', () => {
   it('should filter by date range (since)', () => {
     const results = filter.applyFilters(mockAtoms, { 
       since: '2026-05-05',
-      sinceDate: new Date('2026-05-05') 
-    });
+    } as any);
     expect(results).toHaveLength(1);
     expect(results[0].loreId).toBe('def67890');
   });
 
   it('should filter by trailer presence (has)', () => {
-    const results = filter.applyFilters(mockAtoms, { has: 'Constraint' });
+    const results = filter.applyFilters(mockAtoms, { has: 'Constraint' } as any);
     expect(results).toHaveLength(1);
     expect(results[0].loreId).toBe('abc12345');
   });
 
   it('should filter by confidence', () => {
-    const results = filter.applyFilters(mockAtoms, { confidence: 'high' });
+    const results = filter.applyFilters(mockAtoms, { confidence: 'high' } as any);
     expect(results).toHaveLength(1);
     expect(results[0].loreId).toBe('abc12345');
   });
 
   it('should filter by full-text search', () => {
-    const results = filter.applyFilters(mockAtoms, { text: 'layout' });
+    const results = filter.applyFilters(mockAtoms, { text: 'layout' } as any);
     expect(results).toHaveLength(1);
     expect(results[0].loreId).toBe('def67890');
   });

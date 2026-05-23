@@ -1,34 +1,44 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SearchFilter } from "../../../src/services/search-filter.js";
 import { AtomRepository } from '../../../src/services/atom-repository.js';
 import { TrailerParser } from '../../../src/services/trailer-parser.js';
+import { Protocol } from '../../../src/services/protocol.js';
+import { SearchFilter } from '../../../src/services/search-filter.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
-import type { QueryOptions } from '../../../src/types/query.js';
+import type { SearchOptions } from '../../../src/types/query.js';
+import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../../src/util/constants.js';
 
 describe('AtomRepository Refinement', () => {
   let gitClient: IGitClient;
   let trailerParser: TrailerParser;
   let repo: AtomRepository;
+  let protocol: Protocol;
+  let searchFilter: SearchFilter;
 
   beforeEach(() => {
     gitClient = {
       log: vi.fn(),
-      getFilesChanged: vi.fn().mockResolvedValue(['file.ts']),
+      getFilesChanged: vi.fn().mockImplementation(async (hashes: string[]) => {
+        const map = new Map<string, string[]>();
+        for (const hash of hashes) map.set(hash, ['file.ts']);
+        return map;
+      }),
+      resolveDate: vi.fn(async (d: string) => new Date(d)),
     } as any;
-    trailerParser = new TrailerParser();
-    const searchFilter = new SearchFilter();
-    repo = new AtomRepository(gitClient, trailerParser, searchFilter);
+    protocol = new Protocol(DEFAULT_CONFIG);
+    trailerParser = new TrailerParser(protocol);
+    searchFilter = new SearchFilter();
+    repo = new AtomRepository(gitClient, trailerParser, protocol, searchFilter);
   });
 
   describe('stripTrailersFromBody (Internal Refinement)', () => {
     it('should remove trailers even with varying whitespace', async () => {
-      const trailers = 'Lore-id: 12345678\nConfidence: high';
+      const trailers = `${LORE_ID_KEY}: 12345678\nConfidence: high`;
       const raw: RawCommit = {
         hash: 'h1',
         date: '2026-01-01T00:00:00Z',
         author: 'a@b.com',
         subject: 'feat: sub',
-        body: 'Main body text.\n\n   Lore-id: 12345678  \n Confidence: high \n\n',
+        body: `Main body text.\n\n   ${LORE_ID_KEY}: 12345678  \n Confidence: high \n\n`,
         trailers: trailers,
       };
       vi.mocked(gitClient.log).mockResolvedValue([raw]);
@@ -38,24 +48,24 @@ describe('AtomRepository Refinement', () => {
     });
 
     it('should not strip text that looks like a trailer but is in the middle of the body', async () => {
-      const trailers = 'Lore-id: 12345678';
+      const trailers = `${LORE_ID_KEY}: 12345678`;
       const raw: RawCommit = {
         hash: 'h1',
         date: '2026-01-01T00:00:00Z',
         author: 'a@b.com',
         subject: 'feat: sub',
-        body: 'This line looks like a trailer:\nConstraint: must be fast\n\nBut the real one is here.\n\nLore-id: 12345678',
+        body: `This line looks like a trailer:\nConstraint: must be fast\n\nBut the real one is here.\n\n${LORE_ID_KEY}: 12345678`,
         trailers: trailers,
       };
       vi.mocked(gitClient.log).mockResolvedValue([raw]);
 
       const [atom] = await repo.findAll();
       expect(atom.body).toContain('Constraint: must be fast');
-      expect(atom.body).not.toContain('Lore-id: 12345678');
+      expect(atom.body).not.toContain(`${LORE_ID_KEY}: 12345678`);
     });
 
     it('should handle empty bodies gracefully', async () => {
-      const trailers = 'Lore-id: 12345678';
+      const trailers = `${LORE_ID_KEY}: 12345678`;
       const raw: RawCommit = {
         hash: 'h1',
         date: '2026-01-01T00:00:00Z',
@@ -73,8 +83,8 @@ describe('AtomRepository Refinement', () => {
 
   describe('followLinks Integration (End-to-End)', () => {
     it('should transitively resolve links when followLinks is enabled', async () => {
-      const trailersA = 'Lore-id: aaaaaaaa\nRelated: bbbbbbbb';
-      const trailersB = 'Lore-id: bbbbbbbb';
+      const trailersA = `${LORE_ID_KEY}: aaaaaaaa\nRelated: bbbbbbbb`;
+      const trailersB = `${LORE_ID_KEY}: bbbbbbbb`;
 
       const commitA: RawCommit = {
         hash: 'hash-a',
@@ -96,18 +106,25 @@ describe('AtomRepository Refinement', () => {
       vi.mocked(gitClient.log)
         .mockResolvedValueOnce([commitA])
         .mockResolvedValueOnce([commitB]);
-      
-      vi.mocked(gitClient.getFilesChanged)
-        .mockResolvedValue(['file.ts']);
 
-      const options: QueryOptions = {
-        followLinks: true,
+      const options: SearchOptions = {
+        scope: null,
+        follow: true,
+        all: false,
+        author: null,
+        limit: null,
+        maxCommits: null,
+        since: null,
+        until: null,
+        confidence: null,
+        scopeRisk: null,
+        reversibility: null,
+        has: null,
+        text: null,
       };
 
       let atoms = await repo.findByTarget(['--', 'file.ts'], options);
-      if (options.followLinks) {
-        atoms = await repo.resolveFollowLinks(atoms, 1);
-      }
+      atoms = await repo.resolveFollowLinks(atoms, 1);
 
       expect(atoms).toHaveLength(2);
       const ids = atoms.map(a => a.loreId);
@@ -115,7 +132,7 @@ describe('AtomRepository Refinement', () => {
       expect(ids).toContain('bbbbbbbb');
       
       const secondCallArgs = vi.mocked(gitClient.log).mock.calls[1][0];
-      expect(secondCallArgs).toContain('--grep=^Lore-id: bbbbbbbb');
+      expect(secondCallArgs).toContain(`--grep=^${LORE_ID_KEY}: bbbbbbbb`);
     });
   });
 
@@ -129,12 +146,11 @@ describe('AtomRepository Refinement', () => {
         date: '2026-01-01T00:00:00Z',
         author: 'a@b.com',
         subject: 'feat: cross talk',
-        body: `Some text...\nLore-id: ${targetId}\n...more text.`,
-        trailers: `Lore-id: ${actualId}`,
+        body: `Some text...\n${LORE_ID_KEY}: ${targetId}\n...more text.`,
+        trailers: `${LORE_ID_KEY}: ${actualId}`,
       };
 
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(['file.ts']);
 
       const result = await repo.findByLoreId(targetId);
 
@@ -149,11 +165,10 @@ describe('AtomRepository Refinement', () => {
         author: 'a@b.com',
         subject: 'feat: match',
         body: 'Main body',
-        trailers: `Lore-id: ${targetId}`,
+        trailers: `${LORE_ID_KEY}: ${targetId}`,
       };
 
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(['file.ts']);
 
       const result = await repo.findByLoreId(targetId);
 
