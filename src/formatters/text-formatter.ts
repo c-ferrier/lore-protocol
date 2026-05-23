@@ -297,10 +297,10 @@ export class TextFormatter implements IOutputFormatter {
       const values = trailers[key];
       if (!values || values.length === 0) continue;
 
-      // Determine color from injected metadata
+      // Determine color from injected metadata (fallback to dim for unregistered trailers)
       const def = trailerDefinitions[key];
-      const colorName = def?.ui?.color || 'cyan';
-      const color = (this.c as any)[colorName] || this.c.cyan;
+      const colorName = def?.ui?.color || (def ? 'cyan' : 'dim');
+      const color = (this.c as any)[colorName] || (def ? this.c.cyan : this.c.dim);
 
       for (const v of values) {
         lines.push(`${color(`${key}:`)} ${v}`);

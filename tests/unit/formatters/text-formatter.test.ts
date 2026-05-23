@@ -156,6 +156,35 @@ describe('TextFormatter', () => {
       expect(output).not.toContain('Rejected:');
     });
 
+    it('should render unregistered (adhoc) trailers in dim color', () => {
+      const atom = makeAtom({
+        trailers: makeTrailers({
+          'Assisted-by': ['Gemini'],
+        } as any),
+      });
+
+      const data: FormattableQueryResult = {
+        result: {
+          command: 'search',
+          target: 'all',
+          targetType: 'search',
+          atoms: [atom],
+          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+        },
+        supersessionMap: new Map(),
+        visibleTrailers: 'all',
+        trailerDefinitions: protocol.getFormattableDefinitions(),
+      };
+
+      // We need to enable color for this test
+      const coloredFormatter = new TextFormatter({ color: true });
+      const output = coloredFormatter.formatQueryResult(data);
+
+      // Chalk 'dim' typically uses \x1b[2m
+      expect(output).toContain('\x1b[2mAssisted-by:\x1b[22m');
+      expect(output).toContain('Gemini');
+    });
+
     it('should show body text when present', () => {
       const atom = makeAtom({ body: 'Detailed explanation here.' });
       const data: FormattableQueryResult = {
