@@ -17,6 +17,8 @@ export interface PathQueryOptions {
   readonly author: string | null;
   /** Result-level cap applied by the command layer after querying. Not used by the repository. */
   readonly limit: number | null;
+  /** Page number for results (1-indexed). Not used by the repository. */
+  readonly page?: number | null;
   readonly maxCommits: number | null;
   readonly since: string | null;
   readonly until: string | null;
@@ -38,6 +40,12 @@ export interface SearchOptions extends PathQueryOptions {
   /** Pre-resolved date for the authoritative application-level filter pass. */
   readonly untilDate?: Date | null;
 }
+
+/**
+ * Unified options for all Lore queries (log, search, context, etc.).
+ * These options form the identity of a query for caching purposes.
+ */
+export type QueryOptions = SearchOptions;
 
 export interface QueryResult {
   readonly command: string;

@@ -89,8 +89,9 @@ import { LoreError, ValidationError } from './util/errors.js';
 import { shouldCheckForUpdate } from './util/update-check.js';
 import { resolveLoreRoot } from './services/root-resolver.js';
 import { AtomCache, NullAtomCache } from './services/atom-cache.js';
+import { QueryCache, NullQueryCache } from './services/query-cache.js';
 import { shouldBypassCache } from './util/cache-check.js';
-import { CACHE_DIR, CONFIG_DIR } from './util/constants.js';
+import { ATOM_CACHE_DIR, CACHE_DIR, CONFIG_DIR, QUERY_CACHE_DIR } from './util/constants.js';
 
 /**
  * Composition root: constructs all dependencies and wires them together.
@@ -139,9 +140,18 @@ async function main(): Promise<void> {
   const loreIdGenerator = new LoreIdGenerator();
 
   // 5. Setup caching
-  const cacheDir = join(loreRoot, CONFIG_DIR, CACHE_DIR);
+  const baseCacheDir = join(loreRoot, CONFIG_DIR, CACHE_DIR);
+  const atomCacheDir = join(baseCacheDir, ATOM_CACHE_DIR);
+  const queryCacheDir = join(baseCacheDir, QUERY_CACHE_DIR);
+
   const bypassCache = shouldBypassCache(config.cli.cache);
-  const atomCache = bypassCache ? new NullAtomCache() : new AtomCache(cacheDir);
+  const atomCache = bypassCache ? new NullAtomCache() : new AtomCache(atomCacheDir);
+
+  // Query cache has its own toggle but also respects global bypass
+  const useQueryCache = !bypassCache && (config.cli.queryCache !== false);
+  const queryCache = useQueryCache
+    ? new QueryCache(queryCacheDir, config.cli.queryCachePruneThreshold)
+    : new NullQueryCache();
 
   // 6. Update notification (fire-and-forget, respects env vars and config)
   if (shouldCheckForUpdate(config.cli.updateCheck)) {
@@ -152,7 +162,15 @@ async function main(): Promise<void> {
   // In a sub-project (monorepo), scope discovery to loreRoot implicitly
   const isScoped = loreRoot !== gitRoot;
   const searchFilter = new SearchFilter();
-  const atomRepository = new AtomRepository(gitClient, trailerParser, protocol, searchFilter, atomCache, isScoped);
+  const atomRepository = new AtomRepository(
+    gitClient,
+    trailerParser,
+    protocol,
+    searchFilter,
+    atomCache,
+    queryCache,
+    isScoped,
+  );
 
   const supersessionResolver = new SupersessionResolver();
   const stalenessDetector = new StalenessDetector(gitClient, config);
@@ -185,6 +203,7 @@ async function main(): Promise<void> {
 
   const pathQueryDeps = {
     atomRepository,
+    gitClient,
     supersessionResolver,
     pathResolver,
     getFormatter,
@@ -208,6 +227,7 @@ async function main(): Promise<void> {
 
   registerSearchCommand(program, {
     atomRepository,
+    gitClient,
     supersessionResolver,
     searchFilter,
     getFormatter,
@@ -268,7 +288,7 @@ async function main(): Promise<void> {
 
   registerCacheCommand(program, {
     getFormatter,
-    cacheDir,
+    cacheDir: baseCacheDir,
   });
 
   registerConfigCommand(program, {

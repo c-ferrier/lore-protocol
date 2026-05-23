@@ -9,6 +9,7 @@ import { GitClient } from '../../src/services/git-client.js';
 import { TrailerParser } from '../../src/services/trailer-parser.js';
 import { Protocol } from '../../src/services/protocol.js';
 import { NullAtomCache } from '../../src/services/atom-cache.js';
+import { NullQueryCache } from '../../src/services/query-cache.js';
 import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../src/util/constants.js';
 
 describe('AtomRepository Git Integration', () => {
@@ -57,13 +58,15 @@ describe('AtomRepository Git Integration', () => {
     const trailerParser = new TrailerParser(protocol);
     const searchFilter = new SearchFilter();
     const atomCache = new NullAtomCache();
+    const queryCache = new NullQueryCache();
     
     repo = new AtomRepository(
       gitClient,
       trailerParser,
       protocol,
       searchFilter,
-      atomCache
+      atomCache,
+      queryCache
     );
   });
 

@@ -12,6 +12,7 @@ import { parsePositiveInt } from './helpers/path-query.js';
 import { LoreError } from '../util/errors.js';
 import type { Protocol } from '../services/protocol.js';
 import type { SearchFilter } from '../services/search-filter.js';
+import type { IGitClient } from '../interfaces/git-client.js';
 
 interface SearchCommandOptions {
   readonly confidence?: string;
@@ -36,6 +37,7 @@ export function registerSearchCommand(
   program: Command,
   deps: {
     atomRepository: AtomRepository;
+    gitClient: IGitClient;
     supersessionResolver: SupersessionResolver;
     searchFilter: SearchFilter;
     getFormatter: () => IOutputFormatter;
@@ -60,7 +62,15 @@ export function registerSearchCommand(
     .option('--max-commits <n>', 'Maximum git commits to scan (supersession may be incomplete)', parsePositiveInt)
     .action(async (_options: SearchCommandOptions, command: Command) => {
       const options = mergeOptions<SearchCommandOptions>(command);
-      const { atomRepository, supersessionResolver, searchFilter, getFormatter, protocol } = deps;
+      const { atomRepository, gitClient, supersessionResolver, searchFilter, getFormatter, protocol } = deps;
+
+      // Resolve HEAD for caching
+      let headHash: string | undefined;
+      try {
+        headHash = await gitClient.resolveRef('HEAD');
+      } catch {
+        // Ignore if not in repo
+      }
 
       // Validate 'has' trailer key against protocol
       let authorizedHas: TrailerKey | null = null;
@@ -91,7 +101,7 @@ export function registerSearchCommand(
       };
 
       // Get all atoms with date range and scan-level filters (Optimized via Git layer push-down)
-      let atoms = await atomRepository.findAll(searchOptions);
+      let atoms = await atomRepository.findAll(searchOptions, headHash);
 
       // Apply text search and absolute precision filters via SearchFilter service
       atoms = searchFilter.applyFilters(atoms, searchOptions);

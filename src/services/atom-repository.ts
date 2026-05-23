@@ -6,6 +6,7 @@ import { LORE_ID_PATTERN, GIT_FILES_CHANGED_BATCH_SIZE, LORE_ID_KEY } from '../u
 import type { Protocol } from './protocol.js';
 import type { SearchFilter } from './search-filter.js';
 import type { IAtomCache } from '../interfaces/atom-cache.js';
+import type { IQueryCache } from '../interfaces/query-cache.js';
 import { escapeRegex } from '../util/regex.js';
 
 /**
@@ -23,6 +24,7 @@ export class AtomRepository {
     private readonly protocol: Protocol,
     private readonly searchFilter: SearchFilter,
     private readonly atomCache: IAtomCache,
+    private readonly queryCache: IQueryCache,
     private readonly isScoped: boolean = false,
   ) {}
 
@@ -31,14 +33,50 @@ export class AtomRepository {
    * Accepts pre-resolved git log args (from PathResolver) so that
    * path resolution is the caller's responsibility (DIP).
    */
-  async findByTarget(gitLogArgs: readonly string[], options: PathQueryOptions): Promise<LoreAtom[]> {
+  async findByTarget(
+    gitLogArgs: readonly string[],
+    options: Partial<PathQueryOptions>,
+    headHash?: string,
+  ): Promise<LoreAtom[]> {
     const searchOptions = this.makeDefaultSearchOptions(options);
+
+    // 1. Try result-level query cache first if headHash provided
+    if (headHash) {
+      const cachedHashes = await this.queryCache.get(headHash, gitLogArgs, searchOptions);
+      if (cachedHashes !== null) {
+        // Query cache hit! 
+        // We still need the full atom data, but we can bypass the Git log pass.
+        const rawCommits = await this.gitClient.getCommitsByHashes(cachedHashes);
+        const atoms = await this.parseRawCommits(rawCommits);
+        
+        // Return unfiltered; applying filters to cached results is redundant but safe
+        // (the cache key already includes the filters).
+        return atoms;
+      }
+    }
+
+    // 2. Fallback to Git Discovery Pass
     const resolved = await this.resolveQueryDates(searchOptions);
     const logArgs = this.buildLogArgs(resolved);
     const allArgs = [...logArgs, ...gitLogArgs];
+
+    if (this.isScoped && !gitLogArgs.includes('--')) {
+      allArgs.push('--', '.');
+    }
+
     const rawCommits = await this.gitClient.log(allArgs);
     const atoms = await this.parseRawCommits(rawCommits);
-    return this.applyFilters(atoms, resolved);
+    const filteredAtoms = this.applyFilters(atoms, resolved);
+
+    // 3. Persist to query cache if headHash provided
+    if (headHash) {
+      const hashes = filteredAtoms.map(a => a.commitHash);
+      await this.queryCache.set(headHash, gitLogArgs, searchOptions, hashes);
+      // Background: prune old entries
+      this.queryCache.prune().catch(() => {});
+    }
+
+    return filteredAtoms;
   }
 
   /**
@@ -95,36 +133,16 @@ export class AtomRepository {
    * Uses "Atom Discovery Mode" to push filters (Lore-id, author, scope, enums) down to
    * the Git layer for optimized performance on large repositories.
    */
-  async findAll(options: Partial<SearchOptions> = {}): Promise<LoreAtom[]> {
-    const queryOptions = this.makeDefaultSearchOptions(options);
-    const resolved = await this.resolveQueryDates(queryOptions);
-    const args = this.buildLogArgs(resolved);
-
-    if (this.isScoped) {
-      args.push('--', '.');
-    }
-
-    const rawCommits = await this.gitClient.log(args);
-    const atoms = await this.parseRawCommits(rawCommits);
-    return this.applyFilters(atoms, resolved);
+  async findAll(options: Partial<SearchOptions> = {}, headHash?: string): Promise<LoreAtom[]> {
+    return this.findByTarget([], options, headHash);
   }
 
   /**
    * Find atoms matching a conventional commit scope.
    * Parses the subject line to extract scope from `type(scope): description`.
    */
-  async findByScope(scope: string, options: PathQueryOptions): Promise<LoreAtom[]> {
-    const queryOptions = this.makeDefaultSearchOptions({ ...options, scope });
-    const resolved = await this.resolveQueryDates(queryOptions);
-    const logArgs = this.buildLogArgs(resolved);
-    
-    if (this.isScoped) {
-      logArgs.push('--', '.');
-    }
-
-    const rawCommits = await this.gitClient.log(logArgs);
-    const atoms = await this.parseRawCommits(rawCommits);
-    return this.applyFilters(atoms, resolved);
+  async findByScope(scope: string, options: Partial<PathQueryOptions>, headHash?: string): Promise<LoreAtom[]> {
+    return this.findByTarget([], { ...options, scope }, headHash);
   }
 
   /**
@@ -385,6 +403,7 @@ export class AtomRepository {
       all: false,
       author: null,
       limit: null,
+      page: null,
       maxCommits: null,
       since: null,
       until: null,
@@ -407,6 +426,7 @@ export class AtomRepository {
       all: false,
       author: null,
       limit: null,
+      page: null,
       maxCommits: null,
       since: null,
       until: null,

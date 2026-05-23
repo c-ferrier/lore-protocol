@@ -42,7 +42,7 @@ describe('registerCacheCommand', () => {
       expect.stringContaining(join('.lore', 'cache')),
       { recursive: true, force: true }
     );
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Successfully cleared local cache.'));
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('Successfully cleared local atom and query caches.'));
   });
 
   it('handles errors during cache removal', async () => {

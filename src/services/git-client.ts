@@ -156,6 +156,20 @@ export class GitClient implements IGitClient {
     return result;
   }
 
+  async getCommitsByHashes(hashes: readonly string[]): Promise<readonly RawCommit[]> {
+    if (hashes.length === 0) return [];
+
+    // Using git show with our custom format and --stdin
+    const stdout = await this.exec([
+      'show',
+      '--no-patch',
+      `--format=${LOG_FORMAT}`,
+      '--stdin',
+    ], hashes.join('\n'));
+
+    return this.parseLogOutput(stdout);
+  }
+
   async countCommitsSince(path: string, sinceCommitHash: string): Promise<number> {
     const stdout = await this.exec([
       'rev-list',

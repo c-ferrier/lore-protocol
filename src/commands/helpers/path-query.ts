@@ -9,6 +9,7 @@ import type { PathQueryOptions, QueryResult, TargetType } from '../../types/quer
 import type { FormattableQueryResult } from '../../types/output.js';
 import { buildQueryMeta } from './build-query-meta.js';
 import type { Protocol } from '../../services/protocol.js';
+import type { IGitClient } from '../../interfaces/git-client.js';
 
 /** Parse a CLI value as a strict positive integer; rejects non-numeric trailing chars. */
 export function parsePositiveInt(value: string): number {
@@ -24,6 +25,7 @@ export function parsePositiveInt(value: string): number {
 
 export interface PathQueryDeps {
   readonly atomRepository: AtomRepository;
+  readonly gitClient: IGitClient;
   readonly supersessionResolver: SupersessionResolver;
   readonly pathResolver: PathResolver;
   readonly getFormatter: () => IOutputFormatter;
@@ -56,7 +58,7 @@ export async function executePathQuery(
   commandName: string,
   visibleTrailers: readonly TrailerKey[] | 'all',
 ): Promise<void> {
-  const { atomRepository, supersessionResolver, pathResolver, getFormatter, config, protocol } = deps;
+  const { atomRepository, gitClient, supersessionResolver, pathResolver, getFormatter, config, protocol } = deps;
 
   const queryOptions: PathQueryOptions = {
     scope: options.scope ?? null,
@@ -69,19 +71,27 @@ export async function executePathQuery(
     until: options.until ?? null,
   };
 
+  // Step 0: Resolve HEAD for caching
+  let headHash: string | undefined;
+  try {
+    headHash = await gitClient.resolveRef('HEAD');
+  } catch {
+    // Ignore if not in repo (e.g. tests)
+  }
+
   // Step 1: Resolve target or use --scope
   let atoms: LoreAtom[];
   let targetType: TargetType | 'search' | 'global';
   let targetDisplay: string;
 
   if (queryOptions.scope) {
-    atoms = await atomRepository.findByScope(queryOptions.scope, { ...queryOptions, limit: null });
+    atoms = await atomRepository.findByScope(queryOptions.scope, { ...queryOptions, limit: null }, headHash);
     targetType = 'global';
     targetDisplay = `scope:${queryOptions.scope}`;
   } else {
     const parsedTarget = pathResolver.parseTarget(target);
     const gitLogArgs = pathResolver.toGitLogArgs(parsedTarget);
-    atoms = await atomRepository.findByTarget(gitLogArgs, { ...queryOptions, limit: null });
+    atoms = await atomRepository.findByTarget(gitLogArgs, { ...queryOptions, limit: null }, headHash);
     targetType = parsedTarget.type;
     targetDisplay = target;
   }

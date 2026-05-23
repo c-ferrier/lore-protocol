@@ -4,6 +4,7 @@ import { AtomRepository } from '../../../src/services/atom-repository.js';
 import { TrailerParser } from '../../../src/services/trailer-parser.js';
 import { Protocol } from '../../../src/services/protocol.js';
 import { NullAtomCache } from '../../../src/services/atom-cache.js';
+import { NullQueryCache } from '../../../src/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
 import type { PathQueryOptions } from '../../../src/types/query.js';
 import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../../src/util/constants.js';
@@ -71,7 +72,8 @@ describe('AtomRepository Filtering Parity', () => {
     trailerParser = new TrailerParser(protocol);
     const searchFilter = new SearchFilter();
     const atomCache = new NullAtomCache();
-    repo = new AtomRepository(gitClient, trailerParser, protocol, searchFilter, atomCache);
+    const queryCache = new NullQueryCache();
+    repo = new AtomRepository(gitClient, trailerParser, protocol, searchFilter, atomCache, queryCache);
   });
 
   describe('Discovery Phase (Git Coarse Filtering)', () => {

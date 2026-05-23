@@ -99,6 +99,8 @@ default_format = "text"
 max_depth = 3
 [cli]
 cache = true
+query_cache = true
+query_cache_prune_threshold = 100
 update_check = true
 `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
@@ -181,6 +183,8 @@ update_check = true
     # max_depth is missing
     [cli]
     cache = true
+    query_cache = true
+    query_cache_prune_threshold = 100
     update_check = true
     `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
@@ -220,6 +224,8 @@ default_format = "text"
 max_depth = 3
 [cli]
 cache = true
+query_cache = true
+query_cache_prune_threshold = 100
 update_check = true
 `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
@@ -262,6 +268,8 @@ default_format = "text"
 max_depth = 3
 [cli]
 cache = true
+query_cache = true
+query_cache_prune_threshold = 100
 update_check = true
 `;
     vi.mocked(fs.access).mockResolvedValue(undefined);

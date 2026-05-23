@@ -4,6 +4,7 @@ import { TrailerParser } from '../../../src/services/trailer-parser.js';
 import { Protocol } from '../../../src/services/protocol.js';
 import { SearchFilter } from '../../../src/services/search-filter.js';
 import { NullAtomCache } from '../../../src/services/atom-cache.js';
+import { NullQueryCache } from '../../../src/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
 import type { SearchOptions } from '../../../src/types/query.js';
 import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../../src/util/constants.js';
@@ -29,7 +30,8 @@ describe('AtomRepository Refinement', () => {
     trailerParser = new TrailerParser(protocol);
     searchFilter = new SearchFilter();
     const atomCache = new NullAtomCache();
-    repo = new AtomRepository(gitClient, trailerParser, protocol, searchFilter, atomCache);
+    const queryCache = new NullQueryCache();
+    repo = new AtomRepository(gitClient, trailerParser, protocol, searchFilter, atomCache, queryCache);
   });
 
   describe('stripTrailersFromBody (Internal Refinement)', () => {

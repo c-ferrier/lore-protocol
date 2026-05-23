@@ -3,6 +3,7 @@ import { AtomRepository } from '../../../src/services/atom-repository.js';
 import { Protocol } from '../../../src/services/protocol.js';
 import { SearchFilter } from '../../../src/services/search-filter.js';
 import { TrailerParser } from '../../../src/services/trailer-parser.js';
+import { NullQueryCache } from '../../../src/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
 import type { IAtomCache } from '../../../src/interfaces/atom-cache.js';
 import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../../src/util/constants.js';
@@ -32,7 +33,8 @@ describe('AtomRepository Cache Interaction', () => {
       trailerParser,
       protocol,
       new SearchFilter(),
-      atomCache
+      atomCache,
+      new NullQueryCache()
     );
   });
 

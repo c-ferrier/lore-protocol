@@ -40,6 +40,8 @@ const CAMEL_TO_SNAKE: Record<string, Record<string, string>> = {
   },
   cli: {
     updateCheck: 'update_check',
+    queryCache: 'query_cache',
+    queryCachePruneThreshold: 'query_cache_prune_threshold',
   },
 };
 

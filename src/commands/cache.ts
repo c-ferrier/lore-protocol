@@ -23,7 +23,7 @@ export function registerCacheCommand(
       if (options.clean) {
         try {
           await rm(deps.cacheDir, { recursive: true, force: true });
-          console.log(formatter.formatSuccess('Successfully cleared local cache.'));
+          console.log(formatter.formatSuccess('Successfully cleared local atom and query caches.'));
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : String(error);
           console.error(formatter.formatError(1, [{ severity: 'error', message: `Failed to clear cache: ${message}` }]));
