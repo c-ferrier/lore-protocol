@@ -49,6 +49,7 @@ import { registerConfigCommand } from './commands/config.js';
 
 import { LoreError, ValidationError } from './util/errors.js';
 import { shouldCheckForUpdate } from './util/update-check.js';
+import { resolveLoreRoot } from './services/root-resolver.js';
 
 /**
  * Composition root: constructs all dependencies and wires them together.
@@ -72,31 +73,40 @@ async function main(): Promise<void> {
     .option('--no-color', 'Disable colored output')
     .option('--no-update-notifier', 'Disable update notification');
 
-  // 1. Create concrete implementations
-  const gitClient: IGitClient = new GitClient();
-  const pathResolver = new PathResolver();
-  const loreIdGenerator = new LoreIdGenerator();
+  // 1. Create bootstrap services for root discovery
   const configLoader: IConfigLoader = new ConfigLoader();
+  const bootstrapGitClient: IGitClient = new GitClient(); // Default CWD
 
-  // 2. Load config (best-effort: default if not found)
+  // 2. Resolve project root for caching and config
+  const { loreRoot, gitRoot } = await resolveLoreRoot(process.cwd(), configLoader, bootstrapGitClient);
+
+  // 3. Load config (best-effort: default if not found)
   let config;
   try {
-    config = await configLoader.loadForPath(process.cwd());
+    config = await configLoader.loadForPath(loreRoot);
   } catch {
     // Fall back to defaults if config can't be loaded
     const { DEFAULT_CONFIG } = await import('./util/constants.js');
     config = DEFAULT_CONFIG;
   }
 
-  // 3. Update notification (fire-and-forget, respects env vars and config)
+  // 4. Create primary services with resolved root context
+  const gitClient: IGitClient = new GitClient(loreRoot);
+  const protocol = new Protocol(config);
+  const trailerParser = new TrailerParser(protocol);
+  const pathResolver = new PathResolver(process.cwd(), loreRoot);
+  const loreIdGenerator = new LoreIdGenerator();
+
+  // 5. Update notification (fire-and-forget, respects env vars and config)
   if (shouldCheckForUpdate(config.cli.updateCheck)) {
     simpleUpdateNotifier({ pkg }).catch(() => {});
   }
 
-  // 4. Create services that depend on others
-  const protocol = new Protocol(config);
-  const trailerParser = new TrailerParser(protocol);
-  const atomRepository = new AtomRepository(gitClient, trailerParser, protocol);
+  // 6. Create services that depend on others
+  // In a sub-project (monorepo), scope discovery to loreRoot implicitly
+  const isScoped = loreRoot !== gitRoot;
+  const atomRepository = new AtomRepository(gitClient, trailerParser, protocol, isScoped);
+
   const supersessionResolver = new SupersessionResolver();
   const stalenessDetector = new StalenessDetector(gitClient, config);
   const commitBuilder = new CommitBuilder(trailerParser, loreIdGenerator, config, protocol);
@@ -107,7 +117,7 @@ async function main(): Promise<void> {
   const commitInputResolver = new CommitInputResolver(prompt, protocol);
   const headLoreIdReader = new HeadLoreIdReader(gitClient, trailerParser);
 
-  // 5. Formatter factory (reads --format/--json from program options at call time)
+  // 7. Formatter factory (reads --format/--json from program options at call time)
   // Memoized: the formatter is created once on first call and reused thereafter.
   let cachedFormatter: IOutputFormatter | null = null;
   const getFormatter = (): IOutputFormatter => {
@@ -123,7 +133,7 @@ async function main(): Promise<void> {
     return cachedFormatter;
   };
 
-  // 6. Register all commands with their dependencies
+  // 8. Register all commands with their dependencies
 
   registerInitCommand(program, { getFormatter });
 
@@ -216,7 +226,7 @@ async function main(): Promise<void> {
     protocol,
   });
 
-  // 7. Parse and run
+  // 9. Parse and run
   await program.parseAsync(process.argv);
 }
 

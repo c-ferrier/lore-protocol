@@ -4,8 +4,7 @@ import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.j
 import type { PathQueryOptions } from '../../../src/types/query.js';
 import type { LoreTrailers } from '../../../src/types/domain.js';
 import { Protocol } from '../../../src/services/protocol.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
+import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../../src/util/constants.js';
 
 /**
  * Minimal TrailerParser mock that satisfies the AtomRepository's usage.
@@ -275,6 +274,62 @@ describe('AtomRepository', () => {
 
       expect(result).toBeNull();
     });
+
+    it('should append path scope when isScoped=true', async () => {
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, true);
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+
+      await scopedRepo.findByLoreId('deadbeef');
+
+      expect(gitClient.log).toHaveBeenCalledWith(
+        expect.arrayContaining(['--', '.']),
+      );
+    });
+  });
+
+  describe('findByCommitHash', () => {
+    it('should fetch and parse a single commit', async () => {
+      const commit = makeLoreCommit({ hash: 'abc123', loreId: 'aaaa1111' });
+      vi.mocked(gitClient.log).mockResolvedValue([commit]);
+      vi.mocked(gitClient.getFilesChanged).mockResolvedValue([]);
+
+      const result = await repo.findByCommitHash('abc123');
+
+      expect(result).not.toBeNull();
+      expect(result?.commitHash).toBe('abc123');
+      expect(gitClient.log).toHaveBeenCalledWith(expect.arrayContaining(['-1', 'abc123']));
+    });
+
+    it('should return null if no commit found', async () => {
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+      const result = await repo.findByCommitHash('abc123');
+      expect(result).toBeNull();
+    });
+
+    it('should append path scope when isScoped=true', async () => {
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, true);
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+
+      await scopedRepo.findByCommitHash('abc123');
+
+      expect(gitClient.log).toHaveBeenCalledWith(
+        expect.arrayContaining(['-1', 'abc123', '--', '.']),
+      );
+    });
+  });
+
+  describe('findByRange', () => {
+    it('should pass the range directly to git log', async () => {
+      await repo.findByRange('main..HEAD');
+      expect(gitClient.log).toHaveBeenCalledWith(['main..HEAD']);
+    });
+
+    it('should append path scope when isScoped=true', async () => {
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, true);
+      await scopedRepo.findByRange('main..HEAD');
+
+      expect(gitClient.log).toHaveBeenCalledWith(['main..HEAD', '--', '.']);
+    });
   });
 
   describe('findAll', () => {
@@ -352,6 +407,17 @@ describe('AtomRepository', () => {
 
       expect(result).toEqual([]);
     });
+
+    it('should append path scope when isScoped=true', async () => {
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, true);
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+
+      await scopedRepo.findAll();
+
+      expect(gitClient.log).toHaveBeenCalledWith(
+        expect.arrayContaining(['--', '.']),
+      );
+    });
   });
 
   describe('findByScope', () => {
@@ -395,6 +461,17 @@ describe('AtomRepository', () => {
       const result = await repo.findByScope('auth', makeQueryOptions());
 
       expect(result).toEqual([]);
+    });
+
+    it('should append path scope when isScoped=true', async () => {
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, true);
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+
+      await scopedRepo.findByScope('auth', makeQueryOptions());
+
+      expect(gitClient.log).toHaveBeenCalledWith(
+        expect.arrayContaining(['--', '.']),
+      );
     });
   });
 
