@@ -6,6 +6,42 @@ const simpleUpdateNotifier = require('simple-update-notifier');
 const pkg = require('../package.json');
 const { version } = pkg;
 
+/**
+ * Derive the display version, appending build metadata for local development.
+ */
+function getDisplayVersion(): string {
+  if (process.env.CI) {
+    return version;
+  }
+
+  try {
+    const { execSync } = require('node:child_process');
+    const hash = execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
+    const branch = execSync('git branch --show-current', { encoding: 'utf-8' }).trim();
+    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+
+    // Dynamically resolve owner from 'personal' remote if it exists
+    let owner = 'custom';
+    try {
+      const remoteUrl = execSync('git remote get-url personal', { encoding: 'utf-8' }).trim();
+      // Match git@github.com:OWNER/repo.git or https://github.com/OWNER/repo.git
+      const match = remoteUrl.match(/[:/]([^/]+)\/[^/]+(?:\.git)?$/);
+      if (match) {
+        owner = match[1];
+      }
+    } catch {
+      // Fallback to 'custom' if 'personal' remote is missing
+    }
+
+    const suffix = branch ? `${owner}.${branch}` : owner;
+    return `${version}-${suffix}.${date}.${hash}`;
+  } catch {
+    return version;
+  }
+}
+
+const displayVersion = getDisplayVersion();
+
 import type { IGitClient } from './interfaces/git-client.js';
 import type { IConfigLoader } from './interfaces/config-loader.js';
 import type { IOutputFormatter } from './interfaces/output-formatter.js';
@@ -64,7 +100,7 @@ async function main(): Promise<void> {
   program
     .name('lore')
     .description('CLI tool for the Lore protocol -- structured decision context in git commits')
-    .version(version);
+    .version(displayVersion);
 
   // Global options (display/format only — query flags live on subcommands)
   program
