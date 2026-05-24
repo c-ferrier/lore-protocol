@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TextFormatter } from '../../../src/formatters/text-formatter.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 
 import type { Atom, Trailers, SupersessionStatus } from '../../../src/types/domain.js';
@@ -32,43 +34,44 @@ function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
   } as any;
 }
 
-function makeAtom(overrides: Partial<Atom> = {}): Atom {
-  const trailers = makeTrailers(overrides.trailers || {});
+function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
+  let trailers = overrides.protocols?.get('lore')?.trailers ?? makeTrailers();
   
-  // If loreId is provided at top level, sync it into trailers
-  if (overrides.loreId) {
-    (trailers as any)[LORE_ID_KEY] = [overrides.loreId];
+  const id = overrides.id || (trailers[LORE_ID_KEY]?.[0] || 'a1b2c3d4');
+
+  if (trailers[LORE_ID_KEY]?.[0] !== id) {
+     trailers = { ...trailers, [LORE_ID_KEY]: [id] } as any;
   }
   
-  const id = trailers[LORE_ID_KEY][0];
-  
   return {
-    loreId: id,
+    id,
     commitHash: overrides.commitHash ?? 'abc1234567890',
     date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
     author: overrides.author ?? 'alice@example.com',
     intent: overrides.intent ?? 'feat(auth): add login flow',
     body: overrides.body ?? '',
-    trailers,
-    protocols: new Map([
+    protocols: overrides.protocols ?? new Map([
       ['lore', { name: 'Lore', version: '1.0', identityKey: LORE_ID_KEY, trailers }]
     ]),
     filesChanged: overrides.filesChanged ?? ['src/auth.ts'],
     ...overrides,
-  };
+  } as any;
 }
 
 describe('TextFormatter', () => {
-  let formatter: TextFormatter;
+  let registry: ProtocolRegistry;
   let protocol: Protocol;
+  let formatter: TextFormatter;
 
   beforeEach(() => {
-    formatter = new TextFormatter({ color: false });
-    protocol = new Protocol(DEFAULT_CONFIG);
+    registry = new ProtocolRegistry();
+    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    registry.register(protocol);
+    formatter = new TextFormatter(registry, { color: false });
   });
 
   describe('formatQueryResult', () => {
-    it('should show "No lore atoms found" when empty', () => {
+    it('should show "No lore atoms found." when empty', () => {
       const data: FormattableQueryResult = {
         result: {
           command: 'context',
@@ -79,19 +82,25 @@ describe('TextFormatter', () => {
         },
         supersessionMap: new Map(),
         visibleTrailers: 'all',
-        trailerDefinitions: protocol.getFormattableDefinitions(),
       };
 
       const output = formatter.formatQueryResult(data);
-      expect(output).toContain('No lore atoms found');
+      expect(output).toContain('No lore atoms found.');
     });
 
     it('should format atoms with header and trailers', () => {
       const atom = makeAtom({
-        trailers: makeTrailers({
-          Constraint: ['Must use OAuth2'],
-          Confidence: ['high'],
-        }),
+        protocols: new Map([
+          ['lore', { 
+            name: 'Lore', 
+            version: '1.0', 
+            identityKey: LORE_ID_KEY, 
+            trailers: makeTrailers({
+              Constraint: ['Must use OAuth2'],
+              Confidence: ['high'],
+            }) 
+          }]
+        ])
       });
       const data: FormattableQueryResult = {
         result: {
@@ -106,19 +115,16 @@ describe('TextFormatter', () => {
             newest: atom.date,
           },
         },
-        supersessionMap: new Map([[atom.loreId, { superseded: false, supersededBy: null }]]),
+        supersessionMap: new Map([[atom.id, { superseded: false, supersededBy: null }]]),
         visibleTrailers: 'all',
-        trailerDefinitions: protocol.getFormattableDefinitions(),
       };
 
       const output = formatter.formatQueryResult(data);
       expect(output).toContain('a1b2c3d4');
       expect(output).toContain('2025-01-15');
       expect(output).toContain('alice@example.com');
-      expect(output).toContain('Constraint:');
-      expect(output).toContain('Must use OAuth2');
-      expect(output).toContain('Confidence:');
-      expect(output).toContain('high');
+      expect(output).toContain('[Lore] Constraint: Must use OAuth2');
+      expect(output).toContain('[Lore] Confidence: high');
     });
 
     it('should show supersession info for superseded atoms', () => {
@@ -137,7 +143,6 @@ describe('TextFormatter', () => {
         },
         supersessionMap,
         visibleTrailers: 'all',
-        trailerDefinitions: protocol.getFormattableDefinitions(),
       };
 
       const output = formatter.formatQueryResult(data);
@@ -146,11 +151,18 @@ describe('TextFormatter', () => {
 
     it('should filter visible trailers', () => {
       const atom = makeAtom({
-        trailers: makeTrailers({
-          Constraint: ['Must use OAuth2'],
-          Confidence: ['high'],
-          Rejected: ['Session tokens'],
-        }),
+        protocols: new Map([
+          ['lore', {
+            name: 'Lore',
+            version: '1.0',
+            identityKey: LORE_ID_KEY,
+            trailers: makeTrailers({
+              Constraint: ['Must use OAuth2'],
+              Confidence: ['high'],
+              Rejected: ['Session tokens'],
+            })
+          }]
+        ])
       });
       const data: FormattableQueryResult = {
         result: {
@@ -160,23 +172,28 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap: new Map([[atom.loreId, { superseded: false, supersededBy: null }]]),
+        supersessionMap: new Map([[atom.id, { superseded: false, supersededBy: null }]]),
         visibleTrailers: ['Constraint'],
-        trailerDefinitions: protocol.getFormattableDefinitions(),
       };
 
       const output = formatter.formatQueryResult(data);
-      expect(output).toContain('Constraint:');
-      expect(output).toContain('Must use OAuth2');
+      expect(output).toContain('[Lore] Constraint: Must use OAuth2');
       expect(output).not.toContain('Confidence:');
       expect(output).not.toContain('Rejected:');
     });
 
     it('should render unregistered (adhoc) trailers in dim color', () => {
       const atom = makeAtom({
-        trailers: makeTrailers({
-          'Assisted-by': ['Gemini'],
-        } as any),
+        protocols: new Map([
+          ['lore', {
+            name: 'Lore',
+            version: '1.0',
+            identityKey: LORE_ID_KEY,
+            trailers: makeTrailers({
+              'Assisted-by': ['Gemini'],
+            })
+          }]
+        ])
       });
 
       const data: FormattableQueryResult = {
@@ -187,13 +204,12 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap: new Map([[atom.loreId, { superseded: false, supersededBy: null }]]),
+        supersessionMap: new Map([[atom.id, { superseded: false, supersededBy: null }]]),
         visibleTrailers: 'all',
-        trailerDefinitions: protocol.getFormattableDefinitions(),
       };
 
       // We need to enable color for this test
-      const coloredFormatter = new TextFormatter({ color: true });
+      const coloredFormatter = new TextFormatter(registry, { color: true });
       const output = coloredFormatter.formatQueryResult(data);
 
       // Check for presence of key and value
@@ -213,9 +229,8 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap: new Map([[atom.loreId, { superseded: false, supersededBy: null }]]),
+        supersessionMap: new Map([[atom.id, { superseded: false, supersededBy: null }]]),
         visibleTrailers: 'all',
-        trailerDefinitions: protocol.getFormattableDefinitions(),
       };
 
       const output = formatter.formatQueryResult(data);
@@ -232,13 +247,90 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 5, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap: new Map([[atom.loreId, { superseded: false, supersededBy: null }]]),
+        supersessionMap: new Map([[atom.id, { superseded: false, supersededBy: null }]]),
         visibleTrailers: 'all',
-        trailerDefinitions: protocol.getFormattableDefinitions(),
       };
 
       const output = formatter.formatQueryResult(data);
       expect(output).toContain('1 of 5 atoms shown');
+    });
+
+    it('should display trailers from multiple protocols with prefixes', () => {
+      const trailers = makeTrailers({ Confidence: ['high'] });
+      const fredTrailers = { 'Fred-id': ['f8ed5678'], Status: ['active'] };
+      
+      const atom: Atom = {
+        ...makeAtom({ id: 'lore1234' }),
+        protocols: new Map([
+          ['lore', { name: 'Lore', version: '1.0', identityKey: 'Lore-id', trailers }],
+          ['fred', { name: 'Fred', version: '2.0', identityKey: 'Fred-id', trailers: fredTrailers as any }]
+        ])
+      } as any;
+
+      // Register Fred protocol so the formatter can find its metadata
+      const fredProtocol: any = {
+        name: 'Fred',
+        identityKey: 'Fred-id',
+        getFormattableDefinitions: () => ({})
+      };
+      registry.register(fredProtocol);
+
+      const data: FormattableQueryResult = {
+        result: {
+          command: 'search',
+          target: 'all',
+          targetType: 'search',
+          atoms: [atom],
+          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+        },
+        supersessionMap: new Map(),
+        visibleTrailers: 'all',
+      };
+
+      const output = formatter.formatQueryResult(data);
+      
+      // Lore (Primary) should be prefixed in total neutrality
+      expect(output).toContain('[Lore] Confidence: high');
+      
+      // Fred (Secondary) should be prefixed
+      expect(output).toContain('[Fred] Status: active');
+      // Should show Fred ID because it differs from header ID (lore1234)
+      expect(output).toContain('[Fred] Fred-id: f8ed5678');
+    });
+
+    it('should show prefixed trailers even if no root protocol is registered', () => {
+      const localRegistry = new ProtocolRegistry();
+      const fredProtocol = new Protocol({
+        ...LoreProtocolDefinition,
+        name: 'Fred',
+        version: '2.5',
+        identityKey: 'Fred-id',
+        namespace: 'Fred',
+      }, DEFAULT_CONFIG);
+      localRegistry.register(fredProtocol);
+
+      const formatterNoRoot = new TextFormatter(localRegistry, { color: false });
+      const trailers = { 'Fred-id': ['f1'], Status: ['active'] };
+      const atom: Atom = {
+        ...makeAtom({ id: 'l1' }),
+        protocols: new Map([
+          ['fred', { name: 'Fred', version: '2.5', identityKey: 'Fred-id', trailers: trailers as any }]
+        ])
+      } as any;
+
+      const data: FormattableQueryResult = {
+        result: {
+          atoms: [atom],
+          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: null, newest: null },
+          command: 'search', target: 'all', targetType: 'global'
+        },
+        supersessionMap: new Map(),
+        visibleTrailers: 'all',
+      };
+
+      const output = formatterNoRoot.formatQueryResult(data);
+      // In total neutrality mode, everything is prefixed
+      expect(output).toContain('[Fred] Status: active');
     });
   });
 
@@ -249,11 +341,12 @@ describe('TextFormatter', () => {
         results: [
           {
             commit: 'abc1234567890',
-            loreId: 'a1b2c3d4',
+            id: 'a1b2c3d4',
             valid: true,
             issues: [],
           },
         ],
+        valid: true
       };
 
       const output = formatter.formatValidationResult(data);
@@ -268,7 +361,7 @@ describe('TextFormatter', () => {
         results: [
           {
             commit: 'abc1234567890',
-            loreId: null,
+            id: null,
             valid: false,
             issues: [
               { severity: 'error', rule: 'lore-id-present', message: `${LORE_ID_KEY} trailer is missing` },
@@ -276,6 +369,7 @@ describe('TextFormatter', () => {
             ],
           },
         ],
+        valid: false
       };
 
       const output = formatter.formatValidationResult(data);
@@ -295,13 +389,14 @@ describe('TextFormatter', () => {
         results: [
           {
             commit: 'abc1234567890',
-            loreId: null,
+            id: null,
             valid: false,
             issues: [
               { severity: 'error', rule: 'lore-id-present', message: `Missing ${LORE_ID_KEY}` },
             ],
           },
         ],
+        valid: false
       };
 
       const output = formatter.formatValidationResult(data);
@@ -341,13 +436,13 @@ describe('TextFormatter', () => {
 
   describe('formatTraceResult', () => {
     it('should show root and edges with tree characters', () => {
-      const root = makeAtom({ loreId: 'aaaabbbb' });
-      const targetAtom = makeAtom({ loreId: 'ccccdddd', intent: 'related change' });
+      const root = makeAtom({ id: 'aaaabbbb' });
+      const targetAtom = makeAtom({ id: 'ccccdddd', intent: 'related change' });
       const data: FormattableTraceResult = {
         root,
         edges: [
-          { from: 'aaaabbbb', to: 'ccccdddd', relationship: 'Related' as any, targetAtom },
-          { from: 'aaaabbbb', to: 'eeeeffff', relationship: 'Supersedes' as any, targetAtom: null },
+          { from: 'aaaabbbb', to: 'ccccdddd', relationship: 'Related', targetAtom },
+          { from: 'aaaabbbb', to: 'eeeeffff', relationship: 'Supersedes', targetAtom: null },
         ],
       };
 
@@ -364,11 +459,11 @@ describe('TextFormatter', () => {
     });
 
     it('should use last-item connector for single edge', () => {
-      const root = makeAtom({ loreId: 'aaaabbbb' });
+      const root = makeAtom({ id: 'aaaabbbb' });
       const data: FormattableTraceResult = {
         root,
         edges: [
-          { from: 'aaaabbbb', to: 'ccccdddd', relationship: 'Depends-on' as any, targetAtom: null },
+          { from: 'aaaabbbb', to: 'ccccdddd', relationship: 'Depends-on', targetAtom: null },
         ],
       };
 
@@ -459,7 +554,7 @@ describe('TextFormatter', () => {
 
   describe('color support', () => {
     it('should produce output with color disabled', () => {
-      const noColor = new TextFormatter({ color: false });
+      const noColor = new TextFormatter(registry, { color: false });
       const output = noColor.formatSuccess('OK');
       // With chalk level 0, no ANSI codes
       expect(output).not.toMatch(/\x1b\[/);

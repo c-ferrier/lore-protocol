@@ -7,6 +7,7 @@ import type { IOutputFormatter } from '../../../src/interfaces/output-formatter.
 import type { Atom } from '../../../src/types/domain.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -21,15 +22,14 @@ const LORE_ID_KEY = "Lore-id";
  */
 
 function makeAtom(overrides: Partial<Atom> & { filesChanged: readonly string[] }): Atom {
-  return {
-    loreId: 'abcd1234',
-    commitHash: 'a'.repeat(40),
-    date: new Date('2026-01-01T00:00:00Z'),
-    author: 'Tester <tester@example.com>',
-    intent: 'fix: example',
-    body: '',
+  const id = (overrides as any).id ?? (overrides as any).id ?? 'abcd1234';
+  const protocols = new Map();
+  protocols.set('lore', {
+    name: 'lore',
+    version: '1.0',
+    identityKey: LORE_ID_KEY,
     trailers: {
-      [LORE_ID_KEY]: ['abcd1234'],
+      [LORE_ID_KEY]: [id],
       Constraint: [],
       Rejected: [],
       Confidence: [],
@@ -41,9 +41,21 @@ function makeAtom(overrides: Partial<Atom> & { filesChanged: readonly string[] }
       Supersedes: [],
       'Depends-on': [],
       Related: [],
-    } as any,
-    ...overrides,
+    },
+  });
+
+  const base: Atom = {
+    id,
+    commitHash: 'a'.repeat(40),
+    date: new Date('2026-01-01T00:00:00Z'),
+    author: 'Tester <tester@example.com>',
+    intent: 'fix: example',
+    body: '',
+    protocols,
+    filesChanged: overrides.filesChanged,
   };
+
+  return { ...base, ...overrides };
 }
 
 interface Harness {
@@ -88,7 +100,7 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
     supersessionResolver,
     getFormatter: () => formatter,
     config: DEFAULT_CONFIG,
-    protocol: new Protocol(DEFAULT_CONFIG),
+    protocol: new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG),
   });
 
   return { program, capturedResult, findAll, findByTarget, consoleSpy };
@@ -101,7 +113,7 @@ describe('registerLogCommand (issue #22 path arguments)', () => {
 
   it('accepts a positional path and routes through findByTarget', async () => {
     const matching = makeAtom({
-      loreId: 'match0001',
+      id: 'match0001',
       filesChanged: ['src/main.ts'],
     });
     const h = buildHarness([matching], [matching]);
@@ -117,12 +129,12 @@ describe('registerLogCommand (issue #22 path arguments)', () => {
 
     const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(1);
-    expect(result.atoms[0].loreId).toBe('match0001');
+    expect(result.atoms[0].id).toBe('match0001');
   });
 
   it('accepts the `--` pass-through and routes identically', async () => {
     const matching = makeAtom({
-      loreId: 'match0002',
+      id: 'match0002',
       filesChanged: ['src/main.ts'],
     });
     const h = buildHarness([matching], [matching]);
@@ -137,12 +149,12 @@ describe('registerLogCommand (issue #22 path arguments)', () => {
 
     const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(1);
-    expect(result.atoms[0].loreId).toBe('match0002');
+    expect(result.atoms[0].id).toBe('match0002');
   });
 
   it('uses findAll (not findByTarget) when no path argument is provided', async () => {
-    const a = makeAtom({ loreId: 'all00001', filesChanged: ['src/a.ts'] });
-    const b = makeAtom({ loreId: 'all00002', filesChanged: ['src/b.ts'] });
+    const a = makeAtom({ id: 'all00001', filesChanged: ['src/a.ts'] });
+    const b = makeAtom({ id: 'all00002', filesChanged: ['src/b.ts'] });
     const h = buildHarness([a, b]);
 
     await h.program.parseAsync(['node', 'lore', 'log']);
@@ -155,8 +167,8 @@ describe('registerLogCommand (issue #22 path arguments)', () => {
   });
 
   it('combines --limit with a positional path argument (limit applied client-side)', async () => {
-    const a = makeAtom({ loreId: 'limit001', filesChanged: ['src/main.ts'] });
-    const b = makeAtom({ loreId: 'limit002', filesChanged: ['src/main.ts'] });
+    const a = makeAtom({ id: 'limit001', filesChanged: ['src/main.ts'] });
+    const b = makeAtom({ id: 'limit002', filesChanged: ['src/main.ts'] });
     const h = buildHarness([], [a, b]);
 
     await h.program.parseAsync(['node', 'lore', 'log', '--limit', '1', 'src/main.ts']);
@@ -169,11 +181,11 @@ describe('registerLogCommand (issue #22 path arguments)', () => {
 
     const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(1);
-    expect(result.atoms[0].loreId).toBe('limit001');
+    expect(result.atoms[0].id).toBe('limit001');
   });
 
   it('passes --max-commits to findByTarget as maxCommits in PathQueryOptions', async () => {
-    const atom = makeAtom({ loreId: 'mc000001', filesChanged: ['src/main.ts'] });
+    const atom = makeAtom({ id: 'mc000001', filesChanged: ['src/main.ts'] });
     const h = buildHarness([], [atom]);
 
     await h.program.parseAsync(['node', 'lore', 'log', 'src/main.ts', '--max-commits', '50']);
@@ -184,9 +196,9 @@ describe('registerLogCommand (issue #22 path arguments)', () => {
 
   it('reflects totalAtoms before --limit in meta', async () => {
     const atoms = [
-      makeAtom({ loreId: 'meta0001', filesChanged: ['src/a.ts'] }),
-      makeAtom({ loreId: 'meta0002', filesChanged: ['src/b.ts'] }),
-      makeAtom({ loreId: 'meta0003', filesChanged: ['src/c.ts'] }),
+      makeAtom({ id: 'meta0001', filesChanged: ['src/a.ts'] }),
+      makeAtom({ id: 'meta0002', filesChanged: ['src/b.ts'] }),
+      makeAtom({ id: 'meta0003', filesChanged: ['src/c.ts'] }),
     ];
     const h = buildHarness(atoms);
 

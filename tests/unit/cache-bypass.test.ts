@@ -8,7 +8,7 @@ describe('shouldBypassCache', () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     process.argv = ['node', 'lore', 'log'];
-    delete process.env['LORE_NO_CACHE'];
+    delete process.env['PROTOCOL_NO_CACHE'];
   });
 
   afterEach(() => {
@@ -26,13 +26,13 @@ describe('shouldBypassCache', () => {
     expect(shouldBypassCache(true)).toBe(true);
   });
 
-  it('bypasses when LORE_NO_CACHE is "1"', () => {
-    process.env['LORE_NO_CACHE'] = '1';
+  it('bypasses when PROTOCOL_NO_CACHE is "1"', () => {
+    process.env['PROTOCOL_NO_CACHE'] = '1';
     expect(shouldBypassCache(true)).toBe(true);
   });
 
-  it('bypasses when LORE_NO_CACHE is "true"', () => {
-    process.env['LORE_NO_CACHE'] = 'true';
+  it('bypasses when PROTOCOL_NO_CACHE is "true"', () => {
+    process.env['PROTOCOL_NO_CACHE'] = 'true';
     expect(shouldBypassCache(true)).toBe(true);
   });
 
@@ -40,11 +40,11 @@ describe('shouldBypassCache', () => {
     expect(shouldBypassCache(false)).toBe(true);
   });
 
-  it('returns false when LORE_NO_CACHE is "0" or "false"', () => {
-    process.env['LORE_NO_CACHE'] = 'false';
+  it('returns false when PROTOCOL_NO_CACHE is "0" or "false"', () => {
+    process.env['PROTOCOL_NO_CACHE'] = 'false';
     expect(shouldBypassCache(true)).toBe(false);
     
-    process.env['LORE_NO_CACHE'] = '0';
+    process.env['PROTOCOL_NO_CACHE'] = '0';
     expect(shouldBypassCache(true)).toBe(false);
   });
 
@@ -54,7 +54,7 @@ describe('shouldBypassCache', () => {
   });
 
   it('bypasses if env is set even if config says true', () => {
-    process.env['LORE_NO_CACHE'] = '1';
+    process.env['PROTOCOL_NO_CACHE'] = '1';
     expect(shouldBypassCache(true)).toBe(true);
   });
 });

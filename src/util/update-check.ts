@@ -12,7 +12,7 @@ export function shouldCheckForUpdate(configUpdateCheck: boolean): boolean {
   const env = process.env;
   if (env['CI']) return false;
   if (env['NO_UPDATE_NOTIFIER']) return false;
-  if (env['LORE_NO_UPDATE_CHECK']) return false;
+  if (env['PROTOCOL_NO_UPDATE_CHECK']) return false;
 
   const argv = process.argv;
   if (argv.includes('--json') || argv.includes('--format=json')) return false;

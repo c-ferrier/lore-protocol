@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { SquashMerger } from '../services/squash-merger.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import { LoreError } from '../util/errors.js';
+import { ProtocolError } from '../util/errors.js';
 
 interface SquashCommandOptions {
   readonly intent?: string;
@@ -33,7 +33,7 @@ export function registerSquashCommand(
       const atoms = await atomRepository.findByRange(range);
 
       if (atoms.length === 0) {
-        throw new LoreError('No Lore atoms found in the specified range.', 1);
+        throw new ProtocolError('No Lore atoms found in the specified range.', 1);
       }
 
       const { message } = squashMerger.merge(atoms, {

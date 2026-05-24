@@ -6,8 +6,10 @@ import type {
   FormattableTraceResult,
   FormattableDoctorResult,
   FormattableConfigResult,
+  FormattableTrailerDefinition,
 } from '../types/output.js';
-import { LORE_ID_JSON_KEY, LORE_VERSION_JSON_KEY } from '../util/constants.js';
+import type { Atom, ProtocolState } from '../types/domain.js';
+import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
 /**
  * Strategy implementation for JSON output.
@@ -16,47 +18,28 @@ import { LORE_ID_JSON_KEY, LORE_VERSION_JSON_KEY } from '../util/constants.js';
  * SOLID: SRP -- only responsible for JSON formatting.
  */
 export class JsonFormatter implements IOutputFormatter {
+  constructor(private readonly protocolRegistry: ProtocolRegistry) {}
+
   formatQueryResult(data: FormattableQueryResult): string {
-    const { result, supersessionMap, visibleTrailers, trailerDefinitions } = data;
+    const { result, supersessionMap, visibleTrailers } = data;
 
     const results = result.atoms.map((atom) => {
-      // Find the primary protocol (prioritize lore)
-      // Fallback to deprecated fields for test compatibility
-      let id = atom.loreId;
-      let state: { identityKey: string; trailers: Record<string, readonly string[]> } | undefined;
-
-      if (atom.protocols && atom.protocols.size > 0) {
-        const protocolName = Array.from(atom.protocols.keys()).find(n => n === 'lore') ?? atom.protocols.keys().next().value;
-        if (protocolName) {
-          const pState = atom.protocols.get(protocolName);
-          if (pState) {
-            state = pState;
-            id = pState.trailers[pState.identityKey]?.[0] ?? id;
-          }
-        }
-      } else {
-        // Fallback for legacy atoms
-        state = { identityKey: 'Lore-id', trailers: atom.trailers };
-      }
-      
-      const supersession = supersessionMap.get(id);
       return {
-        [LORE_ID_JSON_KEY]: id,
         commit: atom.commitHash,
         date: atom.date.toISOString(),
         author: atom.author,
         intent: atom.intent,
         body: atom.body,
-        trailers: state ? this.serializeTrailers(state, visibleTrailers, trailerDefinitions) : {},
+        protocols: this.serializeProtocols(atom, visibleTrailers),
         files_changed: [...atom.filesChanged],
-        superseded: supersession?.superseded ?? false,
-        superseded_by: supersession?.supersededBy ?? null,
+        superseded: supersessionMap.get(atom.id)?.superseded ?? false,
+        superseded_by: supersessionMap.get(atom.id)?.supersededBy ?? null,
       };
     });
 
     return JSON.stringify(
       {
-        [LORE_VERSION_JSON_KEY]: '1.0',
+        version: '1.0',
         command: result.command,
         target: result.target,
         target_type: result.targetType,
@@ -76,7 +59,7 @@ export class JsonFormatter implements IOutputFormatter {
   formatValidationResult(data: FormattableValidationResult): string {
     return JSON.stringify(
       {
-        [LORE_VERSION_JSON_KEY]: '1.0',
+        version: '1.0',
         valid: data.valid,
         summary: {
           errors: data.summary.errors,
@@ -85,9 +68,10 @@ export class JsonFormatter implements IOutputFormatter {
         },
         results: data.results.map((r) => ({
           commit: r.commit,
-          [LORE_ID_JSON_KEY]: r.loreId,
+          id: r.id,
           valid: r.valid,
           issues: r.issues.map((issue) => ({
+
             severity: issue.severity,
             rule: issue.rule,
             message: issue.message,
@@ -102,18 +86,20 @@ export class JsonFormatter implements IOutputFormatter {
   formatStalenessResult(data: FormattableStalenessResult): string {
     return JSON.stringify(
       {
-        [LORE_VERSION_JSON_KEY]: '1.0',
-        stale_atoms: data.atoms.map((report) => ({
-          [LORE_ID_JSON_KEY]: report.atom.loreId,
-          commit: report.atom.commitHash,
-          date: report.atom.date.toISOString(),
-          author: report.atom.author,
-          intent: report.atom.intent,
-          reasons: report.reasons.map((r) => ({
-            signal: r.signal,
-            description: r.description,
-          })),
-        })),
+        version: '1.0',
+        stale_atoms: data.atoms.map((report) => {
+          return {
+            commit: report.atom.commitHash,
+            date: report.atom.date.toISOString(),
+            author: report.atom.author,
+            intent: report.atom.intent,
+            protocols: this.serializeProtocols(report.atom, 'all'),
+            reasons: report.reasons.map((r) => ({
+              signal: r.signal,
+              description: r.description,
+            })),
+          };
+        }),
       },
       null,
       2,
@@ -123,13 +109,13 @@ export class JsonFormatter implements IOutputFormatter {
   formatTraceResult(data: FormattableTraceResult): string {
     return JSON.stringify(
       {
-        [LORE_VERSION_JSON_KEY]: '1.0',
+        version: '1.0',
         root: {
-          [LORE_ID_JSON_KEY]: data.root.loreId,
           commit: data.root.commitHash,
           date: data.root.date.toISOString(),
           author: data.root.author,
           intent: data.root.intent,
+          protocols: this.serializeProtocols(data.root, 'all'),
         },
         edges: data.edges.map((edge) => ({
           from: edge.from,
@@ -138,11 +124,11 @@ export class JsonFormatter implements IOutputFormatter {
           resolved: edge.targetAtom !== null,
           target_atom: edge.targetAtom
             ? {
-                [LORE_ID_JSON_KEY]: edge.targetAtom.loreId,
                 commit: edge.targetAtom.commitHash,
                 date: edge.targetAtom.date.toISOString(),
                 author: edge.targetAtom.author,
                 intent: edge.targetAtom.intent,
+                protocols: this.serializeProtocols(edge.targetAtom, 'all'),
               }
             : null,
         })),
@@ -155,7 +141,7 @@ export class JsonFormatter implements IOutputFormatter {
   formatDoctorResult(data: FormattableDoctorResult): string {
     return JSON.stringify(
       {
-        [LORE_VERSION_JSON_KEY]: '1.0',
+        version: '1.0',
         checks: data.checks.map((check) => ({
           name: check.name,
           status: check.status,
@@ -176,7 +162,7 @@ export class JsonFormatter implements IOutputFormatter {
   formatSuccess(message: string, data?: Record<string, unknown>): string {
     return JSON.stringify(
       {
-        [LORE_VERSION_JSON_KEY]: '1.0',
+        version: '1.0',
         success: true,
         message,
         ...(data ?? {}),
@@ -189,7 +175,7 @@ export class JsonFormatter implements IOutputFormatter {
   formatError(code: number, messages: readonly ErrorMessage[]): string {
     return JSON.stringify(
       {
-        [LORE_VERSION_JSON_KEY]: '1.0',
+        version: '1.0',
         error: true,
         code,
         messages: messages.map((msg) => ({
@@ -207,13 +193,9 @@ export class JsonFormatter implements IOutputFormatter {
     const cleanTrailers: Record<string, any> = {};
 
     for (const [key, def] of Object.entries(data.trailers)) {
-      // In JSON config output, we show what's requested via filters
-      // (The filters are applied at the command layer before calling formatter)
-      
       const { ui, ...clean } = def;
       const stripped: any = { ...clean };
       
-      // Strip empty/default fields to reduce programmatic noise
       if (stripped.directives && stripped.directives.length === 0) delete stripped.directives;
       if (stripped.required === false) delete stripped.required;
       if (stripped.validation === 'none') delete stripped.validation;
@@ -222,10 +204,46 @@ export class JsonFormatter implements IOutputFormatter {
     }
 
     return JSON.stringify({
-      [LORE_VERSION_JSON_KEY]: data.loreVersion,
+      version: data.version,
       permissive: data.permissive,
       trailers: cleanTrailers
     }, null, 2);
+  }
+
+  /**
+   * Serialize all protocols for an atom.
+   */
+  serializeProtocols(
+    atom: Atom, 
+    visibleTrailers: readonly string[] | 'all' = 'all'
+  ): Record<string, any> {
+    const protocols: Record<string, any> = {};
+    for (const [name, state] of atom.protocols.entries()) {
+      const protocolObj = this.protocolRegistry.get(name);
+      protocols[name] = this.serializeProtocolState(
+        state, 
+        visibleTrailers, 
+        protocolObj?.getFormattableDefinitions() ?? {}
+      );
+    }
+    return protocols;
+  }
+
+  /**
+   * Transforms a full protocol state into a machine-readable object.
+   */
+  private serializeProtocolState(
+    state: ProtocolState,
+    visibleTrailers: readonly string[] | 'all',
+    definitions: Record<string, FormattableTrailerDefinition>
+  ): Record<string, any> {
+    const idKey = `${state.name.toLowerCase().replace(/-/g, '_')}_id`;
+    const versionKey = `${state.name.toLowerCase().replace(/-/g, '_')}_version`;
+    return {
+      [idKey]: state.trailers[state.identityKey]?.[0] ?? null,
+      [versionKey]: state.version,
+      ...this.serializeTrailers(state, visibleTrailers, definitions),
+    };
   }
 
   /**
@@ -234,7 +252,7 @@ export class JsonFormatter implements IOutputFormatter {
   private serializeTrailers(
     state: { identityKey: string; trailers: Record<string, readonly string[]> },
     visibleTrailers: readonly string[] | 'all',
-    trailerDefinitions: Record<string, any>,
+    trailerDefinitions: Record<string, FormattableTrailerDefinition>,
   ): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     const trailers = state.trailers;
@@ -243,9 +261,6 @@ export class JsonFormatter implements IOutputFormatter {
       if (visibleTrailers === 'all') return true;
       return visibleTrailers.includes(key);
     };
-
-    // Special case: identity key is ALWAYS included in JSON, matching 'main'
-    result[LORE_ID_JSON_KEY] = trailers[state.identityKey]?.[0] ?? null;
 
     for (const key of Object.keys(trailers)) {
       if (key === state.identityKey) continue;
@@ -256,7 +271,6 @@ export class JsonFormatter implements IOutputFormatter {
 
       const jsonKey = key.toLowerCase().replace(/-/g, '_');
       
-      // Scalar vs Array normalization based on INJECTED metadata
       const def = trailerDefinitions[key];
       const isScalar = def && !def.multivalue;
       

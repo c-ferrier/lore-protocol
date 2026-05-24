@@ -1,6 +1,4 @@
 import { TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../util/constants.js';
-import type { TrailerKey } from './domain.js';
-import { LORE_TRAILER_KEYS } from '../util/constants.js';
 
 export type TrailerUiKind = (typeof TRAILER_UI_KINDS)[number];
 export type TrailerUiColor = (typeof TRAILER_UI_COLORS)[number];
@@ -47,7 +45,7 @@ export interface CustomTrailerDefinition {
   readonly squash?: 'union' | 'rank-min' | 'rank-max';
 }
 
-export interface LoreConfig {
+export interface Config {
   readonly protocol: {
     readonly name: string;
     readonly version: string;
@@ -80,4 +78,3 @@ export interface LoreConfig {
     readonly queryCachePruneThreshold?: number;
   };
 }
-

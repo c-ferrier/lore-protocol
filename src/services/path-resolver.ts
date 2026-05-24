@@ -14,7 +14,7 @@ const GLOB_CHARS_PATTERN = /[*?]/;
 export class PathResolver {
   constructor(
     private readonly cwd: string,
-    private readonly loreRoot: string,
+    private readonly protocolRoot: string,
   ) {}
 
   /**
@@ -90,14 +90,14 @@ export class PathResolver {
   }
 
   /**
-   * Normalize a path relative to the loreRoot.
+   * Normalize a path relative to the protocolRoot.
    */
   private normalizePath(rawPath: string): string {
     // 1. Resolve to an absolute path based on CWD
     const absolutePath = resolve(this.cwd, rawPath);
 
-    // 2. Compute relative path from loreRoot
-    let relPath = relative(this.loreRoot, absolutePath);
+    // 2. Compute relative path from protocolRoot
+    let relPath = relative(this.protocolRoot, absolutePath);
 
     // 3. Normalize to POSIX separators and handle empty/root case
     if (relPath === '') {
@@ -116,7 +116,7 @@ export class PathResolver {
 
   /**
    * Convert multiple raw path strings into a combined git log argument array.
-   * Normalizes all paths relative to loreRoot.
+   * Normalizes all paths relative to protocolRoot.
    */
   toGitLogArgsMulti(rawPaths: string[]): readonly string[] {
     if (rawPaths.length === 0) return [];

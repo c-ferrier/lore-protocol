@@ -1,4 +1,4 @@
-import type { LoreIdGenerator } from './lore-id-generator.js';
+import type { IdGenerator } from './id-generator.js';
 import type { Atom, AtomId } from '../types/domain.js';
 import type { Protocol } from './protocol.js';
 
@@ -11,7 +11,7 @@ import type { Protocol } from './protocol.js';
  */
 export class SquashMerger {
   constructor(
-    private readonly loreIdGenerator: LoreIdGenerator,
+    private readonly idGenerator: IdGenerator,
     private readonly protocol: Protocol,
   ) {}
 
@@ -29,13 +29,13 @@ export class SquashMerger {
   merge(
     atoms: readonly Atom[],
     options: { intent?: string; body?: string },
-  ): { message: string; loreId: AtomId } {
+  ): { message: string; id: AtomId } {
     if (atoms.length === 0) {
       throw new Error('Cannot merge zero atoms');
     }
 
-    const newLoreId = this.loreIdGenerator.generate();
-    const internalIds = new Set(atoms.map((a) => a.loreId));
+    const newLoreId = this.idGenerator.generate();
+    const internalIds = new Set(atoms.map((a) => a.id));
 
     // Sort atoms by date ascending so the newest is last
     const sorted = [...atoms].sort(
@@ -52,11 +52,16 @@ export class SquashMerger {
     const trailerLines: string[] = [];
     trailerLines.push(`${this.protocol.identityKey}: ${newLoreId}`);
 
+    const protocolName = this.protocol.name.toLowerCase();
+
     // 1. Process All Trailers uniformly
     // Flatten all present keys across all atoms
     const allKeys = new Set<string>();
     for (const atom of atoms) {
-      for (const key of Object.keys(atom.trailers)) {
+      const state = atom.protocols.get(protocolName);
+      if (!state) continue;
+
+      for (const key of Object.keys(state.trailers)) {
         if (key !== this.protocol.identityKey) { 
           allKeys.add(key);
         }
@@ -76,7 +81,7 @@ export class SquashMerger {
       const strategy = def?.squash || 'union';
       
       // Values are always arrays in the new flat structure
-      const allValues = atoms.map(a => a.trailers[key] || []);
+      const allValues = atoms.map(a => a.protocols.get(protocolName)?.trailers[key] || []);
 
       if (strategy === 'rank-min' && def?.values) {
         const valueKeys = Object.keys(def.values);
@@ -113,7 +118,7 @@ export class SquashMerger {
     parts.push('');
     parts.push(trailerLines.join('\n'));
 
-    return { message: parts.join('\n'), loreId: newLoreId };
+    return { message: parts.join('\n'), id: newLoreId };
   }
 
   /**

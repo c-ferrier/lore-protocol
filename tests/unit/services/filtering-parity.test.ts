@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/services/atom-repository.js';
 import { TrailerParser } from '../../../src/services/trailer-parser.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 import { SearchFilter } from '../../../src/services/search-filter.js';
 import { NullAtomCache } from '../../../src/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/services/query-cache.js';
@@ -73,7 +74,7 @@ describe('AtomRepository Filtering Parity', () => {
       resolveRef: vi.fn(async () => 'head-hash'),
     } as any;
 
-    protocol = new Protocol(DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     trailerParser = new TrailerParser();
@@ -148,7 +149,7 @@ describe('AtomRepository Filtering Parity', () => {
       expect(args).toContain('--grep=login logic');
     });
 
-    it('should escape regex special characters in scope and loreId (Security)', async () => {
+    it('should escape regex special characters in scope and id (Security)', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
       
       // Test scope escaping
@@ -158,11 +159,11 @@ describe('AtomRepository Filtering Parity', () => {
       const escapedScope = escapeRegex(targetScope);
       expect(args).toContain(`--grep=^[a-zA-Z]+\\(${escapedScope}\\)`);
 
-      // Test loreId escaping
+      // Test id escaping
       // Mock validation to allow special chars for escaping test
       vi.spyOn(protocol, 'isValidIdentity').mockReturnValue(true);
       const targetId = 'abc-123*';
-      await repo.findByLoreId(targetId);
+      await repo.findById(targetId);
       args = vi.mocked(gitClient.log).mock.calls[1][0];
       const escapedId = escapeRegex(targetId);
       expect(args).toContain(`--grep=^Lore-id: ${escapedId}`);

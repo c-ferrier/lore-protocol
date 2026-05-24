@@ -8,13 +8,11 @@ import { AtomRepository } from '../../src/services/atom-repository.js';
 import { GitClient } from '../../src/services/git-client.js';
 import { TrailerParser } from '../../src/services/trailer-parser.js';
 import { Protocol } from '../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../src/protocols/lore.js';
+import { ProtocolRegistry } from '../../src/services/protocol-registry.js';
 import { NullAtomCache } from '../../src/services/atom-cache.js';
 import { NullQueryCache } from '../../src/services/query-cache.js';
 import { DEFAULT_CONFIG } from '../../src/util/constants.js';
-
-import { ProtocolRegistry } from '../../src/services/protocol-registry.js';
-
-const LORE_ID_KEY = "Lore-id";
 
 describe('AtomRepository Git Integration', () => {
   const testDir = realpathSync(tmpdir()) + '/lore-git-test-' + Math.random().toString(36).slice(2);
@@ -58,11 +56,12 @@ describe('AtomRepository Git Integration', () => {
     run('git commit -m "feat: fake\n\nNot really a Lore-id: 12345678"');
 
     const gitClient = new GitClient(testDir);
-    const protocol = new Protocol(DEFAULT_CONFIG);
+    const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
     const protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
+    
     const trailerParser = new TrailerParser();
-    const searchFilter = new SearchFilter();
+    const searchFilter = new SearchFilter(protocolRegistry);
     const atomCache = new NullAtomCache();
     const queryCache = new NullQueryCache();
     
@@ -85,7 +84,7 @@ describe('AtomRepository Git Integration', () => {
     const result = await repo.findAll({});
     // Should find #1 and #2, but not #3 (chore) or #4 (fake trailer)
     expect(result).toHaveLength(2);
-    const ids = result.map(a => a.loreId);
+    const ids = result.map(a => a.id);
     expect(ids).toContain('00000001');
     expect(ids).toContain('00000002');
   });
@@ -98,14 +97,14 @@ describe('AtomRepository Git Integration', () => {
   it('Coarse Filtering: should correctly filter by scope at Git level', async () => {
     const result = await repo.findAll({ scope: 'auth' });
     expect(result).toHaveLength(1);
-    expect(result[0].loreId).toBe('00000001');
+    expect(result[0].id).toBe('00000001');
   });
 
   it('Coarse Filtering: should handle AND logic (all-match) at Git level', async () => {
     // Search for author "test@example.com" AND scope "ui" (should be 1)
     const result2 = await repo.findAll({ author: 'test@example.com', scope: 'ui' });
     expect(result2).toHaveLength(1);
-    expect(result2[0].loreId).toBe('00000002');
+    expect(result2[0].id).toBe('00000002');
   });
 
   it('Coarse Filtering: should handle date-based filtering (since/until)', async () => {
@@ -137,7 +136,7 @@ describe('AtomRepository Git Integration', () => {
     // Everything since the date of Atom 00000002 (inclusive)
     const result = await repo.findAll({ since: 'HEAD~2' });
     expect(result).toHaveLength(1);
-    expect(result[0].loreId).toBe('00000002');
+    expect(result[0].id).toBe('00000002');
   });
 
   it('Coarse Filtering: should handle until filtering with refs (e.g., "HEAD~1")', async () => {
@@ -145,7 +144,7 @@ describe('AtomRepository Git Integration', () => {
     // Everything UNTIL chore commit should include both atoms #1 and #2.
     const result = await repo.findAll({ until: 'HEAD~1' });
     expect(result).toHaveLength(2);
-    const ids = result.map(a => a.loreId);
+    const ids = result.map(a => a.id);
     expect(ids).toContain('00000001');
     expect(ids).toContain('00000002');
   });
@@ -153,16 +152,17 @@ describe('AtomRepository Git Integration', () => {
   it('Coarse Filtering: should handle commit hashes', async () => {
     // Get the hash of Atom 00000002
     const atoms = await repo.findAll({});
-    const atom2 = atoms.find(a => a.loreId === '00000002')!;
+    const atom2 = atoms.find(a => a.id === '00000002')!;
     const hash = atom2.commitHash;
 
     // since that hash should include it
+    // Use --since-as-filter to ensure it's treated strictly if git version varies
     const resultSince = await repo.findAll({ since: hash });
-    expect(resultSince.map(a => a.loreId)).toContain('00000002');
+    expect(resultSince.map(a => a.id)).toContain('00000002');
 
     // short hash should also work
     const resultShort = await repo.findAll({ since: hash.substring(0, 7) });
-    expect(resultShort.map(a => a.loreId)).toContain('00000002');
+    expect(resultShort.map(a => a.id)).toContain('00000002');
   });
 
   it('Coarse Filtering: should handle garbage date strings gracefully', async () => {

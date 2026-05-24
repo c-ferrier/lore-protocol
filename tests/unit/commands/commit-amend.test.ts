@@ -5,9 +5,12 @@ import type { CommitBuilder } from '../../../src/services/commit-builder.js';
 import type { IGitClient } from '../../../src/interfaces/git-client.js';
 import type { IOutputFormatter } from '../../../src/interfaces/output-formatter.js';
 import type { CommitInputResolver } from '../../../src/services/commit-input-resolver.js';
-import type { HeadLoreIdReader } from '../../../src/services/head-lore-id-reader.js';
+import type { HeadIdReader } from '../../../src/services/head-id-reader.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
+import { TrailerParser } from '../../../src/services/trailer-parser.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -44,7 +47,7 @@ function createMockFormatter(): IOutputFormatter {
 
 function createMockCommitBuilder(): CommitBuilder {
   return {
-    build: vi.fn().mockReturnValue({ message: 'built message', loreId: 'a1b2c3d4' }),
+    build: vi.fn().mockReturnValue({ message: 'built message', id: 'a1b2c3d4' }),
     validate: vi.fn().mockReturnValue([]),
   } as unknown as CommitBuilder;
 }
@@ -55,10 +58,10 @@ function createMockInputResolver(): CommitInputResolver {
   } as unknown as CommitInputResolver;
 }
 
-function createMockHeadLoreIdReader(loreId: string | null = null): HeadLoreIdReader {
+function createMockHeadIdReader(id: string | null = null): HeadIdReader {
   return {
-    read: vi.fn().mockResolvedValue(loreId),
-  } as unknown as HeadLoreIdReader;
+    read: vi.fn().mockResolvedValue(id),
+  } as unknown as HeadIdReader;
 }
 
 async function runCommitCommand(args: string[], deps: ReturnType<typeof createDeps>): Promise<void> {
@@ -69,17 +72,23 @@ async function runCommitCommand(args: string[], deps: ReturnType<typeof createDe
 }
 
 function createDeps(overrides?: {
-  headLoreIdReader?: HeadLoreIdReader;
+  headIdReader?: HeadIdReader;
   gitClient?: IGitClient;
 }) {
+  const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+  const protocolRegistry = new ProtocolRegistry();
+  protocolRegistry.register(protocol);
+
   return {
     commitBuilder: createMockCommitBuilder(),
     gitClient: overrides?.gitClient ?? createMockGitClient(),
     getFormatter: () => createMockFormatter(),
     commitInputResolver: createMockInputResolver(),
-    headLoreIdReader: overrides?.headLoreIdReader ?? createMockHeadLoreIdReader(),
+    headIdReader: overrides?.headIdReader ?? createMockHeadIdReader(),
     config: DEFAULT_CONFIG,
-    protocol: new Protocol(DEFAULT_CONFIG),
+    protocol,
+    protocolRegistry,
+    trailerParser: new TrailerParser(),
   };
 }
 
@@ -101,12 +110,12 @@ describe('lore commit --amend', () => {
   });
 
   it(`should pass existing ${LORE_ID_KEY} to commitBuilder.build when amending`, async () => {
-    const headLoreIdReader = createMockHeadLoreIdReader('cafebabe');
-    const deps = createDeps({ headLoreIdReader });
+    const headIdReader = createMockHeadIdReader('cafebabe');
+    const deps = createDeps({ headIdReader });
 
     await runCommitCommand(['--amend', '--intent', 'amend test'], deps);
 
-    expect(headLoreIdReader.read).toHaveBeenCalledOnce();
+    expect(headIdReader.read).toHaveBeenCalledOnce();
     expect(deps.commitBuilder.build).toHaveBeenCalledWith(
       expect.anything(),
       'cafebabe',
@@ -196,12 +205,12 @@ describe('lore commit --amend', () => {
   });
 
   it(`should generate new ${LORE_ID_KEY} when amending a non-Lore commit`, async () => {
-    const headLoreIdReader = createMockHeadLoreIdReader(null);
-    const deps = createDeps({ headLoreIdReader });
+    const headIdReader = createMockHeadIdReader(null);
+    const deps = createDeps({ headIdReader });
 
     await runCommitCommand(['--amend', '--intent', 'amend non-lore'], deps);
 
-    expect(headLoreIdReader.read).toHaveBeenCalledOnce();
+    expect(headIdReader.read).toHaveBeenCalledOnce();
     // null from reader -> undefined passed to build -> generates new ID
     expect(deps.commitBuilder.build).toHaveBeenCalledWith(
       expect.anything(),
@@ -210,12 +219,12 @@ describe('lore commit --amend', () => {
   });
 
   it(`should not read ${LORE_ID_KEY} from HEAD for normal commits`, async () => {
-    const headLoreIdReader = createMockHeadLoreIdReader('cafebabe');
-    const deps = createDeps({ headLoreIdReader });
+    const headIdReader = createMockHeadIdReader('cafebabe');
+    const deps = createDeps({ headIdReader });
 
     await runCommitCommand(['--intent', 'normal commit'], deps);
 
-    expect(headLoreIdReader.read).not.toHaveBeenCalled();
+    expect(headIdReader.read).not.toHaveBeenCalled();
     expect(deps.commitBuilder.build).toHaveBeenCalledWith(
       expect.anything(),
       undefined,

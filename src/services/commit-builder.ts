@@ -1,13 +1,13 @@
 import type { TrailerParser } from './trailer-parser.js';
-import type { LoreIdGenerator } from './lore-id-generator.js';
-import type { LoreConfig } from '../types/config.js';
+import type { IdGenerator } from './id-generator.js';
+import type { Config } from '../types/config.js';
 import type { Trailers, AtomId } from '../types/domain.js';
 import type { CommitInput } from '../types/commit.js';
 import type { ValidationIssue } from '../types/output.js';
 import type { Protocol } from './protocol.js';
 
 /**
- * Builds and validates git commit messages enriched with Lore decision context.
+ * Builds and validates git commit messages enriched with decision context.
  *
  * SOLID: SRP -- responsible only for commit message construction.
  * SOLID: OCP -- fully metadata-driven; no hardcoded trailer names in construction.
@@ -15,17 +15,17 @@ import type { Protocol } from './protocol.js';
 export class CommitBuilder {
   constructor(
     private readonly trailerParser: TrailerParser,
-    private readonly loreIdGenerator: LoreIdGenerator,
-    private readonly config: LoreConfig,
+    private readonly idGenerator: IdGenerator,
+    private readonly config: Config,
     private readonly protocol: Protocol,
   ) {}
 
   /**
-   * Builds a full git commit message with subject, body, and Lore trailer block.
+   * Builds a full git commit message with subject, body, and trailer block.
    */
-  build(input: CommitInput, existingLoreId?: AtomId): { message: string; loreId: AtomId } {
-    const loreId = existingLoreId || this.loreIdGenerator.generate();
-    const trailers = this.buildTrailers(loreId, input);
+  build(input: CommitInput, existingId?: AtomId): { message: string; id: AtomId } {
+    const id = existingId || this.idGenerator.generate();
+    const trailers = this.buildTrailers(id, input);
     const trailerBlock = this.trailerParser.serialize(trailers, this.protocol.getAuthorizedKeys());
 
     let message = input.intent;
@@ -34,7 +34,7 @@ export class CommitBuilder {
     }
     message += `\n\n${trailerBlock}`;
 
-    return { message, loreId };
+    return { message, id };
   }
 
   /**
@@ -90,7 +90,8 @@ export class CommitBuilder {
               // Map pattern failures to specific rules for backward compatibility with tests
               let rule = 'invalid-format';
               if (def.ui?.kind === 'reference') {
-                rule = 'invalid-lore-id-ref';
+                const protocolSlug = this.protocol.name.toLowerCase().replace(/-/g, '');
+                rule = `invalid-${protocolSlug}-id-ref`;
               }
 
               issues.push({
@@ -134,10 +135,10 @@ export class CommitBuilder {
   /**
    * Dynamically constructs a Trailers object from input metadata.
    */
-  private buildTrailers(loreId: AtomId, input: CommitInput): Trailers {
+  private buildTrailers(id: AtomId, input: CommitInput): Trailers {
     // Start with a record that is strictly string[]
     const result: Record<string, string[]> = {
-      [this.protocol.identityKey]: [loreId],
+      [this.protocol.identityKey]: [id],
     };
 
     // Pre-initialize authorized keys for uniformity

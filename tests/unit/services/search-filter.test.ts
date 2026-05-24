@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { SearchFilter } from '../../../src/services/search-filter.js';
 import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 import type { Atom } from '../../../src/types/domain.js';
 
@@ -11,26 +12,19 @@ describe('SearchFilter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    const lore = new Protocol(DEFAULT_CONFIG);
+    const lore = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
     registry.register(lore);
     filter = new SearchFilter(registry);
   });
 
   const mockAtoms: Atom[] = [
     {
-      loreId: 'abc12345',
+      id: 'abc12345',
       commitHash: 'h1',
       date: new Date('2026-05-01T12:00:00Z'),
       author: 'cole@example.com',
       intent: 'feat(auth): valid login',
       body: 'Body text here',
-      trailers: {
-        'Lore-id': ['abc12345'],
-        Confidence: ['high'],
-        'Scope-risk': ['narrow'],
-        Reversibility: ['clean'],
-        Constraint: ['c1'],
-      },
       protocols: new Map([
         ['lore', { 
           name: 'Lore', 
@@ -48,19 +42,12 @@ describe('SearchFilter', () => {
       filesChanged: ['f1.ts'],
     } as any,
     {
-      loreId: 'def67890',
+      id: 'def67890',
       commitHash: 'h2',
       date: new Date('2026-05-10T12:00:00Z'),
       author: 'ivan@example.com',
       intent: 'fix(ui): layout bug',
       body: 'Body text here',
-      trailers: {
-        'Lore-id': ['def67890'],
-        Confidence: ['low'],
-        'Scope-risk': ['wide'],
-        Reversibility: ['migration-needed'],
-        Rejected: ['r1'],
-      },
       protocols: new Map([
         ['lore', { 
           name: 'Lore', 
@@ -82,13 +69,13 @@ describe('SearchFilter', () => {
   it('should filter by scope', () => {
     const results = filter.applyFilters(mockAtoms, { scope: 'auth' } as any);
     expect(results).toHaveLength(1);
-    expect(results[0].loreId).toBe('abc12345');
+    expect(results[0].id).toBe('abc12345');
   });
 
   it('should filter by author', () => {
     const results = filter.applyFilters(mockAtoms, { author: 'ivan' } as any);
     expect(results).toHaveLength(1);
-    expect(results[0].loreId).toBe('def67890');
+    expect(results[0].id).toBe('def67890');
   });
 
   it('should filter by date range (since)', () => {
@@ -96,13 +83,13 @@ describe('SearchFilter', () => {
       sinceDate: new Date('2026-05-05'),
     } as any);
     expect(results).toHaveLength(1);
-    expect(results[0].loreId).toBe('def67890');
+    expect(results[0].id).toBe('def67890');
   });
 
   it('should filter by trailer presence (has)', () => {
     const results = filter.applyFilters(mockAtoms, { has: 'Constraint' } as any);
     expect(results).toHaveLength(1);
-    expect(results[0].loreId).toBe('abc12345');
+    expect(results[0].id).toBe('abc12345');
   });
 
   it('should filter by confidence', () => {
@@ -110,23 +97,24 @@ describe('SearchFilter', () => {
       filters: { confidence: 'high' } 
     } as any);
     expect(results).toHaveLength(1);
-    expect(results[0].loreId).toBe('abc12345');
+    expect(results[0].id).toBe('abc12345');
   });
 
   it('should filter by full-text search', () => {
     const results = filter.applyFilters(mockAtoms, { text: 'layout' } as any);
     expect(results).toHaveLength(1);
-    expect(results[0].loreId).toBe('def67890');
+    expect(results[0].id).toBe('def67890');
   });
 
   describe('Backward Compatibility (Legacy Fallback)', () => {
     it('should correctly filter atoms that lack a protocols map using root trailers', () => {
       const legacyAtom: any = {
-        loreId: 'legacy123',
+        id: 'legacy123',
         trailers: { Confidence: ['high'] },
         intent: 'legacy commit',
         body: '',
         date: new Date(),
+        protocols: new Map()
       };
       
       // Filter by confidence (should use fallback logic)
@@ -141,7 +129,7 @@ describe('SearchFilter', () => {
   describe('Multi-Protocol Semantic Search', () => {
     it('should match if a text query is found in a secondary protocol state', () => {
       const multiAtom: any = {
-        loreId: 'id123',
+        id: 'id123',
         intent: 'subject',
         body: 'body',
         date: new Date(),
@@ -157,7 +145,7 @@ describe('SearchFilter', () => {
 
     it('should match if any protocol in the atom matches generic filters', () => {
       const multiAtom: any = {
-        loreId: 'id123',
+        id: 'id123',
         intent: 'subject',
         body: 'body',
         date: new Date(),
@@ -168,7 +156,7 @@ describe('SearchFilter', () => {
       };
       
       // Register Fred protocol so filter knows about it
-      const fred: IProtocol = {
+      const fred: any = {
         name: 'Fred',
         namespace: 'Fred',
         matches: (state: any, filters: any) => {

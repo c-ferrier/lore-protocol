@@ -60,6 +60,13 @@ export class ProtocolRegistry {
     return [`--grep=${combined}`];
   }
 
+  /**
+   * Returns the protocol registered for the root namespace ("").
+   */
+  getRoot(): IProtocol | undefined {
+    return this.all().find((p) => p.namespace === '');
+  }
+
   private hasPermissiveProtocolInNamespace(namespace: string): boolean {
     return this.all().some((p) => p.isPermissive && p.namespace.toLowerCase() === namespace.toLowerCase());
   }

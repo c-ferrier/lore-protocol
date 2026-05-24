@@ -81,9 +81,9 @@ export class CommitInputResolver {
     }
     
     // Check if any intent or any trailer flag was provided
-    const hasFlags = !!options.intent || 
-                   !!options.trailer || 
-                   Object.keys(options).some(k => k !== 'amend' && k !== 'edit');
+    const baseFlags = ['amend', 'edit', 'intent', 'body', 'file', 'trailer', 'interactive', 'json', 'format', 'color', 'context', 'cache'];
+    const extraKeys = Object.keys(options).filter(k => !baseFlags.includes(k) && options[k] !== undefined);
+    const hasFlags = !!options.intent || (options.trailer && options.trailer.length > 0) || extraKeys.length > 0;
 
     if (hasFlags) {
       return InputMode.Flags;
@@ -113,8 +113,10 @@ export class CommitInputResolver {
         return new JsonInputReader(await readFile(options.file!, 'utf-8'));
       case InputMode.Flags:
         return new FlagsInputReader(options, this.protocol);
-      case InputMode.Stdin:
-        return new JsonInputReader(await this.readStdinContent());
+      case InputMode.Stdin: {
+        const content = await this.readStdinContent();
+        return new JsonInputReader(content);
+      }
     }
   }
 

@@ -3,11 +3,14 @@ import type { CommitBuilder } from '../services/commit-builder.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { CommitInputResolver } from '../services/commit-input-resolver.js';
-import type { HeadLoreIdReader } from '../services/head-lore-id-reader.js';
-import { LoreError, NoStagedChangesError, ValidationError } from '../util/errors.js';
-import type { LoreConfig, CustomTrailerDefinition } from '../types/config.js';
+import type { HeadIdReader } from '../services/head-id-reader.js';
+import { ProtocolError, NoStagedChangesError, ValidationError } from '../util/errors.js';
+import type { Config, CustomTrailerDefinition } from '../types/config.js';
 import type { AtomId } from '../types/domain.js';
 import type { IProtocol } from '../interfaces/protocol.js';
+import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import type { TrailerParser } from '../services/trailer-parser.js';
+import { JsonFormatter } from '../formatters/json-formatter.js';
 import { mergeOptions } from './helpers/merge-options.js';
 
 /**
@@ -39,13 +42,15 @@ export function registerCommitCommand(
     commitBuilder: CommitBuilder;
     gitClient: IGitClient;
     commitInputResolver: CommitInputResolver;
-    headLoreIdReader: HeadLoreIdReader;
+    headIdReader: HeadIdReader;
     getFormatter: () => IOutputFormatter;
-    config: LoreConfig;
+    config: Config;
     protocol: IProtocol;
+    protocolRegistry: ProtocolRegistry;
+    trailerParser: TrailerParser;
   },
 ): void {
-  const { protocol } = deps;
+  const { protocol, protocolRegistry, trailerParser } = deps;
   const cmd = program
     .command('commit')
     .description(`Create a ${protocol.name}-enriched commit`)
@@ -72,7 +77,7 @@ export function registerCommitCommand(
   }
 
   cmd.action(async (_options: CommitCommandOptions, command: Command) => {
-    const { commitBuilder, gitClient, getFormatter, commitInputResolver, headLoreIdReader } = deps;
+    const { commitBuilder, gitClient, getFormatter, commitInputResolver, headIdReader } = deps;
     const options = mergeOptions<CommitCommandOptions>(command);
     
     // Commander sets 'edit' to false when --no-edit is used
@@ -80,7 +85,7 @@ export function registerCommitCommand(
 
     try {
       if (isNoEdit && !options.amend) {
-        throw new LoreError('--no-edit can only be used with --amend', 1);
+        throw new ProtocolError('--no-edit can only be used with --amend', 1);
       }
 
       // --amend --no-edit: pass through to git, no decision processing
@@ -95,12 +100,12 @@ export function registerCommitCommand(
         );
 
         if (hasOtherInput || hasDynamicFlags) {
-          throw new LoreError('--no-edit keeps the existing message unchanged; it cannot be combined with other input flags', 1);
+          throw new ProtocolError('--no-edit keeps the existing message unchanged; it cannot be combined with other input flags', 1);
         }
 
         const hasStaged = await gitClient.hasStagedChanges();
         if (!hasStaged) {
-          throw new LoreError(
+          throw new ProtocolError(
             'No staged changes to commit. Use `git add` to stage files.',
             1,
           );
@@ -122,14 +127,20 @@ export function registerCommitCommand(
       // 1. Resolve input components
       const input = await commitInputResolver.resolve(options);
 
-      // 2. Resolve existing ID if amending
-      let existingLoreId: AtomId | undefined;
+      // 2. Validate input
+      const issues = commitBuilder.validate(input);
+      if (issues.some((i) => i.severity === 'error')) {
+        throw new ValidationError(issues);
+      }
+
+      // 3. Resolve existing ID if amending
+      let existingId: AtomId | undefined;
       if (options.amend) {
-        existingLoreId = await headLoreIdReader.read() || undefined;
+        existingId = await headIdReader.read() || undefined;
       }
 
       // 3. Build the decision atom
-      const { message, loreId } = commitBuilder.build(input, existingLoreId);
+      const { message, id: identity } = commitBuilder.build(input, existingId);
 
       // 4. Execute the Git commit
       const result = await gitClient.commit(message, {
@@ -138,13 +149,38 @@ export function registerCommitCommand(
 
       // 5. Output result
       const formatter = getFormatter();
+      
+      // Use the formatter's own serialization logic if available (JSON mode)
+      let protocolsMap: Record<string, any> = {};
+      if (formatter instanceof JsonFormatter) {
+        // Build a minimal mock atom for the formatter
+        const mockAtom: any = {
+          protocols: new Map()
+        };
+        const activeProtocols = protocolRegistry.detect(message);
+        for (const p of activeProtocols) {
+          mockAtom.protocols.set(p.name.toLowerCase(), p.parse(message));
+        }
+        protocolsMap = formatter.serializeProtocols(mockAtom);
+      } else {
+        // Text mode or other: fallback to basic detection for success metadata
+        const activeProtocols = protocolRegistry.detect(message);
+        for (const p of activeProtocols) {
+          const state = p.parse(message);
+          protocolsMap[p.name.toLowerCase()] = {
+            id: state.trailers[p.identityKey]?.[0] ?? null,
+            version: p.version,
+          };
+        }
+      }
+
       const output = formatter.formatSuccess(
         `Commit created: ${result.hash.slice(0, 7)}`,
-        { hash: result.hash, lore_id: loreId },
+        { hash: result.hash, protocols: protocolsMap },
       );
       console.log(output);
     } catch (error) {
-      if (error instanceof NoStagedChangesError || error instanceof ValidationError || error instanceof LoreError) {
+      if (error instanceof NoStagedChangesError || error instanceof ValidationError || error instanceof ProtocolError) {
         throw error;
       }
       throw error;

@@ -22,7 +22,7 @@ export class AtomRepository {
   constructor(
     private readonly gitClient: IGitClient,
     private readonly trailerParser: TrailerParser,
-    private readonly protocol: Protocol,
+    private readonly primaryProtocol: Protocol,
     private readonly protocolRegistry: ProtocolRegistry,
     private readonly searchFilter: SearchFilter,
     private readonly atomCache: IAtomCache,
@@ -82,23 +82,53 @@ export class AtomRepository {
   }
 
   /**
-   * Find an atom by its Lore-id.
-   * Uses git log --grep to efficiently search for the specific trailer value
-   * instead of fetching entire history.
+   * Find an atom by its identity key.
+   * Searches across all registered protocols.
    */
-  async findByLoreId(loreId: AtomId): Promise<Atom | null> {
-    if (!this.protocol.isValidIdentity(loreId)) {
-      return null;
+  async findById(id: string, protocolName?: string): Promise<Atom | null> {
+    let grepPattern: string;
+
+    if (protocolName) {
+      const protocol = this.protocolRegistry.get(protocolName);
+      if (!protocol || !protocol.isValidIdentity(id)) return null;
+      grepPattern = protocol.getIdentityPattern(id);
+    } else {
+      const patterns = this.protocolRegistry
+        .all()
+        .filter((p) => p.isValidIdentity(id))
+        .map((p) => p.getIdentityPattern(id));
+
+      if (patterns.length === 0) return null;
+      
+      if (patterns.length === 1) {
+        grepPattern = patterns[0];
+      } else {
+        grepPattern = patterns.map((p) => `(${p})`).join('|');
+      }
     }
 
-    const logArgs = ['--all', '--extended-regexp', '--all-match', `--grep=^${this.protocol.identityKey}: ${escapeRegex(loreId)}`];
+    const logArgs = [
+      '--all',
+      '--extended-regexp',
+      '--all-match',
+      `--grep=${grepPattern}`,
+    ];
     if (this.isScoped) {
       logArgs.push('--', '.');
     }
     const rawCommits = await this.gitClient.log(logArgs);
     const atoms = await this.parseRawCommits(rawCommits);
 
-    return atoms.find((atom) => atom.loreId === loreId) ?? null;
+    if (atoms.length === 0) return null;
+
+    // Precise check: find the one that actually matches this ID in any of its protocol states
+    return (
+      atoms.find((atom) =>
+        Array.from(atom.protocols.values()).some(
+          (state) => (state.trailers[state.identityKey] || [])[0] === id,
+        ),
+      ) ?? null
+    );
   }
 
   /**
@@ -158,17 +188,17 @@ export class AtomRepository {
 
     const collected = new Map<string, Atom>();
     for (const atom of atoms) {
-      collected.set(atom.loreId, atom);
+      collected.set(atom.id, atom);
     }
 
-    const queue: Array<{ loreId: AtomId; depth: number }> = [];
+    const queue: Array<{ id: AtomId; depth: number }> = [];
 
     // Seed the BFS with all reference IDs from the initial atoms
     for (const atom of atoms) {
-      const refIds = this.extractReferenceIds(atom.trailers);
+      const refIds = this.extractReferenceIds(atom);
       for (const refId of refIds) {
         if (!collected.has(refId)) {
-          queue.push({ loreId: refId, depth: 1 });
+          queue.push({ id: refId, depth: 1 });
         }
       }
     }
@@ -178,22 +208,22 @@ export class AtomRepository {
       if (entry.depth > maxDepth) {
         continue;
       }
-      if (collected.has(entry.loreId)) {
+      if (collected.has(entry.id)) {
         continue;
       }
 
-      const resolved = await this.findByLoreId(entry.loreId);
+      const resolved = await this.findById(entry.id);
       if (resolved === null) {
         continue;
       }
 
-      collected.set(resolved.loreId, resolved);
+      collected.set(resolved.id, resolved);
 
       if (entry.depth < maxDepth) {
-        const nextRefIds = this.extractReferenceIds(resolved.trailers);
+        const nextRefIds = this.extractReferenceIds(resolved);
         for (const refId of nextRefIds) {
           if (!collected.has(refId)) {
-            queue.push({ loreId: refId, depth: entry.depth + 1 });
+            queue.push({ id: refId, depth: entry.depth + 1 });
           }
         }
       }
@@ -263,11 +293,16 @@ export class AtomRepository {
 
     if (options.has) {
       // Precise discovery: only search namespaces where the trailer is explicitly defined
-      const patterns = this.protocolRegistry.all()
+      const patterns = this.protocolRegistry
+        .all()
         .filter((p) => p.owns(options.has!))
         .map((p) => {
           const prefix = p.namespace ? `${p.namespace}/` : '';
-          return `^${prefix}${escapeRegex(options.has!)}: `;
+          // Avoid double-prefixing if the query already includes the namespace
+          const fullKey = options.has!.toLowerCase().startsWith(prefix.toLowerCase())
+            ? options.has!
+            : `${prefix}${options.has!}`;
+          return `^${escapeRegex(fullKey)}: `;
         });
 
       if (patterns.length > 0) {
@@ -367,14 +402,11 @@ export class AtomRepository {
     return atoms;
   }
 
-  /**
-   * Construct an Atom from its constituent parts.
-   */
   private buildAtom(raw: RawCommit, protocols: Map<string, ProtocolState>, filesChanged: readonly string[]): Atom {
-    // Compatibility layer: extract Lore-specific data for deprecated fields
-    const loreState = protocols.get(this.protocol.name.toLowerCase());
-    const loreId = loreState?.trailers[loreState.identityKey]?.[0] ?? '';
-    const trailers = loreState?.trailers ?? {};
+    // Compatibility layer: resolve the primary ID from the root or first protocol
+    const rootProtocol = this.protocolRegistry.getRoot() || this.protocolRegistry.all()[0] || this.primaryProtocol;
+    const primaryState = protocols.get(rootProtocol.name.toLowerCase());
+    const id = primaryState?.trailers[primaryState.identityKey]?.[0] ?? '';
 
     return {
       commitHash: raw.hash,
@@ -384,8 +416,7 @@ export class AtomRepository {
       body: this.stripTrailersFromBody(raw.body, raw.trailers),
       protocols,
       filesChanged,
-      loreId,
-      trailers,
+      id,
     };
   }
 
@@ -471,19 +502,25 @@ export class AtomRepository {
   }
 
   /**
-   * Extract all referenced Lore-ids from the reference trailers
+   * Extract all referenced IDs from the trailers of all protocols in the atom.
    * (Supersedes, Depends-on, Related).
    */
-  private extractReferenceIds(trailers: Trailers): AtomId[] {
+  private extractReferenceIds(atom: Atom): AtomId[] {
     const ids: AtomId[] = [];
-    const refKeys = this.protocol.getReferenceKeys();
 
-    for (const key of refKeys) {
-      const values = trailers[key] as readonly AtomId[];
-      if (!values) continue;
-      for (const id of values) {
-        if (this.protocol.isValidIdentity(id)) {
-          ids.push(id);
+    for (const protocol of this.protocolRegistry.all()) {
+      const state = atom.protocols.get(protocol.name.toLowerCase());
+      if (!state) continue;
+
+      const refKeys = protocol.getReferenceKeys();
+
+      for (const key of refKeys) {
+        const values = state.trailers[key] as readonly AtomId[];
+        if (!values) continue;
+        for (const id of values) {
+          if (protocol.isValidIdentity(id)) {
+            ids.push(id);
+          }
         }
       }
     }

@@ -1,8 +1,9 @@
 import type { IGitClient } from '../interfaces/git-client.js';
-import type { LoreConfig } from '../types/config.js';
+import type { Config } from '../types/config.js';
 import type { Atom, SupersessionStatus } from '../types/domain.js';
 import { STALE_SIGNAL } from '../util/constants.js';
 import type { StaleSignal } from '../types/domain.js';
+import type { IProtocol } from '../interfaces/protocol.js';
 
 export interface StaleReason {
   readonly signal: StaleSignal;
@@ -23,7 +24,8 @@ export interface StaleAtomReport {
 export class StalenessDetector {
   constructor(
     private readonly gitClient: IGitClient,
-    private readonly config: LoreConfig,
+    private readonly config: Config,
+    private readonly protocol: IProtocol,
   ) {}
 
   /**
@@ -114,7 +116,8 @@ export class StalenessDetector {
    * Check if the atom has low confidence.
    */
   private checkLowConfidence(atom: Atom, reasons: StaleReason[]): void {
-    const confidence = atom.trailers.Confidence?.[0];
+    const state = atom.protocols.get(this.protocol.name.toLowerCase());
+    const confidence = state?.trailers.Confidence?.[0];
     if (confidence === 'low') {
       reasons.push({
         signal: STALE_SIGNAL.LOW_CONFIDENCE,
@@ -130,7 +133,8 @@ export class StalenessDetector {
     const untilPattern = /\[until:([^\]]+)\]/g;
     let match: RegExpExecArray | null;
 
-    for (const directive of atom.trailers.Directive || []) {
+    const state = atom.protocols.get(this.protocol.name.toLowerCase());
+    for (const directive of state?.trailers.Directive || []) {
       // Reset lastIndex for each directive
       untilPattern.lastIndex = 0;
 
@@ -156,7 +160,8 @@ export class StalenessDetector {
     reasons: StaleReason[],
     supersessionMap: Map<string, SupersessionStatus>,
   ): void {
-    const dependsOn = atom.trailers['Depends-on'] || [];
+    const state = atom.protocols.get(this.protocol.name.toLowerCase());
+    const dependsOn = state?.trailers['Depends-on'] || [];
     for (const id of dependsOn) {
       const status = supersessionMap.get(id);
       if (status?.superseded) {

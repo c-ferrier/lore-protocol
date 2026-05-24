@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { LoreConfig } from '../types/config.js';
+import type { Config } from '../types/config.js';
 import type { PathQueryOptions, QueryResult } from '../types/query.js';
 import type { Atom } from '../types/domain.js';
 import type { FormattableQueryResult } from '../types/output.js';
@@ -29,7 +29,7 @@ export function registerLogCommand(
     atomRepository: AtomRepository;
     supersessionResolver: SupersessionResolver;
     getFormatter: () => IOutputFormatter;
-    config: LoreConfig;
+    config: Config;
     protocol: Protocol;
   },
 ): void {
@@ -89,7 +89,6 @@ export function registerLogCommand(
         result,
         supersessionMap,
         visibleTrailers: 'all',
-        trailerDefinitions: protocol.getFormattableDefinitions(),
       };
 
       const formatter = getFormatter();

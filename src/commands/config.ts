@@ -30,7 +30,7 @@ export function registerConfigCommand(
       const showCustom = options.custom ?? !hasFilters;
 
       const formattable: FormattableConfigResult = {
-        loreVersion: config.protocol.version,
+        version: config.protocol.version,
         permissive: config.trailers.permissive,
         trailers: protocol.getFormattableDefinitions(),
         filters: {

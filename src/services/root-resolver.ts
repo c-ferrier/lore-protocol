@@ -3,7 +3,7 @@ import type { IConfigLoader } from '../interfaces/config-loader.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 
 export interface LoreRoots {
-  readonly loreRoot: string;
+  readonly protocolRoot: string;
   readonly gitRoot: string | null;
 }
 
@@ -20,7 +20,7 @@ export async function resolveLoreRoot(
   configLoader: IConfigLoader,
   gitClient: IGitClient,
 ): Promise<LoreRoots> {
-  let loreRoot = cwd;
+  let protocolRoot = cwd;
   let gitRoot: string | null = null;
 
   try {
@@ -30,13 +30,13 @@ export async function resolveLoreRoot(
 
     const configPath = await configLoader.findConfigPath(cwd);
     if (configPath) {
-      loreRoot = dirname(dirname(configPath));
+      protocolRoot = dirname(dirname(configPath));
     } else if (gitRoot) {
-      loreRoot = gitRoot;
+      protocolRoot = gitRoot;
     }
   } catch {
     // Best-effort
   }
 
-  return { loreRoot, gitRoot };
+  return { protocolRoot, gitRoot };
 }

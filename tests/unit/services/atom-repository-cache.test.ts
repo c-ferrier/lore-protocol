@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/services/atom-repository.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 import { SearchFilter } from '../../../src/services/search-filter.js';
 import { TrailerParser } from '../../../src/services/trailer-parser.js';
 import { NullQueryCache } from '../../../src/services/query-cache.js';
@@ -26,7 +27,7 @@ describe('AtomRepository Cache Interaction', () => {
       resolveDate: vi.fn(async (d: string) => new Date(d)),
     } as any;
 
-    const protocol = new Protocol(DEFAULT_CONFIG);
+    const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     trailerParser = new TrailerParser();
@@ -103,8 +104,8 @@ describe('AtomRepository Cache Interaction', () => {
     const atoms = await repo.findAll();
 
     expect(atoms).toHaveLength(2);
-    expect(atoms.find(a => a.loreId === '11111111')?.filesChanged).toEqual(cachedFiles);
-    expect(atoms.find(a => a.loreId === '22222222')?.filesChanged).toEqual(gitFiles);
+    expect(atoms.find(a => a.id === '11111111')?.filesChanged).toEqual(cachedFiles);
+    expect(atoms.find(a => a.id === '22222222')?.filesChanged).toEqual(gitFiles);
 
     // Verify git was only called for the miss
     expect(gitClient.getFilesChanged).toHaveBeenCalledWith(['hash2']);

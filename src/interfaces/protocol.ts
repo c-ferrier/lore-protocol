@@ -121,6 +121,12 @@ export interface IProtocol {
   };
 
   /**
+   * Returns a Git grep pattern for finding a specific atom by its identity.
+   * e.g., "lore123" -> "^Lore-id: lore123"
+   */
+  getIdentityPattern(id: string): string;
+
+  /**
    * Check if an ID is valid according to this protocol's rules.
    */
   isValidIdentity(id: string): boolean;

@@ -1,8 +1,9 @@
 import type { ITrailerCollector } from '../../../interfaces/trailer-collector.js';
-import type { LoreConfig, CustomTrailerDefinition } from '../../../types/config.js';
+import type { Config, CustomTrailerDefinition } from '../../../types/config.js';
 import { MultiValueTrailerCollector } from './multi-value-trailer-collector.js';
 import { EnumChoiceTrailerCollector } from './enum-choice-trailer-collector.js';
 import { Protocol } from '../../protocol.js';
+import { LoreProtocolDefinition } from '../../../protocols/lore.js';
 
 /**
  * Registry and factory for trailer collectors.
@@ -68,8 +69,8 @@ export class TrailerCollectorRegistry {
 /**
  * Functional wrapper for the registry to maintain backward compatibility.
  */
-export function createTrailerCollectors(config: LoreConfig): ITrailerCollector[] {
-  const protocol = new Protocol(config);
+export function createTrailerCollectors(config: Config): ITrailerCollector[] {
+  const protocol = new Protocol(LoreProtocolDefinition, config);
   const registry = new TrailerCollectorRegistry(protocol);
   return registry.getCollectors();
 }

@@ -3,9 +3,12 @@ import { FlagsInputReader } from '../../../src/services/readers/flags-input-read
 import { JsonFormatter } from '../../../src/formatters/json-formatter.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 
 import type { CommitCommandOptions } from '../../../src/services/commit-input-resolver.js';
 import type { FormattableQueryResult } from '../../../src/types/output.js';
+import type { Atom, Trailers } from '../../../src/types/domain.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -33,7 +36,10 @@ describe('Protocol Architectural Integrity', () => {
       },
     };
 
-    const protocol = new Protocol(config);
+    const protocol = new Protocol(LoreProtocolDefinition, config);
+    const registry = new ProtocolRegistry();
+    registry.register(protocol);
+
     const options: CommitCommandOptions = {
       intent: 'feat: add stuff',
       'ticket-id': ['PROJ-123', 'PROJ-456'],
@@ -46,17 +52,22 @@ describe('Protocol Architectural Integrity', () => {
     expect(input.trailers?.['Ticket-ID']).toEqual(['PROJ-123', 'PROJ-456']);
 
     // 3. Simulate Query Result (Core Logic)
-    const atom = {
-      loreId: 'atom-123',
+    const trailers: Trailers = {
+      [LORE_ID_KEY]: ['atom-123'],
+      ...input.trailers,
+    } as any;
+
+    const atom: Atom = {
+      id: 'atom-123',
       commitHash: 'abc',
       date: new Date(),
       author: 'alice',
       intent: input.intent,
       body: '',
-      trailers: {
-        [LORE_ID_KEY]: ['atom-123'],
-        ...input.trailers,
-      } as any,
+      trailers,
+      protocols: new Map([
+        ['lore', { name: 'Lore', version: '1.0', identityKey: LORE_ID_KEY, trailers }]
+      ]),
       filesChanged: [],
     };
 
@@ -70,19 +81,18 @@ describe('Protocol Architectural Integrity', () => {
       },
       supersessionMap: new Map(),
       visibleTrailers: 'all',
-      trailerDefinitions: protocol.getFormattableDefinitions(),
     };
 
     // 4. Verify Formatter serializes it correctly
-    const formatter = new JsonFormatter();
+    const formatter = new JsonFormatter(registry);
     const output = JSON.parse(formatter.formatQueryResult(data));
     
-    // Key should be snake_cased in JSON
-    expect(output.results[0].trailers.ticket_id).toEqual(['PROJ-123', 'PROJ-456']);
+    // Key should be snake_cased in JSON inside the protocol object
+    expect(output.results[0].protocols.lore.ticket_id).toEqual(['PROJ-123', 'PROJ-456']);
   });
 
   it('should handle a hybrid flow of core and custom trailers simultaneously', async () => {
-    const protocol = new Protocol(DEFAULT_CONFIG);
+    const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
     const options: CommitCommandOptions = {
       intent: 'feat',
       confidence: 'high',

@@ -1,25 +1,23 @@
-import { STALE_SIGNALS, LORE_TRAILER_KEYS, ARRAY_TRAILER_KEYS, ENUM_TRAILER_KEYS, CONFIDENCE_VALUES, SCOPE_RISK_VALUES, REVERSIBILITY_VALUES } from '../util/core-definitions.js';
-
 /** 8-character hex string identifying a protocol atom. */
 export type AtomId = string;
 
 /** The set of recognized trailer keys. */
-export type TrailerKey = (typeof LORE_TRAILER_KEYS)[number];
+export type TrailerKey = string;
 
 /** Trailer keys that contain arrays of values. */
-export type ArrayTrailerKey = (typeof ARRAY_TRAILER_KEYS)[number];
+export type ArrayTrailerKey = string;
 
 /** Trailer keys that contain a single enum value. */
-export type EnumTrailerKey = (typeof ENUM_TRAILER_KEYS)[number];
+export type EnumTrailerKey = string;
 
 /** Valid confidence levels. */
-export type ConfidenceLevel = (typeof CONFIDENCE_VALUES)[number];
+export type ConfidenceLevel = string;
 
 /** Valid scope-risk levels. */
-export type ScopeRiskLevel = (typeof SCOPE_RISK_VALUES)[number];
+export type ScopeRiskLevel = string;
 
 /** Valid reversibility levels. */
-export type ReversibilityLevel = (typeof REVERSIBILITY_VALUES)[number];
+export type ReversibilityLevel = string;
 
 /**
  * The structured trailer collection for a protocol atom.
@@ -55,10 +53,11 @@ export interface Atom {
    */
   readonly protocols: Map<string, ProtocolState>;
 
-  /** @deprecated Use protocols.get('lore').trailers[identityKey][0] */
-  readonly loreId: AtomId;
-  /** @deprecated Use protocols.get('lore').trailers */
-  readonly trailers: Trailers;
+  /** 
+   * The primary identifier for this atom.
+   * Usually resolved from the root protocol.
+   */
+  readonly id: AtomId;
 }
 
 export interface SupersessionStatus {
@@ -67,4 +66,4 @@ export interface SupersessionStatus {
 }
 
 /** The set of signals that indicate an atom may be stale. */
-export type StaleSignal = (typeof STALE_SIGNALS)[number];
+export type StaleSignal = 'age' | 'drift' | 'low-confidence' | 'expired-hint' | 'orphaned-dep';

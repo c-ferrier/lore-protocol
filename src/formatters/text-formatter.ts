@@ -11,7 +11,7 @@ import type {
   FormattableTrailerDefinition,
 } from '../types/output.js';
 import type { Atom, AtomId } from '../types/domain.js';
-import { LORE_TRAILER_KEYS } from '../util/constants.js';
+import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
 /**
  * Strategy implementation for human-readable terminal output.
@@ -22,12 +22,15 @@ import { LORE_TRAILER_KEYS } from '../util/constants.js';
 export class TextFormatter implements IOutputFormatter {
   private readonly c: ChalkInstance;
 
-  constructor(options: { color: boolean }) {
+  constructor(
+    private readonly protocolRegistry: ProtocolRegistry,
+    options: { color: boolean }
+  ) {
     this.c = new Chalk({ level: options.color ? (chalk.level || 1) : 0 });
   }
 
   formatQueryResult(data: FormattableQueryResult): string {
-    const { result, supersessionMap, visibleTrailers, trailerDefinitions } = data;
+    const { result, supersessionMap, visibleTrailers } = data;
     const lines: string[] = [];
 
     if (result.atoms.length === 0) {
@@ -36,14 +39,10 @@ export class TextFormatter implements IOutputFormatter {
     }
 
     for (const atom of result.atoms) {
-      let id = atom.loreId;
-      let protocolName = 'lore';
-
-      if (atom.protocols && atom.protocols.size > 0) {
-        protocolName = Array.from(atom.protocols.keys()).find(n => n === 'lore') ?? atom.protocols.keys().next().value ?? 'lore';
-        const state = atom.protocols.get(protocolName);
-        id = state?.trailers[state?.identityKey]?.[0] ?? id;
-      }
+      // Find a representative ID for the header (root preferred)
+      const rootProtocol = this.protocolRegistry.getRoot();
+      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
+      const id = primaryState?.trailers[primaryState.identityKey]?.[0] ?? atom.id;
 
       const supersession = supersessionMap.get(id);
       const isSuperseded = supersession?.superseded ?? false;
@@ -59,7 +58,7 @@ export class TextFormatter implements IOutputFormatter {
         lines.push(`  ${this.c.dim(atom.body)}`);
       }
 
-      const trailerLines = this.formatTrailers(atom, protocolName, visibleTrailers, trailerDefinitions);
+      const trailerLines = this.formatTrailers(atom, visibleTrailers);
       for (const tl of trailerLines) {
         lines.push(`  ${tl}`);
       }
@@ -83,8 +82,9 @@ export class TextFormatter implements IOutputFormatter {
       const icon = commitResult.valid
         ? this.c.green('\u2713')
         : this.c.red('\u2717');
-      const label = commitResult.loreId ?? commitResult.commit.slice(0, 8);
+      const label = commitResult.id ?? commitResult.commit.slice(0, 8);
       lines.push(`${icon} ${label}`);
+
 
       for (const issue of commitResult.issues) {
         const severity =
@@ -122,11 +122,9 @@ export class TextFormatter implements IOutputFormatter {
     }
 
     for (const report of data.atoms) {
-      let id = report.atom.loreId;
-      if (report.atom.protocols) {
-        const state = report.atom.protocols.get('lore') || report.atom.protocols.values().next().value;
-        id = state?.trailers[state?.identityKey]?.[0] ?? id;
-      }
+      const rootProtocol = this.protocolRegistry.getRoot();
+      const state = rootProtocol ? report.atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
+      const id = state?.trailers[state.identityKey]?.[0] ?? report.atom.id;
       
       const dateStr = this.formatDate(report.atom.date);
       lines.push(
@@ -146,11 +144,9 @@ export class TextFormatter implements IOutputFormatter {
   formatTraceResult(data: FormattableTraceResult): string {
     const lines: string[] = [];
 
-    let rootId = data.root.loreId;
-    if (data.root.protocols) {
-      const rootState = data.root.protocols.get('lore') || data.root.protocols.values().next().value;
-      rootId = rootState?.trailers[rootState?.identityKey]?.[0] ?? rootId;
-    }
+    const rootProtocol = this.protocolRegistry.getRoot();
+    const state = rootProtocol ? data.root.protocols.get(rootProtocol.name.toLowerCase()) : null;
+    const rootId = state?.trailers[state.identityKey]?.[0] ?? data.root.id;
 
     lines.push(
       `${this.c.bold(rootId)} ${this.c.dim(data.root.intent)}`,
@@ -224,7 +220,8 @@ export class TextFormatter implements IOutputFormatter {
 
   formatConfig(data: FormattableConfigResult): string {
     const lines: string[] = [];
-    lines.push(this.c.bold(`Lore Protocol v${data.loreVersion}`));
+    const rootProtocol = this.protocolRegistry.getRoot();
+    lines.push(this.c.bold(`${rootProtocol?.name || 'Engine'} Configuration`));
     lines.push(this.c.dim(`Permissive mode: ${data.permissive ? 'on' : 'off'}`));
     lines.push('');
     lines.push(this.c.bold('--- Trailer Schema ---'));
@@ -235,7 +232,7 @@ export class TextFormatter implements IOutputFormatter {
     if (data.filters.showCore) {
       lines.push(this.c.bold('Standard Trailers'));
       for (const key of sortedKeys) {
-        if (this.isCoreKey(key)) {
+        if (data.trailers[key].isCore) {
           lines.push(this.formatTrailerDefinition(key, data.trailers[key]));
         }
       }
@@ -243,7 +240,7 @@ export class TextFormatter implements IOutputFormatter {
     }
 
     if (data.filters.showCustom) {
-      const customKeys = sortedKeys.filter(k => !this.isCoreKey(k));
+      const customKeys = sortedKeys.filter(k => !data.trailers[k].isCore);
       if (customKeys.length > 0) {
         lines.push(this.c.bold('Custom Trailers'));
         for (const key of customKeys) {
@@ -279,12 +276,6 @@ export class TextFormatter implements IOutputFormatter {
     return lines.join('\n');
   }
 
-  private isCoreKey(key: string): boolean {
-    // This is a minimal heuristic for the UI to group trailers.
-    // In a fully dynamic world, we might add an 'isCore' property to FormattableTrailerDefinition.
-    return (LORE_TRAILER_KEYS as readonly string[]).includes(key);
-  }
-
   private formatAtomHeader(atom: Atom, id: AtomId, superseded: boolean): string {
     const dateStr = this.formatDate(atom.date);
     const header = `\u2500\u2500 ${id} (${dateStr}, ${atom.author}) `;
@@ -299,43 +290,43 @@ export class TextFormatter implements IOutputFormatter {
 
   private formatTrailers(
     atom: Atom,
-    protocolName: string,
     visibleTrailers: readonly string[] | 'all',
-    trailerDefinitions: Record<string, FormattableTrailerDefinition>,
   ): string[] {
     const lines: string[] = [];
-    
-    let trailers = atom.trailers;
-    let identityKey = 'Lore-id';
-
-    if (atom.protocols) {
-      const state = atom.protocols.get(protocolName);
-      if (state) {
-        trailers = state.trailers;
-        identityKey = state.identityKey;
-      }
-    }
-
     const shouldShow = (key: string): boolean => {
       if (visibleTrailers === 'all') return true;
       return visibleTrailers.includes(key);
     };
 
-    // Process all trailers uniformly from the flat object
-    for (const key of Object.keys(trailers)) {
-      if (key === identityKey) continue;
-      if (!shouldShow(key)) continue;
+    // Find the ID shown in the header to avoid redundancy
+    const rootProtocol = this.protocolRegistry.getRoot();
+    const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
+    const headerId = primaryState?.trailers[primaryState.identityKey]?.[0] ?? atom.id;
 
-      const values = trailers[key];
-      if (!values || values.length === 0) continue;
+    // Render ALL protocol interpretations equally
+    for (const [name, state] of atom.protocols.entries()) {
+      const protocolObj = this.protocolRegistry.get(name);
+      const definitions = protocolObj?.getFormattableDefinitions() ?? {};
 
-      // Determine color from injected metadata (fallback to dim for unregistered trailers)
-      const def = trailerDefinitions[key];
-      const colorName = def?.ui?.color || (def ? 'cyan' : 'dim');
-      const color = (this.c as any)[colorName] || (def ? this.c.cyan : this.c.dim);
+      for (const key of Object.keys(state.trailers)) {
+        // Skip only the ID that is already in the header
+        if (key === state.identityKey && (state.trailers[key] || [])[0] === headerId) {
+          continue;
+        }
+        
+        if (!shouldShow(key)) continue;
 
-      for (const v of values) {
-        lines.push(`${color(`${key}:`)} ${v}`);
+        const values = state.trailers[key];
+        if (!values || values.length === 0) continue;
+
+        const def = definitions[key];
+        const colorName = def?.ui?.color || (def ? 'cyan' : 'dim');
+        const color = (this.c as any)[colorName] || (def ? this.c.cyan : this.c.dim);
+
+        for (const v of values) {
+          // Always prefix in text output to avoid confusion in multi-protocol commits
+          lines.push(`${this.c.dim(`[${state.name}]`)} ${color(`${key}:`)} ${v}`);
+        }
       }
     }
 

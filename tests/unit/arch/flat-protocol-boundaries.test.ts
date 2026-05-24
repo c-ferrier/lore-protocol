@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 import { TrailerParser } from '../../../src/services/trailer-parser.js';
 import { JsonFormatter } from '../../../src/formatters/json-formatter.js';
+import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 
 import type { FormattableQueryResult } from '../../../src/types/output.js';
+import type { Atom, Trailers } from '../../../src/types/domain.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -14,7 +17,7 @@ const LORE_ID_KEY = "Lore-id";
 describe('Flat Protocol Boundaries', () => {
   describe('Canonical Ordering', () => {
     it('should always serialize in protocol-defined order regardless of insertion order', () => {
-      const protocol = new Protocol(DEFAULT_CONFIG);
+      const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
       const parser = new TrailerParser();
 
       // Input in "wrong" order
@@ -41,22 +44,30 @@ describe('Flat Protocol Boundaries', () => {
 
   describe('JSON Normalization Matrix', () => {
     it('should correctly coerce core scalars and preserve all other arrays', () => {
-      const protocol = new Protocol(DEFAULT_CONFIG);
-      const formatter = new JsonFormatter();
-      const atom = {
-        loreId: 'id',
+      const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+      const registry = new ProtocolRegistry();
+      registry.register(protocol);
+      const formatter = new JsonFormatter(registry);
+      
+      const trailers: Trailers = {
+        [LORE_ID_KEY]: ['id'],
+        'Confidence': ['high'],      // Scalar core
+        'Constraint': ['C1', 'C2'],  // Array core
+        'Tested': ['T1'],            // Array core (single value)
+        'Custom': ['V1'],            // Custom (defaults to array)
+      };
+
+      const atom: Atom = {
+        id: 'id',
         commitHash: 'h',
         date: new Date(),
         author: 'a',
         intent: 'i',
         body: '',
-        trailers: {
-          [LORE_ID_KEY]: ['id'],
-          'Confidence': ['high'],      // Scalar core
-          'Constraint': ['C1', 'C2'],  // Array core
-          'Tested': ['T1'],            // Array core (single value)
-          'Custom': ['V1'],            // Custom (defaults to array)
-        } as any,
+        trailers,
+        protocols: new Map([
+          ['lore', { name: 'Lore', version: '1.0', identityKey: LORE_ID_KEY, trailers }]
+        ]),
         filesChanged: []
       };
 
@@ -64,16 +75,15 @@ describe('Flat Protocol Boundaries', () => {
         result: { atoms: [atom], meta: { totalAtoms: 1, filteredAtoms: 1, oldest: null, newest: null }, command: 'c', target: 't', targetType: 'file' },
         supersessionMap: new Map(),
         visibleTrailers: 'all',
-        trailerDefinitions: protocol.getFormattableDefinitions(),
       };
 
       const output = JSON.parse(formatter.formatQueryResult(data));
-      const trailers = output.results[0].trailers;
+      const lore = output.results[0].protocols.lore;
 
-      expect(trailers.confidence).toBe('high');        // Coerced to scalar
-      expect(trailers.constraint).toEqual(['C1', 'C2']); // Remained array
-      expect(trailers.tested).toEqual(['T1']);           // Remained array (it is an ARRAY core type)
-      expect(trailers.custom).toEqual(['V1']);           // Remained array
+      expect(lore.confidence).toBe('high');        // Coerced to scalar
+      expect(lore.constraint).toEqual(['C1', 'C2']); // Remained array
+      expect(lore.tested).toEqual(['T1']);           // Remained array
+      expect(lore.custom).toEqual(['V1']);           // Remained array
     });
   });
 
@@ -83,7 +93,7 @@ describe('Flat Protocol Boundaries', () => {
         ...DEFAULT_CONFIG,
         trailers: { ...DEFAULT_CONFIG.trailers, permissive: false, custom: ['Authorized'] }
       };
-      const protocol = new Protocol(config);
+      const protocol = new Protocol(LoreProtocolDefinition, config);
       const parser = new TrailerParser();
 
       const raw = `${LORE_ID_KEY}: abc\nAuthorized: yes\nUnauthorized: no`;
@@ -100,7 +110,7 @@ describe('Flat Protocol Boundaries', () => {
 
   describe('Key Case Resilience', () => {
     it('should treat trailers as case-insensitive for core mapping', () => {
-      const protocol = new Protocol(DEFAULT_CONFIG);
+      const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
       const parser = new TrailerParser();
 
       // User provides lowercase 'confidence'

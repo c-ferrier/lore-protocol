@@ -27,7 +27,7 @@ describe('resolveLoreRoot', () => {
 
     const roots = await resolveLoreRoot(cwd, mockConfigLoader, mockGitClient);
 
-    expect(roots.loreRoot).toBe('/users/dev/project');
+    expect(roots.protocolRoot).toBe('/users/dev/project');
     expect(roots.gitRoot).toBe('/users/dev');
     expect(mockConfigLoader.findConfigPath).toHaveBeenCalledWith(cwd);
   });
@@ -39,7 +39,7 @@ describe('resolveLoreRoot', () => {
 
     const roots = await resolveLoreRoot(cwd, mockConfigLoader, mockGitClient);
 
-    expect(roots.loreRoot).toBe('/users/dev/project');
+    expect(roots.protocolRoot).toBe('/users/dev/project');
     expect(roots.gitRoot).toBe('/users/dev/project');
   });
 
@@ -49,7 +49,7 @@ describe('resolveLoreRoot', () => {
 
     const roots = await resolveLoreRoot(cwd, mockConfigLoader, mockGitClient);
 
-    expect(roots.loreRoot).toBe(cwd);
+    expect(roots.protocolRoot).toBe(cwd);
     expect(roots.gitRoot).toBeNull();
   });
 
@@ -58,10 +58,10 @@ describe('resolveLoreRoot', () => {
 
     const roots = await resolveLoreRoot(cwd, mockConfigLoader, mockGitClient);
 
-    expect(roots.loreRoot).toBe(cwd);
+    expect(roots.protocolRoot).toBe(cwd);
   });
 
-  it('prioritizes .lore directory for loreRoot over git root', async () => {
+  it('prioritizes .lore directory for protocolRoot over git root', async () => {
     // Scenario: A project inside a larger git repo, but with its own .lore
     const configPath = '/users/dev/project/sub-project/.lore/config.toml';
     vi.mocked(mockConfigLoader.findConfigPath).mockResolvedValue(configPath);
@@ -70,7 +70,7 @@ describe('resolveLoreRoot', () => {
 
     const roots = await resolveLoreRoot(cwd, mockConfigLoader, mockGitClient);
 
-    expect(roots.loreRoot).toBe('/users/dev/project/sub-project');
+    expect(roots.protocolRoot).toBe('/users/dev/project/sub-project');
     expect(roots.gitRoot).toBe('/users/dev/project');
   });
 });

@@ -76,7 +76,10 @@ export function registerDoctorCommand(
       // Output
       let totalErrors = 0;
       for (const check of checks) {
-        const prefix = check.status === 'ok' ? 'OK ' : check.status.toUpperCase().padEnd(3) + ' ';
+        const prefix =
+          check.status === 'ok'
+            ? 'OK '
+            : check.status.toUpperCase().padEnd(7) + ' ';
         console.log(`${prefix} ${check.name}: ${check.message}`);
         if (check.status === 'error') totalErrors++;
 
@@ -107,7 +110,9 @@ function checkIdentityUniqueness(
   const duplicates: string[] = [];
 
   for (const atom of atoms) {
-    const id = atom.loreId;
+    const state = atom.protocols.get(protocol.name.toLowerCase());
+    const id = state?.trailers[protocol.identityKey]?.[0] || atom.id;
+    
     if (!id) continue;
     const count = idCounts.get(id) ?? 0;
     idCounts.set(id, count + 1);
@@ -142,18 +147,31 @@ function checkReferenceResolution(
   atoms: readonly Atom[],
   protocol: IProtocol,
 ): DoctorCheck {
-  const allIds = new Set(atoms.map((a) => a.loreId));
-  const broken: string[] = [];
+  const protocolName = protocol.name.toLowerCase();
+  
+  // Build ID set based on current protocol's interpretation
+  const allIds = new Set<string>();
+  for (const atom of atoms) {
+    const state = atom.protocols.get(protocolName);
+    const id = state?.trailers[protocol.identityKey]?.[0] || atom.id;
+    if (id) allIds.add(id);
+  }
 
+  const broken: string[] = [];
   const refKeys = protocol.getReferenceKeys();
 
   for (const atom of atoms) {
+    const state = atom.protocols.get(protocolName);
+    if (!state) continue;
+
+    const id = state.trailers[protocol.identityKey]?.[0] || atom.id;
+
     for (const key of refKeys) {
-      const refs = atom.trailers[key] || [];
+      const refs = state.trailers[key] || [];
       for (const refId of refs) {
         if (protocol.isValidIdentity(refId) && !allIds.has(refId)) {
           broken.push(
-            `${protocol.identityKey} "${refId}" referenced by ${atom.loreId} (${key}) not found`,
+            `${protocol.identityKey} "${refId}" referenced by ${id} (${key}) not found`,
           );
         }
       }
@@ -183,10 +201,12 @@ function checkOrphanedDependencies(
   atoms: readonly Atom[],
   protocol: IProtocol,
 ): DoctorCheck {
+  const protocolName = protocol.name.toLowerCase();
+
   // Build a supersession set: atoms that are superseded
   const supersededIds = new Set<string>();
   for (const atom of atoms) {
-    const state = atom.protocols.get(protocol.name.toLowerCase());
+    const state = atom.protocols.get(protocolName);
     const supersedes = state?.trailers.Supersedes || [];
     for (const supersededId of supersedes) {
       if (protocol.isValidIdentity(supersededId)) {
@@ -197,12 +217,16 @@ function checkOrphanedDependencies(
 
   const orphaned: string[] = [];
   for (const atom of atoms) {
-    const state = atom.protocols.get(protocol.name.toLowerCase());
-    const dependsOn = state?.trailers['Depends-on'] || [];
+    const state = atom.protocols.get(protocolName);
+    if (!state) continue;
+
+    const id = state.trailers[protocol.identityKey]?.[0] || atom.id;
+    const dependsOn = state.trailers['Depends-on'] || [];
+    
     for (const depId of dependsOn) {
       if (protocol.isValidIdentity(depId) && supersededIds.has(depId)) {
         orphaned.push(
-          `Atom ${atom.loreId} depends on ${depId}, which has been superseded`,
+          `Atom ${id} depends on ${depId}, which has been superseded`,
         );
       }
     }

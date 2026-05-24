@@ -12,7 +12,7 @@ describe('shouldCheckForUpdate', () => {
     Object.defineProperty(process.stderr, 'isTTY', { value: true, writable: true });
     delete process.env['CI'];
     delete process.env['NO_UPDATE_NOTIFIER'];
-    delete process.env['LORE_NO_UPDATE_CHECK'];
+    delete process.env['PROTOCOL_NO_UPDATE_CHECK'];
   });
 
   afterEach(() => {
@@ -40,8 +40,8 @@ describe('shouldCheckForUpdate', () => {
     expect(shouldCheckForUpdate(true)).toBe(false);
   });
 
-  it('returns false when LORE_NO_UPDATE_CHECK env var is set', () => {
-    process.env['LORE_NO_UPDATE_CHECK'] = '1';
+  it('returns false when PROTOCOL_NO_UPDATE_CHECK env var is set', () => {
+    process.env['PROTOCOL_NO_UPDATE_CHECK'] = '1';
     expect(shouldCheckForUpdate(true)).toBe(false);
   });
 

@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { HeadLoreIdReader } from '../../../src/services/head-lore-id-reader.js';
+import { HeadIdReader } from '../../../src/services/head-id-reader.js';
 
 import { TrailerParser } from '../../../src/services/trailer-parser.js';
 import type { IGitClient } from '../../../src/interfaces/git-client.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 
 const LORE_ID_KEY = "Lore-id";
@@ -30,9 +31,9 @@ function createMockGitClient(headMessage: string): IGitClient {
   };
 }
 
-describe('HeadLoreIdReader', () => {
+describe('HeadIdReader', () => {
   let trailerParser: TrailerParser;
-  const protocol = new Protocol(DEFAULT_CONFIG);
+  const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
 
   beforeEach(() => {
     trailerParser = new TrailerParser();
@@ -47,7 +48,7 @@ describe('HeadLoreIdReader', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadLoreIdReader(gitClient, trailerParser, protocol);
+    const reader = new HeadIdReader(gitClient, trailerParser, protocol);
 
     const result = await reader.read();
 
@@ -58,7 +59,7 @@ describe('HeadLoreIdReader', () => {
     const message = 'feat: simple commit with no trailers';
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadLoreIdReader(gitClient, trailerParser, protocol);
+    const reader = new HeadIdReader(gitClient, trailerParser, protocol);
 
     const result = await reader.read();
 
@@ -73,7 +74,7 @@ describe('HeadLoreIdReader', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadLoreIdReader(gitClient, trailerParser, protocol);
+    const reader = new HeadIdReader(gitClient, trailerParser, protocol);
 
     const result = await reader.read();
 
@@ -82,7 +83,7 @@ describe('HeadLoreIdReader', () => {
 
   it('should handle empty commit message', async () => {
     const gitClient = createMockGitClient('');
-    const reader = new HeadLoreIdReader(gitClient, trailerParser, protocol);
+    const reader = new HeadIdReader(gitClient, trailerParser, protocol);
 
     const result = await reader.read();
 
@@ -100,7 +101,7 @@ describe('HeadLoreIdReader', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadLoreIdReader(gitClient, trailerParser, protocol);
+    const reader = new HeadIdReader(gitClient, trailerParser, protocol);
 
     const result = await reader.read();
 
@@ -110,7 +111,7 @@ describe('HeadLoreIdReader', () => {
   it('should return null when getHeadMessage throws (empty repo)', async () => {
     const gitClient = createMockGitClient('');
     vi.mocked(gitClient.log).mockRejectedValue(new Error('Git failed'));
-    const reader = new HeadLoreIdReader(gitClient, trailerParser, protocol);
+    const reader = new HeadIdReader(gitClient, trailerParser, protocol);
 
     const result = await reader.read();
 
@@ -125,7 +126,7 @@ describe('HeadLoreIdReader', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadLoreIdReader(gitClient, trailerParser, protocol);
+    const reader = new HeadIdReader(gitClient, trailerParser, protocol);
 
     const result = await reader.read();
 

@@ -1,14 +1,11 @@
 import type { Atom, SupersessionStatus, TrailerKey, StaleSignal } from './domain.js';
 import type { QueryResult } from './query.js';
-import type { LoreConfig, CustomTrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from './config.js';
-import type { ParsedDirective } from '../util/directive-parser.js';
+import type { ValueDefinition, TrailerUiKind, TrailerUiColor } from './config.js';
 
 export interface FormattableQueryResult {
   readonly result: QueryResult;
   readonly supersessionMap: ReadonlyMap<string, SupersessionStatus>;
   readonly visibleTrailers: readonly string[] | 'all';
-  /** Trailer definitions for UI rendering hints and serialization rules. */
-  readonly trailerDefinitions: Record<string, FormattableTrailerDefinition>;
 }
 
 export interface FormattableValidationResult {
@@ -19,7 +16,7 @@ export interface FormattableValidationResult {
 
 export interface CommitValidationResult {
   readonly commit: string;
-  readonly loreId: string | null;
+  readonly id: string | null;
   readonly valid: boolean;
   readonly issues: readonly ValidationIssue[];
 }
@@ -78,6 +75,7 @@ export interface FormattableTrailerDefinition {
   readonly values?: Record<string, ValueDefinition>;
   readonly pattern?: string;
   readonly required?: boolean;
+  readonly isCore: boolean;
   readonly directives: readonly string[];
   readonly ui?: {
     readonly kind?: TrailerUiKind;
@@ -86,7 +84,7 @@ export interface FormattableTrailerDefinition {
 }
 
 export interface FormattableConfigResult {
-  readonly loreVersion: string;
+  readonly version: string;
   readonly permissive: boolean;
   readonly trailers: Record<string, FormattableTrailerDefinition>;
   readonly filters: {

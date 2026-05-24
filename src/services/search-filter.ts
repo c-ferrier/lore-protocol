@@ -1,4 +1,4 @@
-import type { Atom, ProtocolState } from '../types/domain.js';
+import type { Atom } from '../types/domain.js';
 import type { SearchOptions } from '../types/query.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 
@@ -25,9 +25,7 @@ export class SearchFilter {
     // 1. Trailer presence filter (--has)
     if (options.has) {
       // Check if any protocol in the atom contains this trailer key
-      const pStates = atom.protocols 
-        ? Array.from(atom.protocols.values()) 
-        : [{ trailers: atom.trailers }];
+      const pStates = Array.from(atom.protocols.values());
 
       const hasTrailer = pStates.some(
         (state) => (state.trailers[options.has!] || []).length > 0
@@ -66,24 +64,10 @@ export class SearchFilter {
     // 6. Semantic Filtering (delegated to protocols)
     const filters = options.filters || {};
     if (Object.keys(filters).length > 0) {
-      if (atom.protocols) {
-        for (const [name, state] of atom.protocols) {
-          const protocol = this.protocolRegistry.get(name);
-          if (protocol && !protocol.matches(state, filters)) {
-            return false;
-          }
-        }
-      } else {
-        // Fallback for deprecated structure: assume primary protocol can match against root trailers
-        const primary = this.protocolRegistry.all()[0];
-        if (primary) {
-          const state: ProtocolState = {
-            name: primary.name,
-            version: primary.version,
-            identityKey: primary.identityKey,
-            trailers: atom.trailers,
-          };
-          if (!primary.matches(state, filters)) return false;
+      for (const [name, state] of atom.protocols) {
+        const protocol = this.protocolRegistry.get(name);
+        if (protocol && !protocol.matches(state, filters)) {
+          return false;
         }
       }
     }
@@ -101,7 +85,7 @@ export class SearchFilter {
     if (atom.body.toLowerCase().includes(textLower)) return true;
 
     // Search all trailers in all protocols uniformly
-    const pStates = atom.protocols ? Array.from(atom.protocols.values()) : [{ trailers: atom.trailers }];
+    const pStates = Array.from(atom.protocols.values());
 
     for (const state of pStates) {
       for (const values of Object.values(state.trailers)) {

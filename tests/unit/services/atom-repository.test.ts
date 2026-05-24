@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/services/atom-repository.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
 import { SearchFilter } from '../../../src/services/search-filter.js';
 import { NullAtomCache } from '../../../src/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
 import type { PathQueryOptions } from '../../../src/types/query.js';
-import type { LoreTrailers } from '../../../src/types/domain.js';
+import type { Trailers } from '../../../src/types/domain.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 import { TrailerParser } from '../../../src/services/trailer-parser.js';
 
@@ -31,7 +32,7 @@ function createMockTrailerParser() {
  * Simple trailer text parser for tests.
  * Extracts key: value pairs from a multi-line trailer block.
  */
-function parseTrailersFromText(raw: string): LoreTrailers {
+function parseTrailersFromText(raw: string): Trailers {
   const lines = raw.split('\n').filter((l) => l.trim().length > 0);
   
   const result: any = {
@@ -87,6 +88,7 @@ function createMockGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
       return isNaN(date.getTime()) ? null : date;
     }),
     getHeadMessage: vi.fn(async () => 'message'),
+    getCommitsByHashes: vi.fn(async () => []),
     ...overrides,
   } as any;
 }
@@ -97,10 +99,10 @@ function makeLoreCommit(options: {
   author?: string;
   subject?: string;
   body?: string;
-  loreId?: string;
+  id?: string;
   trailerExtras?: string;
 }): RawCommit {
-  const loreId = options.loreId ?? 'a1b2c3d4';
+  const id = options.id ?? 'a1b2c3d4';
   const extras = options.trailerExtras ?? '';
   return {
     hash: options.hash ?? 'abc12345',
@@ -108,7 +110,7 @@ function makeLoreCommit(options: {
     author: options.author ?? 'dev@example.com',
     subject: options.subject ?? 'feat(auth): add login',
     body: options.body ?? 'Implemented login flow.',
-    trailers: `${LORE_ID_KEY}: ${loreId}\n${extras}`.trim(),
+    trailers: `${LORE_ID_KEY}: ${id}\n${extras}`.trim(),
   };
 }
 
@@ -143,10 +145,10 @@ describe('AtomRepository', () => {
   beforeEach(() => {
     gitClient = createMockGitClient();
     trailerParser = createMockTrailerParser();
-    protocol = new Protocol(DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
-    searchFilter = new SearchFilter();
+    searchFilter = new SearchFilter(protocolRegistry);
     atomCache = new NullAtomCache();
     queryCache = new NullQueryCache();
     repo = new AtomRepository(gitClient, trailerParser as any, protocol, protocolRegistry, searchFilter, atomCache, queryCache);
@@ -154,7 +156,7 @@ describe('AtomRepository', () => {
 
   describe('findByTarget', () => {
     it('should return atoms for a file target', async () => {
-      const commit = makeLoreCommit({ loreId: 'a1b2c3d4' });
+      const commit = makeLoreCommit({ id: 'a1b2c3d4' });
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['abc12345', ['src/auth.ts']]]));
 
@@ -163,14 +165,14 @@ describe('AtomRepository', () => {
       const result = await repo.findByTarget(gitLogArgs, options);
 
       expect(result).toHaveLength(1);
-      expect(result[0].loreId).toBe('a1b2c3d4');
+      expect(result[0].id).toBe('a1b2c3d4');
       expect(result[0].commitHash).toBe('abc12345');
       expect(result[0].author).toBe('dev@example.com');
       expect(result[0].filesChanged).toEqual(['src/auth.ts']);
     });
 
     it('should filter out non-Lore commits', async () => {
-      const loreCommit = makeLoreCommit({ loreId: 'a1b2c3d4' });
+      const loreCommit = makeLoreCommit({ id: 'a1b2c3d4' });
       const nonLoreCommit: RawCommit = {
         hash: 'def456',
         date: '2025-01-16T10:00:00Z',
@@ -186,7 +188,7 @@ describe('AtomRepository', () => {
       const result = await repo.findByTarget(makeGitLogArgs(), makeQueryOptions());
 
       expect(result).toHaveLength(1);
-      expect(result[0].loreId).toBe('a1b2c3d4');
+      expect(result[0].id).toBe('a1b2c3d4');
     });
 
     it('should pass author filter to git log args', async () => {
@@ -238,8 +240,8 @@ describe('AtomRepository', () => {
     });
 
     it('should apply author filter at the application level', async () => {
-      const commit1 = makeLoreCommit({ hash: 'aaa', author: 'alice@example.com', loreId: 'aaaa1111' });
-      const commit2 = makeLoreCommit({ hash: 'bbb', author: 'bob@example.com', loreId: 'bbbb2222' });
+      const commit1 = makeLoreCommit({ hash: 'aaa', author: 'alice@example.com', id: 'aaaa1111' });
+      const commit2 = makeLoreCommit({ hash: 'bbb', author: 'bob@example.com', id: 'bbbb2222' });
       vi.mocked(gitClient.log).mockResolvedValue([commit1, commit2]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['aaa', ['src/auth.ts']], ['bbb', ['src/auth.ts']]]));
 
@@ -252,9 +254,9 @@ describe('AtomRepository', () => {
 
     it('should not apply limit at the repository level (caller responsibility)', async () => {
       const commits = [
-        makeLoreCommit({ hash: 'aaa', loreId: 'aaaa1111' }),
-        makeLoreCommit({ hash: 'bbb', loreId: 'bbbb2222' }),
-        makeLoreCommit({ hash: 'ccc', loreId: 'cccc3333' }),
+        makeLoreCommit({ hash: 'aaa', id: 'aaaa1111' }),
+        makeLoreCommit({ hash: 'bbb', id: 'bbbb2222' }),
+        makeLoreCommit({ hash: 'ccc', id: 'cccc3333' }),
       ];
       vi.mocked(gitClient.log).mockResolvedValue(commits);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map(commits.map(c => [c.hash, ['src/auth.ts']])));
@@ -266,37 +268,37 @@ describe('AtomRepository', () => {
     });
   });
 
-  describe('findByLoreId', () => {
+  describe('findById', () => {
     it(`should find an atom by its ${LORE_ID_KEY}`, async () => {
-      const commit = makeLoreCommit({ loreId: 'deadbeef' });
+      const commit = makeLoreCommit({ id: 'deadbeef' });
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, ['src/auth.ts']]]));
 
-      const result = await repo.findByLoreId('deadbeef');
+      const result = await repo.findById('deadbeef');
 
       expect(result).not.toBeNull();
-      expect(result!.loreId).toBe('deadbeef');
+      expect(result!.id).toBe('deadbeef');
     });
 
     it(`should return null if no atom matches the ${LORE_ID_KEY}`, async () => {
-      const commit = makeLoreCommit({ loreId: 'a1b2c3d4' });
+      const commit = makeLoreCommit({ id: 'a1b2c3d4' });
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map());
 
-      const result = await repo.findByLoreId('deadbeef');
+      const result = await repo.findById('deadbeef');
 
       expect(result).toBeNull();
     });
 
     it(`should return null for invalid ${LORE_ID_KEY} format`, async () => {
-      const result = await repo.findByLoreId('not-valid');
+      const result = await repo.findById('not-valid');
 
       expect(result).toBeNull();
       expect(gitClient.log).not.toHaveBeenCalled();
     });
 
     it(`should return null for empty ${LORE_ID_KEY}`, async () => {
-      const result = await repo.findByLoreId('');
+      const result = await repo.findById('');
 
       expect(result).toBeNull();
     });
@@ -305,7 +307,7 @@ describe('AtomRepository', () => {
       const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, protocolRegistry, searchFilter, atomCache, queryCache, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
-      await scopedRepo.findByLoreId('deadbeef');
+      await scopedRepo.findById('deadbeef');
 
       expect(gitClient.log).toHaveBeenCalledWith(
         expect.arrayContaining(['--', '.']),
@@ -315,7 +317,7 @@ describe('AtomRepository', () => {
 
   describe('findByCommitHash', () => {
     it('should fetch and parse a single commit', async () => {
-      const commit = makeLoreCommit({ hash: 'abc123', loreId: 'aaaa1111' });
+      const commit = makeLoreCommit({ hash: 'abc123', id: 'aaaa1111' });
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['abc123', []]]));
 
@@ -363,8 +365,8 @@ describe('AtomRepository', () => {
   describe('findAll', () => {
     it('should return all Lore atoms', async () => {
       const commits = [
-        makeLoreCommit({ hash: 'aaa', loreId: 'aaaa1111' }),
-        makeLoreCommit({ hash: 'bbb', loreId: 'bbbb2222' }),
+        makeLoreCommit({ hash: 'aaa', id: 'aaaa1111' }),
+        makeLoreCommit({ hash: 'bbb', id: 'bbbb2222' }),
       ];
       vi.mocked(gitClient.log).mockResolvedValue(commits);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['aaa', []], ['bbb', []]]));
@@ -450,19 +452,19 @@ describe('AtomRepository', () => {
 
   describe('findAll with scope', () => {
     it('should find atoms matching the scope', async () => {
-      const authCommit = makeLoreCommit({ subject: 'feat(auth): add login', loreId: 'aaaa1111' });
-      const dbCommit = makeLoreCommit({ subject: 'fix(database): fix query', loreId: 'bbbb2222' });
+      const authCommit = makeLoreCommit({ subject: 'feat(auth): add login', id: 'aaaa1111' });
+      const dbCommit = makeLoreCommit({ subject: 'fix(database): fix query', id: 'bbbb2222' });
       vi.mocked(gitClient.log).mockResolvedValue([authCommit, dbCommit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[authCommit.hash, []], [dbCommit.hash, []]]));
 
       const result = await repo.findAll({ ...makeQueryOptions(), scope: 'auth' });
 
       expect(result).toHaveLength(1);
-      expect(result[0].loreId).toBe('aaaa1111');
+      expect(result[0].id).toBe('aaaa1111');
     });
 
     it('should match scope case-insensitively', async () => {
-      const commit = makeLoreCommit({ subject: 'feat(Auth): add login', loreId: 'aaaa1111' });
+      const commit = makeLoreCommit({ subject: 'feat(Auth): add login', id: 'aaaa1111' });
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, []]]));
 
@@ -472,7 +474,7 @@ describe('AtomRepository', () => {
     });
 
     it('should return empty array when no scope matches', async () => {
-      const commit = makeLoreCommit({ subject: 'feat(auth): add login', loreId: 'aaaa1111' });
+      const commit = makeLoreCommit({ subject: 'feat(auth): add login', id: 'aaaa1111' });
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, []]]));
 
@@ -482,7 +484,7 @@ describe('AtomRepository', () => {
     });
 
     it('should handle commits without scope in subject', async () => {
-      const commit = makeLoreCommit({ subject: 'fix: typo', loreId: 'aaaa1111' });
+      const commit = makeLoreCommit({ subject: 'fix: typo', id: 'aaaa1111' });
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, []]]));
 
@@ -505,101 +507,122 @@ describe('AtomRepository', () => {
 
   describe('resolveFollowLinks', () => {
     it('should resolve atoms referenced by Related trailers', async () => {
-      const commit1 = makeLoreCommit({ hash: 'aaa', loreId: 'aaaa1111', trailerExtras: 'Related: bbbb2222' });
-      const commit2 = makeLoreCommit({ hash: 'bbb', loreId: 'bbbb2222' });
+      const commit1 = makeLoreCommit({ hash: 'aaa', id: 'aaaa1111', trailerExtras: 'Related: bbbb2222' });
+      const commit2 = makeLoreCommit({ hash: 'bbb', id: 'bbbb2222' });
 
-      // First call for initial atoms, second call for findByLoreId
+      // First call for initial atoms, second call for findById
       vi.mocked(gitClient.log).mockResolvedValue([commit1, commit2]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['aaa', []], ['bbb', []]]));
 
-      // Create initial atoms manually with flat structure
+      // Create initial atoms manually with new structure
       const initialAtoms = [{
-        loreId: 'aaaa1111',
+        id: 'aaaa1111',
         commitHash: 'aaa',
         date: new Date('2025-01-15T10:00:00Z'),
         author: 'dev@example.com',
         intent: 'feat(auth): add login',
         body: '',
-        trailers: {
-          [LORE_ID_KEY]: ['aaaa1111'],
-          Constraint: [],
-          Rejected: [],
-          Confidence: [],
-          'Scope-risk': [],
-          Reversibility: [],
-          Directive: [],
-          Tested: [],
-          'Not-tested': [],
-          Supersedes: [],
-          'Depends-on': [],
-          Related: ['bbbb2222'],
-        } as any,
+        protocols: new Map([
+          ['lore', {
+            name: 'Lore',
+            version: '1.0',
+            identityKey: LORE_ID_KEY,
+            trailers: {
+              [LORE_ID_KEY]: ['aaaa1111'],
+              Constraint: [],
+              Rejected: [],
+              Confidence: [],
+              'Scope-risk': [],
+              Reversibility: [],
+              Directive: [],
+              Tested: [],
+              'Not-tested': [],
+              Supersedes: [],
+              'Depends-on': [],
+              Related: ['bbbb2222'],
+            }
+          }]
+        ]),
         filesChanged: [],
-      }];
+      }] as any;
 
       const result = await repo.resolveFollowLinks(initialAtoms, 2);
 
       expect(result).toHaveLength(2);
-      const ids = result.map((a) => a.loreId);
+      const ids = result.map((a) => a.id);
       expect(ids).toContain('aaaa1111');
       expect(ids).toContain('bbbb2222');
     });
 
     it('should return original atoms when maxDepth is 0', async () => {
       const atoms = [{
-        loreId: 'aaaa1111',
+        id: 'aaaa1111',
         commitHash: 'aaa',
         date: new Date(),
         author: 'dev@example.com',
         intent: 'test',
         body: '',
-        trailers: {
-          [LORE_ID_KEY]: ['aaaa1111'],
-          Constraint: [],
-          Rejected: [],
-          Confidence: [],
-          'Scope-risk': [],
-          Reversibility: [],
-          Directive: [],
-          Tested: [],
-          'Not-tested': [],
-          Supersedes: [],
-          'Depends-on': [],
-          Related: ['bbbb2222'],
-        } as any,
+        protocols: new Map([
+          ['lore', {
+            name: 'Lore',
+            version: '1.0',
+            identityKey: LORE_ID_KEY,
+            trailers: {
+              [LORE_ID_KEY]: ['aaaa1111'],
+              Constraint: [],
+              Rejected: [],
+              Confidence: [],
+              'Scope-risk': [],
+              Reversibility: [],
+              Directive: [],
+              Tested: [],
+              'Not-tested': [],
+              Supersedes: [],
+              'Depends-on': [],
+              Related: ['bbbb2222'],
+            }
+          }]
+        ]),
         filesChanged: [],
-      }];
+      }] as any;
 
       const result = await repo.resolveFollowLinks(atoms, 0);
 
       expect(result).toHaveLength(1);
-      expect(result[0].loreId).toBe('aaaa1111');
+      expect(result[0].id).toBe('aaaa1111');
     });
 
     it('should return original atoms when no follow links exist', async () => {
       const atoms = [{
-        loreId: 'aaaa1111',
+        id: 'aaaa1111',
         commitHash: 'aaa',
         date: new Date(),
         author: 'dev@example.com',
         intent: 'test',
         body: '',
-        trailers: {
-          [LORE_ID_KEY]: ['aaaa1111'],
-          Constraint: [],
-          Rejected: [],
-          Confidence: [],
-          'Scope-risk': [],
-          Reversibility: [],
-          Directive: [],
-          Tested: [],
-          'Not-tested': [],
-          Supersedes: [],
-          'Depends-on': [],
-          Related: [],
-        } as any,
+        protocols: new Map([
+          ['lore', {
+            name: 'Lore',
+            version: '1.0',
+            identityKey: LORE_ID_KEY,
+            trailers: {
+              [LORE_ID_KEY]: ['aaaa1111'],
+              Constraint: [],
+              Rejected: [],
+              Confidence: [],
+              'Scope-risk': [],
+              Reversibility: [],
+              Directive: [],
+              Tested: [],
+              'Not-tested': [],
+              Supersedes: [],
+              'Depends-on': [],
+              Related: [],
+            }
+          }]
+        ]),
         filesChanged: [],
-      }];
+      }] as any;
 
       const result = await repo.resolveFollowLinks(atoms, 3);
 
@@ -608,35 +631,42 @@ describe('AtomRepository', () => {
 
     it('should handle circular references without infinite loop', async () => {
       // Atom A references B, Atom B references A
-      const commitA = makeLoreCommit({ hash: 'aaa', loreId: 'aaaa1111', trailerExtras: 'Related: bbbb2222' });
-      const commitB = makeLoreCommit({ hash: 'bbb', loreId: 'bbbb2222', trailerExtras: 'Related: aaaa1111' });
+      const commitA = makeLoreCommit({ hash: 'aaa', id: 'aaaa1111', trailerExtras: 'Related: bbbb2222' });
+      const commitB = makeLoreCommit({ hash: 'bbb', id: 'bbbb2222', trailerExtras: 'Related: aaaa1111' });
 
       vi.mocked(gitClient.log).mockResolvedValue([commitA, commitB]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['aaa', []], ['bbb', []]]));
 
       const atomA = {
-        loreId: 'aaaa1111',
+        id: 'aaaa1111',
         commitHash: 'aaa',
         date: new Date(),
         author: 'dev@example.com',
         intent: 'test',
         body: '',
-        trailers: {
-          [LORE_ID_KEY]: ['aaaa1111'],
-          Constraint: [],
-          Rejected: [],
-          Confidence: [],
-          'Scope-risk': [],
-          Reversibility: [],
-          Directive: [],
-          Tested: [],
-          'Not-tested': [],
-          Supersedes: [],
-          'Depends-on': [],
-          Related: ['bbbb2222'],
-        } as any,
+        protocols: new Map([
+          ['lore', {
+            name: 'Lore',
+            version: '1.0',
+            identityKey: LORE_ID_KEY,
+            trailers: {
+              [LORE_ID_KEY]: ['aaaa1111'],
+              Constraint: [],
+              Rejected: [],
+              Confidence: [],
+              'Scope-risk': [],
+              Reversibility: [],
+              Directive: [],
+              Tested: [],
+              'Not-tested': [],
+              Supersedes: [],
+              'Depends-on': [],
+              Related: ['bbbb2222'],
+            }
+          }]
+        ]),
         filesChanged: [],
-      };
+      } as any;
 
       const result = await repo.resolveFollowLinks([atomA], 5);
 
@@ -645,43 +675,50 @@ describe('AtomRepository', () => {
 
     it('should not exceed maxDepth in transitive resolution', async () => {
       // Chain: A -> B -> C -> D, but maxDepth = 1
-      const commitB = makeLoreCommit({ hash: 'bbb', loreId: 'bbbb2222', trailerExtras: 'Related: cccc3333' });
-      const commitC = makeLoreCommit({ hash: 'ccc', loreId: 'cccc3333', trailerExtras: 'Related: dddd4444' });
-      const commitD = makeLoreCommit({ hash: 'ddd', loreId: 'dddd4444' });
+      const commitB = makeLoreCommit({ hash: 'bbb', id: 'bbbb2222', trailerExtras: 'Related: cccc3333' });
+      const commitC = makeLoreCommit({ hash: 'ccc', id: 'cccc3333', trailerExtras: 'Related: dddd4444' });
+      const commitD = makeLoreCommit({ hash: 'ddd', id: 'dddd4444' });
 
-      // findByLoreId will search all commits
+      // findById will search all commits
       vi.mocked(gitClient.log).mockResolvedValue([commitB, commitC, commitD]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['bbb', []], ['ccc', []], ['ddd', []]]));
 
       const atomA = {
-        loreId: 'aaaa1111',
+        id: 'aaaa1111',
         commitHash: 'aaa',
         date: new Date(),
         author: 'dev@example.com',
         intent: 'test',
         body: '',
-        trailers: {
-          [LORE_ID_KEY]: ['aaaa1111'],
-          Constraint: [],
-          Rejected: [],
-          Confidence: [],
-          'Scope-risk': [],
-          Reversibility: [],
-          Directive: [],
-          Tested: [],
-          'Not-tested': [],
-          Supersedes: [],
-          'Depends-on': [],
-          Related: ['bbbb2222'],
-        } as any,
+        protocols: new Map([
+          ['lore', {
+            name: 'Lore',
+            version: '1.0',
+            identityKey: LORE_ID_KEY,
+            trailers: {
+              [LORE_ID_KEY]: ['aaaa1111'],
+              Constraint: [],
+              Rejected: [],
+              Confidence: [],
+              'Scope-risk': [],
+              Reversibility: [],
+              Directive: [],
+              Tested: [],
+              'Not-tested': [],
+              Supersedes: [],
+              'Depends-on': [],
+              Related: ['bbbb2222'],
+            }
+          }]
+        ]),
         filesChanged: [],
-      };
+      } as any;
 
       const result = await repo.resolveFollowLinks([atomA], 1);
 
       // Should find A and B only (depth 1), not C or D
       expect(result).toHaveLength(2);
-      const ids = result.map((a) => a.loreId);
+      const ids = result.map((a) => a.id);
       expect(ids).toContain('aaaa1111');
       expect(ids).toContain('bbbb2222');
     });
@@ -716,7 +753,7 @@ describe('AtomRepository', () => {
 
   describe('batching behavior', () => {
     it('should call getFilesChanged only for Lore commits, not non-Lore commits', async () => {
-      const loreCommit = makeLoreCommit({ hash: 'abc12345', loreId: 'aaaa1111' });
+      const loreCommit = makeLoreCommit({ hash: 'abc12345', id: 'aaaa1111' });
       const nonLoreCommit: RawCommit = {
         hash: 'non-lore',
         date: '2025-01-16T10:00:00Z',
@@ -735,7 +772,7 @@ describe('AtomRepository', () => {
 
     it('should handle many commits in a single batch', async () => {
       const commits = Array.from({ length: 25 }, (_, i) =>
-        makeLoreCommit({ hash: `hash${i}`, loreId: `${String(i).padStart(8, '0')}` }),
+        makeLoreCommit({ hash: `hash${i}`, id: `${String(i).padStart(8, '0')}` }),
       );
       vi.mocked(gitClient.log).mockResolvedValue(commits);
       
@@ -751,7 +788,7 @@ describe('AtomRepository', () => {
     });
 
     it('should propagate getFilesChanged errors', async () => {
-      const commit = makeLoreCommit({ loreId: 'deadbeef' });
+      const commit = makeLoreCommit({ id: 'deadbeef' });
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockRejectedValue(new Error('git failed'));
 
@@ -762,7 +799,7 @@ describe('AtomRepository', () => {
   describe('Multi-Protocol Hydration', () => {
     it('should hydrate an atom with multiple protocol states if claimed by multiple protocols', async () => {
       // 1. Create a second protocol (Fred) using a manual mock to avoid Protocol class getter issues
-      const fredProtocol: IProtocol = {
+      const fredProtocol: any = {
         name: 'Fred',
         version: '1.0',
         identityKey: 'Fred-id',
@@ -832,7 +869,7 @@ describe('AtomRepository', () => {
       vi.spyOn(loreProtocol, 'isPermissive', 'get').mockReturnValue(true);
 
       // 2. Fred is strict but defines its own ID
-      const fredProtocol: IProtocol = {
+      const fredProtocol: any = {
         name: 'Fred',
         version: '1.0',
         identityKey: 'Fred-id',
@@ -894,13 +931,63 @@ describe('AtomRepository', () => {
       // IMPORTANT: Lore should NOT get Fred-id because Fred defined/owned it!
       expect(loreState.trailers['Fred-id']).toBeUndefined();
     });
+
+    it('should find an atom by ID across multiple protocols', async () => {
+      // 1. Create and register Fred protocol
+      const fredProtocol: any = {
+        name: 'Fred',
+        version: '1.0',
+        identityKey: 'Fred-id',
+        namespace: '',
+        isPermissive: false,
+        claims: (raw: string) => raw.includes('Fred-id:'),
+        owns: (key: string) => key.toLowerCase() === 'fred-id',
+        authorize: (key: string) => key.toLowerCase() === 'fred-id' ? 'Fred-id' : null,
+        isValidIdentity: (id: string) => /^[0-9a-f]{8}$/.test(id),
+        getDiscoveryGrep: () => [],
+        getDiscoveryPattern: () => '^Fred-id: [0-9a-f]{8}',
+        getIdentityPattern: (id: string) => `^Fred-id: ${id}`,
+        matches: () => true,
+        parse: (raw: string) => ({
+          name: 'Fred',
+          version: '1.0',
+          identityKey: 'Fred-id',
+          trailers: { 'Fred-id': ['f8ed5678'] }
+        }),
+      } as any;
+      
+      protocolRegistry.register(fredProtocol);
+
+      // 2. Mock Git log to return a Lore commit when searching for a Fred ID (simulation of OR grep)
+      const commit = makeLoreCommit({ id: 'lore1234' });
+      // Actually we want the Fred commit to be found
+      const fredCommit: RawCommit = {
+        hash: 'fred-hash',
+        date: new Date().toISOString(),
+        author: 'cole@example.com',
+        subject: 'feat: fred',
+        body: '',
+        trailers: 'Fred-id: f8ed5678',
+      };
+
+      vi.mocked(gitClient.log).mockResolvedValue([fredCommit]);
+
+      // 3. Find by Fred ID
+      const result = await repo.findById('f8ed5678');
+
+      // 4. Verify
+      expect(result).not.toBeNull();
+      expect(result!.protocols.has('fred')).toBe(true);
+      const state = result!.protocols.get('fred')!;
+      expect(state.trailers['Fred-id']).toEqual(['f8ed5678']);
+    });
   });
 
   describe('Discovery Pass Precision', () => {
     it('should generate targeted greps for the "has" filter based on schema ownership', async () => {
       // 1. Lore owns 'Constraint' (core)
       // 2. Fred (namespaced) does NOT own 'Constraint'
-      const fredProtocol: IProtocol = {
+      const fredProtocol: any = {
         name: 'Fred',
         version: '1.0',
         identityKey: 'Fred-id',

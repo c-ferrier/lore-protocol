@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerCommitCommand } from '../../../src/commands/commit.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 
 describe('lore commit (dynamic flags)', () => {
@@ -10,7 +11,7 @@ describe('lore commit (dynamic flags)', () => {
     gitClient: { commit: vi.fn().mockResolvedValue({ hash: 'h1' }), hasStagedChanges: vi.fn().mockResolvedValue(true) },
     getFormatter: () => ({ formatSuccess: vi.fn() }),
     commitInputResolver: { resolve: vi.fn().mockResolvedValue({ intent: 'i' }) },
-    headLoreIdReader: { read: vi.fn() },
+    headIdReader: { read: vi.fn() },
     config: DEFAULT_CONFIG,
   } as any;
 
@@ -33,7 +34,7 @@ describe('lore commit (dynamic flags)', () => {
         }
       }
     };
-    const protocol = new Protocol(config);
+    const protocol = new Protocol(LoreProtocolDefinition, config);
     const program = new Command();
     
     registerCommitCommand(program, { ...mockDeps, config, protocol });
@@ -60,7 +61,7 @@ describe('lore commit (dynamic flags)', () => {
         }
       }
     };
-    const protocol = new Protocol(config);
+    const protocol = new Protocol(LoreProtocolDefinition, config);
     const program = new Command();
     
     registerCommitCommand(program, { ...mockDeps, config, protocol });

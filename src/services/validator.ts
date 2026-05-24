@@ -1,119 +1,98 @@
 import type { TrailerParser } from './trailer-parser.js';
 import type { AtomRepository } from './atom-repository.js';
-import type { LoreConfig } from '../types/config.js';
+import type { Config } from '../types/config.js';
 import type { RawCommit } from '../interfaces/git-client.js';
 import type { CommitValidationResult, ValidationIssue } from '../types/output.js';
 import type { Trailers, AtomId } from '../types/domain.js';
-import type { Protocol } from './protocol.js';
+import type { IProtocol } from '../interfaces/protocol.js';
 
 /**
- * Validates existing git commits for Lore protocol compliance.
+ * Validates existing git commits for protocol compliance.
  * 
- * SOLID: SRP -- focused purely on protocol rule enforcement.
- * GRASP: Information Expert -- uses trailer definitions to validate schema.
+ * SOLID: SRP -- focused purely on domain validation rules.
  */
 export class Validator {
   constructor(
     private readonly trailerParser: TrailerParser,
     private readonly atomRepository: AtomRepository,
-    private readonly config: LoreConfig,
-    private readonly protocol: Protocol,
+    private readonly config: Config,
+    private readonly protocol: IProtocol,
   ) {}
 
   /**
-   * Performs validation on a collection of raw commits.
+   * Validate a set of raw commits.
    */
-  async validate(commits: readonly RawCommit[]): Promise<CommitValidationResult[]> {
+  async validate(rawCommits: readonly RawCommit[]): Promise<CommitValidationResult[]> {
     const results: CommitValidationResult[] = [];
-    for (const commit of commits) {
-      results.push(await this.validateCommit(commit));
+
+    for (const raw of rawCommits) {
+      let trailers: Trailers;
+      const issues: ValidationIssue[] = [];
+
+      try {
+        trailers = this.trailerParser.parse(raw.trailers);
+      } catch (err) {
+        issues.push({
+          severity: 'error',
+          rule: 'trailer-format',
+          message: `Failed to parse trailers: ${err instanceof Error ? err.message : String(err)}`,
+        });
+        results.push({
+          commit: raw.hash,
+          id: null,
+          valid: false,
+          issues,
+        });
+        continue;
+      }
+
+      // 1. Structural Hygiene (Generic)
+      this.validateHygiene(raw, issues);
+
+      // 2. Schema Validation (Protocol-driven)
+      this.validateSchema(trailers, issues);
+
+      // 3. Graph Integrity (Async resolution)
+      await this.validateReferenceExistence(trailers, issues);
+
+      const identityKey = this.protocol.identityKey;
+      const id = trailers[identityKey]?.[0] || null;
+
+      results.push({
+        commit: raw.hash,
+        id,
+        valid: issues.filter((i) => i.severity === 'error').length === 0,
+        issues,
+      });
     }
+
     return results;
   }
 
   /**
-   * Validate a single raw commit and collect all protocol issues.
+   * Check for basic git commit best practices.
    */
-  private async validateCommit(commit: RawCommit): Promise<CommitValidationResult> {
-    const issues: ValidationIssue[] = [];
-    let trailers: Trailers | null = null;
-    let loreId: string | null = null;
+  private validateHygiene(raw: RawCommit, issues: ValidationIssue[]): void {
+    const { validation } = this.config;
 
-    // Rule 1: Valid trailer format (parseable)
-    try {
-      // Use raw parser to see everything, then validate against protocol
-      trailers = this.trailerParser.parse(commit.trailers);
-      loreId = trailers[this.protocol.identityKey]?.[0] || null;
-    } catch {
-      issues.push({
-        severity: 'error',
-        rule: 'trailer-format',
-        message: 'Failed to parse trailer block',
-      });
-    }
-
-    if (trailers) {
-      // 1. Schema-driven validation (Metadata-driven)
-      this.validateSchema(trailers, issues);
-
-      // 2. Structural hygiene rules
-      this.validateMessageStructure(commit, issues);
-      this.validateTrailerHygiene(trailers, issues);
-
-      // 3. Cross-atom validation (Existence of references)
-      await this.validateReferenceExistence(trailers, issues);
-    }
-
-    return {
-      valid: issues.filter((i) => i.severity === 'error').length === 0,
-      commit: commit.hash,
-      loreId,
-      issues,
-    };
-  }
-
-  /**
-   * Validate structural properties of the commit message (lengths, line counts).
-   */
-  private validateMessageStructure(commit: RawCommit, issues: ValidationIssue[]): void {
-    // Intent Length
-    const maxIntent = this.config.validation.intentMaxLength;
-    if (commit.subject.length > maxIntent) {
+    // Rule: Subject line length
+    if (raw.subject.length > validation.intentMaxLength) {
       issues.push({
         severity: 'warning',
         rule: 'intent-length',
         field: 'intent',
-        message: `Intent exceeds recommended length of ${maxIntent} chars (got ${commit.subject.length})`,
+        message: `Intent exceeds recommended maximum of ${validation.intentMaxLength} characters`,
       });
     }
 
-    // Total Message Length
-    const maxLines = this.config.validation.maxMessageLines;
-    const totalLines = commit.subject.split('\n').length + (commit.body ? commit.body.split('\n').length : 0);
-    if (totalLines > maxLines) {
+    // Rule: Overall message length (prevents bloated decision records)
+    const lines = (raw.subject + '\n' + raw.body).split('\n');
+    if (lines.length > validation.maxMessageLines) {
       issues.push({
         severity: 'warning',
         rule: 'message-length',
-        message: `Message exceeds recommended length of ${maxLines} lines (got ${totalLines})`,
+        message: `Commit message is very long (${lines.length} lines). Consider condensing narrative or splitting changes.`,
       });
-    }
-  }
-
-  /**
-   * Check for high counts of specific trailers that might indicate an atom is too complex.
-   */
-  private validateTrailerHygiene(trailers: Trailers, issues: ValidationIssue[]): void {
-    const TRAILER_HYGIENE_THRESHOLD = 5;
-
-    for (const [key, values] of Object.entries(trailers)) {
-      if (values.length > TRAILER_HYGIENE_THRESHOLD) {
-        issues.push({
-          severity: 'warning',
-          rule: 'trailer-count',
-          field: key,
-          message: `High count of "${key}" trailers (${values.length}). Consider breaking this decision into smaller atoms.`,
-        });
-      }
     }
   }
 
@@ -124,6 +103,10 @@ export class Validator {
     trailers: Trailers,
     issues: ValidationIssue[],
   ): void {
+    const protocolSlug = this.protocol.name.toLowerCase().replace(/-/g, '');
+    const identityRule = `${protocolSlug}-id-present`;
+    const formatRule = `${protocolSlug}-id-format`;
+
     for (const key of this.protocol.getAuthorizedKeys()) {
       const def = this.protocol.getDefinition(key);
       if (!def) continue;
@@ -137,7 +120,7 @@ export class Validator {
       if (!hasValue && isRequired) {
         issues.push({
           severity: this.config.validation.strict || key === this.protocol.identityKey ? 'error' : 'warning',
-          rule: key === this.protocol.identityKey ? 'lore-id-present' : 'required-trailer',
+          rule: key === this.protocol.identityKey ? identityRule : 'required-trailer',
           field: key,
           message: `${key} trailer is missing`,
         });
@@ -178,7 +161,7 @@ export class Validator {
 
             // Context-sensitive rule mapping
             if (key === this.protocol.identityKey) {
-              rule = 'lore-id-format';
+              rule = formatRule;
               message = `${this.protocol.identityKey} "${val}" is not a valid 8-character hex string`;
             } else if (def.ui?.kind === 'reference') {
               rule = 'reference-format';
@@ -191,10 +174,22 @@ export class Validator {
         }
       }
     }
+
+    // Check for high trailer count (cardinality hygiene)
+    for (const [key, values] of Object.entries(trailers)) {
+      if (values.length > 5) {
+        issues.push({
+          severity: 'warning',
+          rule: 'trailer-count',
+          field: key,
+          message: `High count of "${key}" trailers (${values.length}). Consider consolidating.`,
+        });
+      }
+    }
   }
 
   /**
-   * Check that referenced Lore-ids actually exist in the repository. 
+   * Check that referenced IDs actually exist in the repository. 
    * Emits a warning for each missing reference.
    */
   private async validateReferenceExistence(
@@ -202,21 +197,22 @@ export class Validator {
     issues: ValidationIssue[],
   ): Promise<void> {
     const refKeys = this.protocol.getReferenceKeys();
+    
     for (const key of refKeys) {
-      const values = trailers[key];
-      if (!values) continue;
+      const values = trailers[key] || [];
+      if (values.length === 0) continue;
 
       for (const id of values) {
-        // Only validate existence for values that look like Lore-ids
+        // Only validate existence for values that look like valid IDs for this protocol
         if (!this.protocol.isValidIdentity(id)) continue;
         
-        const found = await this.atomRepository.findByLoreId(id);
+        const found = await this.atomRepository.findById(id);
         if (found === null) {
           issues.push({
             severity: 'warning',
             rule: 'reference-exists',
             field: key,
-            message: `Referenced atom "${id}" in ${key} not found in repository`,
+            message: `Referenced ${this.protocol.name}-id "${id}" in ${key} was not found in history`,
           });
         }
       }

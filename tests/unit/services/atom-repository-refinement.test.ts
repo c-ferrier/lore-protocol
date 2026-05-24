@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/services/atom-repository.js';
 import { TrailerParser } from '../../../src/services/trailer-parser.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 import { SearchFilter } from '../../../src/services/search-filter.js';
 import { NullAtomCache } from '../../../src/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/services/query-cache.js';
@@ -31,7 +32,7 @@ describe('AtomRepository Refinement', () => {
       }),
       resolveDate: vi.fn(async (d: string) => new Date(d)),
     } as any;
-    protocol = new Protocol(DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     trailerParser = new TrailerParser();
@@ -138,7 +139,7 @@ describe('AtomRepository Refinement', () => {
       atoms = await repo.resolveFollowLinks(atoms, 1);
 
       expect(atoms).toHaveLength(2);
-      const ids = atoms.map(a => a.loreId);
+      const ids = atoms.map(a => a.id);
       expect(ids).toContain('aaaaaaaa');
       expect(ids).toContain('bbbbbbbb');
       
@@ -147,7 +148,7 @@ describe('AtomRepository Refinement', () => {
     });
   });
 
-  describe('findByLoreId Robustness (The "Three Pass" System)', () => {
+  describe('findById Robustness (The "Three Pass" System)', () => {
     it('should correctly discard atoms where the target ID is in the body but trailers have a different ID', async () => {
       const targetId = '11111111';
       const actualId = '22222222';
@@ -163,7 +164,7 @@ describe('AtomRepository Refinement', () => {
 
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
 
-      const result = await repo.findByLoreId(targetId);
+      const result = await repo.findById(targetId);
 
       expect(result).toBeNull();
     });
@@ -181,10 +182,10 @@ describe('AtomRepository Refinement', () => {
 
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
 
-      const result = await repo.findByLoreId(targetId);
+      const result = await repo.findById(targetId);
 
       expect(result).not.toBeNull();
-      expect(result!.loreId).toBe(targetId);
+      expect(result!.id).toBe(targetId);
     });
   });
 });

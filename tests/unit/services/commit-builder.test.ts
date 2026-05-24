@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CommitBuilder } from '../../../src/services/commit-builder.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 import type { CommitInput } from '../../../src/types/commit.js';
-import type { LoreConfig } from '../../../src/types/config.js';
-import type { LoreTrailers } from '../../../src/types/domain.js';
+import type { Config } from '../../../src/types/config.js';
+import type { Trailers } from '../../../src/types/domain.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 
 const LORE_ID_KEY = "Lore-id";
@@ -13,7 +14,7 @@ const LORE_ID_KEY = "Lore-id";
 function createMockTrailerParser() {
   return {
     parse: vi.fn(),
-    serialize: vi.fn((trailers: LoreTrailers) => {
+    serialize: vi.fn((trailers: Trailers) => {
       const lines: string[] = [];
       if (trailers[LORE_ID_KEY] && trailers[LORE_ID_KEY].length > 0) {
         lines.push(`${LORE_ID_KEY}: ${trailers[LORE_ID_KEY][0]}`);
@@ -40,12 +41,12 @@ function createMockTrailerParser() {
 
       return lines.join('\n');
     }),
-    containsLoreTrailers: vi.fn(),
+    containsTrailers: vi.fn(),
     extractTrailerBlock: vi.fn(),
   };
 }
 
-// Mock LoreIdGenerator
+// Mock IdGenerator
 function createMockIdGenerator(id = 'a1b2c3d4') {
   return {
     generate: vi.fn(() => id),
@@ -56,14 +57,14 @@ describe('CommitBuilder', () => {
   let builder: CommitBuilder;
   let mockParser: ReturnType<typeof createMockTrailerParser>;
   let mockIdGen: ReturnType<typeof createMockIdGenerator>;
-  let config: LoreConfig;
+  let config: Config;
   let protocol: Protocol;
 
   beforeEach(() => {
     mockParser = createMockTrailerParser();
     mockIdGen = createMockIdGenerator();
     config = { ...DEFAULT_CONFIG };
-    protocol = new Protocol(config);
+    protocol = new Protocol(LoreProtocolDefinition, config);
     builder = new CommitBuilder(
       mockParser as any,
       mockIdGen as any,
@@ -78,13 +79,13 @@ describe('CommitBuilder', () => {
         intent: 'feat(auth): add login flow',
       };
 
-      const { message, loreId } = builder.build(input);
+      const { message, id } = builder.build(input);
 
       expect(mockIdGen.generate).toHaveBeenCalledOnce();
       expect(mockParser.serialize).toHaveBeenCalledOnce();
       expect(message).toContain('feat(auth): add login flow');
       expect(message).toContain(`${LORE_ID_KEY}: a1b2c3d4`);
-      expect(loreId).toBe('a1b2c3d4');
+      expect(id).toBe('a1b2c3d4');
     });
 
     it('should include body separated by blank lines', () => {
@@ -137,29 +138,29 @@ describe('CommitBuilder', () => {
       mockIdGen.generate.mockReturnValue('deadbeef');
       const input: CommitInput = { intent: 'test' };
 
-      const { message, loreId } = builder.build(input);
+      const { message, id } = builder.build(input);
 
       expect(message).toContain(`${LORE_ID_KEY}: deadbeef`);
-      expect(loreId).toBe('deadbeef');
+      expect(id).toBe('deadbeef');
     });
 
-    it('should use provided existingLoreId instead of generating one', () => {
+    it('should use provided existingId instead of generating one', () => {
       const input: CommitInput = { intent: 'amend: update commit' };
 
-      const { message, loreId } = builder.build(input, 'cafebabe');
+      const { message, id } = builder.build(input, 'cafebabe');
 
       expect(message).toContain(`${LORE_ID_KEY}: cafebabe`);
-      expect(loreId).toBe('cafebabe');
+      expect(id).toBe('cafebabe');
       expect(mockIdGen.generate).not.toHaveBeenCalled();
     });
 
-    it(`should generate new ${LORE_ID_KEY} when no existingLoreId is provided`, () => {
+    it(`should generate new ${LORE_ID_KEY} when no existingId is provided`, () => {
       const input: CommitInput = { intent: 'new commit' };
 
-      const { loreId } = builder.build(input);
+      const { id } = builder.build(input);
 
       expect(mockIdGen.generate).toHaveBeenCalledOnce();
-      expect(loreId).toBe('a1b2c3d4');
+      expect(id).toBe('a1b2c3d4');
     });
 
     it('should pass correct trailers to serialize', () => {
@@ -170,13 +171,13 @@ describe('CommitBuilder', () => {
 
       builder.build(input);
 
-      const passedTrailers = mockParser.serialize.mock.calls[0][0] as LoreTrailers;
+      const passedTrailers = mockParser.serialize.mock.calls[0][0] as Trailers;
       expect(passedTrailers[LORE_ID_KEY]).toEqual(['a1b2c3d4']);
       expect(passedTrailers.Confidence).toEqual(['medium']);
       expect(passedTrailers.Constraint).toEqual([]);
     });
 
-    it('should pass custom trailers through to LoreTrailers as arrays', () => {
+    it('should pass custom trailers through to Trailers as arrays', () => {
       const input: CommitInput = {
         intent: 'feat: with custom trailers',
         trailers: {
@@ -188,7 +189,7 @@ describe('CommitBuilder', () => {
 
       builder.build(input);
 
-      const passedTrailers = vi.mocked(mockParser.serialize).mock.calls[0][0] as LoreTrailers;
+      const passedTrailers = vi.mocked(mockParser.serialize).mock.calls[0][0] as Trailers;
       expect(passedTrailers['Assisted-by']).toEqual(['Gemini:CLI']);
       expect(passedTrailers['Ticket']).toEqual(['PROJ-123']);
     });
@@ -201,7 +202,7 @@ describe('CommitBuilder', () => {
 
       builder.build(input);
 
-      const passedTrailers = vi.mocked(mockParser.serialize).mock.calls[0][0] as LoreTrailers;
+      const passedTrailers = vi.mocked(mockParser.serialize).mock.calls[0][0] as Trailers;
       // Core keys are present as empty arrays
       expect(passedTrailers.Constraint).toEqual([]);
     });
@@ -313,7 +314,7 @@ describe('CommitBuilder', () => {
     });
 
     it('should check required trailers from config', () => {
-      const strictConfig: LoreConfig = {
+      const strictConfig: Config = {
         ...DEFAULT_CONFIG,
         trailers: { 
           required: ['Confidence', 'Constraint'], 
@@ -323,7 +324,7 @@ describe('CommitBuilder', () => {
         },
         validation: { ...DEFAULT_CONFIG.validation, strict: false },
       };
-      const strictProtocol = new Protocol(strictConfig);
+      const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictProtocol);
 
       const input: CommitInput = {
@@ -337,7 +338,7 @@ describe('CommitBuilder', () => {
     });
 
     it('should error on missing required trailers in strict mode', () => {
-      const strictConfig: LoreConfig = {
+      const strictConfig: Config = {
         ...DEFAULT_CONFIG,
         trailers: { 
           required: ['Confidence'], 
@@ -347,7 +348,7 @@ describe('CommitBuilder', () => {
         },
         validation: { ...DEFAULT_CONFIG.validation, strict: true },
       };
-      const strictProtocol = new Protocol(strictConfig);
+      const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictProtocol);
 
       const input: CommitInput = {
@@ -384,7 +385,7 @@ describe('CommitBuilder', () => {
     });
 
     it('should pass with valid required trailer present', () => {
-      const strictConfig: LoreConfig = {
+      const strictConfig: Config = {
         ...DEFAULT_CONFIG,
         trailers: { 
           required: ['Confidence'], 
@@ -393,7 +394,7 @@ describe('CommitBuilder', () => {
           permissive: false 
         },
       };
-      const strictProtocol = new Protocol(strictConfig);
+      const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictProtocol);
 
       const input: CommitInput = {
@@ -407,7 +408,7 @@ describe('CommitBuilder', () => {
     });
 
     it('should report missing required custom trailer', () => {
-      const strictConfig: LoreConfig = {
+      const strictConfig: Config = {
         ...DEFAULT_CONFIG,
         trailers: { 
           required: ['Assisted-by'], 
@@ -417,7 +418,7 @@ describe('CommitBuilder', () => {
         },
         validation: { ...DEFAULT_CONFIG.validation, strict: true },
       };
-      const strictProtocol = new Protocol(strictConfig);
+      const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictProtocol);
 
       const input: CommitInput = {
@@ -433,7 +434,7 @@ describe('CommitBuilder', () => {
     });
 
     it('should not report missing required trailer when custom trailer is present', () => {
-      const strictConfig: LoreConfig = {
+      const strictConfig: Config = {
         ...DEFAULT_CONFIG,
         trailers: { 
           required: ['Assisted-by'], 
@@ -443,7 +444,7 @@ describe('CommitBuilder', () => {
         },
         validation: { ...DEFAULT_CONFIG.validation, strict: true },
       };
-      const strictProtocol = new Protocol(strictConfig);
+      const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictProtocol);
 
       const input: CommitInput = {
@@ -457,6 +458,33 @@ describe('CommitBuilder', () => {
       const issues = strictBuilder.validate(input);
       const requiredIssues = issues.filter((i) => i.rule === 'required-trailer');
       expect(requiredIssues).toHaveLength(0);
+    });
+
+    it('should rebrand reference format errors for namespaced protocols', () => {
+      // 1. Setup Fred protocol with namespace "Fred"
+      const fredDef: any = {
+        name: 'Fred',
+        version: '1.0',
+        namespace: 'Fred',
+        identityKey: 'Fred-id',
+        trailers: {
+          'Fred-id': { multivalue: false, validation: 'pattern', pattern: '^[0-9a-f]{8}$' },
+          'Depends-on': { multivalue: true, validation: 'pattern', pattern: '^[0-9a-f]{8}$', ui: { kind: 'reference' } },
+        }
+      };
+      const fredProtocol = new Protocol(fredDef, DEFAULT_CONFIG);
+      const builder = new CommitBuilder(mockParser as any, mockIdGen as any, DEFAULT_CONFIG, fredProtocol);
+
+      const input = {
+        intent: 'feat',
+        trailers: { 'Depends-on': ['invalid-id'] }
+      };
+
+      const issues = builder.validate(input);
+      const issue = issues.find(i => i.rule === 'invalid-fred-id-ref');
+
+      expect(issue).toBeDefined();
+      expect(issue?.message).toContain('Value for "Depends-on" does not match pattern');
     });
   });
 });

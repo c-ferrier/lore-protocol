@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { TrailerCollectorRegistry } from '../../../../../src/services/readers/collectors/trailer-collector-registry.js';
 import { DEFAULT_CONFIG } from '../../../../../src/util/constants.js';
 import { Protocol } from '../../../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../../../src/protocols/lore.js';
 
 describe('TrailerCollectorRegistry', () => {
   it('should create default collectors for core trailers', () => {
-    const protocol = new Protocol(DEFAULT_CONFIG);
+    const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
@@ -26,7 +27,7 @@ describe('TrailerCollectorRegistry', () => {
         }
       }
     };
-    const protocol = new Protocol(config);
+    const protocol = new Protocol(LoreProtocolDefinition, config);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
@@ -50,7 +51,7 @@ describe('TrailerCollectorRegistry', () => {
         }
       }
     };
-    const protocol = new Protocol(config);
+    const protocol = new Protocol(LoreProtocolDefinition, config);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     const featureCollector = collectors.find(c => c.key === 'Features');
@@ -71,7 +72,7 @@ describe('TrailerCollectorRegistry', () => {
         }
       }
     };
-    const protocol = new Protocol(config);
+    const protocol = new Protocol(LoreProtocolDefinition, config);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
@@ -91,7 +92,7 @@ describe('TrailerCollectorRegistry', () => {
         }
       }
     };
-    const protocol = new Protocol(config);
+    const protocol = new Protocol(LoreProtocolDefinition, config);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     const keys = collectors.map(c => c.key);

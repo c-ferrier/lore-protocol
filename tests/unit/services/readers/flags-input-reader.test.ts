@@ -2,13 +2,16 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { FlagsInputReader } from '../../../../src/services/readers/flags-input-reader.js';
 import { DEFAULT_CONFIG } from '../../../../src/util/constants.js';
 import { Protocol } from '../../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../../src/protocols/lore.js';
 import type { CommitCommandOptions } from '../../../../src/services/commit-input-resolver.js';
+
+const LORE_ID_KEY = "Lore-id";
 
 describe('FlagsInputReader', () => {
   let protocol: Protocol;
 
   beforeEach(() => {
-    protocol = new Protocol(DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
   });
 
   it('should map all CLI options correctly', async () => {
@@ -130,7 +133,7 @@ describe('FlagsInputReader', () => {
       ...DEFAULT_CONFIG,
       trailers: { ...DEFAULT_CONFIG.trailers, custom: ['Squad', 'Team-Name'] },
     };
-    const customProtocol = new Protocol(config);
+    const customProtocol = new Protocol(LoreProtocolDefinition, config);
     const options: any = {
       intent: 't',
       squad: ['Alpha'],
@@ -159,7 +162,7 @@ describe('FlagsInputReader', () => {
         },
       },
     };
-    const customProtocol = new Protocol(config);
+    const customProtocol = new Protocol(LoreProtocolDefinition, config);
     const options: any = {
       intent: 't',
       dept: 'Eng',
@@ -185,7 +188,7 @@ describe('FlagsInputReader', () => {
         },
       },
     };
-    const customProtocol = new Protocol(config);
+    const customProtocol = new Protocol(LoreProtocolDefinition, config);
     const options: any = {
       intent: 't',
       assistedBy: ['Gemini'], // camelCase from kebab-case --assisted-by
@@ -195,5 +198,48 @@ describe('FlagsInputReader', () => {
     const result = await reader.read();
 
     expect(result.trailers?.['Assisted-By']).toEqual(['Gemini']);
+  });
+
+  it('should automatically slugify custom trailer keys into CLI flags', async () => {
+    // 1. Setup protocol with a custom trailer that has no explicit CLI flag
+    const customConfig = {
+      ...DEFAULT_CONFIG,
+      trailers: {
+        ...DEFAULT_CONFIG.trailers,
+        definitions: {
+          'Regulatory-Compliance': {
+            description: 'Check for compliance',
+            multivalue: true,
+          }
+        }
+      }
+    };
+    const customProtocol = new Protocol(LoreProtocolDefinition, customConfig);
+    
+    // 2. Simulate CLI option 'regulatoryCompliance' (slugified + camelCased)
+    const options = {
+      intent: 'feat',
+      regulatoryCompliance: ['GDPR', 'HIPAA'],
+    };
+
+    const reader = new FlagsInputReader(options as any, customProtocol);
+    const result = await reader.read();
+
+    // 3. Verify it mapped to the correct canonical key
+    expect(result.trailers?.['Regulatory-Compliance']).toEqual(['GDPR', 'HIPAA']);
+  });
+
+  it('should preserve existing trailers when adding custom ones', async () => {
+    const options: CommitCommandOptions = {
+      intent: 'feat',
+      confidence: 'low',
+      trailer: ['Confidence=high', 'Department=Eng'],
+    };
+
+    const reader = new FlagsInputReader(options, protocol);
+    const result = await reader.read();
+
+    expect(result.trailers?.Confidence).toEqual(['low', 'high']);
+    expect(result.trailers?.Department).toEqual(['Eng']);
   });
 });

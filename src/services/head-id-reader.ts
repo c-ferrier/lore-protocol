@@ -1,15 +1,14 @@
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { TrailerParser } from './trailer-parser.js';
 import type { IProtocol } from '../interfaces/protocol.js';
-import { LORE_ID_PATTERN } from '../util/constants.js';
 import type { AtomId } from '../types/domain.js';
 
 /**
- * Utility to read the decision identity (e.g. Lore-id) from the HEAD commit.
+ * Utility to read the decision identity (e.g. identity-id) from the HEAD commit.
  * 
  * SOLID: SRP -- only responsible for reading the current identity context.
  */
-export class HeadLoreIdReader {
+export class HeadIdReader {
   constructor(
     private readonly gitClient: IGitClient,
     private readonly trailerParser: TrailerParser,
@@ -27,7 +26,7 @@ export class HeadLoreIdReader {
       const trailers = this.trailerParser.parse(log[0].trailers);
       const idArray = trailers[this.protocol.identityKey];
       
-      if (idArray && idArray.length > 0 && LORE_ID_PATTERN.test(idArray[0])) {
+      if (idArray && idArray.length > 0 && this.protocol.isValidIdentity(idArray[0])) {
         return idArray[0];
       }
       return null;

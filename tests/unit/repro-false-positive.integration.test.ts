@@ -7,13 +7,13 @@ import { AtomRepository } from '../../src/services/atom-repository.js';
 import { GitClient } from '../../src/services/git-client.js';
 import { TrailerParser } from '../../src/services/trailer-parser.js';
 import { Protocol } from '../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../src/protocols/lore.js';
+import { ProtocolRegistry } from '../../src/services/protocol-registry.js';
 import { NullAtomCache } from '../../src/services/atom-cache.js';
 import { NullQueryCache } from '../../src/services/query-cache.js';
 import { DEFAULT_CONFIG } from '../../src/util/constants.js';
 
-import { ProtocolRegistry } from '../../src/services/protocol-registry.js';
-
-const LORE_ID_KEY = "Lore-id";
+const IDENTITY_KEY = "Lore-id";
 
 describe('AtomRepository False Positive Repro', () => {
   const testDir = join(process.cwd(), 'tests/tmp-repro-test');
@@ -31,19 +31,19 @@ describe('AtomRepository False Positive Repro', () => {
     // 1. Valid Lore Commit
     writeFileSync(join(testDir, 'file1.txt'), 'content1');
     run('git add .');
-    run(`git commit -m "feat: valid atom\n\n${LORE_ID_KEY}: 12345678"`);
+    run(`git commit -m "feat: valid atom\n\n${IDENTITY_KEY}: 12345678"`);
 
     // 2. False Positive Commit (Mentioning ID in body)
     writeFileSync(join(testDir, 'file2.txt'), 'content2');
     run('git add .');
-    run(`git commit -m "feat: false positive\n\nMentioning ${LORE_ID_KEY}: 12345678 in the middle of a sentence."`);
+    run(`git commit -m "feat: false positive\n\nMentioning ${IDENTITY_KEY}: 12345678 in the middle of a sentence."`);
 
     gitClient = new GitClient(testDir);
-    const protocol = new Protocol(DEFAULT_CONFIG);
+    const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
     const protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     const trailerParser = new TrailerParser();
-    const searchFilter = new SearchFilter();
+    const searchFilter = new SearchFilter(protocolRegistry);
     const atomCache = new NullAtomCache();
     const queryCache = new NullQueryCache();
     repo = new AtomRepository(
@@ -60,19 +60,19 @@ describe('AtomRepository False Positive Repro', () => {
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  it('findByLoreId should use an anchored grep (repro failure)', async () => {
+  it('findById should use an anchored grep (repro failure)', async () => {
     // We spy on gitClient.log to see the arguments
     const logSpy = vi.spyOn(gitClient, 'log');
     
-    const result = await repo.findByLoreId('12345678');
+    const result = await repo.findById('12345678');
     
     const callArgs = logSpy.mock.calls[0][0];
     // Check that it uses an anchored grep
-    expect(callArgs.some(arg => arg.includes(`--grep=^${LORE_ID_KEY}: 12345678`))).toBe(true);
+    expect(callArgs.some(arg => arg.includes(`--grep=^${IDENTITY_KEY}: 12345678`))).toBe(true);
     
     // Check that it only found 1 atom
     expect(result).not.toBeNull();
-    expect(result?.loreId).toBe('12345678');
+    expect(result?.id).toBe('12345678');
     
     logSpy.mockRestore();
   });

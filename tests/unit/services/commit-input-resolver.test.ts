@@ -4,6 +4,7 @@ import type { IPrompt } from '../../../src/interfaces/prompt.js';
 import type { CommitCommandOptions } from '../../../src/services/commit-input-resolver.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 
 /**
  * Creates a mock IPrompt for testing.
@@ -32,7 +33,7 @@ describe('CommitInputResolver', () => {
 
   beforeEach(() => {
     originalIsTTY = process.stdin.isTTY;
-    protocol = new Protocol(DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
   });
 
   afterEach(() => {

@@ -1,40 +1,43 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { executePathQuery } from '../../../../src/commands/helpers/path-query.js';
 import type { PathQueryDeps, PathQueryCommandOptions } from '../../../../src/commands/helpers/path-query.js';
-import type { Atom, LoreTrailers, SupersessionStatus } from '../../../../src/types/domain.js';
+import type { Atom, SupersessionStatus } from '../../../../src/types/domain.js';
 import { DEFAULT_CONFIG } from '../../../../src/util/constants.js';
 import { Protocol } from '../../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../../src/protocols/lore.js';
 
 const LORE_ID_KEY = "Lore-id";
 
-
-function makeTrailers(loreId: string): LoreTrailers {
-  return {
-    [LORE_ID_KEY]: [loreId],
-    Constraint: [],
-    Rejected: [],
-    Confidence: [],
-    'Scope-risk': [],
-    Reversibility: [],
-    Directive: [],
-    Tested: [],
-    'Not-tested': [],
-    Supersedes: [],
-    'Depends-on': [],
-    Related: [],
-  } as any;
-}
-
 function makeAtom(id: string, supersedes: string[] = []): Atom {
-  const trailers: LoreTrailers = { ...makeTrailers(id), Supersedes: supersedes };
+  const protocols = new Map();
+  protocols.set('lore', {
+    name: 'lore',
+    version: '1.0',
+    identityKey: LORE_ID_KEY,
+    trailers: {
+      [LORE_ID_KEY]: [id],
+      Constraint: [],
+      Rejected: [],
+      Confidence: [],
+      'Scope-risk': [],
+      Reversibility: [],
+      Directive: [],
+      Tested: [],
+      'Not-tested': [],
+      Supersedes: supersedes,
+      'Depends-on': [],
+      Related: [],
+    },
+  });
+
   return {
-    loreId: id,
+    id,
     commitHash: `hash_${id}`,
     date: new Date('2025-01-01'),
     author: 'test@example.com',
     intent: `feat: ${id}`,
     body: '',
-    trailers,
+    protocols,
     filesChanged: ['src/test.ts'],
   };
 }
@@ -52,7 +55,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     mockResolve = vi.fn();
     mockFilterActive = vi.fn();
     formattedOutput = '';
-    protocol = new Protocol(DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
 
     deps = {
       atomRepository: {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 
 describe('getEffectiveTrailerKeys (Protocol logic replacement)', () => {
@@ -13,7 +14,7 @@ describe('getEffectiveTrailerKeys (Protocol logic replacement)', () => {
         definitions: { Dept: { description: 'D', multivalue: false, validation: 'none' as const } },
       }
     };
-    const protocol = new Protocol(config);
+    const protocol = new Protocol(LoreProtocolDefinition, config);
     // Permissive mode includes all, so we check for defined custom keys only if needed,
     // but originally getEffectiveTrailerKeys returned [] for permissive.
     // The Protocol service doesn't have a direct equivalent to 'empty list' because it
@@ -36,7 +37,7 @@ describe('getEffectiveTrailerKeys (Protocol logic replacement)', () => {
         },
       }
     };
-    const protocol = new Protocol(config);
+    const protocol = new Protocol(LoreProtocolDefinition, config);
     const customKeys = protocol.getAuthorizedKeys().filter(k => !protocol.isCore(k));
     
     expect(customKeys).toContain('Team');

@@ -2,14 +2,14 @@ import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { LoreConfig } from '../types/config.js';
+import type { Config } from '../types/config.js';
 import type { Atom, SupersessionStatus } from '../types/domain.js';
 import type { SearchOptions, QueryResult } from '../types/query.js';
 import type { FormattableQueryResult } from '../types/output.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
 import { parsePositiveInt } from './helpers/path-query.js';
-import { LoreError } from '../util/errors.js';
+import { ProtocolError } from '../util/errors.js';
 import type { Protocol } from '../services/protocol.js';
 import type { SearchFilter } from '../services/search-filter.js';
 import type { IGitClient } from '../interfaces/git-client.js';
@@ -44,7 +44,7 @@ export function registerSearchCommand(
     supersessionResolver: SupersessionResolver;
     searchFilter: SearchFilter;
     getFormatter: () => IOutputFormatter;
-    config: LoreConfig;
+    config: Config;
     protocol: Protocol;
   },
 ): void {
@@ -80,7 +80,7 @@ export function registerSearchCommand(
       if (options.has) {
         authorizedHas = protocol.authorize(options.has);
         if (!authorizedHas) {
-          throw new LoreError(
+          throw new ProtocolError(
             `'${options.has}' is not a valid Lore trailer. In strict mode, only core or explicitly configured trailers can be searched.`,
             1,
           );
@@ -143,7 +143,6 @@ export function registerSearchCommand(
         result,
         supersessionMap,
         visibleTrailers: 'all',
-        trailerDefinitions: protocol.getFormattableDefinitions(),
       };
 
       const formatter = getFormatter();

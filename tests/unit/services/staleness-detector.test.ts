@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StalenessDetector } from '../../../src/services/staleness-detector.js';
 import type { IGitClient } from '../../../src/interfaces/git-client.js';
-import type { LoreConfig } from '../../../src/types/config.js';
-import type { Atom, LoreTrailers, SupersessionStatus } from '../../../src/types/domain.js';
+import type { Config } from '../../../src/types/config.js';
+import type { Atom, SupersessionStatus } from '../../../src/types/domain.js';
+import type { IProtocol } from '../../../src/interfaces/protocol.js';
 
 const LORE_ID_KEY = "Lore-id";
-
 
 function createMockGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
   return {
@@ -22,7 +22,7 @@ function createMockGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
   } as any;
 }
 
-function createDefaultConfig(overrides: Partial<LoreConfig['stale']> = {}): LoreConfig {
+function createDefaultConfig(overrides: Partial<Config['stale']> = {}): Config {
   return {
     protocol: { version: '1.0' },
     trailers: { required: [], custom: [], definitions: {}, permissive: true },
@@ -38,8 +38,20 @@ function createDefaultConfig(overrides: Partial<LoreConfig['stale']> = {}): Lore
   };
 }
 
+function createMockProtocol(): IProtocol {
+  return {
+    name: 'lore',
+    version: '1.0',
+    identityKey: LORE_ID_KEY,
+    getAuthorizedKeys: vi.fn(() => []),
+    getDefinition: vi.fn(() => undefined),
+    getReferenceKeys: vi.fn(() => ['Supersedes', 'Depends-on', 'Related']),
+    isValidIdentity: vi.fn((id) => /^[a-f0-9]{8}$/.test(id)),
+  } as any;
+}
+
 function makeAtom(options: {
-  loreId?: string;
+  id?: string;
   commitHash?: string;
   date?: Date;
   author?: string;
@@ -51,15 +63,14 @@ function makeAtom(options: {
   supersedes?: string[];
   filesChanged?: string[];
 }): Atom {
-  return {
-    loreId: options.loreId ?? 'a1b2c3d4',
-    commitHash: options.commitHash ?? 'abc12345',
-    date: options.date ?? new Date('2025-01-15T10:00:00Z'),
-    author: options.author ?? 'dev@example.com',
-    intent: options.intent ?? 'feat: test commit',
-    body: options.body ?? '',
+  const id = options.id ?? 'a1b2c3d4';
+  const protocols = new Map();
+  protocols.set('lore', {
+    name: 'lore',
+    version: '1.0',
+    identityKey: LORE_ID_KEY,
     trailers: {
-      [LORE_ID_KEY]: [options.loreId ?? 'a1b2c3d4'],
+      [LORE_ID_KEY]: [id],
       Constraint: [],
       Rejected: [],
       Confidence: options.confidence ? [options.confidence] : [],
@@ -71,7 +82,17 @@ function makeAtom(options: {
       Supersedes: options.supersedes ?? [],
       'Depends-on': options.dependsOn ?? [],
       Related: [],
-    } as any,
+    },
+  });
+
+  return {
+    id,
+    commitHash: options.commitHash ?? 'abc12345',
+    date: options.date ?? new Date('2025-01-15T10:00:00Z'),
+    author: options.author ?? 'dev@example.com',
+    intent: options.intent ?? 'feat: test commit',
+    body: options.body ?? '',
+    protocols,
     filesChanged: options.filesChanged ?? [],
   };
 }
@@ -82,13 +103,15 @@ function makeSupersessionMap(entries: Array<[string, { superseded: boolean; supe
 
 describe('StalenessDetector', () => {
   let gitClient: IGitClient;
-  let config: LoreConfig;
+  let config: Config;
+  let protocol: IProtocol;
   let detector: StalenessDetector;
 
   beforeEach(() => {
     gitClient = createMockGitClient();
     config = createDefaultConfig();
-    detector = new StalenessDetector(gitClient, config);
+    protocol = createMockProtocol();
+    detector = new StalenessDetector(gitClient, config, protocol);
   });
 
   describe('analyze', () => {
@@ -118,7 +141,7 @@ describe('StalenessDetector', () => {
 
       it('should respect custom age threshold', async () => {
         config = createDefaultConfig({ olderThan: '30d' });
-        detector = new StalenessDetector(gitClient, config);
+        detector = new StalenessDetector(gitClient, config, protocol);
 
         // Atom is 60 days old, threshold is 30 days
         const date = new Date();
@@ -133,7 +156,7 @@ describe('StalenessDetector', () => {
 
       it('should handle year duration format', async () => {
         config = createDefaultConfig({ olderThan: '1y' });
-        detector = new StalenessDetector(gitClient, config);
+        detector = new StalenessDetector(gitClient, config, protocol);
 
         // Atom is 2 years old
         const date = new Date();
@@ -147,7 +170,7 @@ describe('StalenessDetector', () => {
 
       it('should handle week duration format', async () => {
         config = createDefaultConfig({ olderThan: '2w' });
-        detector = new StalenessDetector(gitClient, config);
+        detector = new StalenessDetector(gitClient, config, protocol);
 
         // Atom is 3 weeks old
         const date = new Date();
@@ -221,7 +244,7 @@ describe('StalenessDetector', () => {
 
       it('should respect custom drift threshold', async () => {
         config = createDefaultConfig({ driftThreshold: 5 });
-        detector = new StalenessDetector(gitClient, config);
+        detector = new StalenessDetector(gitClient, config, protocol);
         vi.mocked(gitClient.countCommitsSince).mockResolvedValue(10);
 
         const atom = makeAtom({
@@ -487,13 +510,13 @@ describe('StalenessDetector', () => {
         const oldDate = new Date();
         oldDate.setFullYear(oldDate.getFullYear() - 1);
 
-        const staleAtom = makeAtom({ loreId: 'aaaa1111', date: oldDate });
-        const freshAtom = makeAtom({ loreId: 'bbbb2222', date: new Date() });
+        const staleAtom = makeAtom({ id: 'aaaa1111', date: oldDate });
+        const freshAtom = makeAtom({ id: 'bbbb2222', date: new Date() });
 
         const result = await detector.analyze([staleAtom, freshAtom], makeSupersessionMap([]));
 
         expect(result).toHaveLength(1);
-        expect(result[0].atom.loreId).toBe('aaaa1111');
+        expect(result[0].atom.id).toBe('aaaa1111');
       });
 
       it('should handle empty atom list', async () => {

@@ -6,7 +6,7 @@ import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { Atom, SupersessionStatus } from '../types/domain.js';
 import type { QueryResult, QueryMeta } from '../types/query.js';
 import type { FormattableQueryResult } from '../types/output.js';
-import { LoreError } from '../util/errors.js';
+import { ProtocolError } from '../util/errors.js';
 import type { Protocol } from '../services/protocol.js';
 import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/path-query.js';
 import { mergeOptions } from './helpers/merge-options.js';
@@ -42,7 +42,7 @@ export function registerWhyCommand(
     const parsedTarget = pathResolver.parseTarget(target);
 
     if (parsedTarget.type !== 'line-range' || parsedTarget.lineStart === null) {
-      throw new LoreError(
+      throw new ProtocolError(
         `Target must be file:line or file:line-line format (got "${target}")`,
         1,
       );
@@ -56,7 +56,7 @@ export function registerWhyCommand(
     );
 
     if (blameLines.length === 0) {
-      throw new LoreError(`No blame data found for ${target}`, 1);
+      throw new ProtocolError(`No blame data found for ${target}`, 1);
     }
 
     // Collect unique commit hashes from blame
@@ -67,7 +67,7 @@ export function registerWhyCommand(
 
     // For each unique commit hash, use atomRepository to look up the atom
     let atoms: Atom[] = [];
-    const seenLoreIds = new Set<string>();
+    const seenIds = new Set<string>();
 
     for (const hash of commitHashes) {
       const atom = await atomRepository.findByCommitHash(hash);
@@ -76,13 +76,13 @@ export function registerWhyCommand(
       }
 
       // Use the primary identity for deduplication
-      const loreId = atom.loreId;
-      if (!loreId || seenLoreIds.has(loreId)) {
+      const id = atom.id;
+      if (!id || seenIds.has(id)) {
         continue;
       }
 
       atoms.push(atom);
-      seenLoreIds.add(loreId);
+      seenIds.add(id);
     }
 
     const totalAtoms = atoms.length;
@@ -115,7 +115,7 @@ export function registerWhyCommand(
     // Build a minimal supersession map (no supersession filtering for why)
     const supersessionMap = new Map<string, SupersessionStatus>();
     for (const atom of atoms) {
-      supersessionMap.set(atom.loreId, {
+      supersessionMap.set(atom.id, {
         superseded: false,
         supersededBy: null,
       });
@@ -125,7 +125,6 @@ export function registerWhyCommand(
       result,
       supersessionMap,
       visibleTrailers: 'all',
-      trailerDefinitions: protocol.getFormattableDefinitions(),
     };
 
     const formatter = getFormatter();

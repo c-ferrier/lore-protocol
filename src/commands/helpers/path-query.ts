@@ -3,7 +3,7 @@ import type { AtomRepository } from '../../services/atom-repository.js';
 import type { SupersessionResolver } from '../../services/supersession-resolver.js';
 import type { PathResolver } from '../../services/path-resolver.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { LoreConfig } from '../../types/config.js';
+import type { Config } from '../../types/config.js';
 import type { TrailerKey, Atom, SupersessionStatus } from '../../types/domain.js';
 import type { PathQueryOptions, QueryResult, TargetType } from '../../types/query.js';
 import type { FormattableQueryResult } from '../../types/output.js';
@@ -29,7 +29,7 @@ export interface PathQueryDeps {
   readonly supersessionResolver: SupersessionResolver;
   readonly pathResolver: PathResolver;
   readonly getFormatter: () => IOutputFormatter;
-  readonly config: LoreConfig;
+  readonly config: Config;
   readonly protocol: Protocol;
 }
 
@@ -132,7 +132,6 @@ export async function executePathQuery(
     result,
     supersessionMap,
     visibleTrailers,
-    trailerDefinitions: protocol.getFormattableDefinitions(),
   };
 
   // Step 6: Format and output

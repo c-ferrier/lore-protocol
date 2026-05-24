@@ -1,5 +1,5 @@
 import type { Atom, AtomId, SupersessionStatus } from '../types/domain.js';
-import { LORE_ID_PATTERN } from '../util/constants.js';
+import type { IProtocol } from '../interfaces/protocol.js';
 
 /**
  * Computes supersession chains and determines which atoms are active vs. superseded.
@@ -8,21 +8,19 @@ import { LORE_ID_PATTERN } from '../util/constants.js';
  * SRP: Only supersession logic, no git interaction or formatting.
  */
 export class SupersessionResolver {
+  constructor(private readonly protocol: IProtocol) {}
+
   /**
    * Given a set of atoms, compute which are superseded and by whom.
    * Returns a map from AtomId to SupersessionStatus.
-   *
-   * Logic: iterate all atoms. For each atom that has `Supersedes` trailers,
-   * mark the referenced atoms as superseded (supersededBy = this atom's id).
-   * Handle transitive chains: if A supersedes B and B supersedes C,
-   * both B and C are superseded.
    */
   resolve(atoms: readonly Atom[]): Map<string, SupersessionStatus> {
     const statusMap = new Map<string, SupersessionStatus>();
+    const protocolName = this.protocol.name.toLowerCase();
 
     // Initialize all atoms as not superseded
     for (const atom of atoms) {
-      statusMap.set(atom.loreId, {
+      statusMap.set(atom.id, {
         superseded: false,
         supersededBy: null,
       });
@@ -31,28 +29,29 @@ export class SupersessionResolver {
     // Build a lookup map for quick access
     const atomById = new Map<string, Atom>();
     for (const atom of atoms) {
-      atomById.set(atom.loreId, atom);
+      atomById.set(atom.id, atom);
     }
 
     // First pass: mark direct supersessions
     for (const atom of atoms) {
-      for (const supersededId of atom.trailers.Supersedes || []) {
-        if (!LORE_ID_PATTERN.test(supersededId)) {
+      const state = atom.protocols.get(protocolName);
+      if (!state) continue;
+
+      for (const supersededId of state.trailers.Supersedes || []) {
+        if (!this.protocol.isValidIdentity(supersededId)) {
           continue;
         }
 
         if (statusMap.has(supersededId)) {
           statusMap.set(supersededId, {
             superseded: true,
-            supersededBy: atom.loreId,
+            supersededBy: atom.id,
           });
         }
       }
     }
 
     // Second pass: resolve transitive chains
-    // If A supersedes B and B supersedes C, then C is also superseded.
-    // We walk the chain from each superseding atom downward.
     this.resolveTransitiveChains(atoms, atomById, statusMap);
 
     return statusMap;
@@ -66,33 +65,30 @@ export class SupersessionResolver {
     supersessionMap: Map<string, SupersessionStatus>,
   ): Atom[] {
     return atoms.filter((atom) => {
-      const status = supersessionMap.get(atom.loreId);
+      const status = supersessionMap.get(atom.id);
       return status === undefined || !status.superseded;
     });
   }
 
   /**
    * Resolve transitive supersession chains.
-   *
-   * For each atom that supersedes others, follow the chain of what those
-   * superseded atoms themselves supersede, marking everything along the way.
-   * Uses a visited set to handle circular references safely.
    */
   private resolveTransitiveChains(
     atoms: readonly Atom[],
     atomById: Map<string, Atom>,
     statusMap: Map<string, SupersessionStatus>,
   ): void {
+    const protocolName = this.protocol.name.toLowerCase();
+
     for (const atom of atoms) {
-      const supersedes = atom.trailers.Supersedes || [];
+      const state = atom.protocols.get(protocolName);
+      const supersedes = state?.trailers.Supersedes || [];
       if (supersedes.length === 0) {
         continue;
       }
 
-      // For each atom that does superseding, walk the chain of what
-      // the superseded atoms themselves supersede
       const visited = new Set<string>();
-      visited.add(atom.loreId);
+      visited.add(atom.id);
 
       const queue: AtomId[] = [...supersedes];
 
@@ -103,26 +99,24 @@ export class SupersessionResolver {
         }
         visited.add(currentId);
 
-        if (!LORE_ID_PATTERN.test(currentId)) {
+        if (!this.protocol.isValidIdentity(currentId)) {
           continue;
         }
 
-        // Mark as superseded if it exists in our atom set
         if (statusMap.has(currentId)) {
           const currentStatus = statusMap.get(currentId)!;
-          // Only update if not already marked superseded (preserve first superseder)
           if (!currentStatus.superseded) {
             statusMap.set(currentId, {
               superseded: true,
-              supersededBy: atom.loreId,
+              supersededBy: atom.id,
             });
           }
         }
 
-        // Follow the chain: what does this superseded atom itself supersede?
         const supersededAtom = atomById.get(currentId);
         if (supersededAtom) {
-          for (const nextId of supersededAtom.trailers.Supersedes || []) {
+          const supersededState = supersededAtom.protocols.get(protocolName);
+          for (const nextId of supersededState?.trailers.Supersedes || []) {
             if (!visited.has(nextId)) {
               queue.push(nextId);
             }

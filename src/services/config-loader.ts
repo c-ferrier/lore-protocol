@@ -3,7 +3,7 @@ import { join, dirname, resolve, parse as parsePath } from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import type { IConfigLoader } from '../interfaces/config-loader.js';
 import type { 
-  LoreConfig, 
+  Config, 
   CustomTrailerDefinition, 
   ValueDefinition,
   TrailerUiKind,
@@ -17,7 +17,7 @@ import {
   DEFAULT_CONFIG,
 } from '../util/constants.js';
 
-type ConfigSection = keyof LoreConfig;
+type ConfigSection = keyof Config;
 
 /**
  * Maps camelCase config keys to their TOML snake_case equivalents per section.
@@ -56,7 +56,7 @@ const VALID_OUTPUT_FORMATS = new Set(['text', 'json']);
  *        and optionally a CAMEL_TO_SNAKE entry, not new if-blocks.
  */
 export class ConfigLoader implements IConfigLoader {
-  async loadForPath(targetPath: string): Promise<LoreConfig> {
+  async loadForPath(targetPath: string): Promise<Config> {
     const configPaths = await this.walkConfigPaths(resolve(targetPath));
 
     if (configPaths.length === 0) {
@@ -73,7 +73,7 @@ export class ConfigLoader implements IConfigLoader {
     return this.buildConfig(merged);
   }
 
-  async loadFromFile(configPath: string): Promise<LoreConfig> {
+  async loadFromFile(configPath: string): Promise<Config> {
     const parsed = await this.parseConfigFile(configPath);
     return this.buildConfig(parsed);
   }
@@ -140,11 +140,11 @@ export class ConfigLoader implements IConfigLoader {
   }
 
   /**
-   * Build a LoreConfig from raw TOML data.
+   * Build a Config from raw TOML data.
    * Iterates DEFAULT_CONFIG sections, resolves snake_case/camelCase aliases,
    * and fills missing values from defaults.
    */
-  private buildConfig(parsed: Record<string, unknown>): LoreConfig {
+  private buildConfig(parsed: Record<string, unknown>): Config {
     const sections = Object.keys(DEFAULT_CONFIG) as ConfigSection[];
     const result: Record<string, unknown> = {};
 
@@ -175,7 +175,7 @@ export class ConfigLoader implements IConfigLoader {
       result[section] = built;
     }
 
-    return result as unknown as LoreConfig;
+    return result as unknown as Config;
   }
 
   /**

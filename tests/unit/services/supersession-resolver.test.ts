@@ -1,54 +1,62 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { SupersessionResolver } from '../../../src/services/supersession-resolver.js';
-import type { Atom, LoreTrailers } from '../../../src/types/domain.js';
+import { Protocol } from '../../../src/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
+import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import type { Atom, Trailers } from '../../../src/types/domain.js';
 
 const LORE_ID_KEY = "Lore-id";
 
-
 function makeAtom(options: {
-  loreId: string;
+  id: string;
   supersedes?: string[];
   dependsOn?: string[];
   related?: string[];
 }): Atom {
+  const trailers: Trailers = {
+    [LORE_ID_KEY]: [options.id],
+    Constraint: [],
+    Rejected: [],
+    Confidence: [],
+    'Scope-risk': [],
+    Reversibility: [],
+    Directive: [],
+    Tested: [],
+    'Not-tested': [],
+    Supersedes: options.supersedes ?? [],
+    'Depends-on': options.dependsOn ?? [],
+    Related: options.related ?? [],
+  };
+
   return {
-    loreId: options.loreId,
-    commitHash: `hash-${options.loreId}`,
+    id: options.id,
+    commitHash: `hash-${options.id}`,
     date: new Date('2025-01-15T10:00:00Z'),
     author: 'dev@example.com',
     intent: 'test commit',
     body: '',
-    trailers: {
-      [LORE_ID_KEY]: options.loreId,
-      Constraint: [],
-      Rejected: [],
-      Confidence: null,
-      'Scope-risk': null,
-      Reversibility: null,
-      Directive: [],
-      Tested: [],
-      'Not-tested': [],
-      Supersedes: options.supersedes ?? [],
-      'Depends-on': options.dependsOn ?? [],
-      Related: options.related ?? [],
-    } as LoreTrailers,
+    protocols: new Map([
+      ['lore', { name: 'Lore', version: '1.0', identityKey: LORE_ID_KEY, trailers }]
+    ]),
     filesChanged: [],
   };
 }
 
 describe('SupersessionResolver', () => {
   let resolver: SupersessionResolver;
+  let protocol: Protocol;
 
   beforeEach(() => {
-    resolver = new SupersessionResolver();
+    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    resolver = new SupersessionResolver(protocol);
   });
 
   describe('resolve', () => {
     it('should return all atoms as active when no supersession exists', () => {
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111' }),
-        makeAtom({ loreId: 'bbbb2222' }),
-        makeAtom({ loreId: 'cccc3333' }),
+        makeAtom({ id: 'aaaa1111' }),
+        makeAtom({ id: 'bbbb2222' }),
+        makeAtom({ id: 'cccc3333' }),
       ];
 
       const result = resolver.resolve(atoms);
@@ -62,8 +70,8 @@ describe('SupersessionResolver', () => {
 
     it('should mark a directly superseded atom', () => {
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111', supersedes: ['bbbb2222'] }),
-        makeAtom({ loreId: 'bbbb2222' }),
+        makeAtom({ id: 'aaaa1111', supersedes: ['bbbb2222'] }),
+        makeAtom({ id: 'bbbb2222' }),
       ];
 
       const result = resolver.resolve(atoms);
@@ -75,9 +83,9 @@ describe('SupersessionResolver', () => {
 
     it('should handle multiple atoms superseded by one', () => {
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111', supersedes: ['bbbb2222', 'cccc3333'] }),
-        makeAtom({ loreId: 'bbbb2222' }),
-        makeAtom({ loreId: 'cccc3333' }),
+        makeAtom({ id: 'aaaa1111', supersedes: ['bbbb2222', 'cccc3333'] }),
+        makeAtom({ id: 'bbbb2222' }),
+        makeAtom({ id: 'cccc3333' }),
       ];
 
       const result = resolver.resolve(atoms);
@@ -91,9 +99,9 @@ describe('SupersessionResolver', () => {
 
     it('should handle transitive chains: A supersedes B, B supersedes C', () => {
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111', supersedes: ['bbbb2222'] }),
-        makeAtom({ loreId: 'bbbb2222', supersedes: ['cccc3333'] }),
-        makeAtom({ loreId: 'cccc3333' }),
+        makeAtom({ id: 'aaaa1111', supersedes: ['bbbb2222'] }),
+        makeAtom({ id: 'bbbb2222', supersedes: ['cccc3333'] }),
+        makeAtom({ id: 'cccc3333' }),
       ];
 
       const result = resolver.resolve(atoms);
@@ -105,8 +113,8 @@ describe('SupersessionResolver', () => {
 
     it('should handle circular references without infinite loop', () => {
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111', supersedes: ['bbbb2222'] }),
-        makeAtom({ loreId: 'bbbb2222', supersedes: ['aaaa1111'] }),
+        makeAtom({ id: 'aaaa1111', supersedes: ['bbbb2222'] }),
+        makeAtom({ id: 'bbbb2222', supersedes: ['aaaa1111'] }),
       ];
 
       const result = resolver.resolve(atoms);
@@ -118,7 +126,7 @@ describe('SupersessionResolver', () => {
 
     it('should handle supersession of atoms not in the set', () => {
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111', supersedes: ['zzzz9999'] }),
+        makeAtom({ id: 'aaaa1111', supersedes: ['zzzz9999'] }),
       ];
 
       const result = resolver.resolve(atoms);
@@ -136,7 +144,7 @@ describe('SupersessionResolver', () => {
     });
 
     it('should handle single atom with no supersession', () => {
-      const atoms = [makeAtom({ loreId: 'aaaa1111' })];
+      const atoms = [makeAtom({ id: 'aaaa1111' })];
 
       const result = resolver.resolve(atoms);
 
@@ -146,8 +154,8 @@ describe('SupersessionResolver', () => {
 
     it('should handle atoms with missing trailers without throwing', () => {
       const sparseAtom: any = {
-        loreId: 'sparse123',
-        trailers: {}, // Missing Supersedes key entirely
+        id: 'sparse123',
+        trailers: {}, 
         date: new Date(),
         protocols: new Map(),
       };
@@ -158,10 +166,10 @@ describe('SupersessionResolver', () => {
 
     it('should handle deep transitive chain: A -> B -> C -> D', () => {
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111', supersedes: ['bbbb2222'] }),
-        makeAtom({ loreId: 'bbbb2222', supersedes: ['cccc3333'] }),
-        makeAtom({ loreId: 'cccc3333', supersedes: ['dddd4444'] }),
-        makeAtom({ loreId: 'dddd4444' }),
+        makeAtom({ id: 'aaaa1111', supersedes: ['bbbb2222'] }),
+        makeAtom({ id: 'bbbb2222', supersedes: ['cccc3333'] }),
+        makeAtom({ id: 'cccc3333', supersedes: ['dddd4444'] }),
+        makeAtom({ id: 'dddd4444' }),
       ];
 
       const result = resolver.resolve(atoms);
@@ -172,10 +180,10 @@ describe('SupersessionResolver', () => {
       expect(result.get('dddd4444')!.superseded).toBe(true);
     });
 
-    it(`should skip invalid ${LORE_ID_KEY} references`, () => {
+    it(`should skip invalid identity references`, () => {
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111', supersedes: ['not-valid', 'bbbb2222'] }),
-        makeAtom({ loreId: 'bbbb2222' }),
+        makeAtom({ id: 'aaaa1111', supersedes: ['not-valid', 'bbbb2222'] }),
+        makeAtom({ id: 'bbbb2222' }),
       ];
 
       const result = resolver.resolve(atoms);
@@ -187,10 +195,10 @@ describe('SupersessionResolver', () => {
     it('should handle diamond supersession pattern', () => {
       // A supersedes B, A supersedes C, both B and C supersede D
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111', supersedes: ['bbbb2222', 'cccc3333'] }),
-        makeAtom({ loreId: 'bbbb2222', supersedes: ['dddd4444'] }),
-        makeAtom({ loreId: 'cccc3333', supersedes: ['dddd4444'] }),
-        makeAtom({ loreId: 'dddd4444' }),
+        makeAtom({ id: 'aaaa1111', supersedes: ['bbbb2222', 'cccc3333'] }),
+        makeAtom({ id: 'bbbb2222', supersedes: ['dddd4444'] }),
+        makeAtom({ id: 'cccc3333', supersedes: ['dddd4444'] }),
+        makeAtom({ id: 'dddd4444' }),
       ];
 
       const result = resolver.resolve(atoms);
@@ -205,16 +213,16 @@ describe('SupersessionResolver', () => {
   describe('filterActive', () => {
     it('should return only active (non-superseded) atoms', () => {
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111', supersedes: ['bbbb2222'] }),
-        makeAtom({ loreId: 'bbbb2222' }),
-        makeAtom({ loreId: 'cccc3333' }),
+        makeAtom({ id: 'aaaa1111', supersedes: ['bbbb2222'] }),
+        makeAtom({ id: 'bbbb2222' }),
+        makeAtom({ id: 'cccc3333' }),
       ];
 
       const supersessionMap = resolver.resolve(atoms);
       const active = resolver.filterActive(atoms, supersessionMap);
 
       expect(active).toHaveLength(2);
-      const activeIds = active.map((a) => a.loreId);
+      const activeIds = active.map((a) => a.id);
       expect(activeIds).toContain('aaaa1111');
       expect(activeIds).toContain('cccc3333');
       expect(activeIds).not.toContain('bbbb2222');
@@ -222,8 +230,8 @@ describe('SupersessionResolver', () => {
 
     it('should return all atoms when none are superseded', () => {
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111' }),
-        makeAtom({ loreId: 'bbbb2222' }),
+        makeAtom({ id: 'aaaa1111' }),
+        makeAtom({ id: 'bbbb2222' }),
       ];
 
       const supersessionMap = resolver.resolve(atoms);
@@ -234,8 +242,8 @@ describe('SupersessionResolver', () => {
 
     it('should return empty array when all atoms are superseded', () => {
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111', supersedes: ['bbbb2222'] }),
-        makeAtom({ loreId: 'bbbb2222', supersedes: ['aaaa1111'] }),
+        makeAtom({ id: 'aaaa1111', supersedes: ['bbbb2222'] }),
+        makeAtom({ id: 'bbbb2222', supersedes: ['aaaa1111'] }),
       ];
 
       const supersessionMap = resolver.resolve(atoms);
@@ -246,7 +254,7 @@ describe('SupersessionResolver', () => {
 
     it('should handle atoms not in the supersession map', () => {
       const atoms = [
-        makeAtom({ loreId: 'aaaa1111' }),
+        makeAtom({ id: 'aaaa1111' }),
       ];
 
       // Empty map -- atom not found means active by default

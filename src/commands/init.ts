@@ -4,8 +4,8 @@ import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import { CONFIG_DIR, CONFIG_FILENAME, DEFAULT_CONFIG } from '../util/constants.js';
-import { LoreError } from '../util/errors.js';
-import type { LoreConfig } from '../types/config.js';
+import { ProtocolError } from '../util/errors.js';
+import type { Config } from '../types/config.js';
 
 export function registerInitCommand(
   program: Command,
@@ -80,7 +80,7 @@ update_check = true
           parsed = parseToml(content) as Record<string, unknown>;
         } catch (err) {
           const message = `Your configuration file is corrupted and cannot be parsed: ${err instanceof Error ? err.message : String(err)}\n\nPlease fix the TOML syntax or reset your config.\nExample: mv ${CONFIG_DIR}/${CONFIG_FILENAME} ${CONFIG_DIR}/${CONFIG_FILENAME}.corrupted && lore init`;
-          throw new LoreError(message, 1);
+          throw new ProtocolError(message, 1);
         }
 
         const { missing, customized } = findConfigDiff(parsed);
@@ -163,7 +163,7 @@ function findConfigDiff(parsed: Record<string, unknown>): { missing: string[]; c
   const missing: string[] = [];
   const customized: string[] = [];
 
-  const configKeys = Object.keys(DEFAULT_CONFIG) as (keyof LoreConfig)[];
+  const configKeys = Object.keys(DEFAULT_CONFIG) as (keyof Config)[];
 
   for (const section of configKeys) {
     const defaults = DEFAULT_CONFIG[section] as Record<string, unknown>;
@@ -179,7 +179,7 @@ function findConfigDiff(parsed: Record<string, unknown>): { missing: string[]; c
       // Skip the definitions dictionary as it's meant to be user-extensible
       if (section === 'trailers' && key === 'definitions') continue;
 
-      // Convert camelCase from LoreConfig type to snake_case for TOML comparison
+      // Convert camelCase from Config type to snake_case for TOML comparison
       const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
       const userValue = sectionData[snakeKey] ?? sectionData[key];
 
