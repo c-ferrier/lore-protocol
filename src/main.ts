@@ -114,7 +114,7 @@ async function main() {
 
   const trailerParser = new TrailerParser();
   const pathResolver = new PathResolver(process.cwd(), protocolRoot);
-  const idGenerator = new IdGenerator();
+  const idGenerator = new IdGenerator(protocol);
   const searchFilter = new SearchFilter(protocolRegistry);
   const isScoped = existsSync(join(process.cwd(), '.lore-scope'));
 

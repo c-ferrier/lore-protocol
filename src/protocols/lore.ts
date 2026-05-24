@@ -40,6 +40,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       multivalue: false,
       validation: 'pattern',
       pattern: '^[0-9a-f]{8}$',
+      generator: 'hex8',
       required: true,
       ui: { kind: 'identity' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       prompt: { order: 0 },

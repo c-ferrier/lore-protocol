@@ -43,6 +43,13 @@ export interface CustomTrailerDefinition {
    * - 'rank-max': Pick value with highest index in 'values'.
    */
   readonly squash?: 'union' | 'rank-min' | 'rank-max';
+  /**
+   * Strategy for generating new values (primarily used for identity keys).
+   * - 'hex8': Generate a random 8-character hex string (default).
+   * - 'uuid': Generate a v4 UUID.
+   * - 'none': Do not generate; user must provide.
+   */
+  readonly generator?: 'hex8' | 'uuid' | 'none';
 }
 
 export interface Config {

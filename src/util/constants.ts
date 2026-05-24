@@ -79,8 +79,3 @@ export const TRAILER_UI_COLORS = [
   'red',
   'dim',
 ] as const;
-
-/** Identity key for the primary protocol */
-export const IDENTITY_KEY = 'Lore-id';
-/** 8-character hex string pattern for identities */
-export const ID_PATTERN = /^[0-9a-f]{8}$/;
