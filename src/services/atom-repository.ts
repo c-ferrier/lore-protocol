@@ -125,7 +125,7 @@ export class AtomRepository {
     return (
       atoms.find((atom) =>
         Array.from(atom.protocols.values()).some(
-          (state) => (state.trailers[state.identityKey] || [])[0] === id,
+          (state) => this.protocolRegistry.get(state.name)?.getIdentity(state.trailers) === id,
         ),
       ) ?? null
     );
@@ -186,9 +186,16 @@ export class AtomRepository {
       return [...atoms];
     }
 
-    const collected = new Map<string, Atom>();
+    const collected = new Map<string, Atom>(); // Keyed by commitHash
+    const visitedIds = new Set<string>();
+
     for (const atom of atoms) {
-      collected.set(atom.id, atom);
+      collected.set(atom.commitHash, atom);
+      for (const [_, state] of atom.protocols) {
+        const protocolObj = this.protocolRegistry.get(state.name);
+        const id = protocolObj?.getIdentity(state.trailers);
+        if (id) visitedIds.add(id);
+      }
     }
 
     const queue: Array<{ id: AtomId; depth: number }> = [];
@@ -197,7 +204,7 @@ export class AtomRepository {
     for (const atom of atoms) {
       const refIds = this.extractReferenceIds(atom);
       for (const refId of refIds) {
-        if (!collected.has(refId)) {
+        if (!visitedIds.has(refId)) {
           queue.push({ id: refId, depth: 1 });
         }
       }
@@ -208,21 +215,28 @@ export class AtomRepository {
       if (entry.depth > maxDepth) {
         continue;
       }
-      if (collected.has(entry.id)) {
+      if (visitedIds.has(entry.id)) {
         continue;
       }
+
+      visitedIds.add(entry.id);
 
       const resolved = await this.findById(entry.id);
       if (resolved === null) {
         continue;
       }
 
-      collected.set(resolved.id, resolved);
+      collected.set(resolved.commitHash, resolved);
+      for (const [_, state] of resolved.protocols) {
+        const protocolObj = this.protocolRegistry.get(state.name);
+        const id = protocolObj?.getIdentity(state.trailers);
+        if (id) visitedIds.add(id);
+      }
 
       if (entry.depth < maxDepth) {
         const nextRefIds = this.extractReferenceIds(resolved);
         for (const refId of nextRefIds) {
-          if (!collected.has(refId)) {
+          if (!visitedIds.has(refId)) {
             queue.push({ id: refId, depth: entry.depth + 1 });
           }
         }
@@ -403,11 +417,6 @@ export class AtomRepository {
   }
 
   private buildAtom(raw: RawCommit, protocols: Map<string, ProtocolState>, filesChanged: readonly string[]): Atom {
-    // Compatibility layer: resolve the primary ID from the root or first protocol
-    const rootProtocol = this.protocolRegistry.getRoot() || this.protocolRegistry.all()[0] || this.primaryProtocol;
-    const primaryState = protocols.get(rootProtocol.name.toLowerCase());
-    const id = primaryState?.trailers[primaryState.identityKey]?.[0] ?? '';
-
     return {
       commitHash: raw.hash,
       date: new Date(raw.date),
@@ -416,7 +425,6 @@ export class AtomRepository {
       body: this.stripTrailersFromBody(raw.body, raw.trailers),
       protocols,
       filesChanged,
-      id,
     };
   }
 

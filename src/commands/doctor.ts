@@ -111,7 +111,7 @@ function checkIdentityUniqueness(
 
   for (const atom of atoms) {
     const state = atom.protocols.get(protocol.name.toLowerCase());
-    const id = state?.trailers[protocol.identityKey]?.[0] || atom.id;
+    const id = protocol.getIdentity(state?.trailers);
     
     if (!id) continue;
     const count = idCounts.get(id) ?? 0;
@@ -153,7 +153,7 @@ function checkReferenceResolution(
   const allIds = new Set<string>();
   for (const atom of atoms) {
     const state = atom.protocols.get(protocolName);
-    const id = state?.trailers[protocol.identityKey]?.[0] || atom.id;
+    const id = protocol.getIdentity(state?.trailers);
     if (id) allIds.add(id);
   }
 
@@ -164,7 +164,7 @@ function checkReferenceResolution(
     const state = atom.protocols.get(protocolName);
     if (!state) continue;
 
-    const id = state.trailers[protocol.identityKey]?.[0] || atom.id;
+    const id = protocol.getIdentity(state.trailers);
 
     for (const key of refKeys) {
       const refs = state.trailers[key] || [];
@@ -220,7 +220,7 @@ function checkOrphanedDependencies(
     const state = atom.protocols.get(protocolName);
     if (!state) continue;
 
-    const id = state.trailers[protocol.identityKey]?.[0] || atom.id;
+    const id = protocol.getIdentity(state.trailers);
     const dependsOn = state.trailers['Depends-on'] || [];
     
     for (const depId of dependsOn) {

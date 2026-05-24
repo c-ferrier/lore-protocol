@@ -68,6 +68,7 @@ export function registerWhyCommand(
     // For each unique commit hash, use atomRepository to look up the atom
     let atoms: Atom[] = [];
     const seenIds = new Set<string>();
+    const protocolName = protocol.name.toLowerCase();
 
     for (const hash of commitHashes) {
       const atom = await atomRepository.findByCommitHash(hash);
@@ -76,7 +77,8 @@ export function registerWhyCommand(
       }
 
       // Use the primary identity for deduplication
-      const id = atom.id;
+      const state = atom.protocols.get(protocolName);
+      const id = protocol.getIdentity(state?.trailers);
       if (!id || seenIds.has(id)) {
         continue;
       }
@@ -115,10 +117,14 @@ export function registerWhyCommand(
     // Build a minimal supersession map (no supersession filtering for why)
     const supersessionMap = new Map<string, SupersessionStatus>();
     for (const atom of atoms) {
-      supersessionMap.set(atom.id, {
-        superseded: false,
-        supersededBy: null,
-      });
+      const state = atom.protocols.get(protocolName);
+      const id = protocol.getIdentity(state?.trailers);
+      if (id) {
+        supersessionMap.set(id, {
+          superseded: false,
+          supersededBy: null,
+        });
+      }
     }
 
     const formattable: FormattableQueryResult = {

@@ -72,7 +72,7 @@ describe('AtomRepository False Positive Repro', () => {
     
     // Check that it only found 1 atom
     expect(result).not.toBeNull();
-    expect(result?.id).toBe('12345678');
+    expect(result?.protocols.get('lore')?.trailers['Lore-id']?.[0]).toBe('12345678');
     
     logSpy.mockRestore();
   });

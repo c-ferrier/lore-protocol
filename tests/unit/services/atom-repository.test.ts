@@ -165,7 +165,7 @@ describe('AtomRepository', () => {
       const result = await repo.findByTarget(gitLogArgs, options);
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('a1b2c3d4');
+      expect(result[0].protocols.get('lore')?.trailers['Lore-id']?.[0]).toBe('a1b2c3d4');
       expect(result[0].commitHash).toBe('abc12345');
       expect(result[0].author).toBe('dev@example.com');
       expect(result[0].filesChanged).toEqual(['src/auth.ts']);
@@ -188,7 +188,7 @@ describe('AtomRepository', () => {
       const result = await repo.findByTarget(makeGitLogArgs(), makeQueryOptions());
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('a1b2c3d4');
+      expect(result[0].protocols.get('lore')?.trailers['Lore-id']?.[0]).toBe('a1b2c3d4');
     });
 
     it('should pass author filter to git log args', async () => {
@@ -277,7 +277,7 @@ describe('AtomRepository', () => {
       const result = await repo.findById('deadbeef');
 
       expect(result).not.toBeNull();
-      expect(result!.id).toBe('deadbeef');
+      expect(result!.protocols.get('lore')?.trailers['Lore-id']?.[0]).toBe('deadbeef');
     });
 
     it(`should return null if no atom matches the ${LORE_ID_KEY}`, async () => {
@@ -460,7 +460,7 @@ describe('AtomRepository', () => {
       const result = await repo.findAll({ ...makeQueryOptions(), scope: 'auth' });
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('aaaa1111');
+      expect(result[0].protocols.get('lore')?.trailers['Lore-id']?.[0]).toBe('aaaa1111');
     });
 
     it('should match scope case-insensitively', async () => {
@@ -549,7 +549,7 @@ describe('AtomRepository', () => {
       const result = await repo.resolveFollowLinks(initialAtoms, 2);
 
       expect(result).toHaveLength(2);
-      const ids = result.map((a) => a.id);
+      const ids = result.map((a) => a.protocols.get('lore')?.trailers['Lore-id']?.[0]);
       expect(ids).toContain('aaaa1111');
       expect(ids).toContain('bbbb2222');
     });
@@ -589,7 +589,7 @@ describe('AtomRepository', () => {
       const result = await repo.resolveFollowLinks(atoms, 0);
 
       expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('aaaa1111');
+      expect(result[0].protocols.get('lore')?.trailers['Lore-id']?.[0]).toBe('aaaa1111');
     });
 
     it('should return original atoms when no follow links exist', async () => {
@@ -718,7 +718,7 @@ describe('AtomRepository', () => {
 
       // Should find A and B only (depth 1), not C or D
       expect(result).toHaveLength(2);
-      const ids = result.map((a) => a.id);
+      const ids = result.map((a) => a.protocols.get('lore')?.trailers['Lore-id']?.[0]);
       expect(ids).toContain('aaaa1111');
       expect(ids).toContain('bbbb2222');
     });
@@ -803,6 +803,7 @@ describe('AtomRepository', () => {
         name: 'Fred',
         version: '1.0',
         identityKey: 'Fred-id',
+        getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
         namespace: '',
         isPermissive: false,
         claims: (raw: string) => raw.includes('Fred-id:'),
@@ -818,6 +819,7 @@ describe('AtomRepository', () => {
           name: 'Fred',
           version: '1.0',
           identityKey: 'Fred-id',
+        getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
           trailers: { 'Fred-id': ['fred5678'], 'Confidence': ['high'] }
         }),
         getAuthorizedKeys: () => ['Fred-id', 'Confidence'],
@@ -873,6 +875,7 @@ describe('AtomRepository', () => {
         name: 'Fred',
         version: '1.0',
         identityKey: 'Fred-id',
+        getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
         namespace: '',
         isPermissive: false,
         claims: (raw: string) => raw.includes('Fred-id:'),
@@ -938,6 +941,7 @@ describe('AtomRepository', () => {
         name: 'Fred',
         version: '1.0',
         identityKey: 'Fred-id',
+        getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
         namespace: '',
         isPermissive: false,
         claims: (raw: string) => raw.includes('Fred-id:'),
@@ -952,6 +956,7 @@ describe('AtomRepository', () => {
           name: 'Fred',
           version: '1.0',
           identityKey: 'Fred-id',
+        getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
           trailers: { 'Fred-id': ['f8ed5678'] }
         }),
       } as any;
@@ -991,6 +996,7 @@ describe('AtomRepository', () => {
         name: 'Fred',
         version: '1.0',
         identityKey: 'Fred-id',
+        getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
         namespace: 'Fred',
         isPermissive: false,
         claims: () => true,

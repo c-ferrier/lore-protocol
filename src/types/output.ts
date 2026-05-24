@@ -1,4 +1,4 @@
-import type { Atom, SupersessionStatus, TrailerKey, StaleSignal } from './domain.js';
+import type { Atom, SupersessionStatus, StaleSignal } from './domain.js';
 import type { QueryResult } from './query.js';
 import type { ValueDefinition, TrailerUiKind, TrailerUiColor } from './config.js';
 

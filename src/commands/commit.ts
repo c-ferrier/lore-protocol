@@ -168,7 +168,7 @@ export function registerCommitCommand(
         for (const p of activeProtocols) {
           const state = p.parse(message);
           protocolsMap[p.name.toLowerCase()] = {
-            id: state.trailers[p.identityKey]?.[0] ?? null,
+            id: p.getIdentity(state.trailers),
             version: p.version,
           };
         }

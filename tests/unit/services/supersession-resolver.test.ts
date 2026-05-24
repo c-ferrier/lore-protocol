@@ -154,16 +154,15 @@ describe('SupersessionResolver', () => {
 
     it('should handle atoms with missing trailers without throwing', () => {
       const sparseAtom: any = {
-        id: 'sparse123',
-        trailers: {}, 
         date: new Date(),
-        protocols: new Map(),
+        protocols: new Map([
+          ['lore', { name: 'Lore', version: '1.0', identityKey: 'Lore-id', trailers: { 'Lore-id': ['sparse123'] } }]
+        ]),
       };
-      
+
       const result = resolver.resolve([sparseAtom]);
       expect(result.get('sparse123')!.superseded).toBe(false);
     });
-
     it('should handle deep transitive chain: A -> B -> C -> D', () => {
       const atoms = [
         makeAtom({ id: 'aaaa1111', supersedes: ['bbbb2222'] }),

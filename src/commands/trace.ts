@@ -51,7 +51,13 @@ export function registerTraceCommand(
         { atom: rootAtom, depth: 0 },
       ];
 
-      visited.add(rootAtom.id);
+      const rootProtocolName = protocol.name.toLowerCase();
+      const getAtomId = (a: Atom) => protocol.getIdentity(a.protocols.get(rootProtocolName)?.trailers);
+
+      const rootId = getAtomId(rootAtom);
+      if (!rootId) throw new Error('Root atom has no valid identity for the active protocol.');
+
+      visited.add(rootId);
 
       // BFS to find all relationships
       // Limit depth to avoid infinite loops or massive graphs
@@ -61,8 +67,11 @@ export function registerTraceCommand(
         const { atom, depth } = queue.shift()!;
         if (depth >= MAX_DEPTH) continue;
 
+        const currentId = getAtomId(atom);
+        if (!currentId) continue;
+
         const refKeys = protocol.getReferenceKeys();
-        const state = atom.protocols.get(protocol.name.toLowerCase());
+        const state = atom.protocols.get(rootProtocolName);
 
         if (state) {
           for (const key of refKeys) {
@@ -72,7 +81,7 @@ export function registerTraceCommand(
 
               const targetAtom = await atomRepository.findById(refId);
               const edge: TraceEdge = {
-                from: atom.id,
+                from: currentId,
                 to: refId,
                 relationship: key as 'Related' | 'Supersedes' | 'Depends-on',
                 targetAtom: targetAtom ?? null,
@@ -80,9 +89,12 @@ export function registerTraceCommand(
 
               edges.push(edge);
 
-              if (targetAtom && !visited.has(targetAtom.id)) {
-                visited.add(targetAtom.id);
-                queue.push({ atom: targetAtom, depth: depth + 1 });
+              if (targetAtom) {
+                const targetId = getAtomId(targetAtom);
+                if (targetId && !visited.has(targetId)) {
+                  visited.add(targetId);
+                  queue.push({ atom: targetAtom, depth: depth + 1 });
+                }
               }
             }
           }

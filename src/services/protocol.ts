@@ -1,5 +1,5 @@
 import type { Config, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
-import type { TrailerKey, ProtocolState } from '../types/domain.js';
+import type { ProtocolState } from '../types/domain.js';
 import type { FormattableTrailerDefinition } from '../types/output.js';
 import type { IProtocol, AuthorizedTrailerDefinition } from '../interfaces/protocol.js';
 import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
@@ -211,6 +211,16 @@ export class Protocol implements IProtocol {
   }
 
   /**
+   * Extracts the identity value from a raw trailer dictionary.
+   */
+  getIdentity(trailers: Record<string, readonly string[]> | undefined | null): string | null {
+    if (!trailers) return null;
+    const values = trailers[this.identityKey];
+    if (!values || values.length === 0) return null;
+    return values[0];
+  }
+
+  /**
    * Check if a commit's raw trailers belong to this protocol.
    */
   claims(rawTrailers: string): boolean {
@@ -272,10 +282,10 @@ export class Protocol implements IProtocol {
   /**
    * Authorizes a trailer key for use.
    */
-  authorize(key: string): TrailerKey | string | null {
+  authorize(key: string): string | null {
     const canonicalKey = this.caseMap.get(key.toLowerCase());
     if (canonicalKey) {
-      return canonicalKey as TrailerKey;
+      return canonicalKey;
     }
 
     if (this.isPermissive) {

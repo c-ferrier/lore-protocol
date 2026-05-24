@@ -104,8 +104,8 @@ describe('AtomRepository Cache Interaction', () => {
     const atoms = await repo.findAll();
 
     expect(atoms).toHaveLength(2);
-    expect(atoms.find(a => a.id === '11111111')?.filesChanged).toEqual(cachedFiles);
-    expect(atoms.find(a => a.id === '22222222')?.filesChanged).toEqual(gitFiles);
+    expect(atoms.find(a => a.protocols.get('lore')?.trailers['Lore-id']?.[0] === '11111111')?.filesChanged).toEqual(cachedFiles);
+    expect(atoms.find(a => a.protocols.get('lore')?.trailers['Lore-id']?.[0] === '22222222')?.filesChanged).toEqual(gitFiles);
 
     // Verify git was only called for the miss
     expect(gitClient.getFilesChanged).toHaveBeenCalledWith(['hash2']);

@@ -23,7 +23,13 @@ export class JsonFormatter implements IOutputFormatter {
   formatQueryResult(data: FormattableQueryResult): string {
     const { result, supersessionMap, visibleTrailers } = data;
 
+    const rootProtocol = this.protocolRegistry.getRoot() || this.protocolRegistry.all()[0];
+
     const results = result.atoms.map((atom) => {
+      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
+      const primaryId = rootProtocol?.getIdentity(primaryState?.trailers);
+      const supersession = primaryId ? supersessionMap.get(primaryId) : undefined;
+
       return {
         commit: atom.commitHash,
         date: atom.date.toISOString(),
@@ -32,8 +38,8 @@ export class JsonFormatter implements IOutputFormatter {
         body: atom.body,
         protocols: this.serializeProtocols(atom, visibleTrailers),
         files_changed: [...atom.filesChanged],
-        superseded: supersessionMap.get(atom.id)?.superseded ?? false,
-        superseded_by: supersessionMap.get(atom.id)?.supersededBy ?? null,
+        superseded: supersession?.superseded ?? false,
+        superseded_by: supersession?.supersededBy ?? null,
       };
     });
 
@@ -237,10 +243,13 @@ export class JsonFormatter implements IOutputFormatter {
     visibleTrailers: readonly string[] | 'all',
     definitions: Record<string, FormattableTrailerDefinition>
   ): Record<string, any> {
+    const protocolObj = this.protocolRegistry.get(state.name.toLowerCase());
+    const id = protocolObj ? protocolObj.getIdentity(state.trailers) : state.trailers[state.identityKey]?.[0] ?? null;
+
     const idKey = `${state.name.toLowerCase().replace(/-/g, '_')}_id`;
     const versionKey = `${state.name.toLowerCase().replace(/-/g, '_')}_version`;
     return {
-      [idKey]: state.trailers[state.identityKey]?.[0] ?? null,
+      [idKey]: id,
       [versionKey]: state.version,
       ...this.serializeTrailers(state, visibleTrailers, definitions),
     };

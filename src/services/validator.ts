@@ -55,8 +55,7 @@ export class Validator {
       // 3. Graph Integrity (Async resolution)
       await this.validateReferenceExistence(trailers, issues);
 
-      const identityKey = this.protocol.identityKey;
-      const id = trailers[identityKey]?.[0] || null;
+      const id = this.protocol.getIdentity(trailers);
 
       results.push({
         commit: raw.hash,

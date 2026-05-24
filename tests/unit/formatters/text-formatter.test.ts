@@ -271,6 +271,7 @@ describe('TextFormatter', () => {
       const fredProtocol: any = {
         name: 'Fred',
         identityKey: 'Fred-id',
+        getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
         getFormattableDefinitions: () => ({})
       };
       registry.register(fredProtocol);

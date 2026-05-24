@@ -535,13 +535,18 @@ describe('JsonFormatter', () => {
 
   describe('formatSuccess', () => {
     it('should produce valid JSON with success flag', () => {
-      const output = formatter.formatSuccess('Commit created', { id: 'a1b2c3d4' });
+      const output = formatter.formatSuccess('Commit created', { 
+        hash: 'hash123', 
+        protocols: { 
+          lore: { lore_id: 'a1b2c3d4', lore_version: '1.0' } 
+        } 
+      });
       const parsed = JSON.parse(output);
 
       expect(parsed.version).toBe('1.0');
       expect(parsed.success).toBe(true);
       expect(parsed.message).toBe('Commit created');
-      expect(parsed.id).toBe('a1b2c3d4');
+      expect(parsed.protocols.lore.lore_id).toBe('a1b2c3d4');
     });
   });
 

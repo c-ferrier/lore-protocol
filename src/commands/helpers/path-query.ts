@@ -4,7 +4,7 @@ import type { SupersessionResolver } from '../../services/supersession-resolver.
 import type { PathResolver } from '../../services/path-resolver.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { Config } from '../../types/config.js';
-import type { TrailerKey, Atom, SupersessionStatus } from '../../types/domain.js';
+import type { Atom, SupersessionStatus } from '../../types/domain.js';
 import type { PathQueryOptions, QueryResult, TargetType } from '../../types/query.js';
 import type { FormattableQueryResult } from '../../types/output.js';
 import { buildQueryMeta } from './build-query-meta.js';
@@ -56,7 +56,7 @@ export async function executePathQuery(
   options: PathQueryCommandOptions,
   deps: PathQueryDeps,
   commandName: string,
-  visibleTrailers: readonly TrailerKey[] | 'all',
+  visibleTrailers: readonly string[] | 'all',
 ): Promise<void> {
   const { atomRepository, gitClient, supersessionResolver, pathResolver, getFormatter, config, protocol } = deps;
 

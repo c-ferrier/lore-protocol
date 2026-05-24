@@ -1,4 +1,4 @@
-import type { TrailerKey, ProtocolState } from '../types/domain.js';
+import type { ProtocolState } from '../types/domain.js';
 import type { FormattableTrailerDefinition } from '../types/output.js';
 import type { TrailerUiKind, TrailerUiColor, CustomTrailerDefinition } from '../types/config.js';
 import type { SearchOptions } from '../types/query.js';
@@ -36,7 +36,7 @@ export interface IProtocol {
    * Authorizes a trailer key for use.
    * Returns the canonical casing of the key if authorized, otherwise null.
    */
-  authorize(key: string): TrailerKey | string | null;
+  authorize(key: string): string | null;
 
   /**
    * Returns the metadata definition for a key.
@@ -130,6 +130,12 @@ export interface IProtocol {
    * Check if an ID is valid according to this protocol's rules.
    */
   isValidIdentity(id: string): boolean;
+
+  /**
+   * Extracts the identity value from a raw trailer dictionary.
+   * Returns null if the trailers object is missing or does not contain a valid identity.
+   */
+  getIdentity(trailers: Record<string, readonly string[]> | undefined | null): string | null;
 
   /**
    * Check if a commit's raw trailers belong to this protocol.

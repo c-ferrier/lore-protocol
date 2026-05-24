@@ -24,10 +24,10 @@ export class HeadIdReader {
       if (log.length === 0) return null;
 
       const trailers = this.trailerParser.parse(log[0].trailers);
-      const idArray = trailers[this.protocol.identityKey];
+      const id = this.protocol.getIdentity(trailers);
       
-      if (idArray && idArray.length > 0 && this.protocol.isValidIdentity(idArray[0])) {
-        return idArray[0];
+      if (id && this.protocol.isValidIdentity(id)) {
+        return id;
       }
       return null;
     } catch {

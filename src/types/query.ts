@@ -1,4 +1,4 @@
-import type { Atom, TrailerKey } from './domain.js';
+import type { Atom } from './domain.js';
 
 export type TargetType = 'file' | 'line-range' | 'directory' | 'glob';
 

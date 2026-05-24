@@ -54,6 +54,7 @@ describe('Doctor Command', () => {
       identityKey: 'Fred-id',
       namespace: 'Fred',
       isValidIdentity: (id: string) => /^[0-9a-f]{8}$/.test(id),
+      getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
       getReferenceKeys: () => ['Depends-on'], // Canonical key, no prefix
       all: () => [],
     };
@@ -69,7 +70,7 @@ describe('Doctor Command', () => {
       intent: 'intent',
       body: '',
       protocols: new Map([
-        ['fred', { name: 'Fred', identityKey: 'Fred-id', trailers: { 'Depends-on': ['deadbeef'] } as any, version: '1.0' }]
+        ['fred', { name: 'Fred', identityKey: 'Fred-id', trailers: { 'Fred-id': ['12345678'], 'Depends-on': ['deadbeef'] } as any, version: '1.0' }]
       ]),
       filesChanged: []
     } as any;
@@ -100,6 +101,7 @@ describe('Doctor Command', () => {
       identityKey: 'Fred-id',
       namespace: '',
       isValidIdentity: (id: string) => true,
+      getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
       getReferenceKeys: () => [],
     };
 

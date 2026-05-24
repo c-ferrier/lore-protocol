@@ -20,22 +20,33 @@ export class SupersessionResolver {
 
     // Initialize all atoms as not superseded
     for (const atom of atoms) {
-      statusMap.set(atom.id, {
-        superseded: false,
-        supersededBy: null,
-      });
+      const state = atom.protocols.get(protocolName);
+      const id = this.protocol.getIdentity(state?.trailers);
+      if (id) {
+        statusMap.set(id, {
+          superseded: false,
+          supersededBy: null,
+        });
+      }
     }
 
     // Build a lookup map for quick access
     const atomById = new Map<string, Atom>();
     for (const atom of atoms) {
-      atomById.set(atom.id, atom);
+      const state = atom.protocols.get(protocolName);
+      const id = this.protocol.getIdentity(state?.trailers);
+      if (id) {
+        atomById.set(id, atom);
+      }
     }
 
     // First pass: mark direct supersessions
     for (const atom of atoms) {
       const state = atom.protocols.get(protocolName);
       if (!state) continue;
+      
+      const id = this.protocol.getIdentity(state.trailers);
+      if (!id) continue;
 
       for (const supersededId of state.trailers.Supersedes || []) {
         if (!this.protocol.isValidIdentity(supersededId)) {
@@ -45,7 +56,7 @@ export class SupersessionResolver {
         if (statusMap.has(supersededId)) {
           statusMap.set(supersededId, {
             superseded: true,
-            supersededBy: atom.id,
+            supersededBy: id,
           });
         }
       }
@@ -64,8 +75,13 @@ export class SupersessionResolver {
     atoms: readonly Atom[],
     supersessionMap: Map<string, SupersessionStatus>,
   ): Atom[] {
+    const protocolName = this.protocol.name.toLowerCase();
     return atoms.filter((atom) => {
-      const status = supersessionMap.get(atom.id);
+      const state = atom.protocols.get(protocolName);
+      const id = this.protocol.getIdentity(state?.trailers);
+      if (!id) return true; // If it doesn't have an ID for this protocol, it can't be superseded in this context
+      
+      const status = supersessionMap.get(id);
       return status === undefined || !status.superseded;
     });
   }
@@ -82,13 +98,16 @@ export class SupersessionResolver {
 
     for (const atom of atoms) {
       const state = atom.protocols.get(protocolName);
+      const id = this.protocol.getIdentity(state?.trailers);
+      if (!id) continue;
+      
       const supersedes = state?.trailers.Supersedes || [];
       if (supersedes.length === 0) {
         continue;
       }
 
       const visited = new Set<string>();
-      visited.add(atom.id);
+      visited.add(id);
 
       const queue: AtomId[] = [...supersedes];
 
@@ -108,7 +127,7 @@ export class SupersessionResolver {
           if (!currentStatus.superseded) {
             statusMap.set(currentId, {
               superseded: true,
-              supersededBy: atom.id,
+              supersededBy: id,
             });
           }
         }

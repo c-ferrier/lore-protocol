@@ -35,7 +35,11 @@ export class SquashMerger {
     }
 
     const newLoreId = this.idGenerator.generate();
-    const internalIds = new Set(atoms.map((a) => a.id));
+    const protocolName = this.protocol.name.toLowerCase();
+    const internalIds = new Set(atoms
+      .map((a) => this.protocol.getIdentity(a.protocols.get(protocolName)?.trailers))
+      .filter((id): id is string => Boolean(id))
+    );
 
     // Sort atoms by date ascending so the newest is last
     const sorted = [...atoms].sort(
@@ -51,8 +55,6 @@ export class SquashMerger {
 
     const trailerLines: string[] = [];
     trailerLines.push(`${this.protocol.identityKey}: ${newLoreId}`);
-
-    const protocolName = this.protocol.name.toLowerCase();
 
     // 1. Process All Trailers uniformly
     // Flatten all present keys across all atoms

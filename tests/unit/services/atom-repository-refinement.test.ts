@@ -139,7 +139,7 @@ describe('AtomRepository Refinement', () => {
       atoms = await repo.resolveFollowLinks(atoms, 1);
 
       expect(atoms).toHaveLength(2);
-      const ids = atoms.map(a => a.id);
+      const ids = atoms.map(a => a.protocols.get('lore')?.trailers['Lore-id']?.[0]);
       expect(ids).toContain('aaaaaaaa');
       expect(ids).toContain('bbbbbbbb');
       
@@ -185,7 +185,7 @@ describe('AtomRepository Refinement', () => {
       const result = await repo.findById(targetId);
 
       expect(result).not.toBeNull();
-      expect(result!.id).toBe(targetId);
+      expect(result!.protocols.get('lore')?.trailers['Lore-id']?.[0]).toBe(targetId);
     });
   });
 });

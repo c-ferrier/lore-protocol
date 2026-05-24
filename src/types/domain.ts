@@ -1,24 +1,6 @@
 /** 8-character hex string identifying a protocol atom. */
 export type AtomId = string;
 
-/** The set of recognized trailer keys. */
-export type TrailerKey = string;
-
-/** Trailer keys that contain arrays of values. */
-export type ArrayTrailerKey = string;
-
-/** Trailer keys that contain a single enum value. */
-export type EnumTrailerKey = string;
-
-/** Valid confidence levels. */
-export type ConfidenceLevel = string;
-
-/** Valid scope-risk levels. */
-export type ScopeRiskLevel = string;
-
-/** Valid reversibility levels. */
-export type ReversibilityLevel = string;
-
 /**
  * The structured trailer collection for a protocol atom.
  * Strictly flat and uniform: every key maps to a readonly string array.
@@ -52,12 +34,6 @@ export interface Atom {
    * Keyed by protocol name (lowercase).
    */
   readonly protocols: Map<string, ProtocolState>;
-
-  /** 
-   * The primary identifier for this atom.
-   * Usually resolved from the root protocol.
-   */
-  readonly id: AtomId;
 }
 
 export interface SupersessionStatus {

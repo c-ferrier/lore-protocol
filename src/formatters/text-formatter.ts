@@ -42,7 +42,7 @@ export class TextFormatter implements IOutputFormatter {
       // Find a representative ID for the header (root preferred)
       const rootProtocol = this.protocolRegistry.getRoot();
       const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
-      const id = primaryState?.trailers[primaryState.identityKey]?.[0] ?? atom.id;
+      const id = rootProtocol?.getIdentity(primaryState?.trailers) || 'Unknown';
 
       const supersession = supersessionMap.get(id);
       const isSuperseded = supersession?.superseded ?? false;
@@ -124,7 +124,7 @@ export class TextFormatter implements IOutputFormatter {
     for (const report of data.atoms) {
       const rootProtocol = this.protocolRegistry.getRoot();
       const state = rootProtocol ? report.atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
-      const id = state?.trailers[state.identityKey]?.[0] ?? report.atom.id;
+      const id = rootProtocol?.getIdentity(state?.trailers) || 'Unknown';
       
       const dateStr = this.formatDate(report.atom.date);
       lines.push(
@@ -146,7 +146,7 @@ export class TextFormatter implements IOutputFormatter {
 
     const rootProtocol = this.protocolRegistry.getRoot();
     const state = rootProtocol ? data.root.protocols.get(rootProtocol.name.toLowerCase()) : null;
-    const rootId = state?.trailers[state.identityKey]?.[0] ?? data.root.id;
+    const rootId = rootProtocol?.getIdentity(state?.trailers) || 'Unknown';
 
     lines.push(
       `${this.c.bold(rootId)} ${this.c.dim(data.root.intent)}`,
@@ -301,7 +301,7 @@ export class TextFormatter implements IOutputFormatter {
     // Find the ID shown in the header to avoid redundancy
     const rootProtocol = this.protocolRegistry.getRoot();
     const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
-    const headerId = primaryState?.trailers[primaryState.identityKey]?.[0] ?? atom.id;
+    const headerId = rootProtocol?.getIdentity(primaryState?.trailers) || 'Unknown';
 
     // Render ALL protocol interpretations equally
     for (const [name, state] of atom.protocols.entries()) {
@@ -310,7 +310,7 @@ export class TextFormatter implements IOutputFormatter {
 
       for (const key of Object.keys(state.trailers)) {
         // Skip only the ID that is already in the header
-        if (key === state.identityKey && (state.trailers[key] || [])[0] === headerId) {
+        if (key === state.identityKey && protocolObj?.getIdentity(state.trailers) === headerId) {
           continue;
         }
         
