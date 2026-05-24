@@ -63,6 +63,7 @@ import { CommitInputResolver } from './services/commit-input-resolver.js';
 import { HeadLoreIdReader } from './services/head-lore-id-reader.js';
 import { SearchFilter } from './services/search-filter.js';
 import { Protocol } from './services/protocol.js';
+import { ProtocolRegistry } from './services/protocol-registry.js';
 
 import { TextFormatter } from './formatters/text-formatter.js';
 import { JsonFormatter } from './formatters/json-formatter.js';
@@ -135,7 +136,10 @@ async function main(): Promise<void> {
   // 4. Create primary services with resolved root context
   const gitClient: IGitClient = new GitClient(loreRoot);
   const protocol = new Protocol(config);
-  const trailerParser = new TrailerParser(protocol);
+  const protocolRegistry = new ProtocolRegistry();
+  protocolRegistry.register(protocol);
+
+  const trailerParser = new TrailerParser();
   const pathResolver = new PathResolver(process.cwd(), loreRoot);
   const loreIdGenerator = new LoreIdGenerator();
 
@@ -161,11 +165,12 @@ async function main(): Promise<void> {
   // 7. Create services that depend on others
   // In a sub-project (monorepo), scope discovery to loreRoot implicitly
   const isScoped = loreRoot !== gitRoot;
-  const searchFilter = new SearchFilter();
+  const searchFilter = new SearchFilter(protocolRegistry);
   const atomRepository = new AtomRepository(
     gitClient,
     trailerParser,
     protocol,
+    protocolRegistry,
     searchFilter,
     atomCache,
     queryCache,
@@ -179,7 +184,7 @@ async function main(): Promise<void> {
   const validator = new Validator(trailerParser, atomRepository, config, protocol);
   const prompt = new TerminalPrompt();
   const commitInputResolver = new CommitInputResolver(prompt, protocol);
-  const headLoreIdReader = new HeadLoreIdReader(gitClient, trailerParser);
+  const headLoreIdReader = new HeadLoreIdReader(gitClient, trailerParser, protocol);
 
   // 7. Formatter factory (reads --format/--json from program options at call time)
   // Memoized: the formatter is created once on first call and reused thereafter.
@@ -253,6 +258,7 @@ async function main(): Promise<void> {
 
   registerTraceCommand(program, {
     atomRepository,
+    gitClient,
     getFormatter,
     protocol,
   });
@@ -282,7 +288,7 @@ async function main(): Promise<void> {
   registerDoctorCommand(program, {
     atomRepository,
     configLoader,
-    getFormatter,
+    gitClient,
     protocol,
   });
 

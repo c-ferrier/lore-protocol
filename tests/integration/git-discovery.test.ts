@@ -10,7 +10,11 @@ import { TrailerParser } from '../../src/services/trailer-parser.js';
 import { Protocol } from '../../src/services/protocol.js';
 import { NullAtomCache } from '../../src/services/atom-cache.js';
 import { NullQueryCache } from '../../src/services/query-cache.js';
-import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../src/util/constants.js';
+import { DEFAULT_CONFIG } from '../../src/util/constants.js';
+
+import { ProtocolRegistry } from '../../src/services/protocol-registry.js';
+
+const LORE_ID_KEY = "Lore-id";
 
 describe('AtomRepository Git Integration', () => {
   const testDir = realpathSync(tmpdir()) + '/lore-git-test-' + Math.random().toString(36).slice(2);
@@ -55,7 +59,9 @@ describe('AtomRepository Git Integration', () => {
 
     const gitClient = new GitClient(testDir);
     const protocol = new Protocol(DEFAULT_CONFIG);
-    const trailerParser = new TrailerParser(protocol);
+    const protocolRegistry = new ProtocolRegistry();
+    protocolRegistry.register(protocol);
+    const trailerParser = new TrailerParser();
     const searchFilter = new SearchFilter();
     const atomCache = new NullAtomCache();
     const queryCache = new NullQueryCache();
@@ -64,6 +70,7 @@ describe('AtomRepository Git Integration', () => {
       gitClient,
       trailerParser,
       protocol,
+      protocolRegistry,
       searchFilter,
       atomCache,
       queryCache

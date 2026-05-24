@@ -1,27 +1,234 @@
-import type { LoreConfig, CustomTrailerDefinition, TrailerUiKind, TrailerUiColor, ValueDefinition } from '../types/config.js';
-import { CORE_TRAILER_DEFINITIONS, LORE_ID_KEY } from '../util/constants.js';
-import type { TrailerKey } from '../types/domain.js';
+import type { LoreConfig, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
+import { CORE_TRAILER_DEFINITIONS, LORE_ID_PATTERN } from '../util/constants.js';
+import type { TrailerKey, ProtocolState } from '../types/domain.js';
 import type { FormattableTrailerDefinition } from '../types/output.js';
+import type { IProtocol, AuthorizedTrailerDefinition } from '../interfaces/protocol.js';
 
-/**
- * Metadata for a protocol trailer, including its origin (core vs custom).
- */
-export interface AuthorizedTrailerDefinition extends CustomTrailerDefinition {
-  readonly key: string;
-  readonly isCore: boolean;
-}
+import { TrailerParser } from './trailer-parser.js';
+
+/** The canonical identity key for the Lore Protocol */
+const LORE_IDENTITY_KEY = 'Lore-id';
 
 /**
  * The central engine for Lore Protocol rules.
  * Merges built-in core trailers with project-specific custom configuration.
  * Provides lookup and authorization services for builders and formatters.
  */
-export class Protocol {
+export class Protocol implements IProtocol {
   private readonly definitions = new Map<string, AuthorizedTrailerDefinition>();
   private readonly caseMap = new Map<string, string>();
+  private readonly parser = new TrailerParser();
 
   constructor(private readonly config: LoreConfig) {
     this.loadDefinitions();
+    this.validateOperationalModes();
+  }
+
+  get name(): string {
+    return this.config.protocol.name;
+  }
+
+  get version(): string {
+    return this.config.protocol.version;
+  }
+
+  get identityKey(): string {
+    return LORE_IDENTITY_KEY;
+  }
+
+  get namespace(): string {
+    // Lore stays at the root to honor standard trailer conventions.
+    return '';
+  }
+
+  get isPermissive(): boolean {
+    return this.config.trailers.permissive;
+  }
+
+  get isExclusive(): boolean {
+    // Lore is exclusive by default: it owns its identity and defined trailers.
+    return true;
+  }
+
+  private validateOperationalModes(): void {
+    // Note: It is valid for a protocol to be both exclusive (owning its keys)
+    // and permissive (allowing others). This is the default for Lore.
+  }
+
+  /**
+   * Returns true if this protocol explicitly defines/owns the given trailer key.
+   * Handles namespace-aware matching.
+   */
+  owns(key: string): boolean {
+    const { namespace, baseKey } = this.splitKey(key);
+
+    // We only own keys that match our namespace
+    if (namespace.toLowerCase() !== this.namespace.toLowerCase()) {
+      return false;
+    }
+
+    return (
+      this.caseMap.has(baseKey.toLowerCase()) ||
+      baseKey.toLowerCase() === this.identityKey.toLowerCase()
+    );
+  }
+
+  /**
+   * Returns the raw regex pattern that identifies a commit belonging to this protocol.
+   * e.g., "^Lore-id: [0-9a-f]{8}"
+   */
+  getDiscoveryPattern(): string {
+    const prefix = this.namespace ? `${this.namespace}/` : '';
+    return `^${prefix}${this.identityKey}: [0-9a-f]{8}`;
+  }
+
+  /**
+   * Translates generic filters into specific Git grep arguments.
+   * @param filters Key-value pairs to match.
+   */
+  getSearchGrep(filters: Record<string, string | string[]>): string[] {
+    const args: string[] = [];
+    const prefix = this.namespace ? `${this.namespace}/` : '';
+
+    for (const [key, value] of Object.entries(filters)) {
+      // Map common aliased keys (e.g., confidence -> Confidence)
+      const authorizedKey = this.authorize(key);
+      if (!authorizedKey) continue;
+
+      const values = Array.isArray(value) ? value : [value];
+      for (const val of values) {
+        args.push(`--grep=^${prefix}${authorizedKey}: ${val}`);
+      }
+    }
+
+    return args;
+  }
+
+  /**
+   * Application-level check: does this parsed state match the requested filters?
+   */
+  matches(state: ProtocolState, filters: Record<string, string | string[]>): boolean {
+    // Only match against our own protocol data
+    if (state.name.toLowerCase() !== this.name.toLowerCase()) {
+      return true; // Don't block others
+    }
+
+    for (const [key, value] of Object.entries(filters)) {
+      const authorizedKey = this.authorize(key);
+      if (!authorizedKey) continue;
+
+      const actualValues = state.trailers[authorizedKey] || [];
+      const filterValues = Array.isArray(value) ? value : [value];
+
+      if (actualValues.length === 0) {
+        // If we own the key but it's missing, the filter (which expects a value) fails.
+        // If we don't own it (permissive ad-hoc), we ignore the absence.
+        if (this.owns(key)) {
+          return false;
+        }
+        continue;
+      }
+
+      // Match logic: at least one filter value must be present in actual values
+      const matched = filterValues.some((fv) => 
+        actualValues.some((av) => av.toLowerCase() === fv.toLowerCase())
+      );
+
+      if (!matched) return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Parse raw trailers into a protocol-specific state.
+   */
+  parse(
+    rawTrailers: string,
+    unclaimedKeys?: Set<string>,
+  ): {
+    readonly name: string;
+    readonly version: string;
+    readonly identityKey: string;
+    readonly trailers: Record<string, readonly string[]>;
+  } {
+    const rawMap = this.parser.parse(rawTrailers);
+    const normalized: Record<string, string[]> = {};
+
+    for (const [key, values] of Object.entries(rawMap)) {
+      // Logic refined for Multi-protocol claim hierarchy:
+      // 1. If we OWN the key (defined in our schema), we parse it.
+      // 2. If we are PERMISSIVE, we parse it ONLY if it is unclaimed by any protocol schema.
+
+      const isOwner = this.owns(key);
+      const isAvailable = !unclaimedKeys || unclaimedKeys.has(key);
+
+      if (!isOwner && (!this.isPermissive || !isAvailable)) {
+        continue;
+      }
+
+      // Authorize using the baseKey (as definitions are not namespaced internally)
+      const authorizedKey = this.authorize(key);
+      if (!authorizedKey) continue;
+
+      const def = this.getDefinition(authorizedKey);
+
+      for (const value of values) {
+        // Special handling for enums: validate value if possible
+        if (def?.validation === 'values' && def.values) {
+          const validValues = Object.keys(def.values);
+          if (!validValues.includes(value)) continue;
+        }
+
+        const existing = normalized[authorizedKey] ?? [];
+        existing.push(value);
+        normalized[authorizedKey] = existing;
+      }
+    }
+
+    return {
+      name: this.name,
+      version: this.version,
+      identityKey: this.identityKey,
+      trailers: normalized,
+    };
+  }
+
+  /**
+   * Helper to split a trailer key into namespace and base key.
+   * Format: "Namespace/Key" or "Key"
+   */
+  private splitKey(key: string): { namespace: string; baseKey: string } {
+    const parts = key.split('/');
+    if (parts.length > 1) {
+      return { namespace: parts[0], baseKey: parts.slice(1).join('/') };
+    }
+    return { namespace: '', baseKey: key };
+  }
+
+  /**
+   * Check if an ID is valid according to this protocol's rules.
+   */
+  isValidIdentity(id: string): boolean {
+    return LORE_ID_PATTERN.test(id);
+  }
+
+  /**
+   * Check if a commit's raw trailers belong to this protocol.
+   * A commit belongs to Lore if it contains a Lore-id trailer.
+   */
+  claims(rawTrailers: string): boolean {
+    const lines = rawTrailers.split('\n');
+    const pattern = new RegExp(`^${this.identityKey}:`, 'i');
+    return lines.some((line) => pattern.test(line));
+  }
+
+  /**
+   * Get Git grep arguments to find commits belonging to this protocol.
+   * Lore commits are discovered by looking for the identity trailer.
+   */
+  getDiscoveryGrep(): string[] {
+    return [`--grep=^${this.identityKey}: [0-9a-f]{8}`];
   }
 
   private loadDefinitions(): void {
@@ -79,7 +286,7 @@ export class Protocol {
     }
 
     // 2. If not defined, check permissive mode
-    if (this.config.trailers.permissive) {
+    if (this.isPermissive) {
       return key;
     }
 

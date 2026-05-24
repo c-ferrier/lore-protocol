@@ -1,4 +1,4 @@
-import type { LoreAtom, TrailerKey } from './domain.js';
+import type { Atom, TrailerKey } from './domain.js';
 
 export type TargetType = 'file' | 'line-range' | 'directory' | 'glob';
 
@@ -29,10 +29,11 @@ export interface PathQueryOptions {
  * Pushes coarse filtering down to the Git layer where possible.
  */
 export interface SearchOptions extends PathQueryOptions {
-  readonly confidence: string | null;
-  readonly scopeRisk: string | null;
-  readonly reversibility: string | null;
-  readonly has: TrailerKey | null;
+  /** Generic trailer filters: key -> value(s) to match */
+  readonly filters?: Record<string, string | string[]>;
+  /** Trailer presence filter (any value) */
+  readonly has: string | null;
+  /** Full-text search across intent, body, and trailers */
   readonly text: string | null;
 
   /** Pre-resolved date for the authoritative application-level filter pass. */
@@ -51,7 +52,7 @@ export interface QueryResult {
   readonly command: string;
   readonly target: string;
   readonly targetType: TargetType | 'search' | 'global';
-  readonly atoms: readonly LoreAtom[];
+  readonly atoms: readonly Atom[];
   readonly meta: QueryMeta;
 }
 

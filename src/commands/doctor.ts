@@ -1,187 +1,171 @@
 import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { IConfigLoader } from '../interfaces/config-loader.js';
-import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { FormattableDoctorResult, DoctorCheck } from '../types/output.js';
-import type { LoreAtom } from '../types/domain.js';
-import { LORE_ID_PATTERN, LORE_ID_KEY } from '../util/constants.js';
-import type { Protocol } from '../services/protocol.js';
+import type { IGitClient } from '../interfaces/git-client.js';
+import type { IProtocol } from '../interfaces/protocol.js';
+import type { Atom } from '../types/domain.js';
+
+/**
+ * Result of a single doctor check.
+ */
+export interface DoctorCheck {
+  readonly name: string;
+  readonly status: 'ok' | 'warning' | 'error';
+  readonly message: string;
+  readonly details?: string[];
+}
 
 /**
  * Register the `lore doctor` command.
- * Runs health checks:
- * 1. Config file exists and is valid
- * 2. ${LORE_ID_KEY} uniqueness
- * 3. All references resolve
- * 4. No orphaned dependencies
+ * Performs deep structural health checks on the decision repository:
+ * 1. Config file existence and parsing
+ * 2. Identity key uniqueness
+ * 3. Reference resolution (Supersedes, Depends-on, Related)
+ * 4. Orphaned dependencies
  */
 export function registerDoctorCommand(
   program: Command,
   deps: {
     atomRepository: AtomRepository;
     configLoader: IConfigLoader;
-    getFormatter: () => IOutputFormatter;
-    protocol: Protocol;
+    gitClient: IGitClient;
+    protocol: IProtocol;
   },
 ): void {
   program
     .command('doctor')
-    .description('Health check: broken refs, config issues')
+    .description('Check the health of the decision repository')
     .action(async () => {
-      const { atomRepository, configLoader, getFormatter, protocol } = deps;
-
+      const { atomRepository, configLoader, protocol } = deps;
       const checks: DoctorCheck[] = [];
 
-      // Check 1: Config file exists and is valid
-      checks.push(await checkConfig(configLoader));
-
-      // Get all atoms for remaining checks
-      let allAtoms: LoreAtom[];
-      try {
-        // Scan up to 10k commits — enough for most repos while bounding runtime
-        allAtoms = await atomRepository.findAll({ maxCommits: 10000 });
-      } catch {
+      // Check 1: Config
+      const configPath = await configLoader.findConfigPath(process.cwd());
+      if (!configPath) {
         checks.push({
-          name: 'Atom retrieval',
+          name: 'Config file',
           status: 'error',
-          message: 'Failed to retrieve atoms from git history',
-          details: [],
+          message: `No ${protocol.name} configuration found. Run \`${protocol.name.toLowerCase()} init\` to create one.`,
         });
-        allAtoms = [];
+      } else {
+        checks.push({
+          name: 'Config file',
+          status: 'ok',
+          message: `Found and parsed ${configPath}`,
+        });
       }
 
-      // Check 2: ${LORE_ID_KEY} uniqueness
-      checks.push(checkLoreIdUniqueness(allAtoms));
+      // Load all atoms for remaining checks
+      let allAtoms: Atom[];
+      try {
+        allAtoms = await atomRepository.findAll({ all: true });
+      } catch (err) {
+        console.error(`error: Failed to load atoms: ${err instanceof Error ? err.message : String(err)}`);
+        process.exit(1);
+      }
 
-      // Check 3: All references resolve (metadata-driven)
-      checks.push(checkReferencesResolve(allAtoms, protocol));
+      // Check 2: Uniqueness
+      checks.push(checkIdentityUniqueness(allAtoms, protocol));
 
-      // Check 4: Orphaned dependencies (depends on superseded atoms)
-      checks.push(checkOrphanedDependencies(allAtoms));
+      // Check 3: References
+      checks.push(checkReferenceResolution(allAtoms, protocol));
 
-      // Compute summary
-      let errors = 0;
-      let warnings = 0;
-      let info = 0;
+      // Check 4: Orphans
+      checks.push(checkOrphanedDependencies(allAtoms, protocol));
 
+      // Output
+      let totalErrors = 0;
       for (const check of checks) {
-        switch (check.status) {
-          case 'error':
-            errors++;
-            break;
-          case 'warning':
-            warnings++;
-            break;
-          case 'info':
-            info++;
-            break;
+        const prefix = check.status === 'ok' ? 'OK ' : check.status.toUpperCase().padEnd(3) + ' ';
+        console.log(`${prefix} ${check.name}: ${check.message}`);
+        if (check.status === 'error') totalErrors++;
+
+        if (check.details && check.details.length > 0) {
+          for (const detail of check.details) {
+            console.log(`     - ${detail}`);
+          }
         }
       }
 
-      const doctorResult: FormattableDoctorResult = {
-        checks,
-        summary: { errors, warnings, info },
-      };
-
-      const formatter = getFormatter();
-      console.log(formatter.formatDoctorResult(doctorResult));
-
-      if (errors > 0) {
-        process.exitCode = 1;
+      if (totalErrors > 0) {
+        console.log(`\n${totalErrors} check(s) failed`);
+        process.exit(1);
+      } else {
+        console.log('\nall checks passed');
       }
     });
 }
 
-async function checkConfig(configLoader: IConfigLoader): Promise<DoctorCheck> {
-  try {
-    const configPath = await configLoader.findConfigPath(process.cwd());
-    if (configPath === null) {
-      return {
-        name: 'Config file',
-        status: 'warning',
-        message: 'No .lore/config.toml found. Run `lore init` to create one.',
-        details: [],
-      };
-    }
-
-    await configLoader.loadFromFile(configPath);
-    return {
-      name: 'Config file',
-      status: 'ok',
-      message: `Found and parsed ${configPath}`,
-      details: [],
-    };
-  } catch (err) {
-    return {
-      name: 'Config file',
-      status: 'error',
-      message: `Failed to parse config: ${err instanceof Error ? err.message : String(err)}`,
-      details: [],
-    };
-  }
-}
-
-function checkLoreIdUniqueness(
-  atoms: readonly LoreAtom[],
+/**
+ * Check that every identity key is globally unique.
+ */
+function checkIdentityUniqueness(
+  atoms: readonly Atom[],
+  protocol: IProtocol,
 ): DoctorCheck {
   const idCounts = new Map<string, number>();
+  const duplicates: string[] = [];
 
   for (const atom of atoms) {
-    const count = idCounts.get(atom.loreId) ?? 0;
-    idCounts.set(atom.loreId, count + 1);
+    const id = atom.loreId;
+    if (!id) continue;
+    const count = idCounts.get(id) ?? 0;
+    idCounts.set(id, count + 1);
   }
 
-  const duplicates: string[] = [];
-  for (const [id, count] of idCounts) {
+  for (const [id, count] of idCounts.entries()) {
     if (count > 1) {
-      duplicates.push(`${LORE_ID_KEY} "${id}" appears ${count} times`);
+      duplicates.push(`${protocol.identityKey} "${id}" appears ${count} times`);
     }
   }
 
   if (duplicates.length > 0) {
     return {
-      name: '${LORE_ID_KEY} uniqueness',
-      status: 'warning',
-      message: `${duplicates.length} duplicate ${LORE_ID_KEY}(s) found`,
+      name: `${protocol.identityKey} uniqueness`,
+      status: 'error',
+      message: `${duplicates.length} duplicate ${protocol.identityKey}(s) found`,
       details: duplicates,
     };
   }
 
   return {
-    name: '${LORE_ID_KEY} uniqueness',
+    name: `${protocol.identityKey} uniqueness`,
     status: 'ok',
-    message: `All ${atoms.length} ${LORE_ID_KEY}s are unique`,
-    details: [],
+    message: `All ${atoms.length} ${protocol.identityKey}s are unique`,
   };
 }
 
-function checkReferencesResolve(
-  atoms: readonly LoreAtom[],
-  protocol: Protocol,
+/**
+ * Check that all referenced IDs exist in the repository.
+ */
+function checkReferenceResolution(
+  atoms: readonly Atom[],
+  protocol: IProtocol,
 ): DoctorCheck {
-  const allLoreIds = new Set(atoms.map((a) => a.loreId));
-  const brokenRefs: string[] = [];
+  const allIds = new Set(atoms.map((a) => a.loreId));
+  const broken: string[] = [];
+
   const refKeys = protocol.getReferenceKeys();
 
   for (const atom of atoms) {
     for (const key of refKeys) {
       const refs = atom.trailers[key] || [];
       for (const refId of refs) {
-        if (LORE_ID_PATTERN.test(refId) && !allLoreIds.has(refId)) {
-          brokenRefs.push(
-            `${LORE_ID_KEY} "${refId}" referenced by ${atom.loreId} (${key}) not found`,
+        if (protocol.isValidIdentity(refId) && !allIds.has(refId)) {
+          broken.push(
+            `${protocol.identityKey} "${refId}" referenced by ${atom.loreId} (${key}) not found`,
           );
         }
       }
     }
   }
 
-  if (brokenRefs.length > 0) {
+  if (broken.length > 0) {
     return {
       name: 'Reference resolution',
       status: 'warning',
-      message: `${brokenRefs.length} broken reference(s) found`,
-      details: brokenRefs,
+      message: `${broken.length} broken reference(s) found`,
+      details: broken,
     };
   }
 
@@ -189,18 +173,23 @@ function checkReferencesResolve(
     name: 'Reference resolution',
     status: 'ok',
     message: 'All references resolve to existing atoms',
-    details: [],
   };
 }
 
+/**
+ * Check for atoms that depend on superseded atoms (lineage drift).
+ */
 function checkOrphanedDependencies(
-  atoms: readonly LoreAtom[],
+  atoms: readonly Atom[],
+  protocol: IProtocol,
 ): DoctorCheck {
   // Build a supersession set: atoms that are superseded
   const supersededIds = new Set<string>();
   for (const atom of atoms) {
-    for (const supersededId of atom.trailers.Supersedes) {
-      if (LORE_ID_PATTERN.test(supersededId)) {
+    const state = atom.protocols.get(protocol.name.toLowerCase());
+    const supersedes = state?.trailers.Supersedes || [];
+    for (const supersededId of supersedes) {
+      if (protocol.isValidIdentity(supersededId)) {
         supersededIds.add(supersededId);
       }
     }
@@ -208,8 +197,10 @@ function checkOrphanedDependencies(
 
   const orphaned: string[] = [];
   for (const atom of atoms) {
-    for (const depId of atom.trailers['Depends-on']) {
-      if (LORE_ID_PATTERN.test(depId) && supersededIds.has(depId)) {
+    const state = atom.protocols.get(protocol.name.toLowerCase());
+    const dependsOn = state?.trailers['Depends-on'] || [];
+    for (const depId of dependsOn) {
+      if (protocol.isValidIdentity(depId) && supersededIds.has(depId)) {
         orphaned.push(
           `Atom ${atom.loreId} depends on ${depId}, which has been superseded`,
         );
@@ -220,7 +211,7 @@ function checkOrphanedDependencies(
   if (orphaned.length > 0) {
     return {
       name: 'Orphaned dependencies',
-      status: 'info',
+      status: 'warning',
       message: `${orphaned.length} atom(s) depend on superseded atoms`,
       details: orphaned,
     };

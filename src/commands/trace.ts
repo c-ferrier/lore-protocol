@@ -1,86 +1,86 @@
 import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { LoreAtom, LoreId } from '../types/domain.js';
+import type { Atom, AtomId } from '../types/domain.js';
 import type { FormattableTraceResult, TraceEdge } from '../types/output.js';
 import { LoreError } from '../util/errors.js';
-import { LORE_ID_PATTERN, LORE_ID_KEY } from '../util/constants.js';
-import type { Protocol } from '../services/protocol.js';
+import type { IGitClient } from '../interfaces/git-client.js';
+import type { IProtocol } from '../interfaces/protocol.js';
 
 /**
- * Register the `lore trace <lore-id>` command.
- * Finds an atom by ${LORE_ID_KEY}, then BFS through all references to build
- * a tree of edges showing the decision chain.
+ * Register the `lore trace <id>` command.
+ * Finds an atom by its identity key, then BFS through all references to build
+ * a graph of related decisions.
+ *
+ * SRP: CLI integration for decision tracing.
+ * GRASP: Information Expert -- relies on AtomRepository for BFS data.
  */
 export function registerTraceCommand(
   program: Command,
   deps: {
     atomRepository: AtomRepository;
+    gitClient: IGitClient;
     getFormatter: () => IOutputFormatter;
-    protocol: Protocol;
+    protocol: IProtocol;
   },
 ): void {
   program
-    .command('trace <lore-id>')
-    .description('Follow decision chain from a starting atom')
-    .option('--max-depth <n>', 'Maximum BFS traversal depth', parseInt, 10)
-    .action(async (loreId: string, options: { maxDepth: number }) => {
+    .command('trace <id>')
+    .description('Trace the lineage and relationships of a decision')
+    .action(async (loreId: string) => {
       const { atomRepository, getFormatter, protocol } = deps;
 
-      if (!LORE_ID_PATTERN.test(loreId)) {
+      if (!protocol.isValidIdentity(loreId)) {
         throw new LoreError(
-          `Invalid ${LORE_ID_KEY} format: "${loreId}". Must be 8-character hex.`,
+          `Invalid ${protocol.identityKey} format: "${loreId}". Must be 8-character hex.`,
           1,
         );
       }
 
       const rootAtom = await atomRepository.findByLoreId(loreId);
-      if (!rootAtom) {
+      if (rootAtom === null) {
         throw new LoreError(
-          `${LORE_ID_KEY} "${loreId}" not found in commit history.`,
+          `${protocol.identityKey} "${loreId}" not found in commit history.`,
           1,
         );
       }
 
-      // BFS to discover all edges
       const edges: TraceEdge[] = [];
       const visited = new Set<string>();
-      visited.add(rootAtom.loreId);
-
-      const queue: Array<{ atom: LoreAtom; depth: number }> = [
+      const queue: Array<{ atom: Atom; depth: number }> = [
         { atom: rootAtom, depth: 0 },
       ];
 
-      const maxDepth = options.maxDepth;
-      const refKeys = protocol.getReferenceKeys();
+      visited.add(rootAtom.loreId);
+
+      // BFS to find all relationships
+      // Limit depth to avoid infinite loops or massive graphs
+      const MAX_DEPTH = 5;
 
       while (queue.length > 0) {
-        const entry = queue.shift()!;
-        const currentAtom = entry.atom;
+        const { atom, depth } = queue.shift()!;
+        if (depth >= MAX_DEPTH) continue;
+
+        const refKeys = protocol.getReferenceKeys();
 
         for (const key of refKeys) {
-          const relationship = key as TraceEdge['relationship'];
-          const refIds = currentAtom.trailers[key] || [];
-
-          for (const refId of refIds) {
-            if (!LORE_ID_PATTERN.test(refId)) {
-              continue;
-            }
+          const refs = atom.trailers[key] || [];
+          for (const refId of refs) {
+            if (!protocol.isValidIdentity(refId)) continue;
 
             const targetAtom = await atomRepository.findByLoreId(refId);
-
-            edges.push({
-              from: currentAtom.loreId,
+            const edge: TraceEdge = {
+              from: atom.loreId,
               to: refId,
-              relationship,
-              targetAtom,
-            });
+              relationship: key as 'Related' | 'Supersedes' | 'Depends-on',
+              targetAtom: targetAtom ?? null,
+            };
 
-            // Continue BFS if this is a new atom we haven't visited
-            // and we haven't exceeded the depth limit
-            if (!visited.has(refId) && targetAtom && entry.depth + 1 <= maxDepth) {
-              visited.add(refId);
-              queue.push({ atom: targetAtom, depth: entry.depth + 1 });
+            edges.push(edge);
+
+            if (targetAtom && !visited.has(targetAtom.loreId)) {
+              visited.add(targetAtom.loreId);
+              queue.push({ atom: targetAtom, depth: depth + 1 });
             }
           }
         }

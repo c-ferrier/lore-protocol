@@ -1,10 +1,9 @@
 import type { TrailerParser } from './trailer-parser.js';
 import type { LoreIdGenerator } from './lore-id-generator.js';
 import type { LoreConfig } from '../types/config.js';
-import type { LoreTrailers, LoreId } from '../types/domain.js';
+import type { Trailers, AtomId } from '../types/domain.js';
 import type { CommitInput } from '../types/commit.js';
 import type { ValidationIssue } from '../types/output.js';
-import { ARRAY_TRAILER_KEYS, ENUM_TRAILER_KEYS, LORE_ID_KEY } from '../util/constants.js';
 import type { Protocol } from './protocol.js';
 
 /**
@@ -24,10 +23,10 @@ export class CommitBuilder {
   /**
    * Builds a full git commit message with subject, body, and Lore trailer block.
    */
-  build(input: CommitInput, existingLoreId?: LoreId): { message: string; loreId: LoreId } {
+  build(input: CommitInput, existingLoreId?: AtomId): { message: string; loreId: AtomId } {
     const loreId = existingLoreId || this.loreIdGenerator.generate();
     const trailers = this.buildTrailers(loreId, input);
-    const trailerBlock = this.trailerParser.serialize(trailers);
+    const trailerBlock = this.trailerParser.serialize(trailers, this.protocol.getAuthorizedKeys());
 
     let message = input.intent;
     if (input.body && input.body.trim()) {
@@ -133,28 +132,32 @@ export class CommitBuilder {
   }
 
   /**
-   * Dynamically constructs a LoreTrailers object from input metadata.
+   * Dynamically constructs a Trailers object from input metadata.
    */
-  private buildTrailers(loreId: LoreId, input: CommitInput): LoreTrailers {
+  private buildTrailers(loreId: AtomId, input: CommitInput): Trailers {
     // Start with a record that is strictly string[]
     const result: Record<string, string[]> = {
-      [LORE_ID_KEY]: [loreId],
+      [this.protocol.identityKey]: [loreId],
     };
 
-    // Pre-initialize core keys for uniformity
-    for (const key of ARRAY_TRAILER_KEYS) result[key] = [];
-    for (const key of ENUM_TRAILER_KEYS) result[key] = [];
+    // Pre-initialize authorized keys for uniformity
+    for (const key of this.protocol.getAuthorizedKeys()) {
+      if (key !== this.protocol.identityKey) {
+        result[key] = [];
+      }
+    }
 
     if (input.trailers) {
-      for (const [key, values] of Object.entries(input.trailers)) {
-        if (key === LORE_ID_KEY) continue;
-        if (values) {
+      for (const [key, rawValues] of Object.entries(input.trailers)) {
+        if (key === this.protocol.identityKey) continue;
+        const values = (rawValues || []) as readonly string[];
+        if (values.length > 0) {
           result[key] = [...values];
         }
       }
     }
 
-    return result as unknown as LoreTrailers;
+    return result;
   }
 
   private hasTrailer(input: CommitInput, key: string): boolean {
@@ -169,13 +172,15 @@ export class CommitBuilder {
       count += input.body.split('\n').length;
     }
     if (input.trailers) {
-      count += 2; // blank line + LORE_ID_KEY
-      for (const values of Object.values(input.trailers)) {
-        if (values) {
+      count += 2; // blank line + identityKey
+      for (const rawValues of Object.values(input.trailers)) {
+        const values = (rawValues || []) as readonly string[];
+        if (values.length > 0) {
           count += values.length;
         }
       }
     }
+
     return count;
   }
 }

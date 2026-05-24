@@ -7,8 +7,9 @@ import {
   CONFIDENCE_VALUES,
   SCOPE_RISK_VALUES,
   REVERSIBILITY_VALUES,
-  LORE_ID_KEY
 } from '../../../src/util/core-definitions.js';
+
+const LORE_ID_KEY = 'Lore-id';
 
 describe('CORE_TRAILER_DEFINITIONS', () => {
   it(`should have CLI metadata for all standard trailers except ${LORE_ID_KEY}`, () => {

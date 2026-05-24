@@ -4,7 +4,7 @@ import type { SupersessionResolver } from '../services/supersession-resolver.js'
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { LoreConfig } from '../types/config.js';
 import type { PathQueryOptions, QueryResult } from '../types/query.js';
-import type { LoreAtom } from '../types/domain.js';
+import type { Atom } from '../types/domain.js';
 import type { FormattableQueryResult } from '../types/output.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
@@ -44,7 +44,7 @@ export function registerLogCommand(
       const options = mergeOptions<LogCommandOptions>(command);
       const { atomRepository, supersessionResolver, getFormatter, protocol } = deps;
 
-      let atoms: LoreAtom[];
+      let atoms: Atom[];
 
       if (paths.length > 0) {
         // Use git-level path filtering via findByTarget (#24)

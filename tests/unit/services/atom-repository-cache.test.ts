@@ -6,13 +6,18 @@ import { TrailerParser } from '../../../src/services/trailer-parser.js';
 import { NullQueryCache } from '../../../src/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
 import type { IAtomCache } from '../../../src/interfaces/atom-cache.js';
-import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../../src/util/constants.js';
+import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+
+import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
+
+const LORE_ID_KEY = "Lore-id";
 
 describe('AtomRepository Cache Interaction', () => {
   let gitClient: IGitClient;
   let trailerParser: TrailerParser;
   let repo: AtomRepository;
   let atomCache: IAtomCache;
+  let protocolRegistry: ProtocolRegistry;
 
   beforeEach(() => {
     gitClient = {
@@ -22,7 +27,9 @@ describe('AtomRepository Cache Interaction', () => {
     } as any;
 
     const protocol = new Protocol(DEFAULT_CONFIG);
-    trailerParser = new TrailerParser(protocol);
+    protocolRegistry = new ProtocolRegistry();
+    protocolRegistry.register(protocol);
+    trailerParser = new TrailerParser();
     atomCache = {
       getFiles: vi.fn(async () => null),
       setFiles: vi.fn(async () => {}),
@@ -32,6 +39,7 @@ describe('AtomRepository Cache Interaction', () => {
       gitClient,
       trailerParser,
       protocol,
+      protocolRegistry,
       new SearchFilter(),
       atomCache,
       new NullQueryCache()

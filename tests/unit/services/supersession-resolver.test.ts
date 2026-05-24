@@ -1,14 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { SupersessionResolver } from '../../../src/services/supersession-resolver.js';
-import type { LoreAtom, LoreTrailers } from '../../../src/types/domain.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
+import type { Atom, LoreTrailers } from '../../../src/types/domain.js';
+
+const LORE_ID_KEY = "Lore-id";
+
 
 function makeAtom(options: {
   loreId: string;
   supersedes?: string[];
   dependsOn?: string[];
   related?: string[];
-}): LoreAtom {
+}): Atom {
   return {
     loreId: options.loreId,
     commitHash: `hash-${options.loreId}`,
@@ -140,6 +142,18 @@ describe('SupersessionResolver', () => {
 
       expect(result.size).toBe(1);
       expect(result.get('aaaa1111')!.superseded).toBe(false);
+    });
+
+    it('should handle atoms with missing trailers without throwing', () => {
+      const sparseAtom: any = {
+        loreId: 'sparse123',
+        trailers: {}, // Missing Supersedes key entirely
+        date: new Date(),
+        protocols: new Map(),
+      };
+      
+      const result = resolver.resolve([sparseAtom]);
+      expect(result.get('sparse123')!.superseded).toBe(false);
     });
 
     it('should handle deep transitive chain: A -> B -> C -> D', () => {

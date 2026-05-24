@@ -10,8 +10,8 @@ import type {
   FormattableConfigResult,
   FormattableTrailerDefinition,
 } from '../types/output.js';
-import type { LoreAtom, LoreTrailers } from '../types/domain.js';
-import { LORE_ID_KEY, LORE_TRAILER_KEYS } from '../util/constants.js';
+import type { Atom, AtomId } from '../types/domain.js';
+import { LORE_TRAILER_KEYS } from '../util/constants.js';
 
 /**
  * Strategy implementation for human-readable terminal output.
@@ -36,10 +36,19 @@ export class TextFormatter implements IOutputFormatter {
     }
 
     for (const atom of result.atoms) {
-      const supersession = supersessionMap.get(atom.loreId);
+      let id = atom.loreId;
+      let protocolName = 'lore';
+
+      if (atom.protocols && atom.protocols.size > 0) {
+        protocolName = Array.from(atom.protocols.keys()).find(n => n === 'lore') ?? atom.protocols.keys().next().value ?? 'lore';
+        const state = atom.protocols.get(protocolName);
+        id = state?.trailers[state?.identityKey]?.[0] ?? id;
+      }
+
+      const supersession = supersessionMap.get(id);
       const isSuperseded = supersession?.superseded ?? false;
 
-      const header = this.formatAtomHeader(atom, isSuperseded);
+      const header = this.formatAtomHeader(atom, id, isSuperseded);
       lines.push(header);
 
       if (isSuperseded && supersession?.supersededBy) {
@@ -50,7 +59,7 @@ export class TextFormatter implements IOutputFormatter {
         lines.push(`  ${this.c.dim(atom.body)}`);
       }
 
-      const trailerLines = this.formatTrailers(atom, visibleTrailers, trailerDefinitions);
+      const trailerLines = this.formatTrailers(atom, protocolName, visibleTrailers, trailerDefinitions);
       for (const tl of trailerLines) {
         lines.push(`  ${tl}`);
       }
@@ -113,10 +122,16 @@ export class TextFormatter implements IOutputFormatter {
     }
 
     for (const report of data.atoms) {
+      let id = report.atom.loreId;
+      if (report.atom.protocols) {
+        const state = report.atom.protocols.get('lore') || report.atom.protocols.values().next().value;
+        id = state?.trailers[state?.identityKey]?.[0] ?? id;
+      }
+      
       const dateStr = this.formatDate(report.atom.date);
       lines.push(
         this.c.yellow('STALE') +
-          `  ${this.c.bold(report.atom.loreId)} (${dateStr})`,
+          `  ${this.c.bold(id)} (${dateStr})`,
       );
       lines.push(`  ${this.c.dim(report.atom.intent)}`);
       for (const reason of report.reasons) {
@@ -131,8 +146,14 @@ export class TextFormatter implements IOutputFormatter {
   formatTraceResult(data: FormattableTraceResult): string {
     const lines: string[] = [];
 
+    let rootId = data.root.loreId;
+    if (data.root.protocols) {
+      const rootState = data.root.protocols.get('lore') || data.root.protocols.values().next().value;
+      rootId = rootState?.trailers[rootState?.identityKey]?.[0] ?? rootId;
+    }
+
     lines.push(
-      `${this.c.bold(data.root.loreId)} ${this.c.dim(data.root.intent)}`,
+      `${this.c.bold(rootId)} ${this.c.dim(data.root.intent)}`,
     );
 
     const edgeCount = data.edges.length;
@@ -177,7 +198,7 @@ export class TextFormatter implements IOutputFormatter {
       }
       lines.push(`${statusLabel}  ${check.name}: ${check.message}`);
 
-      for (const detail of check.details) {
+      for (const detail of check.details || []) {
         lines.push(`  ${this.c.dim(detail)}`);
       }
     }
@@ -264,9 +285,9 @@ export class TextFormatter implements IOutputFormatter {
     return (LORE_TRAILER_KEYS as readonly string[]).includes(key);
   }
 
-  private formatAtomHeader(atom: LoreAtom, superseded: boolean): string {
+  private formatAtomHeader(atom: Atom, id: AtomId, superseded: boolean): string {
     const dateStr = this.formatDate(atom.date);
-    const header = `\u2500\u2500 ${atom.loreId} (${dateStr}, ${atom.author}) `;
+    const header = `\u2500\u2500 ${id} (${dateStr}, ${atom.author}) `;
     const rule = '\u2500'.repeat(Math.max(0, 60 - header.length));
     const fullHeader = header + rule;
 
@@ -277,12 +298,23 @@ export class TextFormatter implements IOutputFormatter {
   }
 
   private formatTrailers(
-    atom: LoreAtom,
+    atom: Atom,
+    protocolName: string,
     visibleTrailers: readonly string[] | 'all',
     trailerDefinitions: Record<string, FormattableTrailerDefinition>,
   ): string[] {
     const lines: string[] = [];
-    const trailers = atom.trailers;
+    
+    let trailers = atom.trailers;
+    let identityKey = 'Lore-id';
+
+    if (atom.protocols) {
+      const state = atom.protocols.get(protocolName);
+      if (state) {
+        trailers = state.trailers;
+        identityKey = state.identityKey;
+      }
+    }
 
     const shouldShow = (key: string): boolean => {
       if (visibleTrailers === 'all') return true;
@@ -291,7 +323,7 @@ export class TextFormatter implements IOutputFormatter {
 
     // Process all trailers uniformly from the flat object
     for (const key of Object.keys(trailers)) {
-      if (key === LORE_ID_KEY) continue;
+      if (key === identityKey) continue;
       if (!shouldShow(key)) continue;
 
       const values = trailers[key];

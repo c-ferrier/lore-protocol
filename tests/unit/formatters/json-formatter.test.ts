@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { JsonFormatter } from '../../../src/formatters/json-formatter.js';
 import { Protocol } from '../../../src/services/protocol.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { LORE_ID_KEY, LORE_ID_JSON_KEY, LORE_VERSION_JSON_KEY } from '../../../src/util/constants.js';
+import { LORE_ID_JSON_KEY, LORE_VERSION_JSON_KEY } from '../../../src/util/constants.js';
 import type {
   FormattableQueryResult,
   FormattableValidationResult,
@@ -10,7 +10,9 @@ import type {
   FormattableTraceResult,
   FormattableDoctorResult,
 } from '../../../src/types/output.js';
-import type { LoreAtom, LoreTrailers, SupersessionStatus } from '../../../src/types/domain.js';
+import type { Atom, LoreTrailers, SupersessionStatus } from '../../../src/types/domain.js';
+
+const LORE_ID_KEY = "Lore-id";
 
 function makeTrailers(overrides: Partial<LoreTrailers> = {}): LoreTrailers {
   return {
@@ -30,7 +32,7 @@ function makeTrailers(overrides: Partial<LoreTrailers> = {}): LoreTrailers {
   } as any;
 }
 
-function makeAtom(overrides: Partial<LoreAtom> = {}): LoreAtom {
+function makeAtom(overrides: Partial<Atom> = {}): Atom {
   return {
     loreId: overrides.loreId ?? 'a1b2c3d4',
     commitHash: overrides.commitHash ?? 'abc1234567890',

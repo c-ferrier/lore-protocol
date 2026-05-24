@@ -8,7 +8,9 @@ import type { CommitInputResolver } from '../../../src/services/commit-input-res
 import type { HeadLoreIdReader } from '../../../src/services/head-lore-id-reader.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 import { Protocol } from '../../../src/services/protocol.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
+
+const LORE_ID_KEY = "Lore-id";
+
 
 function createMockGitClient(): IGitClient {
   return {

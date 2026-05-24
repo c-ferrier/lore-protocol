@@ -2,7 +2,6 @@ import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js
 import type { CommitInput } from '../../types/commit.js';
 import type { CommitCommandOptions } from '../commit-input-resolver.js';
 import type { Protocol } from '../protocol.js';
-import { LORE_ID_KEY } from '../../util/constants.js';
 
 /**
  * Reads commit input from CLI flag values.
@@ -24,7 +23,7 @@ export class FlagsInputReader implements ICommitInputReader {
 
     // 1. Dynamically map all authorized trailers from registered flags
     for (const key of authorizedKeys) {
-      if (key === LORE_ID_KEY) continue;
+      if (key === this.protocol.identityKey) continue;
 
       const def = this.protocol.getDefinition(key);
       if (!def) continue;

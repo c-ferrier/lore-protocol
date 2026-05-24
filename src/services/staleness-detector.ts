@@ -1,6 +1,6 @@
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { LoreConfig } from '../types/config.js';
-import type { LoreAtom, LoreTrailers, SupersessionStatus } from '../types/domain.js';
+import type { Atom, SupersessionStatus } from '../types/domain.js';
 import { STALE_SIGNAL } from '../util/constants.js';
 import type { StaleSignal } from '../types/domain.js';
 
@@ -10,12 +10,12 @@ export interface StaleReason {
 }
 
 export interface StaleAtomReport {
-  readonly atom: LoreAtom;
+  readonly atom: Atom;
   readonly reasons: readonly StaleReason[];
 }
 
 /**
- * Analyzes LoreAtoms to detect "staleness" signals.
+ * Analyzes Atoms to detect "staleness" signals.
  * 
  * SOLID: SRP -- only responsible for staleness analysis.
  * GRASP: Information Expert -- knows how to interpret time, drift, and directives.
@@ -37,7 +37,7 @@ export class StalenessDetector {
    * 5. Orphaned Dependency: atom depends on a superseded atom.
    */
   async analyze(
-    atoms: readonly LoreAtom[],
+    atoms: readonly Atom[],
     supersessionMap: Map<string, SupersessionStatus>,
   ): Promise<StaleAtomReport[]> {
     const reports: StaleAtomReport[] = [];
@@ -72,7 +72,7 @@ export class StalenessDetector {
   /**
    * Check if an atom's absolute age exceeds the threshold.
    */
-  private checkAge(atom: LoreAtom, now: Date, reasons: StaleReason[]): void {
+  private checkAge(atom: Atom, now: Date, reasons: StaleReason[]): void {
     const thresholdMs = this.parseDuration(this.config.stale.olderThan);
     if (thresholdMs === null) return;
 
@@ -87,7 +87,7 @@ export class StalenessDetector {
   /**
    * Check if the files associated with the atom have changed significantly.
    */
-  private async checkDrift(atom: LoreAtom, reasons: StaleReason[]): Promise<void> {
+  private async checkDrift(atom: Atom, reasons: StaleReason[]): Promise<void> {
     const threshold = this.config.stale.driftThreshold;
     const driftedFiles: string[] = [];
 
@@ -113,8 +113,8 @@ export class StalenessDetector {
   /**
    * Check if the atom has low confidence.
    */
-  private checkLowConfidence(atom: LoreAtom, reasons: StaleReason[]): void {
-    const confidence = atom.trailers.Confidence[0];
+  private checkLowConfidence(atom: Atom, reasons: StaleReason[]): void {
+    const confidence = atom.trailers.Confidence?.[0];
     if (confidence === 'low') {
       reasons.push({
         signal: STALE_SIGNAL.LOW_CONFIDENCE,
@@ -126,11 +126,11 @@ export class StalenessDetector {
   /**
    * Check for expired behavioral hints in directives.
    */
-  private checkExpiredHints(atom: LoreAtom, now: Date, reasons: StaleReason[]): void {
+  private checkExpiredHints(atom: Atom, now: Date, reasons: StaleReason[]): void {
     const untilPattern = /\[until:([^\]]+)\]/g;
     let match: RegExpExecArray | null;
 
-    for (const directive of atom.trailers.Directive) {
+    for (const directive of atom.trailers.Directive || []) {
       // Reset lastIndex for each directive
       untilPattern.lastIndex = 0;
 
@@ -152,11 +152,11 @@ export class StalenessDetector {
    * Check if any dependencies of the atom are superseded.
    */
   private checkOrphanedDependencies(
-    atom: LoreAtom,
+    atom: Atom,
     reasons: StaleReason[],
     supersessionMap: Map<string, SupersessionStatus>,
   ): void {
-    const dependsOn = atom.trailers['Depends-on'];
+    const dependsOn = atom.trailers['Depends-on'] || [];
     for (const id of dependsOn) {
       const status = supersessionMap.get(id);
       if (status?.superseded) {

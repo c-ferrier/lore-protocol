@@ -1,23 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/services/atom-repository.js';
 import { Protocol } from '../../../src/services/protocol.js';
+import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
 import { SearchFilter } from '../../../src/services/search-filter.js';
 import { NullAtomCache } from '../../../src/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
 import type { PathQueryOptions } from '../../../src/types/query.js';
 import type { LoreTrailers } from '../../../src/types/domain.js';
-import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../../src/util/constants.js';
+import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import { TrailerParser } from '../../../src/services/trailer-parser.js';
+
+const LORE_ID_KEY = "Lore-id";
 
 /**
  * Minimal TrailerParser mock that satisfies the AtomRepository's usage.
  */
 function createMockTrailerParser() {
   return {
-    containsLoreTrailers: vi.fn((text: string) => text.includes(LORE_ID_KEY)),
-    parse: vi.fn((rawTrailers: string): LoreTrailers => {
-      const trailers = parseTrailersFromText(rawTrailers);
-      return trailers;
+    parse: vi.fn((rawTrailers: string): any => {
+      const parser = new TrailerParser();
+      return parser.parse(rawTrailers);
     }),
     serialize: vi.fn(() => ''),
     extractTrailerBlock: vi.fn(() => ''),
@@ -132,6 +135,7 @@ describe('AtomRepository', () => {
   let trailerParser: ReturnType<typeof createMockTrailerParser>;
   let repo: AtomRepository;
   let protocol: Protocol;
+  let protocolRegistry: ProtocolRegistry;
   let searchFilter: SearchFilter;
   let atomCache: NullAtomCache;
   let queryCache: NullQueryCache;
@@ -140,10 +144,12 @@ describe('AtomRepository', () => {
     gitClient = createMockGitClient();
     trailerParser = createMockTrailerParser();
     protocol = new Protocol(DEFAULT_CONFIG);
+    protocolRegistry = new ProtocolRegistry();
+    protocolRegistry.register(protocol);
     searchFilter = new SearchFilter();
     atomCache = new NullAtomCache();
     queryCache = new NullQueryCache();
-    repo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, atomCache, queryCache);
+    repo = new AtomRepository(gitClient, trailerParser as any, protocol, protocolRegistry, searchFilter, atomCache, queryCache);
   });
 
   describe('findByTarget', () => {
@@ -296,7 +302,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, atomCache, queryCache, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, protocolRegistry, searchFilter, atomCache, queryCache, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByLoreId('deadbeef');
@@ -327,7 +333,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, atomCache, queryCache, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, protocolRegistry, searchFilter, atomCache, queryCache, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByCommitHash('abc123');
@@ -345,7 +351,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, atomCache, queryCache, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, protocolRegistry, searchFilter, atomCache, queryCache, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByRange('main..HEAD');
@@ -431,7 +437,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, atomCache, queryCache, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, protocolRegistry, searchFilter, atomCache, queryCache, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findAll();
@@ -486,7 +492,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, searchFilter, atomCache, queryCache, true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser as any, protocol, protocolRegistry, searchFilter, atomCache, queryCache, true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByScope('auth', makeQueryOptions());
@@ -750,6 +756,182 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.getFilesChanged).mockRejectedValue(new Error('git failed'));
 
       await expect(repo.findByTarget(makeGitLogArgs(), makeQueryOptions())).rejects.toThrow('git failed');
+    });
+  });
+
+  describe('Multi-Protocol Hydration', () => {
+    it('should hydrate an atom with multiple protocol states if claimed by multiple protocols', async () => {
+      // 1. Create a second protocol (Fred) using a manual mock to avoid Protocol class getter issues
+      const fredProtocol: IProtocol = {
+        name: 'Fred',
+        version: '1.0',
+        identityKey: 'Fred-id',
+        namespace: '',
+        isPermissive: false,
+        claims: (raw: string) => raw.includes('Fred-id:'),
+        owns: (key: string) => key.toLowerCase() === 'fred-id',
+        authorize: (key: string) => key.toLowerCase() === 'fred-id' ? 'Fred-id' : (key.toLowerCase() === 'confidence' ? 'Confidence' : null),
+        getDefinition: (key: string) => null,
+        isValidIdentity: (id: string) => true,
+        getDiscoveryGrep: () => [],
+        getDiscoveryPattern: () => '^Fred-id: [0-9a-f]{8}',
+        getSearchGrep: () => [],
+        matches: () => true,
+        parse: (raw: string) => ({
+          name: 'Fred',
+          version: '1.0',
+          identityKey: 'Fred-id',
+          trailers: { 'Fred-id': ['fred5678'], 'Confidence': ['high'] }
+        }),
+        getAuthorizedKeys: () => ['Fred-id', 'Confidence'],
+        getScalarKeys: () => ['Fred-id', 'Confidence'],
+        getListKeys: () => [],
+        getReferenceKeys: () => [],
+        isCore: () => false,
+        getUiKind: () => 'custom',
+        getUiColor: () => 'cyan',
+        getFormattableDefinitions: () => ({}),
+      } as any;
+
+      protocolRegistry.register(fredProtocol);
+
+      // 2. Mock a commit containing BOTH Lore and Fred trailers
+      const trailers = `${LORE_ID_KEY}: lore1234\nFred-id: fred5678\nConfidence: high`;
+      const commit: RawCommit = {
+        hash: 'multi-hash',
+        date: new Date().toISOString(),
+        author: 'cole@example.com',
+        subject: 'feat: multi-protocol',
+        body: 'Body',
+        trailers,
+      };
+
+      vi.mocked(gitClient.log).mockResolvedValue([commit]);
+
+      // 3. Find all atoms
+      const atoms = await repo.findAll();
+
+      // 4. Verify hydration
+      expect(atoms).toHaveLength(1);
+      const atom = atoms[0];
+      
+      expect(atom.protocols.has('lore')).toBe(true);
+      expect(atom.protocols.has('fred')).toBe(true);
+
+      const loreState = atom.protocols.get('lore')!;
+      expect(loreState.trailers[LORE_ID_KEY]).toEqual(['lore1234']);
+      expect(loreState.trailers.Confidence).toEqual(['high']);
+
+      const fredState = atom.protocols.get('fred')!;
+      expect(fredState.trailers['Fred-id']).toEqual(['fred5678']);
+    });
+
+    it('should respect implicit ownership (protocols get what they define, permissive gets orphans)', async () => {
+      // 1. Lore is permissive (greedy)
+      const loreProtocol = protocolRegistry.get('lore')!;
+      vi.spyOn(loreProtocol, 'isPermissive', 'get').mockReturnValue(true);
+
+      // 2. Fred is strict but defines its own ID
+      const fredProtocol: IProtocol = {
+        name: 'Fred',
+        version: '1.0',
+        identityKey: 'Fred-id',
+        namespace: '',
+        isPermissive: false,
+        claims: (raw: string) => raw.includes('Fred-id:'),
+        owns: (key: string) => key.toLowerCase() === 'fred-id' || key.toLowerCase() === 'confidence',
+        authorize: (key: string) => key.toLowerCase() === 'fred-id' ? 'Fred-id' : (key.toLowerCase() === 'confidence' ? 'Confidence' : null),
+        isValidIdentity: (id: string) => true,
+        getDiscoveryGrep: () => [],
+        getDiscoveryPattern: () => '^Fred-id: [0-9a-f]{8}',
+        getSearchGrep: () => [],
+        matches: () => true,
+        parse: (raw: string, unclaimedKeys?: Set<string>) => {
+          const trailers: Record<string, string[]> = {};
+          if (raw.includes('Fred-id: 123')) trailers['Fred-id'] = ['123'];
+          if (raw.includes('Confidence: high')) trailers['Confidence'] = ['high'];
+          return { name: 'Fred', version: '1.0', identityKey: 'Fred-id', trailers };
+        },
+      } as any;
+      
+      protocolRegistry.register(fredProtocol);
+
+      // 3. Mock commit: 
+      // - Lore-id (Owned by Lore)
+      // - Fred-id (Owned by Fred)
+      // - Confidence (Owned by BOTH)
+      // - Adhoc (Owned by NEITHER)
+      const trailers = `Lore-id: lore123\nFred-id: 123\nConfidence: high\nAdhoc: value`;
+      const commit: RawCommit = {
+        hash: 'implicit-hash',
+        date: new Date().toISOString(),
+        author: 'cole@example.com',
+        subject: 'feat: implicit claims',
+        body: 'Body',
+        trailers,
+      };
+
+      vi.mocked(gitClient.log).mockResolvedValue([commit]);
+
+      const atoms = await repo.findAll();
+      const atom = atoms[0];
+
+      const fredState = atom.protocols.get('fred')!;
+      const loreState = atom.protocols.get('lore')!;
+
+      // Fred gets what it defines
+      expect(fredState.trailers['Fred-id']).toEqual(['123']);
+      expect(fredState.trailers['Confidence']).toEqual(['high']);
+      expect(fredState.trailers['Adhoc']).toBeUndefined(); // Fred is not permissive
+      
+      // Lore gets what it defines
+      expect(loreState.trailers['Lore-id']).toEqual(['lore123']);
+      expect(loreState.trailers['Confidence']).toEqual(['high']);
+      
+      // Lore is permissive so it gets the orphan
+      expect(loreState.trailers['Adhoc']).toEqual(['value']);
+      
+      // IMPORTANT: Lore should NOT get Fred-id because Fred defined/owned it!
+      expect(loreState.trailers['Fred-id']).toBeUndefined();
+    });
+  });
+
+  describe('Discovery Pass Precision', () => {
+    it('should generate targeted greps for the "has" filter based on schema ownership', async () => {
+      // 1. Lore owns 'Constraint' (core)
+      // 2. Fred (namespaced) does NOT own 'Constraint'
+      const fredProtocol: IProtocol = {
+        name: 'Fred',
+        version: '1.0',
+        identityKey: 'Fred-id',
+        namespace: 'Fred',
+        isPermissive: false,
+        claims: () => true,
+        owns: (key: string) => key.toLowerCase() === 'fred-id', // Does NOT own Constraint
+        authorize: (key: string) => key.toLowerCase() === 'fred-id' ? 'Fred-id' : null,
+        isValidIdentity: () => true,
+        getDiscoveryGrep: () => [],
+        getDiscoveryPattern: () => '^Fred/Fred-id: [0-9a-f]{8}',
+        getSearchGrep: () => [],
+        matches: () => true,
+        parse: () => ({ name: 'Fred', version: '1.0', identityKey: 'Fred-id', trailers: {} }),
+      } as any;
+      
+      protocolRegistry.register(fredProtocol);
+      vi.mocked(gitClient.log).mockResolvedValue([]);
+
+      // 3. Search for atoms with 'Constraint'
+      await repo.findAll({ has: 'Constraint' });
+
+      // 4. Verify generated args
+      const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
+      
+      // Should include Lore's constraint grep (root namespace)
+      // Lore is registered in beforeEach, it owns 'Constraint'
+      expect(logArgs.some(a => a.includes('^Constraint: '))).toBe(true);
+      
+      // Should NOT include a Fred/Constraint grep because Fred doesn't own it
+      expect(logArgs.some(a => a.includes('^Fred/Constraint: '))).toBe(false);
     });
   });
 });

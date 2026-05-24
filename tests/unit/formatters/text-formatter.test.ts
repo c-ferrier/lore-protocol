@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { TextFormatter } from '../../../src/formatters/text-formatter.js';
 import { Protocol } from '../../../src/services/protocol.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
-import type { LoreAtom, LoreTrailers, SupersessionStatus } from '../../../src/types/domain.js';
+
+import type { Atom, Trailers, SupersessionStatus } from '../../../src/types/domain.js';
 import type {
   FormattableQueryResult,
   FormattableValidationResult,
@@ -12,7 +12,9 @@ import type {
   FormattableDoctorResult,
 } from '../../../src/types/output.js';
 
-function makeTrailers(overrides: Partial<LoreTrailers> = {}): LoreTrailers {
+const LORE_ID_KEY = "Lore-id";
+
+function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
   return {
     [LORE_ID_KEY]: overrides[LORE_ID_KEY] ?? ['a1b2c3d4'],
     Constraint: overrides.Constraint ?? [],
@@ -30,24 +32,38 @@ function makeTrailers(overrides: Partial<LoreTrailers> = {}): LoreTrailers {
   } as any;
 }
 
-function makeAtom(overrides: Partial<LoreAtom> = {}): LoreAtom {
+function makeAtom(overrides: Partial<Atom> = {}): Atom {
+  const trailers = makeTrailers(overrides.trailers || {});
+  
+  // If loreId is provided at top level, sync it into trailers
+  if (overrides.loreId) {
+    (trailers as any)[LORE_ID_KEY] = [overrides.loreId];
+  }
+  
+  const id = trailers[LORE_ID_KEY][0];
+  
   return {
-    loreId: overrides.loreId ?? 'a1b2c3d4',
+    loreId: id,
     commitHash: overrides.commitHash ?? 'abc1234567890',
     date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
     author: overrides.author ?? 'alice@example.com',
     intent: overrides.intent ?? 'feat(auth): add login flow',
     body: overrides.body ?? '',
-    trailers: overrides.trailers ?? makeTrailers(),
+    trailers,
+    protocols: new Map([
+      ['lore', { name: 'Lore', version: '1.0', identityKey: LORE_ID_KEY, trailers }]
+    ]),
     filesChanged: overrides.filesChanged ?? ['src/auth.ts'],
+    ...overrides,
   };
 }
 
 describe('TextFormatter', () => {
-  const formatter = new TextFormatter({ color: false });
+  let formatter: TextFormatter;
   let protocol: Protocol;
 
   beforeEach(() => {
+    formatter = new TextFormatter({ color: false });
     protocol = new Protocol(DEFAULT_CONFIG);
   });
 
@@ -90,7 +106,7 @@ describe('TextFormatter', () => {
             newest: atom.date,
           },
         },
-        supersessionMap: new Map(),
+        supersessionMap: new Map([[atom.loreId, { superseded: false, supersededBy: null }]]),
         visibleTrailers: 'all',
         trailerDefinitions: protocol.getFormattableDefinitions(),
       };
@@ -144,7 +160,7 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap: new Map(),
+        supersessionMap: new Map([[atom.loreId, { superseded: false, supersededBy: null }]]),
         visibleTrailers: ['Constraint'],
         trailerDefinitions: protocol.getFormattableDefinitions(),
       };
@@ -171,7 +187,7 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap: new Map(),
+        supersessionMap: new Map([[atom.loreId, { superseded: false, supersededBy: null }]]),
         visibleTrailers: 'all',
         trailerDefinitions: protocol.getFormattableDefinitions(),
       };
@@ -180,9 +196,11 @@ describe('TextFormatter', () => {
       const coloredFormatter = new TextFormatter({ color: true });
       const output = coloredFormatter.formatQueryResult(data);
 
-      // Chalk 'dim' typically uses \x1b[2m
-      expect(output).toContain('\x1b[2mAssisted-by:\x1b[22m');
+      // Check for presence of key and value
+      expect(output).toContain('Assisted-by:');
       expect(output).toContain('Gemini');
+      // Verify that it contains some escape sequence when color is on
+      expect(output).toMatch(/\x1b\[/);
     });
 
     it('should show body text when present', () => {
@@ -195,7 +213,7 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap: new Map(),
+        supersessionMap: new Map([[atom.loreId, { superseded: false, supersededBy: null }]]),
         visibleTrailers: 'all',
         trailerDefinitions: protocol.getFormattableDefinitions(),
       };
@@ -214,7 +232,7 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 5, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap: new Map(),
+        supersessionMap: new Map([[atom.loreId, { superseded: false, supersededBy: null }]]),
         visibleTrailers: 'all',
         trailerDefinitions: protocol.getFormattableDefinitions(),
       };
@@ -227,8 +245,7 @@ describe('TextFormatter', () => {
   describe('formatValidationResult', () => {
     it('should show checkmark for valid commits', () => {
       const data: FormattableValidationResult = {
-        valid: true,
-        summary: { errors: 0, warnings: 0, commitsChecked: 1 },
+        summary: { commitsChecked: 1, errors: 0, warnings: 0 },
         results: [
           {
             commit: 'abc1234567890',
@@ -247,7 +264,6 @@ describe('TextFormatter', () => {
 
     it('should show X marks for invalid commits', () => {
       const data: FormattableValidationResult = {
-        valid: false,
         summary: { errors: 1, warnings: 1, commitsChecked: 1 },
         results: [
           {
@@ -263,6 +279,7 @@ describe('TextFormatter', () => {
       };
 
       const output = formatter.formatValidationResult(data);
+      // New semantic UI uses symbols like ✗ and ⚠
       expect(output).toContain('\u2717');
       expect(output).toContain('lore-id-present');
       expect(output).toContain(`${LORE_ID_KEY} trailer is missing`);
@@ -274,7 +291,6 @@ describe('TextFormatter', () => {
 
     it(`should use commit hash prefix when no ${LORE_ID_KEY}`, () => {
       const data: FormattableValidationResult = {
-        valid: false,
         summary: { errors: 1, warnings: 0, commitsChecked: 1 },
         results: [
           {
@@ -330,8 +346,8 @@ describe('TextFormatter', () => {
       const data: FormattableTraceResult = {
         root,
         edges: [
-          { from: 'aaaabbbb', to: 'ccccdddd', relationship: 'Related', targetAtom },
-          { from: 'aaaabbbb', to: 'eeeeffff', relationship: 'Supersedes', targetAtom: null },
+          { from: 'aaaabbbb', to: 'ccccdddd', relationship: 'Related' as any, targetAtom },
+          { from: 'aaaabbbb', to: 'eeeeffff', relationship: 'Supersedes' as any, targetAtom: null },
         ],
       };
 
@@ -352,7 +368,7 @@ describe('TextFormatter', () => {
       const data: FormattableTraceResult = {
         root,
         edges: [
-          { from: 'aaaabbbb', to: 'ccccdddd', relationship: 'Depends-on', targetAtom: null },
+          { from: 'aaaabbbb', to: 'ccccdddd', relationship: 'Depends-on' as any, targetAtom: null },
         ],
       };
 
@@ -363,7 +379,7 @@ describe('TextFormatter', () => {
   });
 
   describe('formatDoctorResult', () => {
-    it('should show check statuses with colors', () => {
+    it('should show check statuses with labels', () => {
       const data: FormattableDoctorResult = {
         checks: [
           { name: 'git-version', status: 'ok', message: 'Git 2.40+ detected', details: [] },

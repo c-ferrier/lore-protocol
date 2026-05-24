@@ -1,4 +1,4 @@
-import type { LoreAtom } from '../../types/domain.js';
+import type { Atom } from '../../types/domain.js';
 import type { QueryMeta } from '../../types/query.js';
 
 /**
@@ -7,7 +7,7 @@ import type { QueryMeta } from '../../types/query.js';
  * @param totalAtoms - Count before any result-level limiting (e.g., --limit)
  * @param displayAtoms - The atoms that will actually be shown to the user
  */
-export function buildQueryMeta(totalAtoms: number, displayAtoms: readonly LoreAtom[]): QueryMeta {
+export function buildQueryMeta(totalAtoms: number, displayAtoms: readonly Atom[]): QueryMeta {
   if (displayAtoms.length === 0) {
     return { totalAtoms, filteredAtoms: 0, oldest: null, newest: null };
   }

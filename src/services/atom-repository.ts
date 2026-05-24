@@ -1,16 +1,17 @@
 import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
 import type { PathQueryOptions, SearchOptions } from '../types/query.js';
-import type { LoreAtom, LoreId, LoreTrailers } from '../types/domain.js';
+import type { Atom, AtomId, Trailers, ProtocolState } from '../types/domain.js';
 import type { TrailerParser } from '../services/trailer-parser.js';
-import { LORE_ID_PATTERN, GIT_FILES_CHANGED_BATCH_SIZE, LORE_ID_KEY } from '../util/constants.js';
+import { GIT_FILES_CHANGED_BATCH_SIZE } from '../util/constants.js';
 import type { Protocol } from './protocol.js';
+import type { ProtocolRegistry } from './protocol-registry.js';
 import type { SearchFilter } from './search-filter.js';
 import type { IAtomCache } from '../interfaces/atom-cache.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import { escapeRegex } from '../util/regex.js';
 
 /**
- * Retrieves LoreAtoms from git history.
+ * Retrieves Atoms from git history.
  * The central query engine for all Lore-related git log queries.
  *
  * GRASP: Pure Fabrication -- persistence access abstracted from domain.
@@ -22,6 +23,7 @@ export class AtomRepository {
     private readonly gitClient: IGitClient,
     private readonly trailerParser: TrailerParser,
     private readonly protocol: Protocol,
+    private readonly protocolRegistry: ProtocolRegistry,
     private readonly searchFilter: SearchFilter,
     private readonly atomCache: IAtomCache,
     private readonly queryCache: IQueryCache,
@@ -37,7 +39,7 @@ export class AtomRepository {
     gitLogArgs: readonly string[],
     options: Partial<PathQueryOptions>,
     headHash?: string,
-  ): Promise<LoreAtom[]> {
+  ): Promise<Atom[]> {
     const searchOptions = this.makeDefaultSearchOptions(options);
 
     // 1. Try result-level query cache first if headHash provided
@@ -84,12 +86,12 @@ export class AtomRepository {
    * Uses git log --grep to efficiently search for the specific trailer value
    * instead of fetching entire history.
    */
-  async findByLoreId(loreId: LoreId): Promise<LoreAtom | null> {
-    if (!LORE_ID_PATTERN.test(loreId)) {
+  async findByLoreId(loreId: AtomId): Promise<Atom | null> {
+    if (!this.protocol.isValidIdentity(loreId)) {
       return null;
     }
 
-    const logArgs = ['--all', '--extended-regexp', '--all-match', `--grep=^${LORE_ID_KEY}: ${escapeRegex(loreId)}`];
+    const logArgs = ['--all', '--extended-regexp', '--all-match', `--grep=^${this.protocol.identityKey}: ${escapeRegex(loreId)}`];
     if (this.isScoped) {
       logArgs.push('--', '.');
     }
@@ -104,7 +106,7 @@ export class AtomRepository {
    * Fetches the commit via `git log -1 <hash>` and parses it.
    * Returns null if the commit has no valid Lore trailers.
    */
-  async findByCommitHash(hash: string): Promise<LoreAtom | null> {
+  async findByCommitHash(hash: string): Promise<Atom | null> {
     const logArgs = ['-1', hash];
     if (this.isScoped) {
       logArgs.push('--', '.');
@@ -118,7 +120,7 @@ export class AtomRepository {
    * Find atoms within a git revision range (e.g., "main..HEAD").
    * Passes the range directly to git log.
    */
-  async findByRange(range: string): Promise<LoreAtom[]> {
+  async findByRange(range: string): Promise<Atom[]> {
     const logArgs = [range];
     if (this.isScoped) {
       logArgs.push('--', '.');
@@ -133,7 +135,7 @@ export class AtomRepository {
    * Uses "Atom Discovery Mode" to push filters (Lore-id, author, scope, enums) down to
    * the Git layer for optimized performance on large repositories.
    */
-  async findAll(options: Partial<SearchOptions> = {}, headHash?: string): Promise<LoreAtom[]> {
+  async findAll(options: Partial<SearchOptions> = {}, headHash?: string): Promise<Atom[]> {
     return this.findByTarget([], options, headHash);
   }
 
@@ -141,7 +143,7 @@ export class AtomRepository {
    * Find atoms matching a conventional commit scope.
    * Parses the subject line to extract scope from `type(scope): description`.
    */
-  async findByScope(scope: string, options: Partial<PathQueryOptions>, headHash?: string): Promise<LoreAtom[]> {
+  async findByScope(scope: string, options: Partial<PathQueryOptions>, headHash?: string): Promise<Atom[]> {
     return this.findByTarget([], { ...options, scope }, headHash);
   }
 
@@ -149,17 +151,17 @@ export class AtomRepository {
    * Transitively resolve follow links (Related, Supersedes, Depends-on)
    * from the given atoms using BFS up to maxDepth.
    */
-  async resolveFollowLinks(atoms: readonly LoreAtom[], maxDepth: number): Promise<LoreAtom[]> {
+  async resolveFollowLinks(atoms: readonly Atom[], maxDepth: number): Promise<Atom[]> {
     if (maxDepth <= 0 || atoms.length === 0) {
       return [...atoms];
     }
 
-    const collected = new Map<string, LoreAtom>();
+    const collected = new Map<string, Atom>();
     for (const atom of atoms) {
       collected.set(atom.loreId, atom);
     }
 
-    const queue: Array<{ loreId: LoreId; depth: number }> = [];
+    const queue: Array<{ loreId: AtomId; depth: number }> = [];
 
     // Seed the BFS with all reference IDs from the initial atoms
     for (const atom of atoms) {
@@ -253,73 +255,99 @@ export class AtomRepository {
     args.push('--regexp-ignore-case');
     
     // 3. Atom Discovery Sentinel
-    args.push(`--grep=^${LORE_ID_KEY}: [0-9a-f]{8}`);
+    args.push(...this.protocolRegistry.getDiscoveryGrep());
 
     if (options.scope) {
       args.push(`--grep=^[a-zA-Z]+\\(${escapeRegex(options.scope)}\\)`);
     }
 
     if (options.has) {
-      args.push(`--grep=^${escapeRegex(options.has)}: `);
+      // Precise discovery: only search namespaces where the trailer is explicitly defined
+      const patterns = this.protocolRegistry.all()
+        .filter((p) => p.owns(options.has!))
+        .map((p) => {
+          const prefix = p.namespace ? `${p.namespace}/` : '';
+          return `^${prefix}${escapeRegex(options.has!)}: `;
+        });
+
+      if (patterns.length > 0) {
+        const combined = patterns.map((p) => `(${p})`).join('|');
+        args.push(`--grep=${combined}`);
+      }
     }
 
-    if (options.confidence) {
-      args.push(`--grep=^Confidence: ${escapeRegex(options.confidence)}`);
-    }
-
-    if (options.scopeRisk) {
-      args.push(`--grep=^Scope-risk: ${escapeRegex(options.scopeRisk)}`);
-    }
-
-    if (options.reversibility) {
-      args.push(`--grep=^Reversibility: ${escapeRegex(options.reversibility)}`);
+    // 4. Semantic Filtering (delegated to protocols)
+    const filters = options.filters || {};
+    for (const protocol of this.protocolRegistry.all()) {
+      args.push(...protocol.getSearchGrep(filters));
     }
 
     if (options.text) {
       args.push(`--grep=${escapeRegex(options.text)}`);
     }
 
-    // 4. Conjunction logic: requires ALL specific patterns to match.
+    // 5. Conjunction logic: requires ALL specific patterns to match.
     args.push('--all-match');
 
     return args;
   }
 
   /**
-   * Parse an array of RawCommit into LoreAtom[], filtering out non-Lore commits.
+   * Parse an array of RawCommit into Atom[], filtering out non-Lore commits.
    */
-  private async parseRawCommits(rawCommits: readonly RawCommit[]): Promise<LoreAtom[]> {
-    // First pass: filter to Lore commits and parse trailers (synchronous work)
-    const loreCommits: Array<{ raw: RawCommit; trailers: LoreTrailers }> = [];
+  private async parseRawCommits(rawCommits: readonly RawCommit[]): Promise<Atom[]> {
+    // First pass: identify commits claimed by any protocol and parse their states
+    const hydrationTargets: Array<{ raw: RawCommit; protocols: Map<string, ProtocolState> }> = [];
 
     for (const raw of rawCommits) {
-      if (!this.trailerParser.containsLoreTrailers(raw.trailers)) {
+      const activeProtocols = this.protocolRegistry.detect(raw.trailers);
+      if (activeProtocols.length === 0) {
         continue;
       }
 
-      const trailers = this.trailerParser.parse(raw.trailers);
-      const loreId = trailers[LORE_ID_KEY]?.[0];
-      if (!loreId || !LORE_ID_PATTERN.test(loreId)) {
-        continue;
+      // Claim Hierarchy Logic:
+      // 1. Identify which trailers are present
+      const rawTrailersMap = this.trailerParser.parse(raw.trailers);
+      const allPresentKeys = Object.keys(rawTrailersMap);
+      
+      // 2. Identify keys that are "owned" by at least one registered protocol
+      const ownedKeys = new Set<string>();
+      for (const p of activeProtocols) {
+        for (const key of allPresentKeys) {
+          if (p.owns(key)) {
+            ownedKeys.add(key);
+          }
+        }
       }
 
-      loreCommits.push({ raw, trailers });
+      // 3. "Unclaimed" keys are those not explicitly defined in any protocol schema
+      const unclaimedKeys = new Set(
+        allPresentKeys.filter(key => !ownedKeys.has(key))
+      );
+
+      // 4. Hydrate each protocol state
+      const protocolMap = new Map<string, ProtocolState>();
+      for (const protocol of activeProtocols) {
+        // All protocols get to parse normally.
+        // If a protocol is permissive, it will additionally ingest unclaimedKeys.
+        protocolMap.set(protocol.name.toLowerCase(), protocol.parse(raw.trailers, unclaimedKeys));
+      }
+
+      hydrationTargets.push({ raw, protocols: protocolMap });
     }
 
     // Second pass: get files changed using a 2-stage strategy.
-    // Stage 1: Fast concurrent cache check for all identified Lore commits.
     const filesPerCommit: (readonly string[] | null)[] = await Promise.all(
-      loreCommits.map(({ raw }) => this.atomCache.getFiles(raw.hash)),
+      hydrationTargets.map(({ raw }) => this.atomCache.getFiles(raw.hash)),
     );
 
     const misses: Array<{ index: number; hash: string }> = [];
     for (let i = 0; i < filesPerCommit.length; i++) {
       if (filesPerCommit[i] === null) {
-        misses.push({ index: i, hash: loreCommits[i].raw.hash });
+        misses.push({ index: i, hash: hydrationTargets[i].raw.hash });
       }
     }
 
-    // Stage 2: Batched Git fetch for cache misses only (respecting concurrency limit).
     if (misses.length > 0) {
       const hashes = misses.map(m => m.hash);
       const filesMap = await this.gitClient.getFilesChanged(hashes);
@@ -327,37 +355,37 @@ export class AtomRepository {
       for (const miss of misses) {
         const files = filesMap.get(miss.hash) ?? [];
         filesPerCommit[miss.index] = files;
-        // Background: fire-and-forget cache update
         this.atomCache.setFiles(miss.hash, files).catch(() => {});
       }
     }
 
-    // Build atoms by pairing parsed trailers with their file lists (now guaranteed non-null)
-    const atoms: LoreAtom[] = loreCommits.map(({ raw, trailers }, index) =>
-      this.buildAtom(raw, trailers, filesPerCommit[index]!),
+    // Build atoms by pairing parsed protocol states with their file lists
+    const atoms: Atom[] = hydrationTargets.map(({ raw, protocols }, index) =>
+      this.buildAtom(raw, protocols, filesPerCommit[index]!),
     );
 
     return atoms;
   }
 
   /**
-   * Construct a LoreAtom from its constituent parts.
-   * Single source of truth for RawCommit -> LoreAtom mapping.
-   * GRASP: Creator -- AtomRepository owns the data needed to create atoms.
+   * Construct an Atom from its constituent parts.
    */
-  private buildAtom(raw: RawCommit, trailers: LoreTrailers, filesChanged: readonly string[]): LoreAtom {
-    const loreId = trailers[LORE_ID_KEY]?.[0];
-    if (!loreId) throw new Error(`${LORE_ID_KEY} missing in trailers`);
+  private buildAtom(raw: RawCommit, protocols: Map<string, ProtocolState>, filesChanged: readonly string[]): Atom {
+    // Compatibility layer: extract Lore-specific data for deprecated fields
+    const loreState = protocols.get(this.protocol.name.toLowerCase());
+    const loreId = loreState?.trailers[loreState.identityKey]?.[0] ?? '';
+    const trailers = loreState?.trailers ?? {};
 
     return {
-      loreId,
       commitHash: raw.hash,
       date: new Date(raw.date),
       author: raw.author,
       intent: raw.subject,
       body: this.stripTrailersFromBody(raw.body, raw.trailers),
-      trailers,
+      protocols,
       filesChanged,
+      loreId,
+      trailers,
     };
   }
 
@@ -389,7 +417,7 @@ export class AtomRepository {
    * Note: author and since are also passed to git log, but this provides a second
    * layer of filtering for edge cases and absolute precision.
    */
-  private applyFilters(atoms: LoreAtom[], options: SearchOptions): LoreAtom[] {
+  private applyFilters(atoms: Atom[], options: SearchOptions): Atom[] {
     return this.searchFilter.applyFilters(atoms, options);
   }
 
@@ -407,11 +435,9 @@ export class AtomRepository {
       maxCommits: null,
       since: null,
       until: null,
-      confidence: null,
-      scopeRisk: null,
-      reversibility: null,
       has: null,
       text: null,
+      filters: {},
       ...overrides,
     };
   }
@@ -448,15 +474,15 @@ export class AtomRepository {
    * Extract all referenced Lore-ids from the reference trailers
    * (Supersedes, Depends-on, Related).
    */
-  private extractReferenceIds(trailers: LoreTrailers): LoreId[] {
-    const ids: LoreId[] = [];
+  private extractReferenceIds(trailers: Trailers): AtomId[] {
+    const ids: AtomId[] = [];
     const refKeys = this.protocol.getReferenceKeys();
 
     for (const key of refKeys) {
-      const values = trailers[key] as readonly LoreId[];
+      const values = trailers[key] as readonly AtomId[];
       if (!values) continue;
       for (const id of values) {
-        if (LORE_ID_PATTERN.test(id)) {
+        if (this.protocol.isValidIdentity(id)) {
           ids.push(id);
         }
       }

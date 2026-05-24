@@ -5,7 +5,9 @@ import type { CommitInput } from '../../../src/types/commit.js';
 import type { LoreConfig } from '../../../src/types/config.js';
 import type { LoreTrailers } from '../../../src/types/domain.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
+
+const LORE_ID_KEY = "Lore-id";
+
 
 // Mock TrailerParser
 function createMockTrailerParser() {

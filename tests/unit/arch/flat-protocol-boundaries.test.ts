@@ -3,8 +3,10 @@ import { Protocol } from '../../../src/services/protocol.js';
 import { TrailerParser } from '../../../src/services/trailer-parser.js';
 import { JsonFormatter } from '../../../src/formatters/json-formatter.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
+
 import type { FormattableQueryResult } from '../../../src/types/output.js';
+
+const LORE_ID_KEY = "Lore-id";
 
 /**
  * Targeted tests for the boundaries and edge cases of the Flat & Uniform Protocol.
@@ -13,7 +15,7 @@ describe('Flat Protocol Boundaries', () => {
   describe('Canonical Ordering', () => {
     it('should always serialize in protocol-defined order regardless of insertion order', () => {
       const protocol = new Protocol(DEFAULT_CONFIG);
-      const parser = new TrailerParser(protocol);
+      const parser = new TrailerParser();
 
       // Input in "wrong" order
       const trailers = {
@@ -24,7 +26,7 @@ describe('Flat Protocol Boundaries', () => {
         'My-Custom': ['Val']
       } as any;
 
-      const output = parser.serialize(trailers);
+      const output = parser.serialize(trailers, protocol.getAuthorizedKeys());
       const lines = output.split('\n');
 
       // Canonical order from core-definitions.ts: 
@@ -82,15 +84,16 @@ describe('Flat Protocol Boundaries', () => {
         trailers: { ...DEFAULT_CONFIG.trailers, permissive: false, custom: ['Authorized'] }
       };
       const protocol = new Protocol(config);
-      const parser = new TrailerParser(protocol);
+      const parser = new TrailerParser();
 
       const raw = `${LORE_ID_KEY}: abc\nAuthorized: yes\nUnauthorized: no`;
-      const parsed = parser.parse(raw);
+      const result = protocol.parse(raw);
+      const parsed = result.trailers;
 
       expect(parsed['Authorized']).toEqual(['yes']);
       expect(parsed['Unauthorized']).toBeUndefined();
       
-      const serialized = parser.serialize(parsed);
+      const serialized = parser.serialize(parsed, protocol.getAuthorizedKeys());
       expect(serialized).not.toContain('Unauthorized');
     });
   });
@@ -98,16 +101,17 @@ describe('Flat Protocol Boundaries', () => {
   describe('Key Case Resilience', () => {
     it('should treat trailers as case-insensitive for core mapping', () => {
       const protocol = new Protocol(DEFAULT_CONFIG);
-      const parser = new TrailerParser(protocol);
+      const parser = new TrailerParser();
 
       // User provides lowercase 'confidence'
       const raw = `${LORE_ID_KEY}: abc\nconfidence: low`;
-      const parsed = parser.parse(raw);
+      const result = protocol.parse(raw);
+      const parsed = result.trailers;
 
       // Should be mapped to the canonical PascalCase key
       expect(parsed['Confidence']).toEqual(['low']);
       
-      const serialized = parser.serialize(parsed);
+      const serialized = parser.serialize(parsed, protocol.getAuthorizedKeys());
       expect(serialized).toContain('Confidence: low');
       expect(serialized).not.toContain('confidence:');
     });

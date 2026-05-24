@@ -1,8 +1,9 @@
-import type { LoreAtom, TrailerKey } from '../types/domain.js';
+import type { Atom, ProtocolState } from '../types/domain.js';
 import type { SearchOptions } from '../types/query.js';
+import type { ProtocolRegistry } from './protocol-registry.js';
 
 /**
- * Applies authoritative application-level filtering to a collection of Lore atoms.
+ * Applies authoritative application-level filtering to a collection of atoms.
  * 
  * GRASP: Information Expert -- knows how to match atoms against search criteria.
  * SOLID: SRP -- only responsible for filtering logic, no git interaction or formatting.
@@ -11,32 +12,30 @@ import type { SearchOptions } from '../types/query.js';
  * ensuring absolute precision after Git's coarse --grep pass.
  */
 export class SearchFilter {
+  constructor(private readonly protocolRegistry: ProtocolRegistry) {}
+
   /**
    * Apply all active search filters to the atom list.
    */
-  applyFilters(atoms: readonly LoreAtom[], options: SearchOptions): LoreAtom[] {
+  applyFilters(atoms: readonly Atom[], options: SearchOptions): Atom[] {
     return atoms.filter((atom) => this.matches(atom, options));
   }
 
-  private matches(atom: LoreAtom, options: SearchOptions): boolean {
+  private matches(atom: Atom, options: SearchOptions): boolean {
     // 1. Trailer presence filter (--has)
-    if (options.has && !this.atomHasTrailer(atom, options.has)) {
-      return false;
+    if (options.has) {
+      // Check if any protocol in the atom contains this trailer key
+      const pStates = atom.protocols 
+        ? Array.from(atom.protocols.values()) 
+        : [{ trailers: atom.trailers }];
+
+      const hasTrailer = pStates.some(
+        (state) => (state.trailers[options.has!] || []).length > 0
+      );
+      if (!hasTrailer) return false;
     }
 
-    // 2. Exact match enum filters
-    // Note: Enum values are stored as single-element arrays in the flat model.
-    if (options.confidence && atom.trailers.Confidence[0] !== options.confidence) {
-      return false;
-    }
-    if (options.scopeRisk && atom.trailers['Scope-risk'][0] !== options.scopeRisk) {
-      return false;
-    }
-    if (options.reversibility && atom.trailers.Reversibility[0] !== options.reversibility) {
-      return false;
-    }
-
-    // 3. Author filter
+    // 2. Author filter
     // Authoritative pass: Git --author matches full "Name <email>"; Lore
     // atoms only store the email (%ae). This pass ensures consistency.
     if (options.author) {
@@ -44,7 +43,7 @@ export class SearchFilter {
       if (!atom.author.toLowerCase().includes(authorLower)) return false;
     }
 
-    // 4. Intent/Scope filter
+    // 3. Intent/Scope filter
     // Precise pass: Git --grep might match code snippets in the body.
     // This pass ensures we only match the actual intent line's scope.
     if (options.scope) {
@@ -53,50 +52,62 @@ export class SearchFilter {
       if (!extractedScope || extractedScope.toLowerCase() !== scopeLower) return false;
     }
 
-    // 5. Date filters (authoritative pass for non-git sources or edge cases)
-    if (options.since) {
-      const sinceDate = new Date(options.since);
-      if (!isNaN(sinceDate.getTime()) && atom.date < sinceDate) return false;
-    }
-    if (options.until) {
-      const untilDate = new Date(options.until);
-      if (!isNaN(untilDate.getTime()) && atom.date > untilDate) return false;
-    }
+    // 4. Date filters (authoritative pass for non-git sources or edge cases)
+    if (options.sinceDate && atom.date < options.sinceDate) return false;
+    if (options.untilDate && atom.date > options.untilDate) return false;
 
-    // 6. Full text search
+    // 5. Full text search
     // Semantic pass: Git matches keywords anywhere. This pass precisely
-    // checks context (intent, body, and all Lore trailers).
+    // checks context (intent, body, and all protocol trailers).
     if (options.text && !this.atomMatchesText(atom, options.text)) {
       return false;
+    }
+
+    // 6. Semantic Filtering (delegated to protocols)
+    const filters = options.filters || {};
+    if (Object.keys(filters).length > 0) {
+      if (atom.protocols) {
+        for (const [name, state] of atom.protocols) {
+          const protocol = this.protocolRegistry.get(name);
+          if (protocol && !protocol.matches(state, filters)) {
+            return false;
+          }
+        }
+      } else {
+        // Fallback for deprecated structure: assume primary protocol can match against root trailers
+        const primary = this.protocolRegistry.all()[0];
+        if (primary) {
+          const state: ProtocolState = {
+            name: primary.name,
+            version: primary.version,
+            identityKey: primary.identityKey,
+            trailers: atom.trailers,
+          };
+          if (!primary.matches(state, filters)) return false;
+        }
+      }
     }
 
     return true;
   }
 
   /**
-   * Check if an atom has a non-empty value for the given trailer key.
-   */
-  atomHasTrailer(atom: LoreAtom, trailerKey: TrailerKey): boolean {
-    const values = atom.trailers[trailerKey] || [];
-    return values.length > 0;
-  }
-
-  /**
    * Check if an atom matches a text query across intent, body, and trailer values.
    */
-  private atomMatchesText(atom: LoreAtom, query: string): boolean {
+  private atomMatchesText(atom: Atom, query: string): boolean {
     const textLower = query.toLowerCase();
 
     if (atom.intent.toLowerCase().includes(textLower)) return true;
     if (atom.body.toLowerCase().includes(textLower)) return true;
 
-    // Search all trailers uniformly
-    for (const key of Object.keys(atom.trailers)) {
-      const values = atom.trailers[key];
-      if (!values) continue;
+    // Search all trailers in all protocols uniformly
+    const pStates = atom.protocols ? Array.from(atom.protocols.values()) : [{ trailers: atom.trailers }];
 
-      for (const value of values) {
-        if (value.toLowerCase().includes(textLower)) return true;
+    for (const state of pStates) {
+      for (const values of Object.values(state.trailers)) {
+        for (const value of values) {
+          if (value.toLowerCase().includes(textLower)) return true;
+        }
       }
     }
 

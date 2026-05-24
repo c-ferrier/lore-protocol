@@ -3,7 +3,6 @@ import type { LoreConfig, CustomTrailerDefinition } from '../../../types/config.
 import { MultiValueTrailerCollector } from './multi-value-trailer-collector.js';
 import { EnumChoiceTrailerCollector } from './enum-choice-trailer-collector.js';
 import { Protocol } from '../../protocol.js';
-import { LORE_ID_KEY } from '../../../util/constants.js';
 
 /**
  * Registry and factory for trailer collectors.
@@ -26,7 +25,7 @@ export class TrailerCollectorRegistry {
 
     // Iterate through all authorized keys in protocol-defined order
     for (const key of authorizedKeys) {
-      if (key === LORE_ID_KEY) continue;
+      if (key === this.protocol.identityKey) continue;
 
       const def = this.protocol.getDefinition(key);
       if (!def) continue;

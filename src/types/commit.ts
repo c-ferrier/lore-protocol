@@ -1,4 +1,4 @@
-import type { LoreTrailers } from './domain.js';
+import type { Trailers } from './domain.js';
 
 /**
  * The structured input for creating a Lore atom.
@@ -7,5 +7,5 @@ import type { LoreTrailers } from './domain.js';
 export interface CommitInput {
   readonly intent: string;
   readonly body?: string;
-  readonly trailers?: LoreTrailers;
+  readonly trailers?: Trailers;
 }

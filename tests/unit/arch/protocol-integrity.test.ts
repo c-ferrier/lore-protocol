@@ -3,9 +3,11 @@ import { FlagsInputReader } from '../../../src/services/readers/flags-input-read
 import { JsonFormatter } from '../../../src/formatters/json-formatter.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 import { Protocol } from '../../../src/services/protocol.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
+
 import type { CommitCommandOptions } from '../../../src/services/commit-input-resolver.js';
 import type { FormattableQueryResult } from '../../../src/types/output.js';
+
+const LORE_ID_KEY = "Lore-id";
 
 /**
  * High-level integration tests for the Lore Protocol's architectural integrity.

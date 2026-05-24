@@ -4,7 +4,7 @@ import type { SupersessionResolver } from '../../services/supersession-resolver.
 import type { PathResolver } from '../../services/path-resolver.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { LoreConfig } from '../../types/config.js';
-import type { TrailerKey, LoreAtom, SupersessionStatus } from '../../types/domain.js';
+import type { TrailerKey, Atom, SupersessionStatus } from '../../types/domain.js';
 import type { PathQueryOptions, QueryResult, TargetType } from '../../types/query.js';
 import type { FormattableQueryResult } from '../../types/output.js';
 import { buildQueryMeta } from './build-query-meta.js';
@@ -80,7 +80,7 @@ export async function executePathQuery(
   }
 
   // Step 1: Resolve target or use --scope
-  let atoms: LoreAtom[];
+  let atoms: Atom[];
   let targetType: TargetType | 'search' | 'global';
   let targetDisplay: string;
 
@@ -107,7 +107,7 @@ export async function executePathQuery(
   const supersessionMap: Map<string, SupersessionStatus> = supersessionResolver.resolve(atoms);
 
   // Step 4: Filter superseded atoms unless --all
-  let displayAtoms: readonly LoreAtom[];
+  let displayAtoms: readonly Atom[];
   if (queryOptions.all) {
     displayAtoms = atoms;
   } else {

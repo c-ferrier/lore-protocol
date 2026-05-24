@@ -1,4 +1,4 @@
-import type { LoreAtom, LoreId, SupersessionStatus } from '../types/domain.js';
+import type { Atom, AtomId, SupersessionStatus } from '../types/domain.js';
 import { LORE_ID_PATTERN } from '../util/constants.js';
 
 /**
@@ -10,14 +10,14 @@ import { LORE_ID_PATTERN } from '../util/constants.js';
 export class SupersessionResolver {
   /**
    * Given a set of atoms, compute which are superseded and by whom.
-   * Returns a map from LoreId to SupersessionStatus.
+   * Returns a map from AtomId to SupersessionStatus.
    *
    * Logic: iterate all atoms. For each atom that has `Supersedes` trailers,
-   * mark the referenced atoms as superseded (supersededBy = this atom's loreId).
+   * mark the referenced atoms as superseded (supersededBy = this atom's id).
    * Handle transitive chains: if A supersedes B and B supersedes C,
    * both B and C are superseded.
    */
-  resolve(atoms: readonly LoreAtom[]): Map<string, SupersessionStatus> {
+  resolve(atoms: readonly Atom[]): Map<string, SupersessionStatus> {
     const statusMap = new Map<string, SupersessionStatus>();
 
     // Initialize all atoms as not superseded
@@ -29,14 +29,14 @@ export class SupersessionResolver {
     }
 
     // Build a lookup map for quick access
-    const atomById = new Map<string, LoreAtom>();
+    const atomById = new Map<string, Atom>();
     for (const atom of atoms) {
       atomById.set(atom.loreId, atom);
     }
 
     // First pass: mark direct supersessions
     for (const atom of atoms) {
-      for (const supersededId of atom.trailers.Supersedes) {
+      for (const supersededId of atom.trailers.Supersedes || []) {
         if (!LORE_ID_PATTERN.test(supersededId)) {
           continue;
         }
@@ -62,9 +62,9 @@ export class SupersessionResolver {
    * Filter atoms to only those that are active (not superseded).
    */
   filterActive(
-    atoms: readonly LoreAtom[],
+    atoms: readonly Atom[],
     supersessionMap: Map<string, SupersessionStatus>,
-  ): LoreAtom[] {
+  ): Atom[] {
     return atoms.filter((atom) => {
       const status = supersessionMap.get(atom.loreId);
       return status === undefined || !status.superseded;
@@ -79,12 +79,13 @@ export class SupersessionResolver {
    * Uses a visited set to handle circular references safely.
    */
   private resolveTransitiveChains(
-    atoms: readonly LoreAtom[],
-    atomById: Map<string, LoreAtom>,
+    atoms: readonly Atom[],
+    atomById: Map<string, Atom>,
     statusMap: Map<string, SupersessionStatus>,
   ): void {
     for (const atom of atoms) {
-      if (atom.trailers.Supersedes.length === 0) {
+      const supersedes = atom.trailers.Supersedes || [];
+      if (supersedes.length === 0) {
         continue;
       }
 
@@ -93,7 +94,7 @@ export class SupersessionResolver {
       const visited = new Set<string>();
       visited.add(atom.loreId);
 
-      const queue: LoreId[] = [...atom.trailers.Supersedes];
+      const queue: AtomId[] = [...supersedes];
 
       while (queue.length > 0) {
         const currentId = queue.shift()!;
@@ -121,7 +122,7 @@ export class SupersessionResolver {
         // Follow the chain: what does this superseded atom itself supersede?
         const supersededAtom = atomById.get(currentId);
         if (supersededAtom) {
-          for (const nextId of supersededAtom.trailers.Supersedes) {
+          for (const nextId of supersededAtom.trailers.Supersedes || []) {
             if (!visited.has(nextId)) {
               queue.push(nextId);
             }

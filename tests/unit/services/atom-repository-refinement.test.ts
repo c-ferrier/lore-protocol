@@ -7,13 +7,18 @@ import { NullAtomCache } from '../../../src/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
 import type { SearchOptions } from '../../../src/types/query.js';
-import { DEFAULT_CONFIG, LORE_ID_KEY } from '../../../src/util/constants.js';
+import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+
+import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
+
+const LORE_ID_KEY = "Lore-id";
 
 describe('AtomRepository Refinement', () => {
   let gitClient: IGitClient;
   let trailerParser: TrailerParser;
   let repo: AtomRepository;
   let protocol: Protocol;
+  let protocolRegistry: ProtocolRegistry;
   let searchFilter: SearchFilter;
 
   beforeEach(() => {
@@ -27,11 +32,13 @@ describe('AtomRepository Refinement', () => {
       resolveDate: vi.fn(async (d: string) => new Date(d)),
     } as any;
     protocol = new Protocol(DEFAULT_CONFIG);
-    trailerParser = new TrailerParser(protocol);
+    protocolRegistry = new ProtocolRegistry();
+    protocolRegistry.register(protocol);
+    trailerParser = new TrailerParser();
     searchFilter = new SearchFilter();
     const atomCache = new NullAtomCache();
     const queryCache = new NullQueryCache();
-    repo = new AtomRepository(gitClient, trailerParser, protocol, searchFilter, atomCache, queryCache);
+    repo = new AtomRepository(gitClient, trailerParser, protocol, protocolRegistry, searchFilter, atomCache, queryCache);
   });
 
   describe('stripTrailersFromBody (Internal Refinement)', () => {

@@ -1,104 +1,117 @@
-import type { Command } from 'commander';
+import { Command } from 'commander';
 import type { CommitBuilder } from '../services/commit-builder.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { CommitInputResolver, CommitCommandOptions } from '../services/commit-input-resolver.js';
+import type { CommitInputResolver } from '../services/commit-input-resolver.js';
 import type { HeadLoreIdReader } from '../services/head-lore-id-reader.js';
 import { LoreError, NoStagedChangesError, ValidationError } from '../util/errors.js';
-import { LORE_ID_KEY } from '../util/constants.js';
 import type { LoreConfig, CustomTrailerDefinition } from '../types/config.js';
-import type { Protocol } from '../services/protocol.js';
-
-/** Keys on CommitCommandOptions that are NOT user-supplied input. */
-const NON_INPUT_KEYS: ReadonlySet<string> = new Set(['amend', 'edit']);
+import type { AtomId } from '../types/domain.js';
+import type { IProtocol } from '../interfaces/protocol.js';
+import { mergeOptions } from './helpers/merge-options.js';
 
 /**
- * Detect conflicting input when --no-edit is used.
- * Uses exclusion: anything in options that is NOT amend/edit is user input.
- * New flags are caught automatically — no maintenance list to update.
+ * CLI Options for the commit command.
  */
-function hasConflictingInput(options: CommitCommandOptions): boolean {
-  return Object.entries(options)
-    .filter(([k]) => !NON_INPUT_KEYS.has(k))
-    .some(([, v]) => v !== undefined && v !== false);
+interface CommitCommandOptions {
+  readonly intent?: string;
+  readonly body?: string;
+  readonly interactive?: boolean;
+  readonly amend?: boolean;
+  readonly edit?: boolean;
+  readonly trailer?: string[];
+  readonly file?: string;
+  /** Dynamic core flags from definitions (e.g. confidence, scope-risk) */
+  readonly [key: string]: unknown;
 }
 
 /**
  * Register the `lore commit` command.
- * Default: read JSON from stdin.
- * --file <path>: read JSON from file.
- * -i / --interactive: interactive mode (guided prompts).
- * Flags: --intent, --body, --constraint, etc.
- * --amend: amend the last commit (preserves Lore-id).
- * --no-edit: keep existing message (use with --amend).
+ * Orchestrates the creation of a new decision-enriched git commit.
+ * 1. Resolves input (flags, interactive prompts, or JSON).
+ * 2. Builds the commit message with protocol trailers.
+ * 3. Executes the git commit.
+ * --amend: amend the last commit (preserves identity key).
  */
 export function registerCommitCommand(
   program: Command,
   deps: {
     commitBuilder: CommitBuilder;
     gitClient: IGitClient;
-    getFormatter: () => IOutputFormatter;
     commitInputResolver: CommitInputResolver;
     headLoreIdReader: HeadLoreIdReader;
+    getFormatter: () => IOutputFormatter;
     config: LoreConfig;
-    protocol: Protocol;
+    protocol: IProtocol;
   },
 ): void {
   const { protocol } = deps;
   const cmd = program
     .command('commit')
-    .description('Create a Lore-enriched commit')
-    .option('--amend', 'Amend the last commit')
-    .option('--no-edit', 'Keep the existing commit message (use with --amend)')
-    .option('--file <path>', 'Read JSON input from file')
-    .option('-i, --interactive', 'Interactive mode (guided prompts)')
-    .option('--intent <text>', 'Intent line (why the change was made)')
-    .option('--body <text>', 'Body (narrative context)');
+    .description(`Create a ${protocol.name}-enriched commit`)
+    .option('-m, --intent <text>', 'Primary intent (commit subject)')
+    .option('-b, --body <text>', 'Narrative context (commit body)')
+    .option('-f, --file <path>', 'Read commit input from a JSON file')
+    .option('-i, --interactive', 'Force interactive prompts for trailers', false)
+    .option('--amend', 'Amend the previous commit', false)
+    .option('--no-edit', 'Use existing message (only for --amend)', true)
+    .option('-t, --trailer <key=value>', 'Add a custom trailer', (val, memo: string[]) => {
+      memo.push(val);
+      return memo;
+    }, []);
 
-  // Dynamically register flags for all authorized trailers from the protocol metadata
+  // Dynamically add flags for all authorized trailers
   const authorizedKeys = protocol.getAuthorizedKeys();
   for (const key of authorizedKeys) {
-    // Skip Lore-id to maintain perfect parity with 'main' branch UI
-    if (key === LORE_ID_KEY) continue;
-    
-    const def = protocol.getDefinition(key);
-    if (def) {
-      registerFlagForDefinition(cmd, key, def);
-    }
+    // Skip identity key to maintain perfect parity with 'main' branch UI
+    if (key === protocol.identityKey) continue;
+
+    const def = protocol.getDefinition(key) as CustomTrailerDefinition;
+    const flagName = def.cli?.flag || slugify(key);
+    cmd.option(`--${flagName} <value...>`, def.description);
   }
 
-  // 4. Add catch-all flag for permissive mode / ad-hoc trailers
-  cmd.option('--trailer <key=value...>', 'Custom trailer (repeatable, format: Key=Value)')
-    .action(async (options: CommitCommandOptions) => {
-      const { commitBuilder, gitClient, getFormatter, commitInputResolver, headLoreIdReader } = deps;
-      const formatter = getFormatter();
+  cmd.action(async (_options: CommitCommandOptions, command: Command) => {
+    const { commitBuilder, gitClient, getFormatter, commitInputResolver, headLoreIdReader } = deps;
+    const options = mergeOptions<CommitCommandOptions>(command);
+    
+    // Commander sets 'edit' to false when --no-edit is used
+    const isNoEdit = options.edit === false;
 
-      // --no-edit without --amend is invalid
-      if (options.edit === false && !options.amend) {
+    try {
+      if (isNoEdit && !options.amend) {
         throw new LoreError('--no-edit can only be used with --amend', 1);
       }
 
-      // --amend --no-edit: pass through to git, no Lore processing
-      if (options.amend && options.edit === false) {
-        if (hasConflictingInput(options)) {
+      // --amend --no-edit: pass through to git, no decision processing
+      if (options.amend && isNoEdit) {
+        // Enforce that NO other input options are provided with --no-edit
+        const hasOtherInput = !!(options.intent || options.body || options.file || options.trailer?.length || options.interactive);
+        
+        // Check for dynamic core flags
+        const baseFlags = ['amend', 'edit', 'intent', 'body', 'file', 'trailer', 'interactive', 'json', 'format', 'color'];
+        const hasDynamicFlags = Object.keys(options).some(k => 
+          !baseFlags.includes(k) && options[k] !== undefined
+        );
+
+        if (hasOtherInput || hasDynamicFlags) {
+          throw new LoreError('--no-edit keeps the existing message unchanged; it cannot be combined with other input flags', 1);
+        }
+
+        const hasStaged = await gitClient.hasStagedChanges();
+        if (!hasStaged) {
           throw new LoreError(
-            '--no-edit keeps the existing message unchanged. Remove --no-edit to update trailers, or remove the input flags/payload to keep the message as-is.',
+            'No staged changes to commit. Use `git add` to stage files.',
             1,
           );
         }
-
-        // --no-edit requires staged changes since we aren't changing the message
-        const hasStaged = await gitClient.hasStagedChanges();
-        if (!hasStaged) {
-          throw new NoStagedChangesError();
-        }
-
         const result = await gitClient.commit('', { amend: true, noEdit: true });
-        console.log(formatter.formatSuccess(`Commit amended: ${result.hash}`, { hash: result.hash }));
+        const formatter = getFormatter();
+        console.log(formatter.formatSuccess(`Commit created: ${result.hash.slice(0, 7)}`));
         return;
       }
 
-      // Check for staged changes (skip when amending)
+      // Staged changes check for normal commits (and normal amends)
       if (!options.amend) {
         const hasStaged = await gitClient.hasStagedChanges();
         if (!hasStaged) {
@@ -106,51 +119,46 @@ export function registerCommitCommand(
         }
       }
 
-      // 5. Resolve input (interactive, file, flags, or stdin)
+      // 1. Resolve input components
       const input = await commitInputResolver.resolve(options);
 
-      // 6. Validate input before building message
-      const issues = commitBuilder.validate(input);
-      const errors = issues.filter((i) => i.severity === 'error');
-      if (errors.length > 0) {
-        throw new ValidationError('Commit input validation failed', issues);
-      }
-
-      // 7. Build and commit
-      let existingLoreId;
+      // 2. Resolve existing ID if amending
+      let existingLoreId: AtomId | undefined;
       if (options.amend) {
-        existingLoreId = await headLoreIdReader.read();
+        existingLoreId = await headLoreIdReader.read() || undefined;
       }
 
-      const { message, loreId } = commitBuilder.build(input, existingLoreId ?? undefined);
-      const result = await gitClient.commit(message, { amend: !!options.amend });
+      // 3. Build the decision atom
+      const { message, loreId } = commitBuilder.build(input, existingLoreId);
 
-      // Output
-      const verb = options.amend ? 'amended' : 'created';
-      console.log(
-        formatter.formatSuccess(
-          `Commit ${verb}: ${result.hash}`,
-          { hash: result.hash, lore_id: loreId },
-        ),
+      // 4. Execute the Git commit
+      const result = await gitClient.commit(message, {
+        amend: options.amend,
+      });
+
+      // 5. Output result
+      const formatter = getFormatter();
+      const output = formatter.formatSuccess(
+        `Commit created: ${result.hash.slice(0, 7)}`,
+        { hash: result.hash, lore_id: loreId },
       );
-    });
+      console.log(output);
+    } catch (error) {
+      if (error instanceof NoStagedChangesError || error instanceof ValidationError || error instanceof LoreError) {
+        throw error;
+      }
+      throw error;
+    }
+  });
 }
 
 /**
- * Register a CLI flag for a trailer definition.
- */
-function registerFlagForDefinition(cmd: Command, key: string, def: CustomTrailerDefinition): void {
-  const flagName = def.cli?.flag || slugify(key);
-  const shorthand = def.cli?.shorthand ? `-${def.cli.shorthand}, ` : '';
-  const argTemplate = def.multivalue ? `<text...>` : `<text>`;
-  const description = `${def.description}${def.multivalue ? ' (repeatable)' : ''}`;
-
-  cmd.option(`${shorthand}--${flagName} ${argTemplate}`, description);
-}
-
-/**
- * Convert a trailer key to a CLI-friendly flag name.
+ * Helper to convert a trailer key to a safe CLI flag name.
  */
 function slugify(text: string): string {
-  return text.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
 }

@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ConfigLoader } from '../../../src/services/config-loader.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
+
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+
+const LORE_ID_KEY = "Lore-id";
 
 describe('ConfigLoader', () => {
   let loader: ConfigLoader;

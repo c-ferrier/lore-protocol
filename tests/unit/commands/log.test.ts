@@ -4,10 +4,12 @@ import { registerLogCommand } from '../../../src/commands/log.js';
 import type { AtomRepository } from '../../../src/services/atom-repository.js';
 import type { SupersessionResolver } from '../../../src/services/supersession-resolver.js';
 import type { IOutputFormatter } from '../../../src/interfaces/output-formatter.js';
-import type { LoreAtom } from '../../../src/types/domain.js';
+import type { Atom } from '../../../src/types/domain.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
 import { Protocol } from '../../../src/services/protocol.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
+
+const LORE_ID_KEY = "Lore-id";
+
 
 /**
  * Regression tests for issue #22: `lore log` must accept positional path
@@ -18,7 +20,7 @@ import { LORE_ID_KEY } from '../../../src/util/constants.js';
  * Driven through Commander's parseAsync with mocked services.
  */
 
-function makeAtom(overrides: Partial<LoreAtom> & { filesChanged: readonly string[] }): LoreAtom {
+function makeAtom(overrides: Partial<Atom> & { filesChanged: readonly string[] }): Atom {
   return {
     loreId: 'abcd1234',
     commitHash: 'a'.repeat(40),
@@ -52,7 +54,7 @@ interface Harness {
   consoleSpy: ReturnType<typeof vi.spyOn>;
 }
 
-function buildHarness(atoms: LoreAtom[], filteredAtoms?: LoreAtom[]): Harness {
+function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
   const findAll = vi.fn().mockResolvedValue(atoms);
   const findByTarget = vi.fn().mockResolvedValue(filteredAtoms ?? atoms);
   const atomRepository = { findAll, findByTarget } as unknown as AtomRepository;
@@ -113,7 +115,7 @@ describe('registerLogCommand (issue #22 path arguments)', () => {
     );
     expect(h.findAll).not.toHaveBeenCalled();
 
-    const result = (h.capturedResult.data as { result: { atoms: LoreAtom[] } }).result;
+    const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(1);
     expect(result.atoms[0].loreId).toBe('match0001');
   });
@@ -133,7 +135,7 @@ describe('registerLogCommand (issue #22 path arguments)', () => {
       expect.any(Object),
     );
 
-    const result = (h.capturedResult.data as { result: { atoms: LoreAtom[] } }).result;
+    const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(1);
     expect(result.atoms[0].loreId).toBe('match0002');
   });
@@ -148,7 +150,7 @@ describe('registerLogCommand (issue #22 path arguments)', () => {
     expect(h.findAll).toHaveBeenCalledTimes(1);
     expect(h.findByTarget).not.toHaveBeenCalled();
 
-    const result = (h.capturedResult.data as { result: { atoms: LoreAtom[] } }).result;
+    const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(2);
   });
 
@@ -165,7 +167,7 @@ describe('registerLogCommand (issue #22 path arguments)', () => {
       expect.any(Object),
     );
 
-    const result = (h.capturedResult.data as { result: { atoms: LoreAtom[] } }).result;
+    const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(1);
     expect(result.atoms[0].loreId).toBe('limit001');
   });
@@ -190,7 +192,7 @@ describe('registerLogCommand (issue #22 path arguments)', () => {
 
     await h.program.parseAsync(['node', 'lore', 'log', '--limit', '1']);
 
-    const data = h.capturedResult.data as { result: { atoms: LoreAtom[]; meta: { totalAtoms: number; filteredAtoms: number } } };
+    const data = h.capturedResult.data as { result: { atoms: Atom[]; meta: { totalAtoms: number; filteredAtoms: number } } };
     expect(data.result.meta.totalAtoms).toBe(3);
     expect(data.result.meta.filteredAtoms).toBe(1);
     expect(data.result.atoms).toHaveLength(1);

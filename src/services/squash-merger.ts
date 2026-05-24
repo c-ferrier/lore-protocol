@@ -1,10 +1,9 @@
 import type { LoreIdGenerator } from './lore-id-generator.js';
-import type { LoreAtom, LoreId } from '../types/domain.js';
+import type { Atom, AtomId } from '../types/domain.js';
 import type { Protocol } from './protocol.js';
-import { LORE_ID_KEY } from '../util/constants.js';
 
 /**
- * Orchestrates the merging of multiple Lore atoms during a git squash.
+ * Orchestrates the merging of multiple decision atoms during a git squash.
  * 
  * SOLID: SRP -- responsible only for combining atom data into a single message.
  * SOLID: OCP -- metadata-driven merging logic for all protocol trailers.
@@ -28,9 +27,9 @@ export class SquashMerger {
    * 5. Dropping internal references (those pointing to atoms within the squash set).
    */
   merge(
-    atoms: readonly LoreAtom[],
+    atoms: readonly Atom[],
     options: { intent?: string; body?: string },
-  ): { message: string; loreId: LoreId } {
+  ): { message: string; loreId: AtomId } {
     if (atoms.length === 0) {
       throw new Error('Cannot merge zero atoms');
     }
@@ -51,14 +50,14 @@ export class SquashMerger {
     const body = options.body ?? this.mergeBodySummaries(sorted);
 
     const trailerLines: string[] = [];
-    trailerLines.push(`${LORE_ID_KEY}: ${newLoreId}`);
+    trailerLines.push(`${this.protocol.identityKey}: ${newLoreId}`);
 
     // 1. Process All Trailers uniformly
     // Flatten all present keys across all atoms
     const allKeys = new Set<string>();
     for (const atom of atoms) {
       for (const key of Object.keys(atom.trailers)) {
-        if (key !== LORE_ID_KEY) { 
+        if (key !== this.protocol.identityKey) { 
           allKeys.add(key);
         }
       }
@@ -120,7 +119,7 @@ export class SquashMerger {
   /**
    * Combine body summaries from multiple atoms into a single narrative block.
    */
-  private mergeBodySummaries(sortedAtoms: readonly LoreAtom[]): string {
+  private mergeBodySummaries(sortedAtoms: readonly Atom[]): string {
     const summaries: string[] = [];
     for (const atom of sortedAtoms) {
       if (atom.body.trim()) {
@@ -152,7 +151,7 @@ export class SquashMerger {
    */
   private filterExternal(
     values: string[],
-    internalIds: Set<LoreId>,
+    internalIds: Set<AtomId>,
   ): string[] {
     return values.filter((v) => !internalIds.has(v));
   }

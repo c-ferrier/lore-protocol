@@ -3,8 +3,7 @@ import type { AtomRepository } from './atom-repository.js';
 import type { LoreConfig } from '../types/config.js';
 import type { RawCommit } from '../interfaces/git-client.js';
 import type { CommitValidationResult, ValidationIssue } from '../types/output.js';
-import { LORE_ID_PATTERN, LORE_ID_KEY } from '../util/constants.js';
-import type { LoreTrailers, LoreId } from '../types/domain.js';
+import type { Trailers, AtomId } from '../types/domain.js';
 import type { Protocol } from './protocol.js';
 
 /**
@@ -37,13 +36,14 @@ export class Validator {
    */
   private async validateCommit(commit: RawCommit): Promise<CommitValidationResult> {
     const issues: ValidationIssue[] = [];
-    let trailers: LoreTrailers | null = null;
+    let trailers: Trailers | null = null;
     let loreId: string | null = null;
 
     // Rule 1: Valid trailer format (parseable)
     try {
+      // Use raw parser to see everything, then validate against protocol
       trailers = this.trailerParser.parse(commit.trailers);
-      loreId = trailers[LORE_ID_KEY][0] || null;
+      loreId = trailers[this.protocol.identityKey]?.[0] || null;
     } catch {
       issues.push({
         severity: 'error',
@@ -56,66 +56,88 @@ export class Validator {
       // 1. Schema-driven validation (Metadata-driven)
       this.validateSchema(trailers, issues);
 
-      // 2. Intent length
-      if (commit.subject.length > this.config.validation.intentMaxLength) {
-        issues.push({
-          severity: 'warning',
-          rule: 'intent-length',
-          message: `Intent exceeds ${this.config.validation.intentMaxLength} characters (got ${commit.subject.length})`,
-        });
-      }
+      // 2. Structural hygiene rules
+      this.validateMessageStructure(commit, issues);
+      this.validateTrailerHygiene(trailers, issues);
 
-      // 3. Message line count
-      const totalLines = this.countMessageLines(commit);
-      if (totalLines > this.config.validation.maxMessageLines) {
-        issues.push({
-          severity: 'warning',
-          rule: 'message-length',
-          message: `Message exceeds ${this.config.validation.maxMessageLines} lines (got ${totalLines})`,
-        });
-      }
-
-      // 4. Trailer type counts (metadata-driven)
-      this.validateTrailerCounts(trailers, issues);
-
-      // 5. Reference existence (metadata-driven)
+      // 3. Cross-atom validation (Existence of references)
       await this.validateReferenceExistence(trailers, issues);
     }
 
-    const hasErrors = issues.some((i) => i.severity === 'error');
-
     return {
+      valid: issues.filter((i) => i.severity === 'error').length === 0,
       commit: commit.hash,
       loreId,
-      valid: !hasErrors,
       issues,
     };
   }
 
   /**
-   * Universal schema validation for all trailers (core and custom).
-   * Enforces cardinality, enums, patterns, and requiredness based on definitions.
+   * Validate structural properties of the commit message (lengths, line counts).
+   */
+  private validateMessageStructure(commit: RawCommit, issues: ValidationIssue[]): void {
+    // Intent Length
+    const maxIntent = this.config.validation.intentMaxLength;
+    if (commit.subject.length > maxIntent) {
+      issues.push({
+        severity: 'warning',
+        rule: 'intent-length',
+        field: 'intent',
+        message: `Intent exceeds recommended length of ${maxIntent} chars (got ${commit.subject.length})`,
+      });
+    }
+
+    // Total Message Length
+    const maxLines = this.config.validation.maxMessageLines;
+    const totalLines = commit.subject.split('\n').length + (commit.body ? commit.body.split('\n').length : 0);
+    if (totalLines > maxLines) {
+      issues.push({
+        severity: 'warning',
+        rule: 'message-length',
+        message: `Message exceeds recommended length of ${maxLines} lines (got ${totalLines})`,
+      });
+    }
+  }
+
+  /**
+   * Check for high counts of specific trailers that might indicate an atom is too complex.
+   */
+  private validateTrailerHygiene(trailers: Trailers, issues: ValidationIssue[]): void {
+    const TRAILER_HYGIENE_THRESHOLD = 5;
+
+    for (const [key, values] of Object.entries(trailers)) {
+      if (values.length > TRAILER_HYGIENE_THRESHOLD) {
+        issues.push({
+          severity: 'warning',
+          rule: 'trailer-count',
+          field: key,
+          message: `High count of "${key}" trailers (${values.length}). Consider breaking this decision into smaller atoms.`,
+        });
+      }
+    }
+  }
+
+  /**
+   * Validate a trailer collection against the protocol schema.
    */
   private validateSchema(
-    trailers: LoreTrailers,
+    trailers: Trailers,
     issues: ValidationIssue[],
   ): void {
-    const authorizedKeys = this.protocol.getAuthorizedKeys();
-
-    for (const key of authorizedKeys) {
+    for (const key of this.protocol.getAuthorizedKeys()) {
       const def = this.protocol.getDefinition(key);
       if (!def) continue;
 
       const values = trailers[key] || [];
       const isRequired = def.required;
-      
+
       // Special Rule: Check for empty string explicitly for requiredness
-      const hasValue = values.length > 0 && values.every(v => v.trim().length > 0);
+      const hasValue = values.length > 0 && values.every((v: string) => v.trim().length > 0);
 
       if (!hasValue && isRequired) {
         issues.push({
-          severity: this.config.validation.strict || key === LORE_ID_KEY ? 'error' : 'warning',
-          rule: key === LORE_ID_KEY ? 'lore-id-present' : 'required-trailer',
+          severity: this.config.validation.strict || key === this.protocol.identityKey ? 'error' : 'warning',
+          rule: key === this.protocol.identityKey ? 'lore-id-present' : 'required-trailer',
           field: key,
           message: `${key} trailer is missing`,
         });
@@ -155,9 +177,9 @@ export class Validator {
             let message = `Value for "${key}" does not match pattern: ${def.pattern}`;
 
             // Context-sensitive rule mapping
-            if (key === LORE_ID_KEY) {
+            if (key === this.protocol.identityKey) {
               rule = 'lore-id-format';
-              message = `${LORE_ID_KEY} "${val}" is not a valid 8-character hex string`;
+              message = `${this.protocol.identityKey} "${val}" is not a valid 8-character hex string`;
             } else if (def.ui?.kind === 'reference') {
               rule = 'reference-format';
               severity = 'warning';
@@ -172,48 +194,11 @@ export class Validator {
   }
 
   /**
-   * Validates that list-type trailers don't exceed reasonable counts.
-   */
-  private validateTrailerCounts(
-    trailers: LoreTrailers,
-    issues: ValidationIssue[],
-  ): void {
-    const listKeys = this.protocol.getListKeys();
-    for (const key of listKeys) {
-      const values = trailers[key];
-      if (values && values.length > 5) {
-        issues.push({
-          severity: 'warning',
-          rule: 'trailer-count',
-          field: key,
-          message: `More than 5 values for ${key} (got ${values.length})`,
-        });
-      }
-    }
-  }
-
-  /**
-   * Count the number of lines in the full commit message.
-   */
-  private countMessageLines(commit: RawCommit): number {
-    let count = 1; // subject line
-    if (commit.body.trim()) {
-      count += 1; // blank line
-      count += commit.body.split('\n').length;
-    }
-    if (commit.trailers.trim()) {
-      count += 1; // blank line before trailers
-      count += commit.trailers.split('\n').length;
-    }
-    return count;
-  }
-
-  /**
    * Check that referenced Lore-ids actually exist in the repository. 
    * Emits a warning for each missing reference.
    */
   private async validateReferenceExistence(
-    trailers: LoreTrailers,
+    trailers: Trailers,
     issues: ValidationIssue[],
   ): Promise<void> {
     const refKeys = this.protocol.getReferenceKeys();
@@ -223,7 +208,7 @@ export class Validator {
 
       for (const id of values) {
         // Only validate existence for values that look like Lore-ids
-        if (!LORE_ID_PATTERN.test(id)) continue;
+        if (!this.protocol.isValidIdentity(id)) continue;
         
         const found = await this.atomRepository.findByLoreId(id);
         if (found === null) {

@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SquashMerger } from '../../../src/services/squash-merger.js';
 import { Protocol } from '../../../src/services/protocol.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
-import type { LoreAtom, LoreTrailers, LoreId } from '../../../src/types/domain.js';
+
+import type { Atom, LoreTrailers, LoreId } from '../../../src/types/domain.js';
+
+const LORE_ID_KEY = "Lore-id";
 
 function createMockIdGenerator(id = 'deadbeef') {
   return {
@@ -29,7 +31,7 @@ function makeTrailers(overrides: Partial<LoreTrailers> = {}): LoreTrailers {
   } as any;
 }
 
-function makeAtom(overrides: Partial<LoreAtom> = {}): LoreAtom {
+function makeAtom(overrides: Partial<Atom> = {}): Atom {
   return {
     loreId: overrides.loreId ?? 'a1b2c3d4',
     commitHash: overrides.commitHash ?? 'abc1234567890',

@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Validator } from '../../../src/services/validator.js';
 import { Protocol } from '../../../src/services/protocol.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
+
 import type { LoreConfig } from '../../../src/types/config.js';
 import type { RawCommit } from '../../../src/interfaces/git-client.js';
 import type { LoreTrailers } from '../../../src/types/domain.js';
 import type { AtomRepository } from '../../../src/services/atom-repository.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+
+const LORE_ID_KEY = "Lore-id";
 
 function makeTrailers(overrides: Partial<LoreTrailers> = {}): LoreTrailers {
   return {

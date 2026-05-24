@@ -3,7 +3,7 @@ import type { AtomRepository } from '../services/atom-repository.js';
 import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { LoreConfig } from '../types/config.js';
-import type { TrailerKey, LoreAtom, SupersessionStatus } from '../types/domain.js';
+import type { Atom, SupersessionStatus } from '../types/domain.js';
 import type { SearchOptions, QueryResult } from '../types/query.js';
 import type { FormattableQueryResult } from '../types/output.js';
 import { mergeOptions } from './helpers/merge-options.js';
@@ -32,6 +32,9 @@ interface SearchCommandOptions {
 /**
  * Register the `lore search` command.
  * Cross-cutting query with filters across all lore atoms.
+ * 
+ * This command acts as the "Lore-compatible wrapper" for the generic
+ * Sovereign Search engine.
  */
 export function registerSearchCommand(
   program: Command,
@@ -73,9 +76,9 @@ export function registerSearchCommand(
       }
 
       // Validate 'has' trailer key against protocol
-      let authorizedHas: TrailerKey | null = null;
+      let authorizedHas: string | null = null;
       if (options.has) {
-        authorizedHas = protocol.authorize(options.has) as TrailerKey | null;
+        authorizedHas = protocol.authorize(options.has);
         if (!authorizedHas) {
           throw new LoreError(
             `'${options.has}' is not a valid Lore trailer. In strict mode, only core or explicitly configured trailers can be searched.`,
@@ -84,10 +87,14 @@ export function registerSearchCommand(
         }
       }
 
+      // Map legacy semantic flags into generic filters map for the engine
+      const filters: Record<string, string | string[]> = {};
+      if (options.confidence) filters['Confidence'] = options.confidence;
+      if (options.scopeRisk) filters['Scope-risk'] = options.scopeRisk;
+      if (options.reversibility) filters['Reversibility'] = options.reversibility;
+
       const searchOptions: SearchOptions = {
-        confidence: (options.confidence as SearchOptions['confidence']) ?? null,
-        scopeRisk: (options.scopeRisk as SearchOptions['scopeRisk']) ?? null,
-        reversibility: (options.reversibility as SearchOptions['reversibility']) ?? null,
+        filters,
         has: authorizedHas,
         author: options.author ?? null,
         scope: options.scope ?? null,
@@ -112,7 +119,7 @@ export function registerSearchCommand(
       const totalAtoms = atoms.length;
 
       // Filter superseded atoms unless --all
-      let displayAtoms: readonly LoreAtom[];
+      let displayAtoms: readonly Atom[];
       if (options.all) {
         displayAtoms = atoms;
       } else {
@@ -147,9 +154,11 @@ export function registerSearchCommand(
 function buildSearchTargetDescription(options: SearchOptions): string {
   const parts: string[] = [];
 
-  if (options.confidence) parts.push(`confidence=${String(options.confidence)}`);
-  if (options.scopeRisk) parts.push(`scope-risk=${String(options.scopeRisk)}`);
-  if (options.reversibility) parts.push(`reversibility=${String(options.reversibility)}`);
+  if (options.filters) {
+    for (const [key, value] of Object.entries(options.filters)) {
+      parts.push(`${key.toLowerCase()}=${String(value)}`);
+    }
+  }
   if (options.has) parts.push(`has=${options.has}`);
   if (options.author) parts.push(`author=${options.author}`);
   if (options.scope) parts.push(`scope=${options.scope}`);

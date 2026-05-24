@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { Protocol } from '../../../src/services/protocol.js';
 import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
+
+const LORE_ID_KEY = "Lore-id";
+
 
 describe('Protocol Service', () => {
   it('should load all core trailers by default', () => {
@@ -100,9 +102,10 @@ describe('Protocol Service', () => {
     const protocol = new Protocol(config);
     const keys = protocol.getAuthorizedKeys();
     
-    expect(keys[0]).toBe('Constraint');
-    expect(keys[1]).toBe('Urgent');
-    expect(keys[2]).toBe('Rejected');
+    expect(keys[0]).toBe('Lore-id');
+    expect(keys[1]).toBe('Constraint');
+    expect(keys[2]).toBe('Urgent');
+    expect(keys[3]).toBe('Rejected');
   });
 
   it('should default custom trailers to the end of the sort order', () => {
@@ -230,4 +233,131 @@ describe('Protocol Service', () => {
       expect(def?.isCore).toBe(true); // Still a core key
     });
   });
+
+  describe('Discovery & Claims', () => {
+    const protocol = new Protocol(DEFAULT_CONFIG);
+
+    it('should claim a commit with its identity key', () => {
+      expect(protocol.claims(`${LORE_ID_KEY}: a1b2c3d4`)).toBe(true);
+      expect(protocol.claims(`Signed-off-by: x\n${LORE_ID_KEY}: a1b2c3d4`)).toBe(true);
+    });
+
+    it('should not claim a commit without its identity key', () => {
+      expect(protocol.claims('Constraint: value')).toBe(false);
+      expect(protocol.claims('')).toBe(false);
+    });
+
+    it('should provide discovery grep arguments', () => {
+      const grep = protocol.getDiscoveryGrep();
+      expect(grep).toContain(`--grep=^${LORE_ID_KEY}: [0-9a-f]{8}`);
+    });
+  });
+
+  describe('parse', () => {
+    const protocol = new Protocol(DEFAULT_CONFIG);
+
+    it('should parse and normalize authorized trailers', () => {
+      const raw = `${LORE_ID_KEY}: a1b2c3d4\nconfidence: high`;
+      const result = protocol.parse(raw);
+      
+      expect(result.name).toBe('Lore');
+      expect(result.identityKey).toBe(LORE_ID_KEY);
+      expect(result.trailers[LORE_ID_KEY]).toEqual(['a1b2c3d4']);
+      expect(result.trailers.Confidence).toEqual(['high']);
+    });
+
+    it('should ignore unauthorized trailers in strict mode', () => {
+      const strictConfig = {
+        ...DEFAULT_CONFIG,
+        trailers: { ...DEFAULT_CONFIG.trailers, permissive: false }
+      };
+      const strictProtocol = new Protocol(strictConfig);
+      const raw = 'Unknown-Trailer: value';
+      const result = strictProtocol.parse(raw);
+      expect(result.trailers['Unknown-Trailer']).toBeUndefined();
+    });
+
+    it('should validate and filter enum values during parsing', () => {
+      const raw = 'Confidence: INVALID\nConfidence: low';
+      const result = protocol.parse(raw);
+      expect(result.trailers.Confidence).toEqual(['low']);
+    });
+
+    it('should handle multi-value trailers', () => {
+      const raw = 'Constraint: c1\nConstraint: c2';
+      const result = protocol.parse(raw);
+      expect(result.trailers.Constraint).toEqual(['c1', 'c2']);
+    });
+
+    it('should handle continuation lines via its internal parser', () => {
+      const raw = 'Constraint: line1\n  line2';
+      const result = protocol.parse(raw);
+      expect(result.trailers.Constraint).toEqual(['line1 line2']);
+    });
+  describe('Ownership & Claims', () => {
+    it('should own its identity key', () => {
+      const protocol = new Protocol(DEFAULT_CONFIG);
+      expect(protocol.owns(LORE_ID_KEY)).toBe(true);
+    });
+
+    it('should own core trailers', () => {
+      const protocol = new Protocol(DEFAULT_CONFIG);
+      expect(protocol.owns('Confidence')).toBe(true);
+      expect(protocol.owns('Constraint')).toBe(true);
+    });
+
+    it('should own configured custom trailers', () => {
+      const config = {
+        ...DEFAULT_CONFIG,
+        trailers: { ...DEFAULT_CONFIG.trailers, custom: ['My-Trailer'] }
+      };
+      const protocol = new Protocol(config);
+      expect(protocol.owns('My-Trailer')).toBe(true);
+    });
+
+    it('should not own unregistered trailers', () => {
+      const protocol = new Protocol(DEFAULT_CONFIG);
+      expect(protocol.owns('Random-Trailer')).toBe(false);
+    });
+
+    describe('parse with claim hierarchy', () => {
+      it('should ingest owned trailers even if not in unclaimedKeys', () => {
+        const protocol = new Protocol(DEFAULT_CONFIG);
+        const raw = 'Confidence: high';
+        // Simulation: Another protocol claimed Confidence, but we own it too
+        const result = protocol.parse(raw, new Set(['Other-Key']));
+        
+        expect(result.trailers.Confidence).toEqual(['high']);
+      });
+
+      it('should ingest unowned trailers only if permissive AND unclaimed', () => {
+        const config = {
+          ...DEFAULT_CONFIG,
+          trailers: { ...DEFAULT_CONFIG.trailers, permissive: true }
+        };
+        const protocol = new Protocol(config);
+        const raw = 'Adhoc: value\nOwned-By-Other: secret';
+        
+        // Simulation: Owned-By-Other is explicitly claimed by someone else
+        const unclaimed = new Set(['Adhoc']);
+        const result = protocol.parse(raw, unclaimed);
+        
+        expect(result.trailers['Adhoc']).toEqual(['value']);
+        expect(result.trailers['Owned-By-Other']).toBeUndefined();
+      });
+
+      it('should NOT ingest unowned trailers if not permissive', () => {
+        const config = {
+          ...DEFAULT_CONFIG,
+          trailers: { ...DEFAULT_CONFIG.trailers, permissive: false }
+        };
+        const protocol = new Protocol(config);
+        const raw = 'Adhoc: value';
+        
+        const result = protocol.parse(raw, new Set(['Adhoc']));
+        expect(result.trailers['Adhoc']).toBeUndefined();
+      });
+    });
+  });
+});
 });

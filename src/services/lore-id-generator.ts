@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { LoreId } from '../types/domain.js';
+import type { AtomId } from '../types/domain.js';
 import { LORE_ID_LENGTH } from '../util/constants.js';
 
 /**
@@ -13,7 +13,7 @@ export class LoreIdGenerator {
    * Generate a new Lore-id.
    * Returns an 8-character lowercase hex string (4 random bytes -> 8 hex chars).
    */
-  generate(): LoreId {
+  generate(): AtomId {
     const byteLength = LORE_ID_LENGTH / 2;
     return randomBytes(byteLength).toString('hex');
   }

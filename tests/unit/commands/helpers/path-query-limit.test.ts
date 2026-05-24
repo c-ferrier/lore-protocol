@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { executePathQuery } from '../../../../src/commands/helpers/path-query.js';
 import type { PathQueryDeps, PathQueryCommandOptions } from '../../../../src/commands/helpers/path-query.js';
-import type { LoreAtom, LoreTrailers, SupersessionStatus } from '../../../../src/types/domain.js';
+import type { Atom, LoreTrailers, SupersessionStatus } from '../../../../src/types/domain.js';
 import { DEFAULT_CONFIG } from '../../../../src/util/constants.js';
 import { Protocol } from '../../../../src/services/protocol.js';
-import { LORE_ID_KEY } from '../../../../src/util/constants.js';
+
+const LORE_ID_KEY = "Lore-id";
+
 
 function makeTrailers(loreId: string): LoreTrailers {
   return {
@@ -23,7 +25,7 @@ function makeTrailers(loreId: string): LoreTrailers {
   } as any;
 }
 
-function makeAtom(id: string, supersedes: string[] = []): LoreAtom {
+function makeAtom(id: string, supersedes: string[] = []): Atom {
   const trailers: LoreTrailers = { ...makeTrailers(id), Supersedes: supersedes };
   return {
     loreId: id,

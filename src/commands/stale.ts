@@ -4,7 +4,7 @@ import type { SupersessionResolver } from '../services/supersession-resolver.js'
 import type { StalenessDetector } from '../services/staleness-detector.js';
 import type { PathResolver } from '../services/path-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { LoreAtom, SupersessionStatus } from '../types/domain.js';
+import type { Atom, SupersessionStatus } from '../types/domain.js';
 import type { PathQueryOptions } from '../types/query.js';
 import type { FormattableStalenessResult, StaleAtomReport } from '../types/output.js';
 import { STALE_SIGNAL } from '../util/constants.js';
@@ -41,7 +41,7 @@ export function registerStaleCommand(
       const options = mergeOptions<StaleCommandOptions>(command);
       const { atomRepository, supersessionResolver, stalenessDetector, pathResolver, getFormatter } = deps;
 
-      let atoms: LoreAtom[];
+      let atoms: Atom[];
 
       if (target) {
         const parsedTarget = pathResolver.parseTarget(target);

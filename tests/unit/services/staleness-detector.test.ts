@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StalenessDetector } from '../../../src/services/staleness-detector.js';
 import type { IGitClient } from '../../../src/interfaces/git-client.js';
 import type { LoreConfig } from '../../../src/types/config.js';
-import type { LoreAtom, LoreTrailers, SupersessionStatus } from '../../../src/types/domain.js';
-import { LORE_ID_KEY } from '../../../src/util/constants.js';
+import type { Atom, LoreTrailers, SupersessionStatus } from '../../../src/types/domain.js';
+
+const LORE_ID_KEY = "Lore-id";
+
 
 function createMockGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
   return {
@@ -48,7 +50,7 @@ function makeAtom(options: {
   dependsOn?: string[];
   supersedes?: string[];
   filesChanged?: string[];
-}): LoreAtom {
+}): Atom {
   return {
     loreId: options.loreId ?? 'a1b2c3d4',
     commitHash: options.commitHash ?? 'abc12345',

@@ -7,8 +7,7 @@ import type {
   FormattableDoctorResult,
   FormattableConfigResult,
 } from '../types/output.js';
-import type { LoreTrailers } from '../types/domain.js';
-import { LORE_ID_KEY, LORE_ID_JSON_KEY, LORE_VERSION_JSON_KEY } from '../util/constants.js';
+import { LORE_ID_JSON_KEY, LORE_VERSION_JSON_KEY } from '../util/constants.js';
 
 /**
  * Strategy implementation for JSON output.
@@ -21,15 +20,34 @@ export class JsonFormatter implements IOutputFormatter {
     const { result, supersessionMap, visibleTrailers, trailerDefinitions } = data;
 
     const results = result.atoms.map((atom) => {
-      const supersession = supersessionMap.get(atom.loreId);
+      // Find the primary protocol (prioritize lore)
+      // Fallback to deprecated fields for test compatibility
+      let id = atom.loreId;
+      let state: { identityKey: string; trailers: Record<string, readonly string[]> } | undefined;
+
+      if (atom.protocols && atom.protocols.size > 0) {
+        const protocolName = Array.from(atom.protocols.keys()).find(n => n === 'lore') ?? atom.protocols.keys().next().value;
+        if (protocolName) {
+          const pState = atom.protocols.get(protocolName);
+          if (pState) {
+            state = pState;
+            id = pState.trailers[pState.identityKey]?.[0] ?? id;
+          }
+        }
+      } else {
+        // Fallback for legacy atoms
+        state = { identityKey: 'Lore-id', trailers: atom.trailers };
+      }
+      
+      const supersession = supersessionMap.get(id);
       return {
-        [LORE_ID_JSON_KEY]: atom.loreId,
+        [LORE_ID_JSON_KEY]: id,
         commit: atom.commitHash,
         date: atom.date.toISOString(),
         author: atom.author,
         intent: atom.intent,
         body: atom.body,
-        trailers: this.serializeTrailers(atom.trailers, visibleTrailers, trailerDefinitions),
+        trailers: state ? this.serializeTrailers(state, visibleTrailers, trailerDefinitions) : {},
         files_changed: [...atom.filesChanged],
         superseded: supersession?.superseded ?? false,
         superseded_by: supersession?.supersededBy ?? null,
@@ -214,22 +232,23 @@ export class JsonFormatter implements IOutputFormatter {
    * Transforms trailers into a flat JSON-friendly record.
    */
   private serializeTrailers(
-    trailers: LoreTrailers,
+    state: { identityKey: string; trailers: Record<string, readonly string[]> },
     visibleTrailers: readonly string[] | 'all',
     trailerDefinitions: Record<string, any>,
   ): Record<string, unknown> {
     const result: Record<string, unknown> = {};
+    const trailers = state.trailers;
 
     const shouldShow = (key: string): boolean => {
       if (visibleTrailers === 'all') return true;
       return visibleTrailers.includes(key);
     };
 
-    // Special case: LORE_ID_KEY is ALWAYS included in JSON, matching 'main'
-    result[LORE_ID_JSON_KEY] = trailers[LORE_ID_KEY]?.[0] ?? null;
+    // Special case: identity key is ALWAYS included in JSON, matching 'main'
+    result[LORE_ID_JSON_KEY] = trailers[state.identityKey]?.[0] ?? null;
 
     for (const key of Object.keys(trailers)) {
-      if (key === LORE_ID_KEY) continue;
+      if (key === state.identityKey) continue;
       if (!shouldShow(key)) continue;
 
       const values = trailers[key];
@@ -238,7 +257,6 @@ export class JsonFormatter implements IOutputFormatter {
       const jsonKey = key.toLowerCase().replace(/-/g, '_');
       
       // Scalar vs Array normalization based on INJECTED metadata
-      // This achieves commonality: custom trailers with multivalue: false are now coerced.
       const def = trailerDefinitions[key];
       const isScalar = def && !def.multivalue;
       

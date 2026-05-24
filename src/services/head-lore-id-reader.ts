@@ -1,37 +1,38 @@
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { TrailerParser } from './trailer-parser.js';
-import type { LoreId } from '../types/domain.js';
-import { LORE_ID_PATTERN, LORE_ID_KEY } from '../util/constants.js';
+import type { IProtocol } from '../interfaces/protocol.js';
+import { LORE_ID_PATTERN } from '../util/constants.js';
+import type { AtomId } from '../types/domain.js';
 
 /**
- * Reads the Lore-id from the HEAD commit message.
- *
- * Used during --amend to preserve the existing Lore-id so that
- * knowledge-graph references (Related, Supersedes, Depends-on) remain valid.
- *
- * GRASP: Information Expert -- knows how to extract a Lore-id from HEAD.
- * SRP: Only reads the Lore-id from HEAD; no other responsibilities.
+ * Utility to read the decision identity (e.g. Lore-id) from the HEAD commit.
+ * 
+ * SOLID: SRP -- only responsible for reading the current identity context.
  */
 export class HeadLoreIdReader {
   constructor(
     private readonly gitClient: IGitClient,
     private readonly trailerParser: TrailerParser,
+    private readonly protocol: IProtocol,
   ) {}
 
-  async read(): Promise<LoreId | null> {
-    let message: string;
+  /**
+   * Returns the identity key value from the HEAD commit, or null if missing.
+   */
+  async read(): Promise<AtomId | null> {
     try {
-      message = await this.gitClient.getHeadMessage();
+      const log = await this.gitClient.log(['-1']);
+      if (log.length === 0) return null;
+
+      const trailers = this.trailerParser.parse(log[0].trailers);
+      const idArray = trailers[this.protocol.identityKey];
+      
+      if (idArray && idArray.length > 0 && LORE_ID_PATTERN.test(idArray[0])) {
+        return idArray[0];
+      }
+      return null;
     } catch {
       return null;
     }
-
-    const trailerBlock = this.trailerParser.extractTrailerBlock(message);
-    if (!trailerBlock) return null;
-
-    const trailers = this.trailerParser.parse(trailerBlock);
-    const loreIdArray = trailers[LORE_ID_KEY];
-    const loreId = loreIdArray && loreIdArray.length > 0 ? loreIdArray[0] : null;
-    return loreId && LORE_ID_PATTERN.test(loreId) ? loreId : null;
   }
 }

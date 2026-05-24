@@ -1,11 +1,22 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { SearchFilter } from '../../../src/services/search-filter.js';
-import type { LoreAtom } from '../../../src/types/domain.js';
+import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
+import { Protocol } from '../../../src/services/protocol.js';
+import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import type { Atom } from '../../../src/types/domain.js';
 
 describe('SearchFilter', () => {
-  const filter = new SearchFilter();
+  let filter: SearchFilter;
+  let registry: ProtocolRegistry;
 
-  const mockAtoms: LoreAtom[] = [
+  beforeEach(() => {
+    registry = new ProtocolRegistry();
+    const lore = new Protocol(DEFAULT_CONFIG);
+    registry.register(lore);
+    filter = new SearchFilter(registry);
+  });
+
+  const mockAtoms: Atom[] = [
     {
       loreId: 'abc12345',
       commitHash: 'h1',
@@ -19,16 +30,23 @@ describe('SearchFilter', () => {
         'Scope-risk': ['narrow'],
         Reversibility: ['clean'],
         Constraint: ['c1'],
-        Rejected: [],
-        Directive: [],
-        Tested: [],
-        'Not-tested': [],
-        Supersedes: [],
-        'Depends-on': [],
-        Related: [],
       },
+      protocols: new Map([
+        ['lore', { 
+          name: 'Lore', 
+          version: '1.0', 
+          identityKey: 'Lore-id', 
+          trailers: {
+            'Lore-id': ['abc12345'],
+            Confidence: ['high'],
+            'Scope-risk': ['narrow'],
+            Reversibility: ['clean'],
+            Constraint: ['c1'],
+          } 
+        }]
+      ]),
       filesChanged: ['f1.ts'],
-    },
+    } as any,
     {
       loreId: 'def67890',
       commitHash: 'h2',
@@ -41,17 +59,24 @@ describe('SearchFilter', () => {
         Confidence: ['low'],
         'Scope-risk': ['wide'],
         Reversibility: ['migration-needed'],
-        Constraint: [],
         Rejected: ['r1'],
-        Directive: [],
-        Tested: [],
-        'Not-tested': [],
-        Supersedes: [],
-        'Depends-on': [],
-        Related: [],
       },
+      protocols: new Map([
+        ['lore', { 
+          name: 'Lore', 
+          version: '1.0', 
+          identityKey: 'Lore-id', 
+          trailers: {
+            'Lore-id': ['def67890'],
+            Confidence: ['low'],
+            'Scope-risk': ['wide'],
+            Reversibility: ['migration-needed'],
+            Rejected: ['r1'],
+          } 
+        }]
+      ]),
       filesChanged: ['f2.ts'],
-    },
+    } as any,
   ];
 
   it('should filter by scope', () => {
@@ -68,7 +93,7 @@ describe('SearchFilter', () => {
 
   it('should filter by date range (since)', () => {
     const results = filter.applyFilters(mockAtoms, { 
-      since: '2026-05-05',
+      sinceDate: new Date('2026-05-05'),
     } as any);
     expect(results).toHaveLength(1);
     expect(results[0].loreId).toBe('def67890');
@@ -81,7 +106,9 @@ describe('SearchFilter', () => {
   });
 
   it('should filter by confidence', () => {
-    const results = filter.applyFilters(mockAtoms, { confidence: 'high' } as any);
+    const results = filter.applyFilters(mockAtoms, { 
+      filters: { confidence: 'high' } 
+    } as any);
     expect(results).toHaveLength(1);
     expect(results[0].loreId).toBe('abc12345');
   });
@@ -90,5 +117,74 @@ describe('SearchFilter', () => {
     const results = filter.applyFilters(mockAtoms, { text: 'layout' } as any);
     expect(results).toHaveLength(1);
     expect(results[0].loreId).toBe('def67890');
+  });
+
+  describe('Backward Compatibility (Legacy Fallback)', () => {
+    it('should correctly filter atoms that lack a protocols map using root trailers', () => {
+      const legacyAtom: any = {
+        loreId: 'legacy123',
+        trailers: { Confidence: ['high'] },
+        intent: 'legacy commit',
+        body: '',
+        date: new Date(),
+      };
+      
+      // Filter by confidence (should use fallback logic)
+      const results = filter.applyFilters([legacyAtom], { 
+        filters: { confidence: 'high' } 
+      } as any);
+      
+      expect(results).toHaveLength(1);
+    });
+  });
+
+  describe('Multi-Protocol Semantic Search', () => {
+    it('should match if a text query is found in a secondary protocol state', () => {
+      const multiAtom: any = {
+        loreId: 'id123',
+        intent: 'subject',
+        body: 'body',
+        date: new Date(),
+        protocols: new Map([
+          ['lore', { name: 'Lore', trailers: {} }],
+          ['fred', { name: 'Fred', trailers: { 'Fred-Notes': ['found me'] } }]
+        ])
+      };
+      
+      const results = filter.applyFilters([multiAtom], { text: 'found me' } as any);
+      expect(results).toHaveLength(1);
+    });
+
+    it('should match if any protocol in the atom matches generic filters', () => {
+      const multiAtom: any = {
+        loreId: 'id123',
+        intent: 'subject',
+        body: 'body',
+        date: new Date(),
+        protocols: new Map([
+          ['lore', { name: 'Lore', trailers: { Confidence: ['medium'] } }],
+          ['fred', { name: 'Fred', trailers: { 'Fred-Level': ['high'] } }]
+        ])
+      };
+      
+      // Register Fred protocol so filter knows about it
+      const fred: IProtocol = {
+        name: 'Fred',
+        namespace: 'Fred',
+        matches: (state: any, filters: any) => {
+          if (filters['Fred-Level']) return state.trailers['Fred-Level'][0] === filters['Fred-Level'];
+          return true;
+        },
+        authorize: (key: string) => key === 'Fred-Level' ? 'Fred-Level' : null,
+      } as any;
+      registry.register(fred);
+
+      // Search by Fred-Level
+      const results = filter.applyFilters([multiAtom], { 
+        filters: { 'Fred-Level': 'high' } 
+      } as any);
+      
+      expect(results).toHaveLength(1);
+    });
   });
 });

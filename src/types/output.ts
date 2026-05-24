@@ -1,4 +1,4 @@
-import type { LoreAtom, SupersessionStatus, TrailerKey, StaleSignal } from './domain.js';
+import type { Atom, SupersessionStatus, TrailerKey, StaleSignal } from './domain.js';
 import type { QueryResult } from './query.js';
 import type { LoreConfig, CustomTrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from './config.js';
 import type { ParsedDirective } from '../util/directive-parser.js';
@@ -41,12 +41,12 @@ export interface StaleReason {
 }
 
 export interface StaleAtomReport {
-  readonly atom: LoreAtom;
+  readonly atom: Atom;
   readonly reasons: readonly StaleReason[];
 }
 
 export interface FormattableTraceResult {
-  readonly root: LoreAtom;
+  readonly root: Atom;
   readonly edges: readonly TraceEdge[];
 }
 
@@ -54,7 +54,7 @@ export interface TraceEdge {
   readonly from: string;
   readonly to: string;
   readonly relationship: 'Related' | 'Supersedes' | 'Depends-on';
-  readonly targetAtom: LoreAtom | null;
+  readonly targetAtom: Atom | null;
 }
 
 export interface FormattableDoctorResult {
