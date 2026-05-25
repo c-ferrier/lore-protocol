@@ -1,17 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Protocol } from '../../../src/services/protocol.js';
-import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
-import { AtomRepository } from '../../../src/services/atom-repository.js';
-import { JsonFormatter } from '../../../src/formatters/json-formatter.js';
-import { TrailerParser } from '../../../src/services/trailer-parser.js';
-import { SearchFilter } from '../../../src/services/search-filter.js';
-import { NullAtomCache } from '../../../src/services/atom-cache.js';
-import { NullQueryCache } from '../../../src/services/query-cache.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { Validator } from '../../../src/services/validator.js';
-import type { ProtocolDefinition } from '../../../src/interfaces/protocol-definition.js';
-import type { IGitClient } from '../../../src/interfaces/git-client.js';
-import type { Atom } from '../../../src/types/domain.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
+import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
+import { SearchFilter } from '../../../src/engine/services/search-filter.js';
+import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
+import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
+import { Validator } from '../../../src/engine/services/validator.js';
+import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
+import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
+import type { Atom } from '../../../src/engine/types/domain.js';
 
 describe('Rebranding Flow Integration', () => {
   it('should flow a custom protocol from raw trailers to rebranded JSON output', async () => {
@@ -37,8 +37,8 @@ describe('Rebranding Flow Integration', () => {
     };
 
     const config = {
-      ...DEFAULT_CONFIG,
-      trailers: { ...DEFAULT_CONFIG.trailers, permissive: true }
+      ...LORE_DEFAULT_CONFIG,
+      trailers: { ...LORE_DEFAULT_CONFIG.trailers, permissive: true }
     };
 
     const fredProtocol = new Protocol(fredDef, config);
@@ -124,8 +124,8 @@ describe('Rebranding Flow Integration', () => {
         },
       }
     };
-    const protocol = new Protocol(fredDef, DEFAULT_CONFIG);
-    const validator = new Validator(new TrailerParser(), {} as any, DEFAULT_CONFIG, protocol);
+    const protocol = new Protocol(fredDef, LORE_DEFAULT_CONFIG);
+    const validator = new Validator(new TrailerParser(), {} as any, LORE_DEFAULT_CONFIG, protocol);
 
     // 2. Validate a commit with missing Fred-id
     const commit = {

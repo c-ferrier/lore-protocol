@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { TrailerCollectorRegistry } from '../../../../../src/services/readers/collectors/trailer-collector-registry.js';
-import { DEFAULT_CONFIG } from '../../../../../src/util/constants.js';
-import { Protocol } from '../../../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../../src/protocols/lore.js';
+import { TrailerCollectorRegistry } from '../../../../../src/engine/services/readers/collectors/trailer-collector-registry.js';
+import { LORE_DEFAULT_CONFIG } from '../../../../../src/lore/defaults.js';
+import { Protocol } from '../../../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../../../src/lore/protocol-definition.js';
 
 describe('TrailerCollectorRegistry', () => {
   it('should create default collectors for core trailers', () => {
-    const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
@@ -18,9 +18,9 @@ describe('TrailerCollectorRegistry', () => {
 
   it('should add custom collectors from definitions', () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         definitions: {
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const },
           'Squad': { description: 'Squad name', multivalue: true, validation: 'none' as const }
@@ -38,9 +38,9 @@ describe('TrailerCollectorRegistry', () => {
 
   it('should handle multi-value enum collectors', () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         definitions: {
           'Features': { 
             description: 'Features', 
@@ -63,9 +63,9 @@ describe('TrailerCollectorRegistry', () => {
 
   it('should create collectors for simple custom trailers', () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         custom: ['Team'],
         definitions: {
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const }
@@ -83,9 +83,9 @@ describe('TrailerCollectorRegistry', () => {
 
   it('should sort collectors based on metadata order', () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         definitions: {
           'First': { description: 'f', multivalue: false, validation: 'none' as const, prompt: { order: 1 } },
           'Last': { description: 'l', multivalue: false, validation: 'none' as const, prompt: { order: 10000 } }

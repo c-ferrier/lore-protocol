@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { StalenessDetector } from '../../../src/services/staleness-detector.js';
-import type { IGitClient } from '../../../src/interfaces/git-client.js';
-import type { Config } from '../../../src/types/config.js';
-import type { Atom, SupersessionStatus } from '../../../src/types/domain.js';
-import type { IProtocol } from '../../../src/interfaces/protocol.js';
+import { StalenessDetector } from '../../../src/engine/services/staleness-detector.js';
+import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
+import type { Config } from '../../../src/engine/types/config.js';
+import type { Atom, SupersessionStatus } from '../../../src/engine/types/domain.js';
+import type { IProtocol } from '../../../src/engine/interfaces/protocol.js';
 
 const LORE_ID_KEY = "Lore-id";
 

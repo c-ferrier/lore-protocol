@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { HeadIdReader } from '../../../src/services/head-id-reader.js';
+import { HeadIdReader } from '../../../src/engine/services/head-id-reader.js';
 
-import { TrailerParser } from '../../../src/services/trailer-parser.js';
-import type { IGitClient } from '../../../src/interfaces/git-client.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
+import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -33,7 +33,7 @@ function createMockGitClient(headMessage: string): IGitClient {
 
 describe('HeadIdReader', () => {
   let trailerParser: TrailerParser;
-  const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+  const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
 
   beforeEach(() => {
     trailerParser = new TrailerParser();

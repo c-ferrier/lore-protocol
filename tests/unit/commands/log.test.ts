@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Command } from 'commander';
-import { registerLogCommand } from '../../../src/commands/log.js';
-import type { AtomRepository } from '../../../src/services/atom-repository.js';
-import type { SupersessionResolver } from '../../../src/services/supersession-resolver.js';
-import type { IOutputFormatter } from '../../../src/interfaces/output-formatter.js';
-import type { Atom } from '../../../src/types/domain.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
+import { registerLogCommand } from '../../../src/engine/commands/log.js';
+import type { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import type { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
+import type { IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
+import type { Atom } from '../../../src/engine/types/domain.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -99,8 +99,8 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
     atomRepository,
     supersessionResolver,
     getFormatter: () => formatter,
-    config: DEFAULT_CONFIG,
-    protocol: new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG),
+    config: LORE_DEFAULT_CONFIG,
+    protocol: new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG),
   });
 
   return { program, capturedResult, findAll, findByTarget, consoleSpy };

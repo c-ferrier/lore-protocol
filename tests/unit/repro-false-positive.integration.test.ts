@@ -2,16 +2,16 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { execSync } from 'node:child_process';
 import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SearchFilter } from "../../src/services/search-filter.js";
-import { AtomRepository } from '../../src/services/atom-repository.js';
-import { GitClient } from '../../src/services/git-client.js';
-import { TrailerParser } from '../../src/services/trailer-parser.js';
-import { Protocol } from '../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../src/protocols/lore.js';
-import { ProtocolRegistry } from '../../src/services/protocol-registry.js';
-import { NullAtomCache } from '../../src/services/atom-cache.js';
-import { NullQueryCache } from '../../src/services/query-cache.js';
-import { DEFAULT_CONFIG } from '../../src/util/constants.js';
+import { SearchFilter } from '../../src/engine/services/search-filter.js';
+import { AtomRepository } from '../../src/engine/services/atom-repository.js';
+import { GitClient } from '../../src/engine/services/git-client.js';
+import { TrailerParser } from '../../src/engine/services/trailer-parser.js';
+import { Protocol } from '../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
+import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
+import { NullAtomCache } from '../../src/engine/services/atom-cache.js';
+import { NullQueryCache } from '../../src/engine/services/query-cache.js';
+import { LORE_DEFAULT_CONFIG } from '../../src/lore/defaults.js';
 
 const IDENTITY_KEY = "Lore-id";
 
@@ -39,7 +39,7 @@ describe('AtomRepository False Positive Repro', () => {
     run(`git commit -m "feat: false positive\n\nMentioning ${IDENTITY_KEY}: 12345678 in the middle of a sentence."`);
 
     gitClient = new GitClient(testDir);
-    const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
     const protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     const trailerParser = new TrailerParser();

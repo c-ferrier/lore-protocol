@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TrailerParser } from '../../../src/services/trailer-parser.js';
+import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 
 describe('TrailerParser', () => {
   let parser: TrailerParser;

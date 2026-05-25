@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AtomRepository } from '../../../src/services/atom-repository.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
-import { SearchFilter } from '../../../src/services/search-filter.js';
-import { NullAtomCache } from '../../../src/services/atom-cache.js';
-import { NullQueryCache } from '../../../src/services/query-cache.js';
-import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
-import type { PathQueryOptions } from '../../../src/types/query.js';
-import type { Trailers } from '../../../src/types/domain.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { TrailerParser } from '../../../src/services/trailer-parser.js';
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { SearchFilter } from '../../../src/engine/services/search-filter.js';
+import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
+import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
+import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
+import type { PathQueryOptions } from '../../../src/engine/types/query.js';
+import type { Trailers } from '../../../src/engine/types/domain.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
+import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -145,7 +145,7 @@ describe('AtomRepository', () => {
   beforeEach(() => {
     gitClient = createMockGitClient();
     trailerParser = createMockTrailerParser();
-    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     searchFilter = new SearchFilter(protocolRegistry);
@@ -198,7 +198,7 @@ describe('AtomRepository', () => {
       await repo.findByTarget(makeGitLogArgs(), options);
 
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--author=alice@example.com');
+      expect(logArgs).toContain('--author=alice@example\\.com');
     });
 
     it('should pass since filter to git log args', async () => {
@@ -783,8 +783,10 @@ describe('AtomRepository', () => {
       const result = await repo.findByTarget(makeGitLogArgs(), makeQueryOptions());
 
       expect(result).toHaveLength(25);
-      expect(gitClient.getFilesChanged).toHaveBeenCalledTimes(1);
-      expect(vi.mocked(gitClient.getFilesChanged).mock.calls[0][0]).toHaveLength(25);
+      expect(gitClient.getFilesChanged).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(gitClient.getFilesChanged).mock.calls[0][0]).toHaveLength(20);
+      expect(vi.mocked(gitClient.getFilesChanged).mock.calls[1][0]).toHaveLength(5);
+
     });
 
     it('should propagate getFilesChanged errors', async () => {
@@ -799,7 +801,7 @@ describe('AtomRepository', () => {
   describe('Multi-Protocol Hydration', () => {
     it('should hydrate an atom with multiple protocol states if claimed by multiple protocols', async () => {
       // 1. Create a second protocol (Fred) using a manual mock to avoid Protocol class getter issues
-      const fredProtocol: any = {
+      const fredProtocol: any = {getAllKeys: () => ['Fred-id', 'Confidence'], 
         name: 'Fred',
         version: '1.0',
         identityKey: 'Fred-id',
@@ -815,14 +817,14 @@ describe('AtomRepository', () => {
         getDiscoveryPattern: () => '^Fred-id: [0-9a-f]{8}',
         getSearchGrep: () => [],
         matches: () => true,
-        parse: (raw: string) => ({
+        parse: (raw: string) => ({getAllKeys: () => ['Fred-id', 'Confidence'], 
           name: 'Fred',
           version: '1.0',
           identityKey: 'Fred-id',
         getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
           trailers: { 'Fred-id': ['fred5678'], 'Confidence': ['high'] }
         }),
-        getAuthorizedKeys: () => ['Fred-id', 'Confidence'],
+        getAllKeys: () => ['Fred-id', 'Confidence'], getAuthorizedKeys: () => ['Fred-id', 'Confidence'],
         getScalarKeys: () => ['Fred-id', 'Confidence'],
         getListKeys: () => [],
         getReferenceKeys: () => [],
@@ -871,7 +873,7 @@ describe('AtomRepository', () => {
       vi.spyOn(loreProtocol, 'isPermissive', 'get').mockReturnValue(true);
 
       // 2. Fred is strict but defines its own ID
-      const fredProtocol: any = {
+      const fredProtocol: any = {getAllKeys: () => ['Fred-id', 'Confidence'], 
         name: 'Fred',
         version: '1.0',
         identityKey: 'Fred-id',
@@ -890,7 +892,7 @@ describe('AtomRepository', () => {
           const trailers: Record<string, string[]> = {};
           if (raw.includes('Fred-id: 123')) trailers['Fred-id'] = ['123'];
           if (raw.includes('Confidence: high')) trailers['Confidence'] = ['high'];
-          return { name: 'Fred', version: '1.0', identityKey: 'Fred-id', trailers };
+          return {getAllKeys: () => ['Fred-id', 'Confidence'],  name: 'Fred', version: '1.0', identityKey: 'Fred-id', trailers };
         },
       } as any;
       
@@ -937,7 +939,7 @@ describe('AtomRepository', () => {
 
     it('should find an atom by ID across multiple protocols', async () => {
       // 1. Create and register Fred protocol
-      const fredProtocol: any = {
+      const fredProtocol: any = {getAllKeys: () => ['Fred-id', 'Confidence'], 
         name: 'Fred',
         version: '1.0',
         identityKey: 'Fred-id',
@@ -952,7 +954,7 @@ describe('AtomRepository', () => {
         getDiscoveryPattern: () => '^Fred-id: [0-9a-f]{8}',
         getIdentityPattern: (id: string) => `^Fred-id: ${id}`,
         matches: () => true,
-        parse: (raw: string) => ({
+        parse: (raw: string) => ({getAllKeys: () => ['Fred-id', 'Confidence'], 
           name: 'Fred',
           version: '1.0',
           identityKey: 'Fred-id',
@@ -992,7 +994,7 @@ describe('AtomRepository', () => {
     it('should generate targeted greps for the "has" filter based on schema ownership', async () => {
       // 1. Lore owns 'Constraint' (core)
       // 2. Fred (namespaced) does NOT own 'Constraint'
-      const fredProtocol: any = {
+      const fredProtocol: any = {getAllKeys: () => ['Fred-id', 'Confidence'], 
         name: 'Fred',
         version: '1.0',
         identityKey: 'Fred-id',
@@ -1007,7 +1009,7 @@ describe('AtomRepository', () => {
         getDiscoveryPattern: () => '^Fred/Fred-id: [0-9a-f]{8}',
         getSearchGrep: () => [],
         matches: () => true,
-        parse: () => ({ name: 'Fred', version: '1.0', identityKey: 'Fred-id', trailers: {} }),
+        parse: () => ({getAllKeys: () => ['Fred-id', 'Confidence'],  name: 'Fred', version: '1.0', identityKey: 'Fred-id', trailers: {} }),
       } as any;
       
       protocolRegistry.register(fredProtocol);

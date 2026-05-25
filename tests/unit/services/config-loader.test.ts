@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ConfigLoader } from '../../../src/services/config-loader.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import { ConfigLoader } from '../../../src/engine/services/config-loader.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
 
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -13,7 +13,7 @@ describe('ConfigLoader', () => {
   let tempDir: string;
 
   beforeEach(async () => {
-    loader = new ConfigLoader();
+    loader = new ConfigLoader('.lore', 'config.toml', LORE_DEFAULT_CONFIG);
     tempDir = await mkdtemp(join(tmpdir(), 'lore-config-test-'));
   });
 
@@ -82,11 +82,11 @@ version = "1.5"
 
       expect(config.protocol.version).toBe('1.5');
       // All other sections should come from defaults
-      expect(config.trailers).toEqual(DEFAULT_CONFIG.trailers);
-      expect(config.validation).toEqual(DEFAULT_CONFIG.validation);
-      expect(config.stale).toEqual(DEFAULT_CONFIG.stale);
-      expect(config.output).toEqual(DEFAULT_CONFIG.output);
-      expect(config.follow).toEqual(DEFAULT_CONFIG.follow);
+      expect(config.trailers).toEqual(LORE_DEFAULT_CONFIG.trailers);
+      expect(config.validation).toEqual(LORE_DEFAULT_CONFIG.validation);
+      expect(config.stale).toEqual(LORE_DEFAULT_CONFIG.stale);
+      expect(config.output).toEqual(LORE_DEFAULT_CONFIG.output);
+      expect(config.follow).toEqual(LORE_DEFAULT_CONFIG.follow);
     });
 
     it('should use defaults for empty config file', async () => {
@@ -94,7 +94,7 @@ version = "1.5"
 
       const config = await loader.loadFromFile(configPath);
 
-      expect(config).toEqual(DEFAULT_CONFIG);
+      expect(config).toEqual(LORE_DEFAULT_CONFIG);
     });
 
     it('should handle only stale section', async () => {
@@ -108,7 +108,7 @@ driftThreshold = 10
 
       expect(config.stale.olderThan).toBe('30d');
       expect(config.stale.driftThreshold).toBe(10);
-      expect(config.protocol).toEqual(DEFAULT_CONFIG.protocol);
+      expect(config.protocol).toEqual(LORE_DEFAULT_CONFIG.protocol);
     });
 
     it('should parse cli section options', async () => {
@@ -339,7 +339,7 @@ ui = { kind = "reference", color = "dim" }
     it('should return defaults when no config file exists', async () => {
       const config = await loader.loadForPath(tempDir);
 
-      expect(config).toEqual(DEFAULT_CONFIG);
+      expect(config).toEqual(LORE_DEFAULT_CONFIG);
     });
 
     it('should load config from the nearest .lore/config.toml', async () => {

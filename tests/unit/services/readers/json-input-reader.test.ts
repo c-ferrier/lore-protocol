@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { JsonInputReader } from '../../../../src/services/readers/json-input-reader.js';
+import { JsonInputReader } from '../../../../src/engine/services/readers/json-input-reader.js';
 
 describe('JsonInputReader', () => {
   describe('valid JSON', () => {

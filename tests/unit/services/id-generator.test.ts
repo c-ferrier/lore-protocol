@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { IdGenerator } from '../../../src/services/id-generator.js';
-import type { IProtocol } from '../../../src/interfaces/protocol.js';
+import { IdGenerator } from '../../../src/engine/services/id-generator.js';
+import type { IProtocol } from '../../../src/engine/interfaces/protocol.js';
 
 describe('IdGenerator', () => {
   let mockProtocol: IProtocol;

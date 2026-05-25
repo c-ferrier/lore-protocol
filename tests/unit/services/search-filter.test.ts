@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SearchFilter } from '../../../src/services/search-filter.js';
-import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import type { Atom } from '../../../src/types/domain.js';
+import { SearchFilter } from '../../../src/engine/services/search-filter.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
+import type { Atom } from '../../../src/engine/types/domain.js';
 
 describe('SearchFilter', () => {
   let filter: SearchFilter;
@@ -12,7 +12,7 @@ describe('SearchFilter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    const lore = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    const lore = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
     registry.register(lore);
     filter = new SearchFilter(registry);
   });
@@ -67,19 +67,19 @@ describe('SearchFilter', () => {
   ];
 
   it('should filter by scope', () => {
-    const results = filter.applyFilters(mockAtoms, { scope: 'auth' } as any);
+    const results = filter.filter(mockAtoms, { scope: 'auth' } as any);
     expect(results).toHaveLength(1);
     expect(results[0].id).toBe('abc12345');
   });
 
   it('should filter by author', () => {
-    const results = filter.applyFilters(mockAtoms, { author: 'ivan' } as any);
+    const results = filter.filter(mockAtoms, { author: 'ivan' } as any);
     expect(results).toHaveLength(1);
     expect(results[0].id).toBe('def67890');
   });
 
   it('should filter by date range (since)', () => {
-    const results = filter.applyFilters(mockAtoms, { 
+    const results = filter.filter(mockAtoms, { 
       sinceDate: new Date('2026-05-05'),
     } as any);
     expect(results).toHaveLength(1);
@@ -87,13 +87,13 @@ describe('SearchFilter', () => {
   });
 
   it('should filter by trailer presence (has)', () => {
-    const results = filter.applyFilters(mockAtoms, { has: 'Constraint' } as any);
+    const results = filter.filter(mockAtoms, { has: 'Constraint' } as any);
     expect(results).toHaveLength(1);
     expect(results[0].id).toBe('abc12345');
   });
 
   it('should filter by confidence', () => {
-    const results = filter.applyFilters(mockAtoms, { 
+    const results = filter.filter(mockAtoms, { 
       filters: { confidence: 'high' } 
     } as any);
     expect(results).toHaveLength(1);
@@ -101,7 +101,7 @@ describe('SearchFilter', () => {
   });
 
   it('should filter by full-text search', () => {
-    const results = filter.applyFilters(mockAtoms, { text: 'layout' } as any);
+    const results = filter.filter(mockAtoms, { text: 'layout' } as any);
     expect(results).toHaveLength(1);
     expect(results[0].id).toBe('def67890');
   });
@@ -118,7 +118,7 @@ describe('SearchFilter', () => {
       };
       
       // Filter by confidence (should use fallback logic)
-      const results = filter.applyFilters([legacyAtom], { 
+      const results = filter.filter([legacyAtom], { 
         filters: { confidence: 'high' } 
       } as any);
       
@@ -139,7 +139,7 @@ describe('SearchFilter', () => {
         ])
       };
       
-      const results = filter.applyFilters([multiAtom], { text: 'found me' } as any);
+      const results = filter.filter([multiAtom], { text: 'found me' } as any);
       expect(results).toHaveLength(1);
     });
 
@@ -168,7 +168,7 @@ describe('SearchFilter', () => {
       registry.register(fred);
 
       // Search by Fred-Level
-      const results = filter.applyFilters([multiAtom], { 
+      const results = filter.filter([multiAtom], { 
         filters: { 'Fred-Level': 'high' } 
       } as any);
       

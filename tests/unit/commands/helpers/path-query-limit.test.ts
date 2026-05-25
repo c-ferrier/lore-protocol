@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { executePathQuery } from '../../../../src/commands/helpers/path-query.js';
-import type { PathQueryDeps, PathQueryCommandOptions } from '../../../../src/commands/helpers/path-query.js';
-import type { Atom, SupersessionStatus } from '../../../../src/types/domain.js';
-import { DEFAULT_CONFIG } from '../../../../src/util/constants.js';
-import { Protocol } from '../../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../src/protocols/lore.js';
+import { executePathQuery } from '../../../../src/engine/commands/helpers/path-query.js';
+import type { PathQueryDeps, PathQueryCommandOptions } from '../../../../src/engine/commands/helpers/path-query.js';
+import type { Atom, SupersessionStatus } from '../../../../src/engine/types/domain.js';
+import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { Protocol } from '../../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -55,7 +55,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     mockResolve = vi.fn();
     mockFilterActive = vi.fn();
     formattedOutput = '';
-    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
 
     deps = {
       atomRepository: {
@@ -86,7 +86,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
           return formattedOutput;
         }),
       }) as any,
-      config: DEFAULT_CONFIG,
+      config: LORE_DEFAULT_CONFIG,
       protocol,
     };
   });

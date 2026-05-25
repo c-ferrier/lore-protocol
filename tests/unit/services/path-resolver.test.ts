@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolve } from 'node:path';
-import { PathResolver } from '../../../src/services/path-resolver.js';
+import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 
 describe('PathResolver', () => {
   // Base configuration: Lore root is the same as CWD

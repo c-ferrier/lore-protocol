@@ -8,7 +8,8 @@
   },
   "type": "module",
   "bin": {
-    "lore": "./bin/lore.js"
+    "lore": "./bin/lore.js",
+    "atom": "./bin/atom.js"
   },
   "files": [
     "bin/",

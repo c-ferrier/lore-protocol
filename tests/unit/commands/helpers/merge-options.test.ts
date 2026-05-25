@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { mergeOptions } from '../../../../src/commands/helpers/merge-options.js';
+import { mergeOptions } from '../../../../src/engine/commands/helpers/merge-options.js';
 
 function mockCommand(localOpts: Record<string, unknown>, parentOpts?: Record<string, unknown>) {
   return {

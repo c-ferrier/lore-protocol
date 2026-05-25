@@ -1,39 +1,11 @@
-import type { Config } from '../types/config.js';
-
 /** Default display limit for query results */
 export const DEFAULT_QUERY_LIMIT = 20;
 
-/** Default max git commits to scan when looking for Lore atoms */
+/** Default max git commits to scan when looking for protocol atoms */
 export const DEFAULT_MAX_COMMITS = 1000;
 
 /** Default max number of query cache entries to keep (LRU pruning threshold) */
 export const DEFAULT_CACHE_PRUNE_THRESHOLD = 100;
-
-/** The default configuration for the engine */
-export const DEFAULT_CONFIG: Config = {
-  protocol: { name: 'Lore', version: '1.0' },
-  trailers: { required: [], custom: [], definitions: {}, permissive: true },
-  validation: { strict: false, maxMessageLines: 50, intentMaxLength: 72 },
-  stale: { olderThan: '6m', driftThreshold: 20 },
-  output: { defaultFormat: 'text' },
-  follow: { maxDepth: 3 },
-  cli: { 
-    updateCheck: true, 
-    cache: true, 
-    queryCache: true,
-    queryCachePruneThreshold: DEFAULT_CACHE_PRUNE_THRESHOLD,
-  },
-};
-
-/** Filesystem paths for protocol configuration */
-export const CONFIG_DIR = '.lore';
-export const CONFIG_FILENAME = 'config.toml';
-/** Main cache directory within CONFIG_DIR */
-export const CACHE_DIR = 'cache';
-/** Subdirectory within CACHE_DIR used for atom metadata caching */
-export const ATOM_CACHE_DIR = 'atom';
-/** Subdirectory within CACHE_DIR used for query result caching */
-export const QUERY_CACHE_DIR = 'query';
 
 /** Prompt strings for interactive mode (Intent and Body only) */
 export const PROMPT_STRINGS = {
@@ -79,3 +51,8 @@ export const TRAILER_UI_COLORS = [
   'red',
   'dim',
 ] as const;
+
+/** Default cache subdirectories */
+export const CACHE_DIR = 'cache';
+export const ATOM_CACHE_DIR = 'atom';
+export const QUERY_CACHE_DIR = 'query';

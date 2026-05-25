@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
-import { InteractiveInputReader } from '../../../../src/services/readers/interactive-input-reader.js';
-import { createTrailerCollectors } from '../../../../src/services/readers/collectors/trailer-collector-registry.js';
-import type { IPrompt } from '../../../../src/interfaces/prompt.js';
-import { DEFAULT_CONFIG } from '../../../../src/util/constants.js';
+import { InteractiveInputReader } from '../../../../src/engine/services/readers/interactive-input-reader.js';
+import { createTrailerCollectors } from '../../../../src/engine/services/readers/collectors/trailer-collector-registry.js';
+import type { IPrompt } from '../../../../src/engine/interfaces/prompt.js';
+import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { Protocol } from '../../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 
 /**
  * Creates a mock IPrompt for testing.
@@ -81,7 +83,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(DEFAULT_CONFIG));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG)));
       const result = await reader.read();
 
       expect(result.intent).toBe('refactor auth module');
@@ -109,7 +111,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(DEFAULT_CONFIG));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG)));
       const result = await reader.read();
 
       expect(result.intent).toBe('minimal intent');
@@ -162,7 +164,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(DEFAULT_CONFIG));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG)));
       const result = await reader.read();
 
       expect(result.trailers?.Constraint).toEqual([
@@ -212,7 +214,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(DEFAULT_CONFIG));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG)));
       const result = await reader.read();
 
       expect(result.trailers?.Constraint).toEqual(['valid value']);
@@ -226,7 +228,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(DEFAULT_CONFIG));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG)));
 
       await expect(reader.read()).rejects.toThrow('prompt error');
       expect(prompt.close).toHaveBeenCalled();
@@ -239,7 +241,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(DEFAULT_CONFIG));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG)));
 
       await expect(reader.read()).rejects.toThrow('confirm error');
       expect(prompt.close).toHaveBeenCalled();

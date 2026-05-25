@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AtomRepository } from '../../../src/services/atom-repository.js';
-import { TrailerParser } from '../../../src/services/trailer-parser.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import { SearchFilter } from '../../../src/services/search-filter.js';
-import { NullAtomCache } from '../../../src/services/atom-cache.js';
-import { NullQueryCache } from '../../../src/services/query-cache.js';
-import type { IGitClient, RawCommit } from '../../../src/interfaces/git-client.js';
-import type { SearchOptions } from '../../../src/types/query.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { SearchFilter } from '../../../src/engine/services/search-filter.js';
+import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
+import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
+import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
+import type { SearchOptions } from '../../../src/engine/types/query.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
 
-import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -32,7 +32,7 @@ describe('AtomRepository Refinement', () => {
       }),
       resolveDate: vi.fn(async (d: string) => new Date(d)),
     } as any;
-    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     trailerParser = new TrailerParser();

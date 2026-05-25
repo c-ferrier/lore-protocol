@@ -1,18 +1,18 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TextFormatter } from '../../../src/formatters/text-formatter.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import { TextFormatter } from '../../../src/engine/formatters/text-formatter.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
 
-import type { Atom, Trailers, SupersessionStatus } from '../../../src/types/domain.js';
+import type { Atom, Trailers, SupersessionStatus } from '../../../src/engine/types/domain.js';
 import type {
   FormattableQueryResult,
   FormattableValidationResult,
   FormattableStalenessResult,
   FormattableTraceResult,
   FormattableDoctorResult,
-} from '../../../src/types/output.js';
+} from '../../../src/engine/types/output.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -65,7 +65,7 @@ describe('TextFormatter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
     registry.register(protocol);
     formatter = new TextFormatter(registry, { color: false });
   });
@@ -307,7 +307,7 @@ describe('TextFormatter', () => {
         version: '2.5',
         identityKey: 'Fred-id',
         namespace: 'Fred',
-      }, DEFAULT_CONFIG);
+      }, LORE_DEFAULT_CONFIG);
       localRegistry.register(fredProtocol);
 
       const formatterNoRoot = new TextFormatter(localRegistry, { color: false });

@@ -1,17 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { JsonFormatter } from '../../../src/formatters/json-formatter.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
 import type {
   FormattableQueryResult,
   FormattableValidationResult,
   FormattableStalenessResult,
   FormattableTraceResult,
   FormattableDoctorResult,
-} from '../../../src/types/output.js';
-import type { Atom, Trailers, SupersessionStatus } from '../../../src/types/domain.js';
+} from '../../../src/engine/types/output.js';
+import type { Atom, Trailers, SupersessionStatus } from '../../../src/engine/types/domain.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -65,7 +65,7 @@ describe('JsonFormatter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
     registry.register(protocol);
     formatter = new JsonFormatter(registry);
   });
@@ -260,9 +260,9 @@ describe('JsonFormatter', () => {
     it('should normalize custom trailers based on metadata in registry', () => {
       const localRegistry = new ProtocolRegistry();
       const config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: {
-          ...DEFAULT_CONFIG.trailers,
+          ...LORE_DEFAULT_CONFIG.trailers,
           definitions: {
             'Assisted-by': { description: 'A', multivalue: false, validation: 'none' as const },
             'Team': { description: 'T', multivalue: true, validation: 'none' as const },
@@ -310,7 +310,7 @@ describe('JsonFormatter', () => {
         name: 'Fred',
         version: '2.5',
         identityKey: 'Fred-id',
-      }, DEFAULT_CONFIG);
+      }, LORE_DEFAULT_CONFIG);
       localRegistry.register(fredProtocol);
 
       const fredFormatter = new JsonFormatter(localRegistry);
@@ -384,7 +384,7 @@ describe('JsonFormatter', () => {
         version: '2.5',
         identityKey: 'Fred-id',
         namespace: 'Fred',
-      }, DEFAULT_CONFIG);
+      }, LORE_DEFAULT_CONFIG);
       localRegistry.register(fredProtocol);
 
       const formatterNoRoot = new JsonFormatter(localRegistry);

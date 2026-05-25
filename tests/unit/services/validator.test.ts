@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Validator } from '../../../src/services/validator.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
+import { Validator } from '../../../src/engine/services/validator.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
-import type { Config } from '../../../src/types/config.js';
-import type { RawCommit } from '../../../src/interfaces/git-client.js';
-import type { Trailers } from '../../../src/types/domain.js';
-import type { AtomRepository } from '../../../src/services/atom-repository.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import type { Config } from '../../../src/engine/types/config.js';
+import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
+import type { Trailers } from '../../../src/engine/types/domain.js';
+import type { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -65,7 +65,7 @@ describe('Validator', () => {
   beforeEach(() => {
     mockParser = createMockTrailerParser();
     mockAtomRepo = createMockAtomRepository();
-    config = { ...DEFAULT_CONFIG };
+    config = { ...LORE_DEFAULT_CONFIG };
     protocol = new Protocol(LoreProtocolDefinition, config);
     validator = new Validator(mockParser as any, mockAtomRepo as any, config, protocol);
   });
@@ -108,7 +108,7 @@ describe('Validator', () => {
 
   describe('Hygiene rules', () => {
     it('should warn when intent exceeds max length', async () => {
-      const longIntent = 'a'.repeat(DEFAULT_CONFIG.validation.intentMaxLength + 1);
+      const longIntent = 'a'.repeat(LORE_DEFAULT_CONFIG.validation.intentMaxLength + 1);
       const commit = makeCommit({ subject: longIntent });
       const results = await validator.validate([commit]);
 
@@ -118,7 +118,7 @@ describe('Validator', () => {
     });
 
     it('should warn when total message lines exceed max', async () => {
-      const manyLines = '\n'.repeat(DEFAULT_CONFIG.validation.maxMessageLines + 1);
+      const manyLines = '\n'.repeat(LORE_DEFAULT_CONFIG.validation.maxMessageLines + 1);
       const commit = makeCommit({ body: manyLines });
       const results = await validator.validate([commit]);
 
@@ -215,9 +215,9 @@ describe('Validator', () => {
 
     it('should error when a single-value custom trailer has multiple values', async () => {
       const customConfig = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: {
-          ...DEFAULT_CONFIG.trailers,
+          ...LORE_DEFAULT_CONFIG.trailers,
           definitions: {
             Team: { description: 'T', multivalue: false, validation: 'none' as const }
           }
@@ -348,8 +348,8 @@ describe('Validator', () => {
 
     it('should use config value for max length', async () => {
       const customConfig: Config = {
-        ...DEFAULT_CONFIG,
-        validation: { ...DEFAULT_CONFIG.validation, intentMaxLength: 50 },
+        ...LORE_DEFAULT_CONFIG,
+        validation: { ...LORE_DEFAULT_CONFIG.validation, intentMaxLength: 50 },
       };
       const customProtocol = new Protocol(LoreProtocolDefinition, customConfig);
       const customValidator = new Validator(mockParser as any, mockAtomRepo as any, customConfig, customProtocol);
@@ -366,9 +366,9 @@ describe('Validator', () => {
   describe('Rule 6: required trailers', () => {
     it('should warn on missing required trailers (non-strict)', async () => {
       const requiredConfig: Config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: { required: ['Confidence', 'Constraint'], custom: [], definitions: {}, permissive: true },
-        validation: { ...DEFAULT_CONFIG.validation, strict: false },
+        validation: { ...LORE_DEFAULT_CONFIG.validation, strict: false },
       };
       const requiredProtocol = new Protocol(LoreProtocolDefinition, requiredConfig);
       const requiredValidator = new Validator(mockParser as any, mockAtomRepo as any, requiredConfig, requiredProtocol);
@@ -386,9 +386,9 @@ describe('Validator', () => {
 
     it('should error on missing required trailers (strict)', async () => {
       const strictConfig: Config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true },
-        validation: { ...DEFAULT_CONFIG.validation, strict: true },
+        validation: { ...LORE_DEFAULT_CONFIG.validation, strict: true },
       };
       const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
       const strictValidator = new Validator(mockParser as any, mockAtomRepo as any, strictConfig, strictProtocol);
@@ -405,7 +405,7 @@ describe('Validator', () => {
 
     it('should not warn when required trailers are `present', async () => {
       const requiredConfig: Config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true },
       };
       const requiredProtocol = new Protocol(LoreProtocolDefinition, requiredConfig);
@@ -619,9 +619,9 @@ describe('Validator', () => {
   describe('Rule 11: custom trailer definitions', () => {
     it('should error when a trailer marked as required in definitions `is missing', async () => {
       const configWithDef: Config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: {
-          ...DEFAULT_CONFIG.trailers,
+          ...LORE_DEFAULT_CONFIG.trailers,
           definitions: {
             Department: { description: 'dept', multivalue: false, validation: 'none', required: true },
           },
@@ -643,9 +643,9 @@ describe('Validator', () => {
 
     it('should error on invalid enum value for custom trailer', async () => {
       const configWithDef: Config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: {
-          ...DEFAULT_CONFIG.trailers,
+          ...LORE_DEFAULT_CONFIG.trailers,
           definitions: {
             Team: {
               description: 'team',
@@ -673,9 +673,9 @@ describe('Validator', () => {
 
     it('should error on invalid pattern for custom trailer', async () => {
       const configWithDef: Config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: {
-          ...DEFAULT_CONFIG.trailers,
+          ...LORE_DEFAULT_CONFIG.trailers,
           definitions: {
             Ticket: { description: 'jira', multivalue: false, validation: 'pattern', pattern: '^PROJ-[0-9]+$' },
           },

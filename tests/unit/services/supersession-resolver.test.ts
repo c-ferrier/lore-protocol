@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SupersessionResolver } from '../../../src/services/supersession-resolver.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import type { Atom, Trailers } from '../../../src/types/domain.js';
+import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
+import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -47,7 +47,7 @@ describe('SupersessionResolver', () => {
   let protocol: Protocol;
 
   beforeEach(() => {
-    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
     resolver = new SupersessionResolver(protocol);
   });
 

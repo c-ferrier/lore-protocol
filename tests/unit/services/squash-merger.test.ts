@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { SquashMerger } from '../../../src/services/squash-merger.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import { SquashMerger } from '../../../src/engine/services/squash-merger.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
 
-import type { Atom, Trailers, AtomId } from '../../../src/types/domain.js';
+import type { Atom, Trailers, AtomId } from '../../../src/engine/types/domain.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -72,7 +72,7 @@ describe('SquashMerger', () => {
 
   beforeEach(() => {
     mockIdGen = createMockIdGenerator();
-    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
     merger = new SquashMerger(mockIdGen as any, protocol);
   });
 
@@ -335,9 +335,9 @@ describe('SquashMerger', () => {
 
       it('should support rank-max for custom enums', () => {
         const configWithCustom = {
-          ...DEFAULT_CONFIG,
+          ...LORE_DEFAULT_CONFIG,
           trailers: {
-            ...DEFAULT_CONFIG.trailers,
+            ...LORE_DEFAULT_CONFIG.trailers,
             definitions: {
               Priority: {
                 description: 'Prio',

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { registerCacheCommand } from '../../../src/commands/cache.js';
-import type { IOutputFormatter } from '../../../src/interfaces/output-formatter.js';
+import { registerCacheCommand } from '../../../src/engine/commands/cache.js';
+import type { IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 

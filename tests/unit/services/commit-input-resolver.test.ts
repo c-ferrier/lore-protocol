@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { CommitInputResolver } from '../../../src/services/commit-input-resolver.js';
-import type { IPrompt } from '../../../src/interfaces/prompt.js';
-import type { CommitCommandOptions } from '../../../src/services/commit-input-resolver.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
+import { CommitInputResolver } from '../../../src/engine/services/commit-input-resolver.js';
+import type { IPrompt } from '../../../src/engine/interfaces/prompt.js';
+import type { CommitCommandOptions } from '../../../src/engine/services/commit-input-resolver.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
 /**
  * Creates a mock IPrompt for testing.
@@ -33,7 +33,7 @@ describe('CommitInputResolver', () => {
 
   beforeEach(() => {
     originalIsTTY = process.stdin.isTTY;
-    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
   });
 
   afterEach(() => {

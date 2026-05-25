@@ -1,16 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { registerCommitCommand } from '../../../src/commands/commit.js';
-import type { CommitBuilder } from '../../../src/services/commit-builder.js';
-import type { IGitClient } from '../../../src/interfaces/git-client.js';
-import type { IOutputFormatter } from '../../../src/interfaces/output-formatter.js';
-import type { CommitInputResolver } from '../../../src/services/commit-input-resolver.js';
-import type { HeadIdReader } from '../../../src/services/head-id-reader.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
-import { TrailerParser } from '../../../src/services/trailer-parser.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
+import { registerCommitCommand } from '../../../src/engine/commands/commit.js';
+import type { CommitBuilder } from '../../../src/engine/services/commit-builder.js';
+import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
+import type { IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
+import type { CommitInputResolver } from '../../../src/engine/services/commit-input-resolver.js';
+import type { HeadIdReader } from '../../../src/engine/services/head-id-reader.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -75,7 +75,7 @@ function createDeps(overrides?: {
   headIdReader?: HeadIdReader;
   gitClient?: IGitClient;
 }) {
-  const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+  const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
   const protocolRegistry = new ProtocolRegistry();
   protocolRegistry.register(protocol);
 
@@ -85,7 +85,7 @@ function createDeps(overrides?: {
     getFormatter: () => createMockFormatter(),
     commitInputResolver: createMockInputResolver(),
     headIdReader: overrides?.headIdReader ?? createMockHeadIdReader(),
-    config: DEFAULT_CONFIG,
+    config: LORE_DEFAULT_CONFIG,
     protocol,
     protocolRegistry,
     trailerParser: new TrailerParser(),

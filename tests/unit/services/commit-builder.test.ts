@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CommitBuilder } from '../../../src/services/commit-builder.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import type { CommitInput } from '../../../src/types/commit.js';
-import type { Config } from '../../../src/types/config.js';
-import type { Trailers } from '../../../src/types/domain.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import { CommitBuilder } from '../../../src/engine/services/commit-builder.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import type { CommitInput } from '../../../src/engine/types/commit.js';
+import type { Config } from '../../../src/engine/types/config.js';
+import type { Trailers } from '../../../src/engine/types/domain.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -63,7 +63,7 @@ describe('CommitBuilder', () => {
   beforeEach(() => {
     mockParser = createMockTrailerParser();
     mockIdGen = createMockIdGenerator();
-    config = { ...DEFAULT_CONFIG };
+    config = { ...LORE_DEFAULT_CONFIG };
     protocol = new Protocol(LoreProtocolDefinition, config);
     builder = new CommitBuilder(
       mockParser as any,
@@ -315,14 +315,14 @@ describe('CommitBuilder', () => {
 
     it('should check required trailers from config', () => {
       const strictConfig: Config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: { 
           required: ['Confidence', 'Constraint'], 
           custom: [], 
           definitions: {}, 
           permissive: false 
         },
-        validation: { ...DEFAULT_CONFIG.validation, strict: false },
+        validation: { ...LORE_DEFAULT_CONFIG.validation, strict: false },
       };
       const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictProtocol);
@@ -339,14 +339,14 @@ describe('CommitBuilder', () => {
 
     it('should error on missing required trailers in strict mode', () => {
       const strictConfig: Config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: { 
           required: ['Confidence'], 
           custom: [], 
           definitions: {}, 
           permissive: false 
         },
-        validation: { ...DEFAULT_CONFIG.validation, strict: true },
+        validation: { ...LORE_DEFAULT_CONFIG.validation, strict: true },
       };
       const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictProtocol);
@@ -386,7 +386,7 @@ describe('CommitBuilder', () => {
 
     it('should pass with valid required trailer present', () => {
       const strictConfig: Config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: { 
           required: ['Confidence'], 
           custom: [], 
@@ -409,14 +409,14 @@ describe('CommitBuilder', () => {
 
     it('should report missing required custom trailer', () => {
       const strictConfig: Config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: { 
           required: ['Assisted-by'], 
           custom: [], 
           definitions: {}, 
           permissive: false 
         },
-        validation: { ...DEFAULT_CONFIG.validation, strict: true },
+        validation: { ...LORE_DEFAULT_CONFIG.validation, strict: true },
       };
       const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictProtocol);
@@ -435,14 +435,14 @@ describe('CommitBuilder', () => {
 
     it('should not report missing required trailer when custom trailer is present', () => {
       const strictConfig: Config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: { 
           required: ['Assisted-by'], 
           custom: [], 
           definitions: {}, 
           permissive: false 
         },
-        validation: { ...DEFAULT_CONFIG.validation, strict: true },
+        validation: { ...LORE_DEFAULT_CONFIG.validation, strict: true },
       };
       const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictProtocol);
@@ -472,8 +472,8 @@ describe('CommitBuilder', () => {
           'Depends-on': { multivalue: true, validation: 'pattern', pattern: '^[0-9a-f]{8}$', ui: { kind: 'reference' } },
         }
       };
-      const fredProtocol = new Protocol(fredDef, DEFAULT_CONFIG);
-      const builder = new CommitBuilder(mockParser as any, mockIdGen as any, DEFAULT_CONFIG, fredProtocol);
+      const fredProtocol = new Protocol(fredDef, LORE_DEFAULT_CONFIG);
+      const builder = new CommitBuilder(mockParser as any, mockIdGen as any, LORE_DEFAULT_CONFIG, fredProtocol);
 
       const input = {
         intent: 'feat',

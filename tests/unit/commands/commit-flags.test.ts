@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { registerCommitCommand } from '../../../src/commands/commit.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import { registerCommitCommand } from '../../../src/engine/commands/commit.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
 
 describe('lore commit (dynamic flags)', () => {
   const mockDeps = {
@@ -12,7 +12,7 @@ describe('lore commit (dynamic flags)', () => {
     getFormatter: () => ({ formatSuccess: vi.fn() }),
     commitInputResolver: { resolve: vi.fn().mockResolvedValue({ intent: 'i' }) },
     headIdReader: { read: vi.fn() },
-    config: DEFAULT_CONFIG,
+    config: LORE_DEFAULT_CONFIG,
   } as any;
 
   beforeEach(() => {
@@ -21,9 +21,9 @@ describe('lore commit (dynamic flags)', () => {
 
   it('should register flags for custom trailers defined in config', async () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         definitions: {
           Department: {
             description: 'Dept',
@@ -49,9 +49,9 @@ describe('lore commit (dynamic flags)', () => {
 
   it('should automatically slugify custom trailer keys into flags', async () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         definitions: {
           'Assisted-by': {
             description: 'A',

@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
-import { registerDoctorCommand } from '../../../src/commands/doctor.js';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
-import type { Atom } from '../../../src/types/domain.js';
+import { registerDoctorCommand } from '../../../src/engine/commands/doctor.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
+import type { Atom } from '../../../src/engine/types/domain.js';
 
 function createMockAtomRepository() {
   return {
@@ -27,7 +27,7 @@ describe('Doctor Command', () => {
   beforeEach(() => {
     atomRepository = createMockAtomRepository();
     configLoader = createMockConfigLoader();
-    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
     vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
   });
 

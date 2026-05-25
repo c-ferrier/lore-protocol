@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { FlagsInputReader } from '../../../../src/services/readers/flags-input-reader.js';
-import { DEFAULT_CONFIG } from '../../../../src/util/constants.js';
-import { Protocol } from '../../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../src/protocols/lore.js';
-import type { CommitCommandOptions } from '../../../../src/services/commit-input-resolver.js';
+import { FlagsInputReader } from '../../../../src/engine/services/readers/flags-input-reader.js';
+import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { Protocol } from '../../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
+import type { CommitCommandOptions } from '../../../../src/engine/services/commit-input-resolver.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -11,7 +11,7 @@ describe('FlagsInputReader', () => {
   let protocol: Protocol;
 
   beforeEach(() => {
-    protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
   });
 
   it('should map all CLI options correctly', async () => {
@@ -130,8 +130,8 @@ describe('FlagsInputReader', () => {
 
   it('should map auto-generated flags for simple custom trailers', async () => {
     const config = {
-      ...DEFAULT_CONFIG,
-      trailers: { ...DEFAULT_CONFIG.trailers, custom: ['Squad', 'Team-Name'] },
+      ...LORE_DEFAULT_CONFIG,
+      trailers: { ...LORE_DEFAULT_CONFIG.trailers, custom: ['Squad', 'Team-Name'] },
     };
     const customProtocol = new Protocol(LoreProtocolDefinition, config);
     const options: any = {
@@ -149,9 +149,9 @@ describe('FlagsInputReader', () => {
 
   it('should prioritize explicit cli flags over automatic ones', async () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         definitions: {
           Department: {
             description: 'dept',
@@ -176,9 +176,9 @@ describe('FlagsInputReader', () => {
 
   it('should map case-insensitive flags for custom defined trailers', async () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         definitions: {
           'Assisted-By': { // Pascal-Kebab canonical key
             description: 'A',
@@ -203,9 +203,9 @@ describe('FlagsInputReader', () => {
   it('should automatically slugify custom trailer keys into CLI flags', async () => {
     // 1. Setup protocol with a custom trailer that has no explicit CLI flag
     const customConfig = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         definitions: {
           'Regulatory-Compliance': {
             description: 'Check for compliance',

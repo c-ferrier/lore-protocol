@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
 
 describe('getEffectiveTrailerKeys (Protocol logic replacement)', () => {
   it('should return empty list in permissive mode', () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         permissive: true,
         custom: ['Team'],
         definitions: { Dept: { description: 'D', multivalue: false, validation: 'none' as const } },
@@ -26,9 +26,9 @@ describe('getEffectiveTrailerKeys (Protocol logic replacement)', () => {
 
   it('should union custom array and definitions keys', () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         permissive: false,
         custom: ['Team', 'Project'],
         definitions: { 

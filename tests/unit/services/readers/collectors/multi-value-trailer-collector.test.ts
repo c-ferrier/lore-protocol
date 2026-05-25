@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { MultiValueTrailerCollector } from '../../../../../src/services/readers/collectors/multi-value-trailer-collector.js';
-import type { IPrompt } from '../../../../../src/interfaces/prompt.js';
+import { MultiValueTrailerCollector } from '../../../../../src/engine/services/readers/collectors/multi-value-trailer-collector.js';
+import type { IPrompt } from '../../../../../src/engine/interfaces/prompt.js';
 
 function createMockPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
   return {

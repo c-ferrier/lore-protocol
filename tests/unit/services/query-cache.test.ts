@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { QueryCache, NullQueryCache } from '../../../src/services/query-cache.js';
+import { QueryCache, NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { rm, mkdir, access, writeFile, stat, utimes, readdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
-import type { QueryOptions } from '../../../src/types/query.js';
+import type { QueryOptions } from '../../../src/engine/types/query.js';
 
 describe('QueryCache', () => {
   const cacheDir = join(process.cwd(), '.lore-test-query-cache');

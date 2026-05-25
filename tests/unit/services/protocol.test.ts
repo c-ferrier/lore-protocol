@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { Protocol } from '../../../src/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/protocols/lore.js';
-import { DEFAULT_CONFIG } from '../../../src/util/constants.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
 
 const LORE_ID_KEY = "Lore-id";
 
 
 describe('Protocol Service', () => {
   it('should load all core trailers by default', () => {
-    const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
     const keys = protocol.getAuthorizedKeys();
 
     expect(keys).toContain('Constraint');
@@ -18,9 +18,9 @@ describe('Protocol Service', () => {
 
   it('should merge custom definitions into the protocol', () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         definitions: {
           Team: {
             description: 'The team responsible',
@@ -42,9 +42,9 @@ describe('Protocol Service', () => {
   it('should identify configured custom trailers as non-core even if they are in core-definitions', () => {
     // This tests the case where a user might try to override a core definition
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         definitions: {
           Constraint: {
             description: 'User override',
@@ -62,8 +62,8 @@ describe('Protocol Service', () => {
 
   it('should authorize any key in permissive mode', () => {
     const config = {
-      ...DEFAULT_CONFIG,
-      trailers: { ...DEFAULT_CONFIG.trailers, permissive: true },
+      ...LORE_DEFAULT_CONFIG,
+      trailers: { ...LORE_DEFAULT_CONFIG.trailers, permissive: true },
     };
     const protocol = new Protocol(LoreProtocolDefinition, config);
     
@@ -72,9 +72,9 @@ describe('Protocol Service', () => {
 
   it('should not authorize unknown keys in strict mode', () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: { 
-        ...DEFAULT_CONFIG.trailers, 
+        ...LORE_DEFAULT_CONFIG.trailers, 
         permissive: false,
         definitions: {},
         custom: []
@@ -87,9 +87,9 @@ describe('Protocol Service', () => {
 
   it('should sort authorized keys based on prompt order', () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         definitions: {
           Urgent: {
             description: 'U',
@@ -111,9 +111,9 @@ describe('Protocol Service', () => {
 
   it('should default custom trailers to the end of the sort order', () => {
     const config = {
-      ...DEFAULT_CONFIG,
+      ...LORE_DEFAULT_CONFIG,
       trailers: {
-        ...DEFAULT_CONFIG.trailers,
+        ...LORE_DEFAULT_CONFIG.trailers,
         custom: ['Adhoc'],
       },
     };
@@ -125,7 +125,7 @@ describe('Protocol Service', () => {
 
   describe('Case-Insensitive Normalization', () => {
     it('should normalize core keys regardless of input casing', () => {
-      const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+      const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
       
       expect(protocol.authorize('confidence')).toBe('Confidence');
       expect(protocol.authorize('CONFIDENCE')).toBe('Confidence');
@@ -134,9 +134,9 @@ describe('Protocol Service', () => {
 
     it('should normalize custom definition keys', () => {
       const config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: {
-          ...DEFAULT_CONFIG.trailers,
+          ...LORE_DEFAULT_CONFIG.trailers,
           definitions: {
             'Assisted-by': { description: 'A', multivalue: true, validation: 'none' as const }
           }
@@ -150,8 +150,8 @@ describe('Protocol Service', () => {
 
     it('should preserve original casing for ad-hoc trailers in permissive mode', () => {
       const config = {
-        ...DEFAULT_CONFIG,
-        trailers: { ...DEFAULT_CONFIG.trailers, permissive: true }
+        ...LORE_DEFAULT_CONFIG,
+        trailers: { ...LORE_DEFAULT_CONFIG.trailers, permissive: true }
       };
       const protocol = new Protocol(LoreProtocolDefinition, config);
       
@@ -161,8 +161,8 @@ describe('Protocol Service', () => {
 
     it('should prioritize core casing over ad-hoc casing', () => {
       const config = {
-        ...DEFAULT_CONFIG,
-        trailers: { ...DEFAULT_CONFIG.trailers, permissive: true }
+        ...LORE_DEFAULT_CONFIG,
+        trailers: { ...LORE_DEFAULT_CONFIG.trailers, permissive: true }
       };
       const protocol = new Protocol(LoreProtocolDefinition, config);
       
@@ -173,9 +173,9 @@ describe('Protocol Service', () => {
   describe('Required Unification', () => {
     it('should mark a trailer as required if set in definitions', () => {
       const config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: {
-          ...DEFAULT_CONFIG.trailers,
+          ...LORE_DEFAULT_CONFIG.trailers,
           definitions: { Team: { description: 'D', multivalue: false, validation: 'none' as const, required: true } },
         }
       };
@@ -185,9 +185,9 @@ describe('Protocol Service', () => {
 
     it('should mark a trailer as required if set in trailers.required list', () => {
       const config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: {
-          ...DEFAULT_CONFIG.trailers,
+          ...LORE_DEFAULT_CONFIG.trailers,
           required: ['Team'],
           custom: ['Team'],
         }
@@ -198,9 +198,9 @@ describe('Protocol Service', () => {
 
     it('should handle case-insensitive required list entries', () => {
       const config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: {
-          ...DEFAULT_CONFIG.trailers,
+          ...LORE_DEFAULT_CONFIG.trailers,
           required: ['team'], // Lowercase entry
           custom: ['Team'],
         }
@@ -213,9 +213,9 @@ describe('Protocol Service', () => {
   describe('Custom Overrides', () => {
     it('should allow custom definitions to override core trailer metadata (e.g. color)', () => {
       const config = {
-        ...DEFAULT_CONFIG,
+        ...LORE_DEFAULT_CONFIG,
         trailers: {
-          ...DEFAULT_CONFIG.trailers,
+          ...LORE_DEFAULT_CONFIG.trailers,
           definitions: {
             Confidence: { 
               description: 'Custom confidence', 
@@ -236,7 +236,7 @@ describe('Protocol Service', () => {
   });
 
   describe('Discovery & Claims', () => {
-    const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
 
     it('should claim a commit with its identity key', () => {
       expect(protocol.claims(`${LORE_ID_KEY}: a1b2c3d4`)).toBe(true);
@@ -255,7 +255,7 @@ describe('Protocol Service', () => {
   });
 
   describe('parse', () => {
-    const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+    const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
 
     it('should parse and normalize authorized trailers', () => {
       const raw = `${LORE_ID_KEY}: a1b2c3d4\nconfidence: high`;
@@ -269,8 +269,8 @@ describe('Protocol Service', () => {
 
     it('should ignore unauthorized trailers in strict mode', () => {
       const strictConfig = {
-        ...DEFAULT_CONFIG,
-        trailers: { ...DEFAULT_CONFIG.trailers, permissive: false }
+        ...LORE_DEFAULT_CONFIG,
+        trailers: { ...LORE_DEFAULT_CONFIG.trailers, permissive: false }
       };
       const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
       const raw = 'Unknown-Trailer: value';
@@ -297,33 +297,33 @@ describe('Protocol Service', () => {
     });
   describe('Ownership & Claims', () => {
     it('should own its identity key', () => {
-      const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+      const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
       expect(protocol.owns(LORE_ID_KEY)).toBe(true);
     });
 
     it('should own core trailers', () => {
-      const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+      const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
       expect(protocol.owns('Confidence')).toBe(true);
       expect(protocol.owns('Constraint')).toBe(true);
     });
 
     it('should own configured custom trailers', () => {
       const config = {
-        ...DEFAULT_CONFIG,
-        trailers: { ...DEFAULT_CONFIG.trailers, custom: ['My-Trailer'] }
+        ...LORE_DEFAULT_CONFIG,
+        trailers: { ...LORE_DEFAULT_CONFIG.trailers, custom: ['My-Trailer'] }
       };
       const protocol = new Protocol(LoreProtocolDefinition, config);
       expect(protocol.owns('My-Trailer')).toBe(true);
     });
 
     it('should not own unregistered trailers', () => {
-      const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+      const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
       expect(protocol.owns('Random-Trailer')).toBe(false);
     });
 
     describe('parse with claim hierarchy', () => {
       it('should ingest owned trailers even if not in unclaimedKeys', () => {
-        const protocol = new Protocol(LoreProtocolDefinition, DEFAULT_CONFIG);
+        const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
         const raw = 'Confidence: high';
         // Simulation: Another protocol claimed Confidence, but we own it too
         const result = protocol.parse(raw, new Set(['Other-Key']));
@@ -333,15 +333,15 @@ describe('Protocol Service', () => {
 
       it('should ingest unowned trailers only if permissive AND unclaimed', () => {
         const config = {
-          ...DEFAULT_CONFIG,
-          trailers: { ...DEFAULT_CONFIG.trailers, permissive: true }
+          ...LORE_DEFAULT_CONFIG,
+          trailers: { ...LORE_DEFAULT_CONFIG.trailers, permissive: true }
         };
         const protocol = new Protocol(LoreProtocolDefinition, config);
         const raw = 'Adhoc: value\nOwned-By-Other: secret';
         
         // Simulation: Owned-By-Other is explicitly claimed by someone else
-        const unclaimed = new Set(['Adhoc']);
-        const result = protocol.parse(raw, unclaimed);
+        const claimed = new Set(['Owned-By-Other']);
+        const result = protocol.parse(raw, claimed);
         
         expect(result.trailers['Adhoc']).toEqual(['value']);
         expect(result.trailers['Owned-By-Other']).toBeUndefined();
@@ -349,8 +349,8 @@ describe('Protocol Service', () => {
 
       it('should NOT ingest unowned trailers if not permissive', () => {
         const config = {
-          ...DEFAULT_CONFIG,
-          trailers: { ...DEFAULT_CONFIG.trailers, permissive: false }
+          ...LORE_DEFAULT_CONFIG,
+          trailers: { ...LORE_DEFAULT_CONFIG.trailers, permissive: false }
         };
         const protocol = new Protocol(LoreProtocolDefinition, config);
         const raw = 'Adhoc: value';

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { EnumChoiceTrailerCollector } from '../../../../../src/services/readers/collectors/enum-choice-trailer-collector.js';
-import type { IPrompt } from '../../../../../src/interfaces/prompt.js';
+import { EnumChoiceTrailerCollector } from '../../../../../src/engine/services/readers/collectors/enum-choice-trailer-collector.js';
+import type { IPrompt } from '../../../../../src/engine/interfaces/prompt.js';
 
 describe('EnumChoiceTrailerCollector', () => {
   it('should return undefined when user declines', async () => {

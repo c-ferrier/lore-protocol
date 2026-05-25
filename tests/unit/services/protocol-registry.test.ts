@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { ProtocolRegistry } from '../../../src/services/protocol-registry.js';
-import type { IProtocol } from '../../../src/interfaces/protocol.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import type { IProtocol } from '../../../src/engine/interfaces/protocol.js';
 
 describe('ProtocolRegistry', () => {
   const createMockProtocol = (name: string, claimsValue = true): IProtocol => ({
