@@ -30,7 +30,7 @@ export interface IProtocol {
   /**
    * Returns true if the protocol allows ad-hoc (unregistered) trailers.
    */
-  readonly isPermissive: boolean;
+  readonly permissive: boolean;
 
   /**
    * Authorizes a trailer key for use.

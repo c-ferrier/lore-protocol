@@ -4,29 +4,84 @@ import type { Config } from '../types/config.js';
 import type { Trailers, AtomId } from '../types/domain.js';
 import type { CommitInput } from '../types/commit.js';
 import type { ValidationIssue } from '../types/output.js';
-import type { Protocol } from './protocol.js';
+import type { IProtocol } from '../interfaces/protocol.js';
+import type { ProtocolRegistry } from './protocol-registry.js';
 
 /**
  * Builds and validates git commit messages enriched with decision context.
- *
- * SOLID: SRP -- responsible only for commit message construction.
- * SOLID: OCP -- fully metadata-driven; no hardcoded trailer names in construction.
+ * Supports multiple protocols simultaneously.
  */
 export class CommitBuilder {
   constructor(
     private readonly trailerParser: TrailerParser,
     private readonly idGenerator: IdGenerator,
     private readonly config: Config,
-    private readonly protocol: Protocol,
+    private readonly protocolRegistry: ProtocolRegistry,
   ) {}
 
   /**
    * Builds a full git commit message with subject, body, and trailer block.
+   * Generates unique IDs for all registered protocols.
    */
-  build(input: CommitInput, existingId?: AtomId): { message: string; id: AtomId } {
-    const id = existingId || this.idGenerator.generate();
-    const trailers = this.buildTrailers(id, input);
-    const trailerBlock = this.trailerParser.serialize(trailers, this.protocol.getAuthorizedKeys());
+  build(input: CommitInput, existingIds?: Record<string, AtomId>): { message: string; ids: Record<string, AtomId> } {
+    const ids: Record<string, AtomId> = {};
+    const trailers: Record<string, string[]> = {};
+    const allAuthorizedKeys: string[] = [];
+    const claimedKeys = new Set<string>();
+
+    const protocols = this.protocolRegistry.getAll();
+
+    // 1. Process each protocol for identity and authorized keys
+    for (const protocol of protocols) {
+      const pName = protocol.name.toLowerCase();
+      const id = (existingIds && existingIds[pName]) || this.idGenerator.generate();
+      ids[pName] = id;
+
+      const prefix = protocol.namespace ? `${protocol.namespace}/` : '';
+      
+      // Add identity trailer
+      const identityKey = `${prefix}${protocol.identityKey}`;
+      trailers[identityKey] = [id];
+      allAuthorizedKeys.push(identityKey);
+      claimedKeys.add(identityKey);
+
+      // Collect other authorized keys
+      for (const key of protocol.getAuthorizedKeys()) {
+        if (key === protocol.identityKey) continue;
+        const fullKey = `${prefix}${key}`;
+        
+        const values = input.trailers ? (input.trailers[fullKey] || input.trailers[key]) : undefined;
+        if (values && values.length > 0) {
+          trailers[fullKey] = [...values];
+          allAuthorizedKeys.push(fullKey);
+          claimedKeys.add(fullKey);
+          claimedKeys.add(key);
+        }
+      }
+    }
+
+    // 2. Permissive protocols claim orphans
+    for (const protocol of protocols) {
+        if (protocol.permissive && input.trailers) {
+            for (const [key, values] of Object.entries(input.trailers)) {
+                if (claimedKeys.has(key)) continue;
+                
+                const matchesNamespace = protocol.namespace && key.startsWith(`${protocol.namespace}/`);
+                const isRootProtocol = protocol.namespace === '';
+
+                // Greedy match: 
+                // - Namespaced protocols claim orphans in their namespace
+                // - Root protocol claims ALL remaining orphans (namespaced or not) if it's permissive
+                if (matchesNamespace || isRootProtocol) {
+                    trailers[key] = [...values];
+                    allAuthorizedKeys.push(key);
+                    claimedKeys.add(key);
+                }
+            }
+        }
+    }
+
+    const trailerBlock = this.trailerParser.serialize(trailers, allAuthorizedKeys);
 
     let message = input.intent;
     if (input.body && input.body.trim()) {
@@ -34,16 +89,15 @@ export class CommitBuilder {
     }
     message += `\n\n${trailerBlock}`;
 
-    return { message, id };
+    return { message, ids };
   }
 
   /**
-   * Performs validation on the commit input.
+   * Performs validation on the commit input across all protocols.
    */
   validate(input: CommitInput): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
 
-    // 1. Intent presence
     if (!input.intent.trim()) {
       issues.push({
         severity: 'error',
@@ -52,7 +106,6 @@ export class CommitBuilder {
       });
     }
 
-    // 2. Intent length
     if (input.intent.length > this.config.validation.intentMaxLength) {
       issues.push({
         severity: 'warning',
@@ -61,14 +114,15 @@ export class CommitBuilder {
       });
     }
 
-    // 3. Metadata-driven schema validation
-    if (input.trailers) {
-      const authorizedKeys = this.protocol.getAuthorizedKeys();
-      for (const key of authorizedKeys) {
-        const def = this.protocol.getDefinition(key);
+    for (const protocol of this.protocolRegistry.getAll()) {
+      const prefix = protocol.namespace ? `${protocol.namespace}/` : '';
+      
+      for (const key of protocol.getAuthorizedKeys()) {
+        const def = protocol.getDefinition(key);
         if (!def) continue;
 
-        const values = input.trailers[key];
+        const fullKey = `${prefix}${key}`;
+        const values = input.trailers ? (input.trailers[fullKey] || input.trailers[key]) : undefined;
         if (!values || values.length === 0) continue;
 
         if (def.validation === 'values' && def.values) {
@@ -78,8 +132,8 @@ export class CommitBuilder {
               issues.push({
                 severity: 'error',
                 rule: 'invalid-enum',
-                field: key,
-                message: `Invalid value for "${key}": "${v}". Expected one of: ${allowedValues.join(', ')}`,
+                field: fullKey,
+                message: `[${protocol.name}] Invalid value for "${key}": "${v}". Expected one of: ${allowedValues.join(', ')}`,
               });
             }
           }
@@ -87,39 +141,36 @@ export class CommitBuilder {
           const regex = new RegExp(def.pattern);
           for (const v of values) {
             if (!regex.test(v)) {
-              // Map pattern failures to specific rules for backward compatibility with tests
               let rule = 'invalid-format';
               if (def.ui?.kind === 'reference') {
-                const protocolSlug = this.protocol.name.toLowerCase().replace(/-/g, '');
+                const protocolSlug = protocol.name.toLowerCase().replace(/-/g, '');
                 rule = `invalid-${protocolSlug}-id-ref`;
               }
 
               issues.push({
                 severity: 'error',
                 rule,
-                field: key,
-                message: `Value for "${key}" does not match pattern: ${def.pattern}`,
+                field: fullKey,
+                message: `[${protocol.name}] Value for "${key}" does not match pattern: ${def.pattern}`,
               });
             }
           }
         }
       }
-    }
-
-    // 4. Required trailers
-    const requiredKeys = new Set(this.config.trailers.required);
-    for (const key of requiredKeys) {
-      if (!this.hasTrailer(input, key)) {
-        issues.push({
-          severity: this.config.validation.strict ? 'error' : 'warning',
-          rule: 'required-trailer',
-          field: key,
-          message: `Required trailer "${key}" is missing`,
-        });
+      
+      const requiredKeys = new Set(this.config.trailers.required);
+      for (const key of requiredKeys) {
+        if (protocol.owns(key) && !this.hasTrailer(input, key, protocol.namespace)) {
+           issues.push({
+            severity: this.config.validation.strict ? 'error' : 'warning',
+            rule: 'required-trailer',
+            field: key,
+            message: `Required trailer "${key}" is missing for protocol ${protocol.name}`,
+          });
+        }
       }
     }
 
-    // 5. Total message line count
     const lineCount = this.estimateLineCount(input);
     if (lineCount > this.config.validation.maxMessageLines) {
       issues.push({
@@ -132,48 +183,20 @@ export class CommitBuilder {
     return issues;
   }
 
-  /**
-   * Dynamically constructs a Trailers object from input metadata.
-   */
-  private buildTrailers(id: AtomId, input: CommitInput): Trailers {
-    // Start with a record that is strictly string[]
-    const result: Record<string, string[]> = {
-      [this.protocol.identityKey]: [id],
-    };
-
-    // Pre-initialize authorized keys for uniformity
-    for (const key of this.protocol.getAuthorizedKeys()) {
-      if (key !== this.protocol.identityKey) {
-        result[key] = [];
-      }
-    }
-
-    if (input.trailers) {
-      for (const [key, rawValues] of Object.entries(input.trailers)) {
-        if (key === this.protocol.identityKey) continue;
-        const values = (rawValues || []) as readonly string[];
-        if (values.length > 0) {
-          result[key] = [...values];
-        }
-      }
-    }
-
-    return result;
-  }
-
-  private hasTrailer(input: CommitInput, key: string): boolean {
-    const val = input.trailers?.[key];
-    return !!val && val.length > 0;
+  private hasTrailer(input: CommitInput, key: string, namespace: string): boolean {
+    const fullKey = namespace ? `${namespace}/${key}` : key;
+    return !!(input.trailers?.[fullKey] && input.trailers[fullKey].length > 0) || 
+           !!(input.trailers?.[key] && input.trailers[key].length > 0);
   }
 
   private estimateLineCount(input: CommitInput): number {
-    let count = 1; // intent
+    let count = 1;
     if (input.body) {
-      count += 2; // blank line + body
+      count += 2;
       count += input.body.split('\n').length;
     }
     if (input.trailers) {
-      count += 2; // blank line + identityKey
+      count += 2;
       for (const rawValues of Object.values(input.trailers)) {
         const values = (rawValues || []) as readonly string[];
         if (values.length > 0) {
@@ -181,7 +204,6 @@ export class CommitBuilder {
         }
       }
     }
-
     return count;
   }
 }

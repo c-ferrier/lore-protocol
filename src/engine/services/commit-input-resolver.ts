@@ -7,7 +7,7 @@ import { InteractiveInputReader } from './readers/interactive-input-reader.js';
 import { JsonInputReader } from './readers/json-input-reader.js';
 import { FlagsInputReader } from './readers/flags-input-reader.js';
 import { TrailerCollectorRegistry } from './readers/collectors/trailer-collector-registry.js';
-import type { Protocol } from './protocol.js';
+import type { ProtocolRegistry } from './protocol-registry.js';
 
 /**
  * The modes of commit input resolution, ordered by priority.
@@ -40,6 +40,7 @@ export interface CommitCommandOptions {
 
 /**
  * Resolves commit input from the appropriate source based on CLI options.
+ * Now supports multiple protocols via ProtocolRegistry.
  *
  * Pure dispatcher: determines the input mode, constructs the appropriate
  * ICommitInputReader strategy, and delegates reading to it.
@@ -47,15 +48,11 @@ export interface CommitCommandOptions {
  * Mode priority: interactive > file > flags > stdin.
  * When no flags are set and stdin is a TTY, resolves to 'interactive' to
  * avoid hanging on stdin.
- *
- * GoF: Strategy -- delegates reading to ICommitInputReader implementations.
- * GRASP: Controller -- coordinates mode resolution and reader creation.
- * SOLID: OCP -- new input modes require only a new reader + a case in createReader().
  */
 export class CommitInputResolver {
   constructor(
     private readonly prompt: IPrompt,
-    private readonly protocol: Protocol,
+    private readonly protocolRegistry: ProtocolRegistry,
   ) {}
 
   /**
@@ -69,8 +66,6 @@ export class CommitInputResolver {
 
   /**
    * Determine the input mode based on option priority.
-   * interactive > file > flags > stdin
-   * When no flags are set and stdin is a TTY, default to 'interactive'.
    */
   private resolveMode(options: CommitCommandOptions): InputMode {
     if (options.interactive) {
@@ -103,16 +98,22 @@ export class CommitInputResolver {
   ): Promise<ICommitInputReader> {
     switch (mode) {
       case InputMode.Interactive: {
-        const registry = new TrailerCollectorRegistry(this.protocol);
+        const collectors = this.protocolRegistry.getAll().flatMap(p => {
+            const registry = new TrailerCollectorRegistry(p);
+            return registry.getCollectors();
+        });
         return new InteractiveInputReader(
           this.prompt,
-          registry.getCollectors(),
+          collectors,
         );
       }
       case InputMode.File:
         return new JsonInputReader(await readFile(options.file!, 'utf-8'));
       case InputMode.Flags:
-        return new FlagsInputReader(options, this.protocol);
+        // Note: FlagsInputReader currently only supports one protocol.
+        // For now we use the primary protocol (the first one) or 
+        // we can update it to be multi-protocol aware too.
+        return new FlagsInputReader(options, this.protocolRegistry.getAll()[0] as any);
       case InputMode.Stdin: {
         const content = await this.readStdinContent();
         return new JsonInputReader(content);

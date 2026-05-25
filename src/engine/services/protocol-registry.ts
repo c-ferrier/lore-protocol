@@ -13,7 +13,7 @@ export class ProtocolRegistry {
    * @throws Error if safety rules (e.g. multiple permissive protocols in same namespace) are violated.
    */
   register(protocol: IProtocol): void {
-    if (protocol.isPermissive && this.hasPermissiveProtocolInNamespace(protocol.namespace)) {
+    if (protocol.permissive && this.hasPermissiveProtocolInNamespace(protocol.namespace)) {
       const existing = this.getPermissiveProtocolInNamespace(protocol.namespace);
       throw new Error(
         `Cannot register permissive protocol "${protocol.name}". ` +
@@ -72,7 +72,7 @@ export class ProtocolRegistry {
   /**
    * Translates generic filters into specific Git grep arguments across all protocols.
    */
-  getSearchGrep(options: { has?: string; filters?: Record<string, string | string[]> }): string[] {
+  getSearchGrep(options: { has?: string | null; filters?: Record<string, string | string[]> }): string[] {
     const args: string[] = [];
 
     if (options.has) {
@@ -108,10 +108,10 @@ export class ProtocolRegistry {
   }
 
   private hasPermissiveProtocolInNamespace(namespace: string): boolean {
-    return this.getAll().some((p) => p.isPermissive && p.namespace.toLowerCase() === namespace.toLowerCase());
+    return this.getAll().some((p) => p.permissive && p.namespace.toLowerCase() === namespace.toLowerCase());
   }
 
   private getPermissiveProtocolInNamespace(namespace: string): IProtocol | undefined {
-    return this.getAll().find((p) => p.isPermissive && p.namespace.toLowerCase() === namespace.toLowerCase());
+    return this.getAll().find((p) => p.permissive && p.namespace.toLowerCase() === namespace.toLowerCase());
   }
 }

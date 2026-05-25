@@ -3,96 +3,99 @@ import type { AtomRepository } from '../services/atom-repository.js';
 import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { Config } from '../types/config.js';
-import type { PathQueryOptions, QueryResult } from '../types/query.js';
-import type { Atom } from '../types/domain.js';
+import type { Atom, SupersessionStatus } from '../types/domain.js';
+import type { PathQueryOptions, SearchOptions, QueryResult } from '../types/query.js';
 import type { FormattableQueryResult } from '../types/output.js';
-import { mergeOptions } from './helpers/merge-options.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
-import { parsePositiveInt } from './helpers/path-query.js';
-import type { Protocol } from '../services/protocol.js';
-
-interface LogCommandOptions {
-  readonly limit?: number;
-  readonly maxCommits?: number;
-  readonly since?: string;
-  readonly until?: string;
-}
+import { addPathQueryOptions } from './helpers/path-query.js';
+import type { IProtocol } from '../interfaces/protocol.js';
+import type { IGitClient } from '../interfaces/git-client.js';
+import { mergeOptions } from './helpers/merge-options.js';
 
 /**
- * Register the `lore log` command.
- * Lore-enriched git log. Shows all Lore-enriched commits in reverse
- * chronological order. Path arguments after `--` are passed through.
+ * Register the log command.
+ * Lore-enriched git log.
+ * Accepts paths as arguments and routes to the appropriate repository method.
  */
 export function registerLogCommand(
   program: Command,
   deps: {
     atomRepository: AtomRepository;
+    gitClient: IGitClient;
     supersessionResolver: SupersessionResolver;
     getFormatter: () => IOutputFormatter;
     config: Config;
-    protocol: Protocol;
+    protocol: IProtocol | undefined;
   },
 ): void {
-  const { protocol } = deps;
-  program
+  const protocolName = deps.protocol?.name || 'Atom';
+  const cmd = program
     .command('log [paths...]')
-    .description(`${protocol.name}-enriched git log`)
-    .option('--limit <n>', 'Maximum number of results to display', parsePositiveInt)
-    .option('--max-commits <n>', 'Maximum git commits to scan (supersession may be incomplete)', parsePositiveInt)
-    .option('--since <ref>', 'Only consider commits since ref/date')
-    .option('--until <ref>', 'Only consider commits until ref/date')
-    .action(async (paths: string[], _options: LogCommandOptions, command: Command) => {
-      const options = mergeOptions<LogCommandOptions>(command);
-      const { atomRepository, supersessionResolver, getFormatter, protocol } = deps;
+    .description(`${protocolName}-enriched git log`);
+;
 
-      let atoms: Atom[];
+  // addPathQueryOptions adds --scope, --follow, --all, --author, --limit, --max-commits, --since, --until
+  addPathQueryOptions(cmd);
 
-      if (paths.length > 0) {
-        // Use git-level path filtering via findByTarget (#24)
-        const queryOptions: PathQueryOptions = {
-          scope: null,
-          follow: false,
-          all: false,
-          author: null,
-          limit: null,
-          maxCommits: options.maxCommits ?? null,
-          since: options.since ?? null,
-          until: options.until ?? null,
-        };
-        atoms = await atomRepository.findByTarget(['--', ...paths], queryOptions);
-      } else {
-        const findOptions: Partial<PathQueryOptions> = {
-          since: options.since ?? null,
-          until: options.until ?? null,
-          maxCommits: options.maxCommits ?? null,
-        };
-        atoms = await atomRepository.findAll(findOptions);
-      }
+  cmd.action(async (paths: string[] | undefined, _options: any, command: Command) => {
+    const options = mergeOptions<PathQueryOptions>(command);
+    const { atomRepository, gitClient, supersessionResolver, getFormatter } = deps;
 
-      // Build supersession map (show everything, including superseded atoms)
-      const supersessionMap = supersessionResolver.resolve(atoms);
-      const totalAtoms = atoms.length;
+    // Resolve HEAD for caching
+    let headHash: string | undefined;
+    try {
+      headHash = await gitClient.resolveRef('HEAD');
+    } catch {
+      // Ignore if not in repo
+    }
 
-      // Apply result limit (--limit) after all filtering
-      const displayAtoms = (options.limit !== undefined && options.limit > 0)
-        ? atoms.slice(0, options.limit)
-        : atoms;
+    let atoms: Atom[];
 
-      const result: QueryResult = {
-        command: 'log',
-        target: paths.length > 0 ? paths.join(', ') : 'all',
-        targetType: 'global',
-        atoms: displayAtoms,
-        meta: buildQueryMeta(totalAtoms, displayAtoms),
+    if (paths && paths.length > 0) {
+      // Case A: Paths provided - route to findByTarget
+      const gitLogArgs = ['--', ...paths];
+      atoms = await atomRepository.findByTarget(gitLogArgs, options, headHash);
+    } else {
+      // Case B: No paths - route to findAll (global discovery)
+      const findOptions: SearchOptions = {
+        ...options,
       };
+      atoms = await atomRepository.findAll(findOptions, headHash);
+    }
 
-      const formattable: FormattableQueryResult = {
-        result,
-        supersessionMap,
-        visibleTrailers: 'all',
-      };
+    // Compute supersession status
+    const supersessionMap: Map<string, SupersessionStatus> = supersessionResolver.resolve(atoms);
 
-      const formatter = getFormatter();
-      console.log(formatter.formatQueryResult(formattable));
-    });
+    const totalAtoms = atoms.length;
+
+    // Filter active atoms unless --all is specified
+    let displayAtoms: readonly Atom[];
+    if (options.all) {
+      displayAtoms = atoms;
+    } else {
+      displayAtoms = supersessionResolver.filterActive(atoms, supersessionMap);
+    }
+
+    // Apply the display-level limit
+    if (options.limit !== null && options.limit !== undefined && options.limit > 0) {
+      displayAtoms = displayAtoms.slice(0, options.limit);
+    }
+
+    const result: QueryResult = {
+      command: 'log',
+      target: paths?.join(', ') || 'repository',
+      targetType: paths && paths.length > 0 ? 'directory' : 'global',
+      atoms: displayAtoms,
+      meta: buildQueryMeta(totalAtoms, displayAtoms),
+    };
+
+    const formattable: FormattableQueryResult = {
+      result,
+      supersessionMap,
+      visibleTrailers: 'all',
+    };
+
+    const formatter = getFormatter();
+    console.log(formatter.formatQueryResult(formattable));
+  });
 }

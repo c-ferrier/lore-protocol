@@ -8,6 +8,7 @@ import type { IQueryCache } from './interfaces/query-cache.js';
 import type { IOutputFormatter } from './interfaces/output-formatter.js';
 import type { Config } from './types/config.js';
 import type { ProtocolDefinition } from './interfaces/protocol-definition.js';
+import type { IProtocol } from './interfaces/protocol.js';
 
 import { GitClient } from './services/git-client.js';
 import { TrailerParser } from './services/trailer-parser.js';
@@ -58,7 +59,8 @@ import { getDisplayVersion } from '../util/version.js';
 export interface EngineOptions {
   readonly binaryName: string;
   readonly description: string;
-  readonly configDirName: string;
+  readonly engineDirName: string;       // e.g. '.atom'
+  readonly protocolDirName?: string;    // e.g. '.lore' (optional)
   readonly configFileName: string;
   readonly defaultConfig: Config;
   readonly protocols: readonly ProtocolDefinition[];
@@ -71,27 +73,32 @@ export interface EngineOptions {
 export async function runCli(options: EngineOptions) {
   const program = new Command();
 
-  // 1. Load Configuration (Temporary bootstrap)
-  const configLoader = new ConfigLoader(
-    options.configDirName,
+  // 1. Load Engine Configuration (Global/Local Engine Settings)
+  const engineConfigLoader = new ConfigLoader(
+    options.engineDirName,
     options.configFileName,
     options.defaultConfig
   );
 
-  // 2. Resolve Project Root
+  // 2. Resolve Engine Root
   const tempGitClient = new GitClient(process.cwd());
-  const { protocolRoot } = await resolveProtocolRoot(process.cwd(), configLoader, tempGitClient);
+  const { protocolRoot: engineRoot } = await resolveProtocolRoot(process.cwd(), engineConfigLoader, tempGitClient);
 
-  // 3. Final Configuration
-  let config: Config;
-  try {
-    const loaded = protocolRoot ? await configLoader.loadForPath(protocolRoot) : null;
-    config = loaded || options.defaultConfig;
-  } catch (err) {
-    console.error(
-      `error: Failed to load configuration: ${err instanceof Error ? err.message : String(err)}`,
+  // 3. Load Protocol Configuration if a separate dir is provided (e.g. .lore)
+  let config = await engineConfigLoader.loadForPath(engineRoot || process.cwd());
+  let protocolRoot = engineRoot;
+
+  if (options.protocolDirName && options.protocolDirName !== options.engineDirName) {
+    const protocolConfigLoader = new ConfigLoader(
+      options.protocolDirName,
+      options.configFileName,
+      config // Use engine config as base for protocol config
     );
-    config = options.defaultConfig;
+    const { protocolRoot: pRoot } = await resolveProtocolRoot(process.cwd(), protocolConfigLoader, tempGitClient);
+    if (pRoot) {
+      protocolRoot = pRoot;
+      config = await protocolConfigLoader.loadForPath(pRoot);
+    }
   }
 
   // 4. Global Options
@@ -99,12 +106,12 @@ export async function runCli(options: EngineOptions) {
 
   program
     .name(options.binaryName)
-    .version(getDisplayVersion(packageJson.version))
+    .version(getDisplayVersion(packageJson.version), '--version')
     .description(options.description)
     .option('--json', 'Output results in JSON format')
     .option('--no-cache', 'Bypass local atom cache')
     .option('--no-color', 'Disable terminal colors')
-    .option('-C, --context <path>', 'Run in the context of a specific directory')
+    .option('--context <path>', 'Run in the context of a specific directory')
     .option('--format <type>', 'Output format (text, json)', 'text');
 
   // 5. Create primary services with resolved root context
@@ -116,35 +123,28 @@ export async function runCli(options: EngineOptions) {
     protocolRegistry.register(new Protocol(def, config));
   }
   
-  // We use the first protocol as the "primary" for certain context-less ops if needed
-  // In Lore case, it's the only one.
-  const primaryProtocol = protocolRegistry.getAll()[0];
-  if (!primaryProtocol) {
-    throw new Error('At least one protocol must be registered.');
-  }
-
   const trailerParser = new TrailerParser();
   const pathResolver = new PathResolver(process.cwd(), protocolRoot);
-  const idGenerator = new IdGenerator(primaryProtocol);
   const searchFilter = new SearchFilter(protocolRegistry);
   
   // Generic scope check - can be improved to be non-lore-specific
-  // For now, Lore wrapper can handle its specific scope check before calling runCli if needed
   const isScoped = false; 
 
   const atomCache: IAtomCache = new AtomCache(
-    join(protocolRoot || process.cwd(), options.configDirName, CACHE_DIR, ATOM_CACHE_DIR),
+    join(protocolRoot || process.cwd(), options.engineDirName, CACHE_DIR, ATOM_CACHE_DIR),
   );
 
   const queryCache: IQueryCache = new QueryCache(
-    join(protocolRoot || process.cwd(), options.configDirName, CACHE_DIR, QUERY_CACHE_DIR),
+    join(protocolRoot || process.cwd(), options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
     config.cli.queryCachePruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
   );
+
+  const primaryProtocol: IProtocol | undefined = protocolRegistry.getAll()[0];
 
   const atomRepository = new AtomRepository(
     gitClient,
     trailerParser,
-    primaryProtocol,
+    primaryProtocol as any,
     protocolRegistry,
     searchFilter,
     atomCache,
@@ -152,14 +152,15 @@ export async function runCli(options: EngineOptions) {
     isScoped,
   );
 
-  const supersessionResolver = new SupersessionResolver(primaryProtocol);
-  const stalenessDetector = new StalenessDetector(gitClient, config, primaryProtocol);
-  const commitBuilder = new CommitBuilder(trailerParser, idGenerator, config, primaryProtocol);
-  const squashMerger = new SquashMerger(idGenerator, primaryProtocol);
-  const validator = new Validator(trailerParser, atomRepository, config, primaryProtocol);
+  const idGenerator = new IdGenerator(primaryProtocol as any);
+  const supersessionResolver = new SupersessionResolver(primaryProtocol as any);
+  const stalenessDetector = new StalenessDetector(gitClient, config, primaryProtocol as any);
+  const commitBuilder = new CommitBuilder(trailerParser, idGenerator, config, protocolRegistry);
+  const squashMerger = new SquashMerger(idGenerator, primaryProtocol as any);
+  const validator = new Validator(trailerParser, atomRepository, config, primaryProtocol as any);
   const prompt = new TerminalPrompt();
-  const commitInputResolver = new CommitInputResolver(prompt, primaryProtocol);
-  const headIdReader = new HeadIdReader(gitClient, trailerParser, primaryProtocol);
+  const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry);
+  const headIdReader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
 
   // 7. Formatter factory
   let cachedFormatter: IOutputFormatter | null = null;
@@ -191,18 +192,30 @@ export async function runCli(options: EngineOptions) {
     protocol: primaryProtocol,
   };
 
+  // Hook to ensure a protocol exists before running commands that require one
+  program.hook('preAction', (thisCommand) => {
+    const whitelist = ['cache', 'init', 'config', 'doctor'];
+    if (whitelist.includes(thisCommand.name())) return;
+    
+    if (!primaryProtocol) {
+      console.error('fatal: At least one protocol must be registered to run this command.');
+      process.exit(1);
+    }
+  });
+
   // 9. Register core commands
   registerWhyCommand(program, {
     atomRepository,
     gitClient,
     pathResolver,
     getFormatter,
-    protocol: primaryProtocol,
+    protocol: primaryProtocol as any,
   });
 
   registerSearchCommand(program, {
     ...sharedDeps,
     searchFilter,
+    protocol: primaryProtocol as any,
   });
 
   registerLogCommand(program, sharedDeps);
@@ -216,7 +229,7 @@ export async function runCli(options: EngineOptions) {
     atomRepository,
     gitClient,
     getFormatter,
-    protocol: primaryProtocol,
+    protocol: primaryProtocol as any,
   });
 
   registerCommitCommand(program, {
@@ -226,7 +239,7 @@ export async function runCli(options: EngineOptions) {
     headIdReader,
     getFormatter,
     config,
-    protocol: primaryProtocol,
+    protocol: primaryProtocol as any,
     protocolRegistry,
     trailerParser,
   });
@@ -235,6 +248,7 @@ export async function runCli(options: EngineOptions) {
     validator,
     gitClient,
     getFormatter,
+    protocol: primaryProtocol as any,
   });
 
   registerSquashCommand(program, {
@@ -245,23 +259,23 @@ export async function runCli(options: EngineOptions) {
 
   registerCacheCommand(program, {
     getFormatter,
-    cacheDir: join(protocolRoot || process.cwd(), options.configDirName, CACHE_DIR),
+    cacheDir: join(protocolRoot || process.cwd(), options.engineDirName, CACHE_DIR),
   });
 
   registerConfigCommand(program, {
-    configLoader,
+    configLoader: engineConfigLoader,
     getFormatter,
-    protocol: primaryProtocol,
+    protocol: primaryProtocol as any,
   });
 
   registerDoctorCommand(program, {
     atomRepository,
-    configLoader,
+    configLoader: engineConfigLoader,
     gitClient,
-    protocol: primaryProtocol,
+    getFormatter,
+    protocol: primaryProtocol as any,
   });
 
-  // Return program and shared deps so wrappers can add more commands
   return { program, getFormatter, sharedDeps, config };
 }
 
@@ -270,9 +284,6 @@ export async function runCli(options: EngineOptions) {
  */
 export async function execute(program: Command, getFormatter: () => IOutputFormatter, config: Config) {
   try {
-    if (shouldCheckForUpdate(config.cli.updateCheck)) {
-      // update check logic
-    }
     await program.parseAsync(process.argv);
   } catch (error) {
     if (error instanceof ProtocolError || error instanceof ValidationError || error instanceof GitError) {

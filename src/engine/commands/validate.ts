@@ -3,6 +3,7 @@ import type { Validator } from '../services/validator.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { CommitValidationResult, FormattableValidationResult, ValidationIssue } from '../types/output.js';
+import type { IProtocol } from '../interfaces/protocol.js';
 
 interface ValidateCommandOptions {
   readonly since?: string;
@@ -11,8 +12,8 @@ interface ValidateCommandOptions {
 }
 
 /**
- * Register the `lore validate [range]` command.
- * Validates commits for Lore protocol compliance.
+ * Register the validate [range] command.
+ * Validates commits for protocol compliance.
  * Default: last commit (HEAD~1..HEAD).
  * Accepts git revision range as argument.
  */
@@ -22,11 +23,13 @@ export function registerValidateCommand(
     validator: Validator;
     gitClient: IGitClient;
     getFormatter: () => IOutputFormatter;
+    protocol: IProtocol | undefined;
   },
 ): void {
+  const protocolName = deps.protocol?.name || 'Atom';
   program
     .command('validate [range]')
-    .description(`Validate commits for ${protocol.name} protocol compliance`)
+    .description(`Validate commits for ${protocolName} protocol compliance`)
     .option('--since <ref>', 'Validate all commits since ref (e.g., main)')
     .option('--last <n>', 'Validate the last N commits', parseInt)
     .option('--strict', 'Treat warnings as errors')

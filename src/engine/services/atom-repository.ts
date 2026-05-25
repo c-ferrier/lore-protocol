@@ -3,7 +3,7 @@ import type { PathQueryOptions, SearchOptions } from '../types/query.js';
 import type { Atom, AtomId, Trailers, ProtocolState } from '../types/domain.js';
 import type { TrailerParser } from './trailer-parser.js';
 import { GIT_FILES_CHANGED_BATCH_SIZE } from '../../util/constants.js';
-import type { Protocol } from './protocol.js';
+import type { IProtocol } from '../interfaces/protocol.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 import type { SearchFilter } from './search-filter.js';
 import type { IAtomCache } from '../interfaces/atom-cache.js';
@@ -22,7 +22,7 @@ export class AtomRepository {
   constructor(
     private readonly gitClient: IGitClient,
     private readonly trailerParser: TrailerParser,
-    private readonly protocol: Protocol,
+    private readonly protocol: IProtocol,
     private readonly protocolRegistry: ProtocolRegistry,
     private readonly searchFilter: SearchFilter,
     private readonly atomCache: IAtomCache,
@@ -43,8 +43,11 @@ export class AtomRepository {
 
     // 2. Try Cache First (Fast Path)
     if (headHash && resolvedOptions.cache !== false) {
-      const cached = await this.queryCache.get(headHash, { ...resolvedOptions, target: gitLogArgs.join(' ') });
-      if (cached) return cached;
+      const cachedHashes = await this.queryCache.get(headHash, gitLogArgs, resolvedOptions);
+      if (cachedHashes) {
+        const rawCommits = await this.gitClient.getCommitsByHashes(cachedHashes);
+        return this.parseRawCommits(rawCommits);
+      }
     }
 
     // 3. Coarse Discovery Pass: Get all commits touching the path
@@ -65,7 +68,8 @@ export class AtomRepository {
 
     // 6. Update Cache (Background)
     if (headHash && resolvedOptions.cache !== false) {
-      this.queryCache.set(headHash, { ...resolvedOptions, target: gitLogArgs.join(' ') }, atoms).catch(() => {});
+      const hashes = atoms.map(a => a.commitHash);
+      this.queryCache.set(headHash, gitLogArgs, resolvedOptions, hashes).catch(() => {});
     }
 
     return atoms;
@@ -211,8 +215,11 @@ export class AtomRepository {
 
     // 2. Try Cache First
     if (headHash && resolvedOptions.cache !== false) {
-      const cached = await this.queryCache.get(headHash, { ...resolvedOptions, target: 'GLOBAL' });
-      if (cached) return cached;
+      const cachedHashes = await this.queryCache.get(headHash, ['GLOBAL'], resolvedOptions);
+      if (cachedHashes) {
+        const rawCommits = await this.gitClient.getCommitsByHashes(cachedHashes);
+        return this.parseRawCommits(rawCommits);
+      }
     }
 
     // 3. Build optimized Git Discovery args
@@ -243,7 +250,8 @@ export class AtomRepository {
 
     // 5. Update Cache
     if (headHash && resolvedOptions.cache !== false) {
-      this.queryCache.set(headHash, { ...resolvedOptions, target: 'GLOBAL' }, atoms).catch(() => {});
+      const hashes = atoms.map(a => a.commitHash);
+      this.queryCache.set(headHash, ['GLOBAL'], resolvedOptions, hashes).catch(() => {});
     }
 
     return atoms;
@@ -316,12 +324,7 @@ export class AtomRepository {
     // Final pass: Build Atom objects
     for (const { raw, protocols } of parsedData) {
       const files = fileMap.get(raw.hash) || [];
-      const atom = this.buildAtom(raw, protocols, files);
-      
-      // Cleanup body
-      atom.body = this.stripTrailersFromBody(atom.body, raw.trailers);
-      
-      results.push(atom);
+      results.push(this.buildAtom(raw, protocols, files));
     }
 
     return results;
@@ -368,7 +371,7 @@ export class AtomRepository {
       date: new Date(raw.date),
       author: raw.author,
       intent: raw.subject,
-      body: raw.body,
+      body: this.stripTrailersFromBody(raw.body, raw.trailers),
       filesChanged,
       protocols,
     };

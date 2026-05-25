@@ -14,10 +14,20 @@ import { resolve } from 'node:path';
  * Wraps the agnostic Atom engine with Lore-specific commands and configuration.
  */
 export async function runLore() {
+  const { program, getFormatter, config } = await buildLoreCli();
+  await execute(program, getFormatter, config);
+}
+
+/**
+ * Assembly logic for the Lore CLI.
+ * Returns the configured program and dependencies for testing or execution.
+ */
+export async function buildLoreCli() {
   const options = {
     binaryName: 'lore',
     description: 'Structured decision context in git commits',
-    configDirName: LORE_CONFIG_DIR,
+    engineDirName: '.atom',
+    protocolDirName: LORE_CONFIG_DIR,
     configFileName: LORE_CONFIG_FILENAME,
     defaultConfig: LORE_DEFAULT_CONFIG,
     protocols: [LoreProtocolDefinition],
@@ -38,6 +48,5 @@ export async function runLore() {
   registerTestedCommand(program, sharedDeps);
   registerRejectedCommand(program, sharedDeps);
 
-  // Execute the CLI
-  await execute(program, getFormatter, config);
+  return { program, getFormatter, sharedDeps, config };
 }

@@ -5,10 +5,10 @@ import type { PathResolver } from '../../services/path-resolver.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { Config } from '../../types/config.js';
 import type { Atom, SupersessionStatus } from '../../types/domain.js';
-import type { PathQueryOptions, QueryResult, TargetType } from '../../types/query.js';
+import type { PathQueryOptions, QueryResult, TargetType, SearchOptions } from '../../types/query.js';
 import type { FormattableQueryResult } from '../../types/output.js';
 import { buildQueryMeta } from './build-query-meta.js';
-import type { Protocol } from '../../services/protocol.js';
+import type { IProtocol } from '../../interfaces/protocol.js';
 import type { IGitClient } from '../../interfaces/git-client.js';
 
 /** Parse a CLI value as a strict positive integer; rejects non-numeric trailing chars. */
@@ -30,7 +30,7 @@ export interface PathQueryDeps {
   readonly pathResolver: PathResolver;
   readonly getFormatter: () => IOutputFormatter;
   readonly config: Config;
-  readonly protocol: Protocol;
+  readonly protocol: IProtocol;
 }
 
 export interface PathQueryCommandOptions {
@@ -58,7 +58,7 @@ export async function executePathQuery(
   commandName: string,
   visibleTrailers: readonly string[] | 'all',
 ): Promise<void> {
-  const { atomRepository, gitClient, supersessionResolver, pathResolver, getFormatter, config, protocol } = deps;
+  const { atomRepository, gitClient, supersessionResolver, pathResolver, getFormatter, config } = deps;
 
   const queryOptions: PathQueryOptions = {
     scope: options.scope ?? null,
@@ -115,7 +115,7 @@ export async function executePathQuery(
   }
 
   // Step 4b: Apply result limit (--limit) after supersession filtering
-  if (queryOptions.limit !== null && queryOptions.limit > 0) {
+  if (queryOptions.limit !== null && queryOptions.limit !== undefined && queryOptions.limit > 0) {
     displayAtoms = displayAtoms.slice(0, queryOptions.limit);
   }
 

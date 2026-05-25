@@ -2,10 +2,10 @@ import type { Command } from 'commander';
 import type { IConfigLoader } from '../interfaces/config-loader.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { FormattableConfigResult } from '../types/output.js';
-import type { Protocol } from '../services/protocol.js';
+import type { IProtocol } from '../interfaces/protocol.js';
 
 /**
- * Register the `lore config` command.
+ * Register the config command.
  * Outputs the effective configuration for the current path.
  */
 export function registerConfigCommand(
@@ -13,7 +13,7 @@ export function registerConfigCommand(
   deps: {
     configLoader: IConfigLoader;
     getFormatter: () => IOutputFormatter;
-    protocol: Protocol;
+    protocol: IProtocol | undefined;
   },
 ): void {
   program
@@ -32,7 +32,7 @@ export function registerConfigCommand(
       const formattable: FormattableConfigResult = {
         version: config.protocol.version,
         permissive: config.trailers.permissive,
-        trailers: protocol.getFormattableDefinitions(),
+        trailers: protocol ? protocol.getFormattableDefinitions() : {},
         filters: {
           showCore,
           showCustom,

@@ -1,10 +1,11 @@
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { TrailerParser } from './trailer-parser.js';
-import type { IProtocol } from '../interfaces/protocol.js';
+import type { ProtocolRegistry } from './protocol-registry.js';
 import type { AtomId } from '../types/domain.js';
 
 /**
- * Utility to read the decision identity (e.g. identity-id) from the HEAD commit.
+ * Utility to read protocol identities from the HEAD commit.
+ * Supports multiple protocols via the ProtocolRegistry.
  * 
  * SOLID: SRP -- only responsible for reading the current identity context.
  */
@@ -12,26 +13,40 @@ export class HeadIdReader {
   constructor(
     private readonly gitClient: IGitClient,
     private readonly trailerParser: TrailerParser,
-    private readonly protocol: IProtocol,
+    private readonly protocolRegistry: ProtocolRegistry,
   ) {}
 
   /**
-   * Returns the identity key value from the HEAD commit, or null if missing.
+   * Returns a map of protocol names to their identity IDs from the HEAD commit.
    */
-  async read(): Promise<AtomId | null> {
+  async readIds(): Promise<Record<string, AtomId>> {
     try {
       const log = await this.gitClient.log(['-1']);
-      if (log.length === 0) return null;
+      if (log.length === 0) return {};
 
       const trailers = this.trailerParser.parse(log[0].trailers);
-      const id = this.protocol.getIdentity(trailers);
-      
-      if (id && this.protocol.isValidIdentity(id)) {
-        return id;
+      const results: Record<string, AtomId> = {};
+
+      for (const protocol of this.protocolRegistry.getAll()) {
+        const id = protocol.getIdentity(trailers);
+        if (id && protocol.isValidIdentity(id)) {
+            results[protocol.name.toLowerCase()] = id;
+        }
       }
-      return null;
+      
+      return results;
     } catch {
-      return null;
+      return {};
     }
+  }
+
+  /**
+   * Backward compatibility alias for the first registered protocol.
+   */
+  async read(): Promise<AtomId | null> {
+    const ids = await this.readIds();
+    const first = this.protocolRegistry.getAll()[0];
+    if (!first) return null;
+    return ids[first.name.toLowerCase()] || null;
   }
 }

@@ -10,7 +10,7 @@ import { mergeOptions } from './helpers/merge-options.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
 import { parsePositiveInt } from './helpers/path-query.js';
 import { ProtocolError } from '../../util/errors.js';
-import type { Protocol } from '../services/protocol.js';
+import type { IProtocol } from '../interfaces/protocol.js';
 import type { SearchFilter } from '../services/search-filter.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 
@@ -30,11 +30,8 @@ interface SearchCommandOptions {
 }
 
 /**
- * Register the `lore search` command.
- * Cross-cutting query with filters across all lore atoms.
- * 
- * This command acts as the "Lore-compatible wrapper" for the generic
- * Sovereign Search engine.
+ * Register the search command.
+ * Cross-cutting query with filters across all atoms.
  */
 export function registerSearchCommand(
   program: Command,
@@ -45,12 +42,13 @@ export function registerSearchCommand(
     searchFilter: SearchFilter;
     getFormatter: () => IOutputFormatter;
     config: Config;
-    protocol: Protocol;
+    protocol: IProtocol | undefined;
   },
 ): void {
+  const protocolName = deps.protocol?.name || 'Atom';
   program
     .command('search')
-    .description(`Search across all ${protocol.name.toLowerCase()} atoms with filters`)
+    .description(`Search across all ${protocolName.toLowerCase()} atoms with filters`)
     .option('--confidence <level>', 'Filter by confidence: low, medium, high')
     .option('--scope-risk <level>', 'Filter by scope-risk: narrow, moderate, wide')
     .option('--reversibility <level>', 'Filter by reversibility: clean, migration-needed, irreversible')
@@ -65,7 +63,7 @@ export function registerSearchCommand(
     .option('--max-commits <n>', 'Maximum git commits to scan (supersession may be incomplete)', parsePositiveInt)
     .action(async (_options: SearchCommandOptions, command: Command) => {
       const options = mergeOptions<SearchCommandOptions>(command);
-      const { atomRepository, gitClient, supersessionResolver, searchFilter, getFormatter, protocol } = deps;
+      const { atomRepository, gitClient, supersessionResolver, searchFilter, getFormatter } = deps;
 
       // Resolve HEAD for caching
       let headHash: string | undefined;
@@ -77,11 +75,11 @@ export function registerSearchCommand(
 
       // Validate 'has' trailer key against protocol
       let authorizedHas: string | null = null;
-      if (options.has) {
-        authorizedHas = protocol.authorize(options.has);
+      if (options.has && deps.protocol) {
+        authorizedHas = deps.protocol.authorize(options.has);
         if (!authorizedHas) {
           throw new ProtocolError(
-            `'${options.has}' is not a valid Lore trailer. In strict mode, only core or explicitly configured trailers can be searched.`,
+            `'${options.has}' is not a valid ${protocolName} trailer. In strict mode, only core or explicitly configured trailers can be searched.`,
             1,
           );
         }
@@ -111,7 +109,7 @@ export function registerSearchCommand(
       let atoms = await atomRepository.findAll(searchOptions, headHash);
 
       // Apply text search and absolute precision filters via SearchFilter service
-      atoms = searchFilter.applyFilters(atoms, searchOptions);
+      atoms = searchFilter.filter(atoms, searchOptions);
 
       // Compute supersession on full set so each atom's status is available to the formatter
       const supersessionMap: Map<string, SupersessionStatus> = supersessionResolver.resolve(atoms);

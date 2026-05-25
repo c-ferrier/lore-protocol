@@ -2,26 +2,13 @@ import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { IConfigLoader } from '../interfaces/config-loader.js';
 import type { IGitClient } from '../interfaces/git-client.js';
+import type { IOutputFormatter } from '../interfaces/output-formatter.js';
+import type { FormattableDoctorResult, DoctorCheck } from '../types/output.js';
 import type { IProtocol } from '../interfaces/protocol.js';
-import type { Atom } from '../types/domain.js';
 
 /**
- * Result of a single doctor check.
- */
-export interface DoctorCheck {
-  readonly name: string;
-  readonly status: 'ok' | 'warning' | 'error';
-  readonly message: string;
-  readonly details?: string[];
-}
-
-/**
- * Register the `lore doctor` command.
- * Performs deep structural health checks on the decision repository:
- * 1. Config file existence and parsing
- * 2. Identity key uniqueness
- * 3. Reference resolution (Supersedes, Depends-on, Related)
- * 4. Orphaned dependencies
+ * Register the doctor command.
+ * Performs automated health checks on the decision repository.
  */
 export function registerDoctorCommand(
   program: Command,
@@ -29,96 +16,120 @@ export function registerDoctorCommand(
     atomRepository: AtomRepository;
     configLoader: IConfigLoader;
     gitClient: IGitClient;
-    protocol: IProtocol;
+    getFormatter: () => IOutputFormatter;
+    protocol: IProtocol | undefined;
   },
 ): void {
   program
     .command('doctor')
     .description('Check the health of the decision repository')
     .action(async () => {
-      const { atomRepository, configLoader, protocol } = deps;
+      const { atomRepository, configLoader, gitClient, protocol, getFormatter } = deps;
       const checks: DoctorCheck[] = [];
 
-      // Check 1: Config
-      const configPath = await configLoader.findConfigPath(process.cwd());
-      if (!configPath) {
-        checks.push({
-          name: 'Config file',
-          status: 'error',
-          message: `No ${protocol.name} configuration found. Run \`${protocol.name.toLowerCase()} init\` to create one.`,
-        });
-      } else {
-        checks.push({
-          name: 'Config file',
-          status: 'ok',
-          message: `Found and parsed ${configPath}`,
-        });
+      // 1. Git Repository Check
+      checks.push(await checkGitRepo(gitClient));
+
+      // 2. Configuration Check
+      checks.push(await checkConfig(configLoader));
+
+      // 3. Atom Discovery & Integrity Check
+      if (protocol) {
+          checks.push(await checkAtoms(atomRepository));
+          checks.push(await checkDuplicateIdentities(atomRepository, protocol));
+          checks.push(await checkOrphanedDependencies(atomRepository, protocol));
       }
 
-      // Load all atoms for remaining checks
-      let allAtoms: Atom[];
-      try {
-        allAtoms = await atomRepository.findAll({ all: true });
-      } catch (err) {
-        console.error(`error: Failed to load atoms: ${err instanceof Error ? err.message : String(err)}`);
-        process.exit(1);
-      }
+      const summary = {
+        errors: checks.filter((c) => c.status === 'error').length,
+        warnings: checks.filter((c) => c.status === 'warning').length,
+        info: checks.filter((c) => c.status === 'info').length,
+      };
 
-      // Check 2: Uniqueness
-      checks.push(checkIdentityUniqueness(allAtoms, protocol));
+      const doctorResult: FormattableDoctorResult = {
+        checks,
+        summary,
+      };
 
-      // Check 3: References
-      checks.push(checkReferenceResolution(allAtoms, protocol));
-
-      // Check 4: Orphans
-      checks.push(checkOrphanedDependencies(allAtoms, protocol));
-
-      // Output
-      let totalErrors = 0;
-      for (const check of checks) {
-        const prefix =
-          check.status === 'ok'
-            ? 'OK '
-            : check.status.toUpperCase().padEnd(7) + ' ';
-        console.log(`${prefix} ${check.name}: ${check.message}`);
-        if (check.status === 'error') totalErrors++;
-
-        if (check.details && check.details.length > 0) {
-          for (const detail of check.details) {
-            console.log(`     - ${detail}`);
-          }
-        }
-      }
-
-      if (totalErrors > 0) {
-        console.log(`\n${totalErrors} check(s) failed`);
-        process.exit(1);
-      } else {
-        console.log('\nall checks passed');
-      }
+      const formatter = getFormatter();
+      console.log(formatter.formatDoctorResult(doctorResult));
     });
 }
 
-/**
- * Check that every identity key is globally unique.
- */
-function checkIdentityUniqueness(
-  atoms: readonly Atom[],
+async function checkGitRepo(gitClient: IGitClient): Promise<DoctorCheck> {
+  const isRepo = await gitClient.isInsideRepo();
+  if (!isRepo) {
+    return {
+      name: 'Git Repository',
+      status: 'error',
+      message: 'Not a git repository. Decisions must be stored in git.',
+      details: [],
+    };
+  }
+  return {
+    name: 'Git Repository',
+    status: 'ok',
+    message: 'Valid git repository found',
+    details: [],
+  };
+}
+
+async function checkConfig(configLoader: IConfigLoader): Promise<DoctorCheck> {
+  const configPath = await configLoader.findConfigPath(process.cwd());
+  if (!configPath) {
+    return {
+      name: 'Configuration',
+      status: 'warning',
+      message: 'No local config file found. Using default protocol rules.',
+      details: [],
+    };
+  }
+  return {
+    name: 'Configuration',
+    status: 'ok',
+    message: `Config file found: ${configPath}`,
+    details: [],
+  };
+}
+
+async function checkAtoms(atomRepository: AtomRepository): Promise<DoctorCheck> {
+  const atoms = await atomRepository.findAll({ maxCommits: 100 });
+  if (atoms.length === 0) {
+    return {
+      name: 'Decision Atoms',
+      status: 'info',
+      message: 'No atoms found in the last 100 commits.',
+      details: [],
+    };
+  }
+  return {
+    name: 'Decision Atoms',
+    status: 'ok',
+    message: `Discovered ${atoms.length} atoms in the last 100 commits`,
+    details: [],
+  };
+}
+
+async function checkDuplicateIdentities(
+  atomRepository: AtomRepository,
   protocol: IProtocol,
-): DoctorCheck {
-  const idCounts = new Map<string, number>();
-  const duplicates: string[] = [];
+): Promise<DoctorCheck> {
+  const atoms = await atomRepository.findAll({ maxCommits: 500 });
+  const counts = new Map<string, number>();
+  const protocolName = protocol.name.toLowerCase();
 
   for (const atom of atoms) {
-    const state = atom.protocols.get(protocol.name.toLowerCase());
-    const id = protocol.getIdentity(state?.trailers);
-    
-    if (!id) continue;
-    const count = idCounts.get(id) ?? 0;
-    idCounts.set(id, count + 1);
+    const state = atom.protocols.get(protocolName);
+    if (!state) continue;
+
+    const id = protocol.getIdentity(state.trailers);
+    if (id) {
+      counts.set(id, (counts.get(id) || 0) + 1);
+    }
   }
 
-  for (const [id, count] of idCounts.entries()) {
+  const duplicates: string[] = [];
+  for (const [id, count] of counts.entries()) {
     if (count > 1) {
       duplicates.push(`${protocol.identityKey} "${id}" appears ${count} times`);
     }
@@ -126,7 +137,7 @@ function checkIdentityUniqueness(
 
   if (duplicates.length > 0) {
     return {
-      name: `${protocol.identityKey} uniqueness`,
+      name: 'Identity uniqueness',
       status: 'error',
       message: `${duplicates.length} duplicate ${protocol.identityKey}(s) found`,
       details: duplicates,
@@ -134,100 +145,33 @@ function checkIdentityUniqueness(
   }
 
   return {
-    name: `${protocol.identityKey} uniqueness`,
+    name: 'Identity uniqueness',
     status: 'ok',
-    message: `All ${atoms.length} ${protocol.identityKey}s are unique`,
+    message: `All ${protocol.identityKey}s are unique`,
+    details: [],
   };
 }
 
-/**
- * Check that all referenced IDs exist in the repository.
- */
-function checkReferenceResolution(
-  atoms: readonly Atom[],
+async function checkOrphanedDependencies(
+  atomRepository: AtomRepository,
   protocol: IProtocol,
-): DoctorCheck {
-  const protocolName = protocol.name.toLowerCase();
-  
-  // Build ID set based on current protocol's interpretation
-  const allIds = new Set<string>();
-  for (const atom of atoms) {
-    const state = atom.protocols.get(protocolName);
-    const id = protocol.getIdentity(state?.trailers);
-    if (id) allIds.add(id);
-  }
-
-  const broken: string[] = [];
+): Promise<DoctorCheck> {
+  const atoms = await atomRepository.findAll({ maxCommits: 500 });
+  const orphaned: string[] = [];
   const refKeys = protocol.getReferenceKeys();
+  const protocolName = protocol.name.toLowerCase();
 
   for (const atom of atoms) {
     const state = atom.protocols.get(protocolName);
     if (!state) continue;
-
-    const id = protocol.getIdentity(state.trailers);
 
     for (const key of refKeys) {
-      const refs = state.trailers[key] || [];
-      for (const refId of refs) {
-        if (protocol.isValidIdentity(refId) && !allIds.has(refId)) {
-          broken.push(
-            `${protocol.identityKey} "${refId}" referenced by ${id} (${key}) not found`,
-          );
+      const ids = state.trailers[key] || [];
+      for (const id of ids) {
+        const target = await atomRepository.findById(id);
+        if (!target) {
+          orphaned.push(`${atom.commitHash.slice(0, 8)} -> ${id} (${key})`);
         }
-      }
-    }
-  }
-
-  if (broken.length > 0) {
-    return {
-      name: 'Reference resolution',
-      status: 'warning',
-      message: `${broken.length} broken reference(s) found`,
-      details: broken,
-    };
-  }
-
-  return {
-    name: 'Reference resolution',
-    status: 'ok',
-    message: 'All references resolve to existing atoms',
-  };
-}
-
-/**
- * Check for atoms that depend on superseded atoms (lineage drift).
- */
-function checkOrphanedDependencies(
-  atoms: readonly Atom[],
-  protocol: IProtocol,
-): DoctorCheck {
-  const protocolName = protocol.name.toLowerCase();
-
-  // Build a supersession set: atoms that are superseded
-  const supersededIds = new Set<string>();
-  for (const atom of atoms) {
-    const state = atom.protocols.get(protocolName);
-    const supersedes = state?.trailers.Supersedes || [];
-    for (const supersededId of supersedes) {
-      if (protocol.isValidIdentity(supersededId)) {
-        supersededIds.add(supersededId);
-      }
-    }
-  }
-
-  const orphaned: string[] = [];
-  for (const atom of atoms) {
-    const state = atom.protocols.get(protocolName);
-    if (!state) continue;
-
-    const id = protocol.getIdentity(state.trailers);
-    const dependsOn = state.trailers['Depends-on'] || [];
-    
-    for (const depId of dependsOn) {
-      if (protocol.isValidIdentity(depId) && supersededIds.has(depId)) {
-        orphaned.push(
-          `Atom ${id} depends on ${depId}, which has been superseded`,
-        );
       }
     }
   }

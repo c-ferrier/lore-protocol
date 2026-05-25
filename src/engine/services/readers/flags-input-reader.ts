@@ -1,7 +1,7 @@
 import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js';
 import type { CommitInput } from '../../types/commit.js';
 import type { CommitCommandOptions } from '../commit-input-resolver.js';
-import type { Protocol } from '../protocol.js';
+import type { IProtocol } from '../../interfaces/protocol.js';
 
 /**
  * Reads commit input from CLI flag values.
@@ -14,7 +14,7 @@ import type { Protocol } from '../protocol.js';
 export class FlagsInputReader implements ICommitInputReader {
   constructor(
     private readonly options: CommitCommandOptions,
-    private readonly protocol: Protocol,
+    private readonly protocol: IProtocol,
   ) {}
 
   async read(): Promise<CommitInput> {

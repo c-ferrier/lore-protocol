@@ -1,0 +1,4 @@
+src/services/commit-builder.ts
+src/services/readers/json-input-reader.ts
+tests/unit/services/commit-builder.test.ts
+tests/unit/services/readers/json-input-reader.test.ts

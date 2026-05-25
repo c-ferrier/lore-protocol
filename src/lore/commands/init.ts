@@ -1,11 +1,11 @@
 import type { Command } from 'commander';
-import type { IOutputFormatter } from '../engine/interfaces/output-formatter.js';
+import type { IOutputFormatter } from '../../engine/interfaces/output-formatter.js';
 import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import { LORE_CONFIG_DIR, LORE_CONFIG_FILENAME, LORE_DEFAULT_CONFIG } from '../defaults.js';
 import { ProtocolError } from '../../util/errors.js';
-import type { Config } from '../engine/types/config.js';
+import type { Config } from '../../engine/types/config.js';
 
 export function registerInitCommand(
   program: Command,
@@ -166,11 +166,12 @@ function findConfigDiff(parsed: Record<string, unknown>): { missing: string[]; c
   const configKeys = Object.keys(LORE_DEFAULT_CONFIG) as (keyof Config)[];
 
   for (const section of configKeys) {
-    const defaults = LORE_DEFAULT_CONFIG[section] as Record<string, unknown>;
-    const userSection = parsed[section];
+    const s = String(section) as keyof Config;
+    const defaults = LORE_DEFAULT_CONFIG[s] as Record<string, unknown>;
+    const userSection = parsed[s] as Record<string, unknown> | undefined;
 
     if (!userSection || typeof userSection !== 'object') {
-      missing.push(`[${section}] section`);
+      missing.push(`[${s}] section`);
       continue;
     }
 
@@ -184,9 +185,9 @@ function findConfigDiff(parsed: Record<string, unknown>): { missing: string[]; c
       const userValue = sectionData[snakeKey] ?? sectionData[key];
 
       if (userValue === undefined) {
-        missing.push(`${section}.${snakeKey}`);
+        missing.push(`${s}.${snakeKey}`);
       } else if (JSON.stringify(userValue) !== JSON.stringify(defaultValue)) {
-        customized.push(`${section}.${snakeKey}`);
+        customized.push(`${s}.${snakeKey}`);
       }
     }
   }

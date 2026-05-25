@@ -2,7 +2,7 @@ import type { ITrailerCollector } from '../../../interfaces/trailer-collector.js
 import type { CustomTrailerDefinition } from '../../../types/config.js';
 import { MultiValueTrailerCollector } from './multi-value-trailer-collector.js';
 import { EnumChoiceTrailerCollector } from './enum-choice-trailer-collector.js';
-import { Protocol } from '../../protocol.js';
+import { IProtocol } from '../../../interfaces/protocol.js';
 
 /**
  * Registry and factory for trailer collectors.
@@ -14,7 +14,7 @@ import { Protocol } from '../../protocol.js';
  * SOLID: OCP -- new collector types can be added by extending the factory.
  */
 export class TrailerCollectorRegistry {
-  constructor(private readonly protocol: Protocol) {}
+  constructor(private readonly protocol: IProtocol) {}
 
   /**
    * Returns a list of collectors for all authorized trailers.
@@ -68,7 +68,7 @@ export class TrailerCollectorRegistry {
 /**
  * Functional wrapper for the registry.
  */
-export function createTrailerCollectors(protocol: Protocol): ITrailerCollector[] {
+export function createTrailerCollectors(protocol: IProtocol): ITrailerCollector[] {
   const registry = new TrailerCollectorRegistry(protocol);
   return registry.getCollectors();
 }

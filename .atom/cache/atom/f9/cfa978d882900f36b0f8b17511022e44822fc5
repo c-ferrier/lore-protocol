@@ -1,0 +1,7 @@
+src/commands/commit.ts
+src/commands/squash.ts
+src/services/commit-builder.ts
+src/services/squash-merger.ts
+tests/unit/commands/commit-amend.test.ts
+tests/unit/services/commit-builder.test.ts
+tests/unit/services/squash-merger.test.ts

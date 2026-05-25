@@ -1,0 +1,8 @@
+src/interfaces/git-client.ts
+src/services/atom-repository.ts
+src/services/git-client.ts
+tests/unit/commands/commit-amend.test.ts
+tests/unit/services/atom-repository.test.ts
+tests/unit/services/git-client.test.ts
+tests/unit/services/head-lore-id-reader.test.ts
+tests/unit/services/staleness-detector.test.ts

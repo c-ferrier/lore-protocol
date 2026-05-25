@@ -91,7 +91,7 @@ export class GitClient implements IGitClient {
     const hashMatch = /\[[\w/-]+\s+([0-9a-f]+)\]/.exec(stdout);
     const hash = hashMatch ? hashMatch[1] : '';
 
-    return { hash, success: true };
+    return { hash, success: true, message: stdout };
   }
 
   async getHeadMessage(): Promise<string> {

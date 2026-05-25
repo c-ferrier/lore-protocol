@@ -43,7 +43,7 @@ export class Protocol implements IProtocol {
     return this.definition.namespace;
   }
 
-  get isPermissive(): boolean {
+  get permissive(): boolean {
     return this.config.trailers.permissive;
   }
 
@@ -156,7 +156,7 @@ export class Protocol implements IProtocol {
       // 3. We ignore keys that are explicitly owned by another protocol (namespaced differently).
 
       if (!isOwner) {
-        if (!this.isPermissive) continue;
+        if (!this.permissive) continue;
         if (isAlreadyClaimed) continue;
         if (namespace.toLowerCase() !== this.namespace.toLowerCase()) continue;
       }
@@ -294,7 +294,7 @@ export class Protocol implements IProtocol {
       return canonicalKey;
     }
 
-    if (this.isPermissive) {
+    if (this.permissive) {
       return key;
     }
 

@@ -1,4 +1,4 @@
-import { TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../util/constants.js';
+import { TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../../util/constants.js';
 
 export type TrailerUiKind = (typeof TRAILER_UI_KINDS)[number];
 export type TrailerUiColor = (typeof TRAILER_UI_COLORS)[number];

@@ -16,6 +16,7 @@ export interface BlameLine {
 export interface CommitResult {
   readonly hash: string;
   readonly success: boolean;
+  readonly message: string;
 }
 
 export interface CommitOptions {

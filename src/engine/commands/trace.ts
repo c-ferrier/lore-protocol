@@ -21,14 +21,20 @@ export function registerTraceCommand(
     atomRepository: AtomRepository;
     gitClient: IGitClient;
     getFormatter: () => IOutputFormatter;
-    protocol: IProtocol;
+    protocol: IProtocol | undefined;
   },
 ): void {
+  const protocolName = deps.protocol?.name || 'Atom';
   program
     .command('trace <id>')
     .description('Trace the lineage and relationships of a decision')
-    .action(async (id: string) => {
+    .option('--max-depth <n>', 'Maximum BFS traversal depth', (val) => parseInt(val, 10), 10)
+    .action(async (id: string, options: { maxDepth: number }) => {
       const { atomRepository, getFormatter, protocol } = deps;
+
+      if (!protocol) {
+          throw new Error('At least one protocol must be registered to run this command.');
+      }
 
       if (!protocol.isValidIdentity(id)) {
         throw new ProtocolError(
@@ -61,11 +67,11 @@ export function registerTraceCommand(
 
       // BFS to find all relationships
       // Limit depth to avoid infinite loops or massive graphs
-      const MAX_DEPTH = 5;
+      const maxDepth = options.maxDepth;
 
       while (queue.length > 0) {
         const { atom, depth } = queue.shift()!;
-        if (depth >= MAX_DEPTH) continue;
+        if (depth >= maxDepth) continue;
 
         const currentId = getAtomId(atom);
         if (!currentId) continue;

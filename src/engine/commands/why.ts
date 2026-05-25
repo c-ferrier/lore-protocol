@@ -7,14 +7,14 @@ import type { Atom, SupersessionStatus } from '../types/domain.js';
 import type { QueryResult, QueryMeta } from '../types/query.js';
 import type { FormattableQueryResult } from '../types/output.js';
 import { ProtocolError } from '../../util/errors.js';
-import type { Protocol } from '../services/protocol.js';
+import type { IProtocol } from '../interfaces/protocol.js';
 import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/path-query.js';
 import { mergeOptions } from './helpers/merge-options.js';
 
 /**
- * Register the `lore why <target>` command.
+ * Register the `why <target>` command.
  * Target must be `file:line` or `file:line-line` format.
- * Uses git blame to find the commit for each line, then extracts Lore trailers.
+ * Uses git blame to find the commit for each line, then extracts trailers.
  *
  * Performance: queries only the specific blame commits (one git log per unique hash)
  * rather than loading all atoms from history.
@@ -26,17 +26,23 @@ export function registerWhyCommand(
     gitClient: IGitClient;
     pathResolver: PathResolver;
     getFormatter: () => IOutputFormatter;
-    protocol: Protocol;
+    protocol: IProtocol | undefined;
   },
 ): void {
+  const protocolName = deps.protocol?.name || 'Atom';
   const cmd = program
     .command('why <target>')
-    .description('Decision context for a specific line or line range');
+    .description(`Decision context for a specific line or line range (${protocolName})`);
 
   addPathQueryOptions(cmd);
 
   cmd.action(async (target: string, _options: PathQueryCommandOptions, command: Command) => {
     const { atomRepository, gitClient, pathResolver, getFormatter, protocol } = deps;
+    
+    if (!protocol) {
+        throw new Error('At least one protocol must be registered to run this command.');
+    }
+
     const options = mergeOptions<PathQueryCommandOptions>(command);
 
     const parsedTarget = pathResolver.parseTarget(target);

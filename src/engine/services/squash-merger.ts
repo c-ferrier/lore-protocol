@@ -1,6 +1,6 @@
 import type { IdGenerator } from './id-generator.js';
 import type { Atom, AtomId } from '../types/domain.js';
-import type { Protocol } from './protocol.js';
+import type { IProtocol } from '../interfaces/protocol.js';
 
 /**
  * Orchestrates the merging of multiple decision atoms during a git squash.
@@ -12,7 +12,7 @@ import type { Protocol } from './protocol.js';
 export class SquashMerger {
   constructor(
     private readonly idGenerator: IdGenerator,
-    private readonly protocol: Protocol,
+    private readonly protocol: IProtocol,
   ) {}
 
   /**

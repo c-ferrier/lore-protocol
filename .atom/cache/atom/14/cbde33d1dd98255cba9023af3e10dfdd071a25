@@ -1,0 +1,17 @@
+documents/PROJECT_ARCHITECTURE.md
+src/commands/helpers/path-query.ts
+src/commands/log.ts
+src/commands/search.ts
+src/commands/stale.ts
+src/main.ts
+src/services/atom-repository.ts
+src/services/search-filter.ts
+src/types/query.ts
+src/util/regex.ts
+tests/integration/git-discovery.test.ts
+tests/unit/repro-false-positive.integration.test.ts
+tests/unit/services/atom-repository-refinement.test.ts
+tests/unit/services/atom-repository.test.ts
+tests/unit/services/filtering-parity.test.ts
+tests/unit/services/git-discovery.integration.test.ts
+tests/unit/services/search-filter.test.ts

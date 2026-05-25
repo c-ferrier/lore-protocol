@@ -11,17 +11,19 @@ export interface QueryTarget {
 }
 
 export interface PathQueryOptions {
-  readonly scope: string | null;
-  readonly follow: boolean;
-  readonly all: boolean;
-  readonly author: string | null;
+  readonly scope?: string | null;
+  readonly follow?: boolean;
+  readonly all?: boolean;
+  readonly author?: string | null;
   /** Result-level cap applied by the command layer after querying. Not used by the repository. */
-  readonly limit: number | null;
+  readonly limit?: number | null;
   /** Page number for results (1-indexed). Not used by the repository. */
   readonly page?: number | null;
-  readonly maxCommits: number | null;
-  readonly since: string | null;
-  readonly until: string | null;
+  readonly maxCommits?: number | null;
+  readonly since?: string | null;
+  readonly until?: string | null;
+  /** Whether to use the query cache. Defaults to true. */
+  readonly cache?: boolean;
 }
 
 /**
@@ -32,9 +34,9 @@ export interface SearchOptions extends PathQueryOptions {
   /** Generic trailer filters: key -> value(s) to match */
   readonly filters?: Record<string, string | string[]>;
   /** Trailer presence filter (any value) */
-  readonly has: string | null;
+  readonly has?: string | null;
   /** Full-text search across intent, body, and trailers */
-  readonly text: string | null;
+  readonly text?: string | null;
 
   /** Pre-resolved date for the authoritative application-level filter pass. */
   readonly sinceDate?: Date | null;

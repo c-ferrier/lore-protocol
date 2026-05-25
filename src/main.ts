@@ -1,8 +1,9 @@
 import { runCli, execute } from './engine/index.js';
 import { resolve } from 'node:path';
 import { DEFAULT_CACHE_PRUNE_THRESHOLD } from './util/constants.js';
+import type { Config } from './engine/types/config.js';
 
-const ATOM_DEFAULT_CONFIG = {
+const ATOM_DEFAULT_CONFIG: Config = {
   protocol: { name: 'Atom', version: '1.0' },
   trailers: { required: [], custom: [], definitions: {}, permissive: true },
   validation: { strict: false, maxMessageLines: 50, intentMaxLength: 72 },
@@ -24,7 +25,7 @@ async function main() {
   const options = {
     binaryName: 'atom',
     description: 'Agnostic decision graph engine',
-    configDirName: '.atom',
+    engineDirName: '.atom',
     configFileName: 'config.toml',
     defaultConfig: ATOM_DEFAULT_CONFIG,
     protocols: [], // Atom starts with zero protocols by default
