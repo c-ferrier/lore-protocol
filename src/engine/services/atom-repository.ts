@@ -22,13 +22,14 @@ export class AtomRepository {
   constructor(
     private readonly gitClient: IGitClient,
     private readonly trailerParser: TrailerParser,
-    private readonly protocol: IProtocol,
+    private readonly protocol: IProtocol | undefined,
     private readonly protocolRegistry: ProtocolRegistry,
     private readonly searchFilter: SearchFilter,
     private readonly atomCache: IAtomCache,
     private readonly queryCache: IQueryCache,
-    private readonly isScoped = false,
+    private readonly isScoped: boolean = false,
   ) {}
+
 
   /**
    * Find atoms Touching a specific target (file or directory).
@@ -290,28 +291,32 @@ export class AtomRepository {
     const results: Atom[] = [];
     const hashesToFetchFiles: string[] = [];
 
+    const allProtocols = this.protocolRegistry.getAll();
+    const hasProtocols = allProtocols.length > 0;
+
     // First pass: Filter and parse protocols
     const parsedData: Array<{ raw: RawCommit; protocols: Map<string, ProtocolState> }> = [];
 
     for (const raw of rawCommits) {
       const activeProtocols = this.protocolRegistry.detect(raw.trailers);
-      if (activeProtocols.length === 0) continue;
+      
+      // If we have protocols registered, we only care about commits they claim.
+      // If NO protocols are registered, we treat EVERY commit as an atom (agnostic mode).
+      if (hasProtocols && activeProtocols.length === 0) continue;
 
       const protocolMap = new Map<string, ProtocolState>();
       
-      // Ownership resolution logic:
-      // We pass a set of keys that have already been claimed by an explicit owner.
-      // This allows permissive protocols to only claim the orphans.
-      const explicitOwners = new Set<string>();
-      
-      // First pass: Explicit owners (Strict or matching namespace)
-      for (const p of activeProtocols) {
-        const pKeys = p.getAllKeys();
-        for (const k of pKeys) explicitOwners.add(k);
-      }
+      if (hasProtocols) {
+        // Ownership resolution logic:
+        const explicitOwners = new Set<string>();
+        for (const p of activeProtocols) {
+          const pKeys = p.getAllKeys();
+          for (const k of pKeys) explicitOwners.add(k);
+        }
 
-      for (const p of activeProtocols) {
-        protocolMap.set(p.name.toLowerCase(), p.parse(raw.trailers, explicitOwners));
+        for (const p of activeProtocols) {
+          protocolMap.set(p.name.toLowerCase(), p.parse(raw.trailers, explicitOwners));
+        }
       }
 
       parsedData.push({ raw, protocols: protocolMap });

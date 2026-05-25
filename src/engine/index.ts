@@ -193,9 +193,11 @@ export async function runCli(options: EngineOptions) {
   };
 
   // Hook to ensure a protocol exists before running commands that require one
-  program.hook('preAction', (thisCommand) => {
-    const whitelist = ['cache', 'init', 'config', 'doctor'];
-    if (whitelist.includes(thisCommand.name())) return;
+  program.hook('preAction', (executedCommand) => {
+    // These commands can run without a protocol (agnostic mode)
+    const whitelist = [options.binaryName, 'cache', 'init', 'config', 'doctor', 'log', 'search'];
+    
+    if (whitelist.includes(executedCommand.name())) return;
     
     if (!primaryProtocol) {
       console.error('fatal: At least one protocol must be registered to run this command.');

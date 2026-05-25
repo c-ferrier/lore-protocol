@@ -42,12 +42,24 @@ export class TextFormatter implements IOutputFormatter {
       // Find a representative ID for the header (root preferred)
       const rootProtocol = this.protocolRegistry.getRoot();
       const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
-      const id = rootProtocol?.getIdentity(primaryState?.trailers) || 'Unknown';
+      
+      let id = rootProtocol?.getIdentity(primaryState?.trailers);
+      if (!id) {
+          // Try to find ANY protocol identity
+          for (const [name, state] of atom.protocols) {
+              const p = this.protocolRegistry.get(name);
+              id = p?.getIdentity(state.trailers) || undefined;
+              if (id) break;
+          }
+      }
 
-      const supersession = supersessionMap.get(id);
+      // Final fallback to shortened commit hash
+      const displayId = id || atom.commitHash.slice(0, 8);
+
+      const supersession = id ? supersessionMap.get(id) : undefined;
       const isSuperseded = supersession?.superseded ?? false;
 
-      const header = this.formatAtomHeader(atom, id, isSuperseded);
+      const header = this.formatAtomHeader(atom, displayId, isSuperseded);
       lines.push(header);
 
       if (isSuperseded && supersession?.supersededBy) {
