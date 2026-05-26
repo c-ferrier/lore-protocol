@@ -86,7 +86,18 @@ export async function runCli(options: EngineOptions) {
   // 3. Load Protocols
   const protocolsDir = join(activeRoot, options.engineDirName, 'protocols');
   const dynamicLoader = new DynamicProtocolLoader(protocolsDir);
-  let allProtocols = [...options.staticProtocols, ...(await dynamicLoader.loadAll())];
+  const dynamicProtocols = await dynamicLoader.loadAll();
+  
+  // Create unique registry map, prioritizing dynamic over static
+  const protocolMap = new Map<string, ProtocolDefinition>();
+  for (const p of options.staticProtocols) {
+      protocolMap.set(p.name.toLowerCase(), p);
+  }
+  for (const p of dynamicProtocols) {
+      protocolMap.set(p.name.toLowerCase(), p);
+  }
+
+  let allProtocols = Array.from(protocolMap.values());
   
   if (options.onProtocolsLoaded) {
     allProtocols = await options.onProtocolsLoaded(allProtocols);

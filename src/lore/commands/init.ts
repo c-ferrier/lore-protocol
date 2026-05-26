@@ -1,16 +1,27 @@
 import type { Command } from 'commander';
 import type { IOutputFormatter } from '../../engine/interfaces/output-formatter.js';
-import { mkdir, writeFile, access } from 'node:fs/promises';
+import { mkdir, writeFile, access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from '../defaults.js';
-import { registerInitCommand as registerEngineInit } from '../../engine/commands/init.js';
+import { 
+    LORE_CONFIG_DIR, 
+    LORE_CONFIG_FILENAME, 
+    LORE_DEFAULT_ENGINE_CONFIG, 
+    LORE_050_CONFIG_TEMPLATE,
+    LORE_050_EXPECTED_KEYS
+} from '../defaults.js';
+import { executeEngineInit } from '../../engine/commands/init.js';
 import type { EngineConfig } from '../../engine/types/config.js';
+import { LoreProtocolDefinition } from '../protocol-definition.js';
+import { stringify as stringifyToml, parse as parseToml } from 'smol-toml';
+import { ProtocolError } from '../../util/errors.js';
 
 /**
  * Lore-specific init command.
  * 
  * 1. Delegates core .atom setup to the Engine.
- * 2. Creates legacy .lore/config.toml for 0.5.0 parity.
+ * 2. Writes lore.toml to .atom/protocols/ (Dynamic Discovery).
+ * 3. Creates legacy .lore/config.toml (0.5.0 parity) from template.
+ * 4. Performs gap detection using a specialized 0.5.0 spec.
  */
 export function registerInitCommand(
   program: Command,
@@ -21,67 +32,70 @@ export function registerInitCommand(
     defaultConfig: EngineConfig;
   },
 ): void {
-  const { getFormatter, engineDirName, configFileName, defaultConfig } = deps;
+  const { getFormatter, engineDirName } = deps;
 
   program
     .command('init')
-    .description('Initialize Lore protocol and Atom Engine in repository')
+    .description('Initialize .lore/ config in repository')
     .action(async () => {
       const formatter = getFormatter();
-
-      // 1. Core Engine Setup (.atom/)
-      const engineInitAction = async () => {
-          const configDir = join(process.cwd(), engineDirName);
-          const configPath = join(configDir, configFileName);
-          await mkdir(configDir, { recursive: true });
-          await mkdir(join(configDir, 'protocols'), { recursive: true });
-          
-          if (!(await fileExists(configPath))) {
-              // Write a simple engine config
-              await writeFile(configPath, `[cli]\nupdate_check = true\ncache = true\n`, 'utf-8');
-              console.log(formatter.formatSuccess(`Created ${engineDirName}/${configFileName}`));
-          }
-      };
-      await engineInitAction();
-
-      // 2. Legacy Lore Setup (.lore/)
       const loreDir = join(process.cwd(), LORE_CONFIG_DIR);
       const lorePath = join(loreDir, LORE_CONFIG_FILENAME);
 
-      await mkdir(loreDir, { recursive: true });
-      if (!(await fileExists(lorePath))) {
-          const legacyContent = `[protocol]
-version = "1.0"
+      // --- GAP DETECTION & REPORTING ---
+      if (await fileExists(lorePath)) {
+        const content = await readFile(lorePath, 'utf-8');
+        console.log(formatter.formatSuccess(`Config already exists at ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME}:`));
+        
+        try {
+          const parsed = parseToml(content) as any;
+          const { missing, customized } = findConfigDiff(parsed);
 
-[trailers]
-permissive = true
-required = []
-custom = []
+          if (missing.length > 0) {
+            console.log('\n' + formatter.formatSuccess('Your configuration is missing new options:'));
+            for (const item of missing) console.log(`  - ${item}`);
 
-[validation]
-strict = false
-max_message_lines = 50
-intent_max_length = 72
+            if (customized.length === 0) {
+              console.log('\nNotice: You are using default settings. You can safely reset your config to get the latest options.');
+              console.log(`Example: rm ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} && lore init`);
+            } else {
+              console.log('\nNotice: You have customized some options. To update, rename your current config and manually merge changes.');
+            }
+          }
+        } catch (err) {
+          throw new ProtocolError(`Your configuration file is corrupted: ${err instanceof Error ? err.message : String(err)}`, 1);
+        }
 
-[stale]
-older_than = "6m"
-drift_threshold = 20
-
-[output]
-default_format = "text"
-`;
-          await writeFile(lorePath, legacyContent, 'utf-8');
-          console.log(formatter.formatSuccess(`Created ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} (0.5.0 parity)`));
-      } else {
-          console.log(formatter.formatSuccess(`Legacy config already exists at ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME}`));
+        // Even if config exists, ensure engine backing is present
+        await executeEngineInit(deps);
+        await writeDiscoveryProtocol(engineDirName, formatter);
+        return;
       }
 
-      // 3. Gitignore (Idempotent)
-      await ensureIgnored(formatter, [
-          `${engineDirName}/cache`,
-          `${LORE_CONFIG_DIR}/cache`
-      ]);
+      // --- INITIALIZATION ---
+      // 1. Delegate core engine setup
+      await executeEngineInit(deps);
+
+      // 2. Write protocol definition for Atom's dynamic discovery
+      await writeDiscoveryProtocol(engineDirName, formatter);
+
+      // 3. Legacy Lore Setup (.lore/config.toml) from 0.5.0 template
+      await mkdir(loreDir, { recursive: true });
+      await writeFile(lorePath, LORE_050_CONFIG_TEMPLATE, 'utf-8');
+      console.log(formatter.formatSuccess(`Created ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} (0.5.0 parity)`));
     });
+}
+
+async function writeDiscoveryProtocol(engineDirName: string, formatter: IOutputFormatter): Promise<void> {
+    const protocolsDir = join(process.cwd(), engineDirName, 'protocols');
+    const loreProtocolPath = join(protocolsDir, 'lore.toml');
+    
+    await mkdir(protocolsDir, { recursive: true });
+    if (!(await fileExists(loreProtocolPath))) {
+        const protocolContent = serializeProtocol(LoreProtocolDefinition);
+        await writeFile(loreProtocolPath, protocolContent, 'utf-8');
+        console.log(formatter.formatSuccess(`Created ${engineDirName}/protocols/lore.toml (Discovery)`));
+    }
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -93,30 +107,57 @@ async function fileExists(path: string): Promise<boolean> {
     }
 }
 
-async function ensureIgnored(formatter: IOutputFormatter, patterns: string[]): Promise<void> {
-    const gitignorePath = join(process.cwd(), '.gitignore');
-    let content = '';
-    try {
-        const buf = await access(gitignorePath).then(() => true).catch(() => false);
-        if (buf) {
-            const raw = await import('node:fs').then(fs => fs.readFileSync(gitignorePath, 'utf-8'));
-            content = raw;
-        }
-    } catch { /* ignore */ }
+/**
+ * Diffs a parsed TOML config against the literal LORE_050_EXPECTED_KEYS spec.
+ */
+function findConfigDiff(parsed: Record<string, unknown>): { missing: string[]; customized: string[] } {
+  const missing: string[] = [];
+  const customized: string[] = [];
 
-    const lines = content.split('\n').map(l => l.trim());
-    let updated = false;
+  // Parse the template to get default values for customization check
+  const templateDefaults = parseToml(LORE_050_CONFIG_TEMPLATE) as any;
 
-    for (const pattern of patterns) {
-        if (!lines.includes(pattern)) {
-            const suffix = content === '' || content.endsWith('\n') ? '' : '\n';
-            content += `${suffix}${pattern}\n`;
-            updated = true;
-            console.log(formatter.formatSuccess(`Updated .gitignore to ignore ${pattern}`));
-        }
+  for (const [section, keys] of Object.entries(LORE_050_EXPECTED_KEYS)) {
+    const userSection = parsed[section] as Record<string, unknown> | undefined;
+    const defaultSection = templateDefaults[section] || {};
+
+    if (!userSection || typeof userSection !== 'object') {
+      missing.push(`[${section}] section`);
+      continue;
     }
 
-    if (updated) {
-        await writeFile(gitignorePath, content, 'utf-8');
+    for (const key of keys) {
+      const userValue = (userSection as any)[key];
+      const defaultValue = (defaultSection as any)[key];
+
+      if (userValue === undefined) {
+        missing.push(`${section}.${key}`);
+      } else if (JSON.stringify(userValue) !== JSON.stringify(defaultValue)) {
+        customized.push(`${section}.${key}`);
+      }
     }
+  }
+
+  return { missing, customized };
+}
+
+/**
+ * Serialize a ProtocolDefinition to TOML for dynamic discovery.
+ */
+function serializeProtocol(def: any): string {
+    const output = {
+        name: def.name,
+        version: def.version,
+        namespace: def.namespace,
+        identity_key: def.identityKey,
+        trailers: {} as any
+    };
+    for (const [key, t] of Object.entries(def.trailers)) {
+        const trailer: any = { ...t };
+        if (trailer.ui) delete trailer.ui;
+        if (trailer.prompt) delete trailer.prompt;
+        if (trailer.directives) delete trailer.directives;
+        output.trailers[key] = trailer;
+    }
+    return stringifyToml(output);
 }
