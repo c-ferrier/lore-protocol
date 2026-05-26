@@ -1,4 +1,4 @@
-import type { Config, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
+import type { ProtocolConfig, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
 import type { ProtocolState, Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
 import type { FormattableTrailerDefinition } from '../types/output.js';
 import type { IProtocol, AuthorizedTrailerDefinition } from '../interfaces/protocol.js';
@@ -24,7 +24,7 @@ export class Protocol implements IProtocol {
 
   constructor(
     private readonly definition: ProtocolDefinition,
-    private readonly config: Config,
+    private readonly config: ProtocolConfig,
   ) {
     this.loadDefinitions();
   }

@@ -18,8 +18,6 @@ export const PROMPT_STRINGS = {
 export const STALE_SIGNAL = {
   AGE: 'age' as const,
   DRIFT: 'drift' as const,
-  LOW_CONFIDENCE: 'low-confidence' as const,
-  EXPIRED_HINT: 'expired-hint' as const,
   ORPHANED_DEP: 'orphaned-dep' as const,
 };
 

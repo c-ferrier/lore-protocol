@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { registerDoctorCommand } from '../../../../src/engine/commands/doctor.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 import type { Atom } from '../../../../src/engine/types/domain.js';
 
@@ -27,7 +28,10 @@ describe('Doctor Command', () => {
   beforeEach(() => {
     atomRepository = createMockAtomRepository();
     configLoader = createMockConfigLoader();
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, {
+        version: '1.0',
+        trailers: { required: [], custom: [], definitions: {}, permissive: true }
+    });
     vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
   });
 
@@ -38,7 +42,12 @@ describe('Doctor Command', () => {
   async function runDoctor(deps: any) {
     const program = new Command();
     program.exitOverride();
-    registerDoctorCommand(program, deps);
+    registerDoctorCommand(program, {
+        cacheDir: '/tmp/atom-cache',
+        protocolRegistry: new ProtocolRegistry(),
+        defaultConfig: MOCK_CONFIG,
+        ...deps
+    });
     try {
       await program.parseAsync(['node', 'atom', 'doctor']);
     } catch (err) {
@@ -53,11 +62,18 @@ describe('Doctor Command', () => {
       name: 'Fred',
       identityKey: 'Fred-id',
       namespace: 'Fred',
+      version: '1.0',
       isValidIdentity: (id: string) => /^[0-9a-f]{8}$/.test(id),
       getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
-      getReferenceKeys: () => ['Depends-on'], // Canonical key, no prefix
-      all: () => [],
+      getReferenceKeys: () => ['Depends-on'],
+      getDefinition: (key: string) => ({ ui: { kind: key === 'Depends-on' ? 'reference' : 'text' } }),
+      claims: () => false,
+      owns: (key: string) => key.toLowerCase().startsWith('fred/'),
+      authorize: (key: string) => key
     };
+    
+    const registry = new ProtocolRegistry();
+    registry.register(fred);
     
     const atom: Atom = {
       commitHash: 'h1',
@@ -83,20 +99,28 @@ describe('Doctor Command', () => {
         isInsideRepo: vi.fn().mockResolvedValue(true),
         getRepoRoot: vi.fn().mockResolvedValue('/repo'),
       },
-      protocol: fred, // Act as Fred
+      protocolRegistry: registry,
       getFormatter: () => ({
-          formatDoctorResult: vi.fn((data) => {
-              if (data.checks.some(c => c.status === 'warning' && c.name === 'Orphaned dependencies')) {
-                  return 'broken reference(s) found\nFred-id "deadbeef" referenced by 12345678 (Depends-on) not found';
+          formatDoctorResult: (data: any) => {
+              if (data.status === 'unhealthy') {
+                  const parts = ['unhealthy'];
+                  for (const check of data.checks) {
+                      if (check.status === 'error' || check.status === 'fail' || check.status === 'warning') {
+                          parts.push(check.message);
+                      }
+                      if (check.details) parts.push(...check.details);
+                  }
+                  return parts.join('\n');
               }
               return 'ok';
-          })
+          }
       })
     });
 
     const output = logSpy.mock.calls.map(args => args[0]).join('\n');
+    expect(output).toContain('unhealthy');
     expect(output).toContain('broken reference(s) found');
-    expect(output).toContain('Fred-id "deadbeef" referenced by 12345678 (Depends-on) not found');
+    expect(output).toContain('Fred-id "deadbeef" referenced by h1 (Depends-on) not found');
     
     logSpy.mockRestore();
   });
@@ -107,10 +131,17 @@ describe('Doctor Command', () => {
       name: 'Fred',
       identityKey: 'Fred-id',
       namespace: '',
+      version: '1.0',
       isValidIdentity: (id: string) => true,
       getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
       getReferenceKeys: () => [],
+      claims: () => false,
+      owns: (key: string) => key === 'Fred-id',
+      authorize: (key: string) => key
     };
+
+    const registry = new ProtocolRegistry();
+    registry.register(fred);
 
     // 2. Mock two atoms with the SAME Fred-id
     const atom1: any = {
@@ -134,18 +165,26 @@ describe('Doctor Command', () => {
         isInsideRepo: vi.fn().mockResolvedValue(true),
         getRepoRoot: vi.fn().mockResolvedValue('/repo'),
       },
-      protocol: fred,
+      protocolRegistry: registry,
       getFormatter: () => ({
-          formatDoctorResult: vi.fn((data) => {
-               if (data.checks.some(c => c.name === 'Identity uniqueness' && c.status === 'error')) {
-                   return 'duplicate Fred-id(s) found\nFred-id "duplicate-123" appears 2 times';
-               }
-               return 'ok';
-          })
+          formatDoctorResult: (data: any) => {
+              if (data.status === 'unhealthy') {
+                  const parts = ['unhealthy'];
+                  for (const check of data.checks) {
+                      if (check.status === 'error' || check.status === 'fail' || check.status === 'warning') {
+                          parts.push(check.message);
+                      }
+                      if (check.details) parts.push(...check.details);
+                  }
+                  return parts.join('\n');
+              }
+              return 'ok';
+          }
       })
     });
 
     const output = logSpy.mock.calls.map(args => args[0]).join('\n');
+    expect(output).toContain('unhealthy');
     expect(output).toContain('duplicate Fred-id(s) found');
     expect(output).toContain('Fred-id "duplicate-123" appears 2 times');
 

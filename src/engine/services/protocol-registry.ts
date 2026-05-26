@@ -45,6 +45,20 @@ export class ProtocolRegistry {
   }
 
   /**
+   * Gets the primary identity for an atom by asking the protocol that claimed it.
+   */
+  getIdentity(atom: any): string | null {
+    for (const protocol of this.protocols.values()) {
+        const state = atom.protocols.get(protocol.name.toLowerCase());
+        if (state) {
+            const id = protocol.getIdentity(state.trailers);
+            if (id) return id;
+        }
+    }
+    return null;
+  }
+
+  /**
    * Detect which protocols claim a set of raw trailers.
    */
   detect(rawTrailers: string): IProtocol[] {

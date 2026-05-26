@@ -78,6 +78,17 @@ export interface EngineConfig {
 }
 
 /**
+ * Formal schema for Engine-level configuration gaps.
+ */
+export const ENGINE_CONFIG_SCHEMA: Record<string, string[]> = {
+  validation: ['strict', 'maxMessageLines', 'subjectMaxLength'],
+  stale: ['olderThan', 'driftThreshold'],
+  output: ['defaultFormat'],
+  follow: ['maxDepth'],
+  cli: ['updateCheck', 'cache', 'queryCache', 'queryCachePruneThreshold'],
+};
+
+/**
  * Runtime configuration for a specific protocol instance.
  * Merges static ProtocolDefinition with user overrides.
  */

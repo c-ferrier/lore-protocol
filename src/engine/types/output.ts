@@ -55,8 +55,14 @@ export interface TraceEdge {
 }
 
 export interface FormattableDoctorResult {
+  readonly status: 'healthy' | 'unhealthy';
   readonly checks: readonly DoctorCheck[];
-  readonly summary: { errors: number; warnings: number; info: number };
+  readonly summary: { 
+      total: number;
+      errors: number; 
+      warnings: number; 
+      info: number 
+  };
 }
 
 export interface DoctorCheck {

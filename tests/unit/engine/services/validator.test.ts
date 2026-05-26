@@ -4,7 +4,7 @@ import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 
-import type { Config } from '../../../../src/engine/types/config.js';
+import type { EngineConfig, ProtocolConfig } from '../../../../src/engine/types/config.js';
 import type { RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { Trailers } from '../../../../src/engine/types/domain.js';
 import type { AtomRepository } from '../../../../src/engine/services/atom-repository.js';
@@ -54,18 +54,30 @@ describe('Validator', () => {
   let validator: Validator;
   let mockParser: ReturnType<typeof createMockTrailerParser>;
   let mockAtomRepo: Partial<AtomRepository>;
-  let config: Config;
+  let engineConfig: EngineConfig;
   let protocol: Protocol;
   let protocolRegistry: ProtocolRegistry;
 
   beforeEach(() => {
     mockParser = createMockTrailerParser();
     mockAtomRepo = createMockAtomRepository();
-    config = { ...MOCK_CONFIG };
+    engineConfig = { ...MOCK_CONFIG };
+
+    // Explicitly mark identity as required in the protocol config for this suite
+    const pConfig: ProtocolConfig = {
+        version: '1.0',
+        trailers: {
+            required: [MOCK_ID_KEY],
+            custom: [],
+            definitions: {},
+            permissive: true
+        }
+    };
+
     protocolRegistry = new ProtocolRegistry();
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, pConfig);
     protocolRegistry.register(protocol);
-    validator = new Validator(mockParser as any, mockAtomRepo as any, config, protocolRegistry);
+    validator = new Validator(mockParser as any, mockAtomRepo as any, engineConfig, protocolRegistry);
   });
 
   describe('basic validation', () => {

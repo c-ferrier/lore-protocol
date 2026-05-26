@@ -153,7 +153,7 @@ function serializeProtocol(def: any): string {
         trailers: {} as any
     };
     for (const [key, t] of Object.entries(def.trailers)) {
-        const trailer: any = { ...t };
+        const trailer: any = { ...(t as any) };
         if (trailer.ui) delete trailer.ui;
         if (trailer.prompt) delete trailer.prompt;
         if (trailer.directives) delete trailer.directives;

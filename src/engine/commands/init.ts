@@ -2,8 +2,10 @@ import type { Command } from 'commander';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import { mkdir, writeFile, access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { stringify as stringifyToml } from 'smol-toml';
+import { stringify as stringifyToml, parse as parseToml } from 'smol-toml';
+import { ENGINE_CONFIG_SCHEMA } from '../types/config.js';
 import type { EngineConfig } from '../types/config.js';
+import { analyzeConfigGaps } from '../util/config-analyzer.js';
 
 export interface InitDeps {
   getFormatter: () => IOutputFormatter;
@@ -35,6 +37,20 @@ export async function executeEngineInit(deps: InitDeps): Promise<void> {
     console.log(formatter.formatSuccess(`Created ${deps.engineDirName}/${deps.configFileName}`));
   } else {
     console.log(formatter.formatSuccess(`Config already exists at ${deps.engineDirName}/${deps.configFileName}`));
+    
+    // Perform Gap Analysis for the Engine Config
+    try {
+        const content = await readFile(configPath, 'utf-8');
+        const parsed = parseToml(content) as any;
+        const { missing } = analyzeConfigGaps(parsed, ENGINE_CONFIG_SCHEMA, deps.defaultConfig);
+
+        if (missing.length > 0) {
+            console.log('\n' + formatter.formatSuccess('Your engine configuration is missing new options:'));
+            for (const item of missing) {
+                console.log(`  - ${item}`);
+            }
+        }
+    } catch { /* ignore corruption in engine init, best effort */ }
   }
 
   // 4. Ensure cache is ignored

@@ -5,6 +5,12 @@ import type { IGitClient } from '../interfaces/git-client.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { FormattableDoctorResult, DoctorCheck } from '../types/output.js';
 import type { IProtocol } from '../interfaces/protocol.js';
+import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import { ENGINE_CONFIG_SCHEMA } from '../types/config.js';
+import { analyzeConfigGaps } from '../util/config-analyzer.js';
+import { parse as parseToml } from 'smol-toml';
+import { readFile } from 'node:fs/promises';
+import { access } from 'node:fs/promises';
 
 /**
  * Register the doctor command.
@@ -16,44 +22,70 @@ export function registerDoctorCommand(
     atomRepository: AtomRepository;
     configLoader: IConfigLoader;
     gitClient: IGitClient;
+    protocolRegistry: ProtocolRegistry;
     getFormatter: () => IOutputFormatter;
-    protocol: IProtocol | undefined;
+    cacheDir: string;
+    defaultConfig: any;
   },
 ): void {
   program
     .command('doctor')
     .description('Check the health of the decision repository')
     .action(async () => {
-      const { atomRepository, configLoader, gitClient, protocol, getFormatter } = deps;
+      const { atomRepository, configLoader, gitClient, protocolRegistry, getFormatter, cacheDir, defaultConfig } = deps;
+      const formatter = getFormatter();
       const checks: DoctorCheck[] = [];
 
       // 1. Git Repository Check
       checks.push(await checkGitRepo(gitClient));
 
       // 2. Configuration Check
-      checks.push(await checkConfig(configLoader));
+      checks.push(await checkConfig(configLoader, defaultConfig));
 
-      // 3. Atom Discovery & Integrity Check
-      if (protocol) {
-          checks.push(await checkAtoms(atomRepository));
-          checks.push(await checkDuplicateIdentities(atomRepository, protocol));
-          checks.push(await checkOrphanedDependencies(atomRepository, protocol));
+      // 3. Cache Directory Check
+      const cacheExists = await fileExists(cacheDir);
+      checks.push({
+          name: 'Local Cache',
+          status: cacheExists ? 'ok' : 'warning',
+          message: cacheExists ? 'Cache directory initialized' : 'Cache directory missing',
+          details: cacheExists ? [] : ['Using defaults']
+      });
+
+      // 4. Multi-Protocol Checks
+      const isRepo = await gitClient.isInsideRepo();
+      if (isRepo) {
+          const atoms = await atomRepository.findAll({ maxCommits: 500 });
+          
+          for (const protocol of protocolRegistry.getAll()) {
+              checks.push(await checkProtocolIntegrity(atomRepository, protocol, atoms));
+              checks.push(await checkProtocolReferences(atomRepository, protocol, atoms));
+          }
       }
 
       const summary = {
+        total: checks.length,
         errors: checks.filter((c) => c.status === 'error').length,
         warnings: checks.filter((c) => c.status === 'warning').length,
         info: checks.filter((c) => c.status === 'info').length,
       };
 
       const doctorResult: FormattableDoctorResult = {
+        status: summary.errors > 0 ? 'unhealthy' : 'healthy',
         checks,
         summary,
       };
 
-      const formatter = getFormatter();
       console.log(formatter.formatDoctorResult(doctorResult));
     });
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function checkGitRepo(gitClient: IGitClient): Promise<DoctorCheck> {
@@ -74,7 +106,7 @@ async function checkGitRepo(gitClient: IGitClient): Promise<DoctorCheck> {
   };
 }
 
-async function checkConfig(configLoader: IConfigLoader): Promise<DoctorCheck> {
+async function checkConfig(configLoader: IConfigLoader, defaultConfig: any): Promise<DoctorCheck> {
   const configPath = await configLoader.findConfigPath(process.cwd());
   if (!configPath) {
     return {
@@ -84,37 +116,33 @@ async function checkConfig(configLoader: IConfigLoader): Promise<DoctorCheck> {
       details: [],
     };
   }
+
+  const details: string[] = [];
+  try {
+      const content = await readFile(configPath, 'utf-8');
+      const parsed = parseToml(content) as any;
+      const { missing } = analyzeConfigGaps(parsed, ENGINE_CONFIG_SCHEMA, defaultConfig);
+      if (missing.length > 0) {
+          details.push('Missing engine options:');
+          details.push(...missing.map(m => `  - ${m}`));
+      }
+  } catch {
+      details.push('Failed to parse config for gap analysis');
+  }
+
   return {
     name: 'Configuration',
-    status: 'ok',
-    message: `Config file found: ${configPath}`,
-    details: [],
+    status: details.length > 0 ? 'warning' : 'ok',
+    message: details.length > 0 ? 'Config file found with gaps' : 'Config file found and verified',
+    details,
   };
 }
 
-async function checkAtoms(atomRepository: AtomRepository): Promise<DoctorCheck> {
-  const atoms = await atomRepository.findAll({ maxCommits: 100 });
-  if (atoms.length === 0) {
-    return {
-      name: 'Decision Atoms',
-      status: 'info',
-      message: 'No atoms found in the last 100 commits.',
-      details: [],
-    };
-  }
-  return {
-    name: 'Decision Atoms',
-    status: 'ok',
-    message: `Discovered ${atoms.length} atoms in the last 100 commits`,
-    details: [],
-  };
-}
-
-async function checkDuplicateIdentities(
+async function checkProtocolIntegrity(
   atomRepository: AtomRepository,
   protocol: IProtocol,
+  atoms: any[]
 ): Promise<DoctorCheck> {
-  const atoms = await atomRepository.findAll({ maxCommits: 500 });
   const counts = new Map<string, number>();
   const protocolName = protocol.name.toLowerCase();
 
@@ -137,26 +165,26 @@ async function checkDuplicateIdentities(
 
   if (duplicates.length > 0) {
     return {
-      name: 'Identity uniqueness',
+      name: `Identity Integrity (${protocol.name})`,
       status: 'error',
-      message: `${duplicates.length} duplicate ${protocol.identityKey}(s) found`,
+      message: `duplicate ${protocol.identityKey}(s) found`,
       details: duplicates,
     };
   }
 
   return {
-    name: 'Identity uniqueness',
+    name: `Identity Integrity (${protocol.name})`,
     status: 'ok',
-    message: `All ${protocol.identityKey}s are unique`,
+    message: 'ok',
     details: [],
   };
 }
 
-async function checkOrphanedDependencies(
+async function checkProtocolReferences(
   atomRepository: AtomRepository,
   protocol: IProtocol,
+  atoms: any[]
 ): Promise<DoctorCheck> {
-  const atoms = await atomRepository.findAll({ maxCommits: 500 });
   const orphaned: string[] = [];
   const refKeys = protocol.getReferenceKeys();
   const protocolName = protocol.name.toLowerCase();
@@ -170,7 +198,7 @@ async function checkOrphanedDependencies(
       for (const id of ids) {
         const target = await atomRepository.findById(id);
         if (!target) {
-          orphaned.push(`${atom.commitHash.slice(0, 8)} -> ${id} (${key})`);
+          orphaned.push(`${protocol.identityKey} "${id}" referenced by ${atom.commitHash.slice(0, 8)} (${key}) not found`);
         }
       }
     }
@@ -178,17 +206,17 @@ async function checkOrphanedDependencies(
 
   if (orphaned.length > 0) {
     return {
-      name: 'Orphaned dependencies',
-      status: 'warning',
-      message: `${orphaned.length} atom(s) depend on superseded atoms`,
+      name: `Reference Integrity (${protocol.name})`,
+      status: 'error',
+      message: 'broken reference(s) found',
       details: orphaned,
     };
   }
 
   return {
-    name: 'Orphaned dependencies',
+    name: `Reference Integrity (${protocol.name})`,
     status: 'ok',
-    message: 'No orphaned dependencies found',
+    message: 'ok',
     details: [],
   };
 }

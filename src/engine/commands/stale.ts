@@ -13,7 +13,7 @@ import { mergeOptions } from './helpers/merge-options.js';
 interface StaleCommandOptions {
   readonly olderThan?: string;
   readonly drift?: number;
-  readonly lowConfidence?: boolean;
+  readonly signals?: string[];
 }
 
 /**
@@ -36,7 +36,6 @@ export function registerStaleCommand(
     .description('Flag potentially outdated atoms')
     .option('--older-than <duration>', 'Time-based staleness threshold (e.g., 6m, 1y)')
     .option('--drift <n>', 'File drift threshold (commits since atom)', parseInt)
-    .option('--low-confidence', 'Flag low-confidence atoms')
     .action(async (target: string | undefined, _options: StaleCommandOptions, command: Command) => {
       const options = mergeOptions<StaleCommandOptions>(command);
       const { atomRepository, supersessionResolver, stalenessDetector, pathResolver, getFormatter } = deps;
@@ -82,10 +81,9 @@ export function registerStaleCommand(
       );
 
       // Apply additional CLI-level filters: keep reports that match ANY active signal
-      const activeSignals: string[] = [];
+      const activeSignals: string[] = options.signals || [];
       if (options.olderThan) activeSignals.push(STALE_SIGNAL.AGE);
       if (options.drift !== undefined) activeSignals.push(STALE_SIGNAL.DRIFT);
-      if (options.lowConfidence) activeSignals.push(STALE_SIGNAL.LOW_CONFIDENCE);
       if (activeSignals.length > 0) {
         reports = reports.filter(r => r.reasons.some(reason => activeSignals.includes(reason.signal)));
       }

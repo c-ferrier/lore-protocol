@@ -3,6 +3,7 @@ import type { TrailerUiKind, TrailerUiColor } from '../engine/types/config.js';
 import type { Atom, StaleReason, SupersessionStatus } from '../engine/types/domain.js';
 import { parseTriggerHints } from '../util/trigger-parser.js';
 import { STALE_SIGNAL } from '../util/constants.js';
+import { LORE_STALE_SIGNAL } from './constants.js';
 
 /**
  * Enum values for Confidence, Scope-risk, and Reversibility.
@@ -238,7 +239,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
     const confidence = state.trailers.Confidence?.[0];
     if (confidence === 'low') {
       reasons.push({
-        signal: STALE_SIGNAL.LOW_CONFIDENCE,
+        signal: LORE_STALE_SIGNAL.LOW_CONFIDENCE,
         description: '[Lore] Atom is marked as Confidence: low',
       });
     }
@@ -248,7 +249,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       const hints = parseTriggerHints(directive);
       if (hints.until && now > hints.until) {
         reasons.push({
-          signal: STALE_SIGNAL.EXPIRED_HINT,
+          signal: LORE_STALE_SIGNAL.EXPIRED_HINT,
           description: `[Lore] Directive "${directive}" has expired`,
         });
       }

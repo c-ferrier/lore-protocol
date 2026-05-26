@@ -15,9 +15,6 @@ import type { SearchFilter } from '../services/search-filter.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 
 interface SearchCommandOptions {
-  readonly confidence?: string;
-  readonly scopeRisk?: string;
-  readonly reversibility?: string;
   readonly has?: string;
   readonly author?: string;
   readonly scope?: string;
@@ -27,6 +24,7 @@ interface SearchCommandOptions {
   readonly limit?: number;
   readonly maxCommits?: number;
   readonly all?: boolean;
+  readonly filters?: Record<string, string | string[]>;
 }
 
 /**
@@ -49,9 +47,6 @@ export function registerSearchCommand(
   program
     .command('search')
     .description(`Search across all ${protocolName.toLowerCase()} atoms with filters`)
-    .option('--confidence <level>', 'Filter by confidence: low, medium, high')
-    .option('--scope-risk <level>', 'Filter by scope-risk: narrow, moderate, wide')
-    .option('--reversibility <level>', 'Filter by reversibility: clean, migration-needed, irreversible')
     .option('--has <trailer>', 'Filter atoms that contain this trailer type')
     .option('--author <email>', 'Filter by commit author')
     .option('--scope <name>', 'Filter by conventional commit scope')
@@ -85,14 +80,8 @@ export function registerSearchCommand(
         }
       }
 
-      // Map legacy semantic flags into generic filters map for the engine
-      const filters: Record<string, string | string[]> = {};
-      if (options.confidence) filters['Confidence'] = options.confidence;
-      if (options.scopeRisk) filters['Scope-risk'] = options.scopeRisk;
-      if (options.reversibility) filters['Reversibility'] = options.reversibility;
-
       const searchOptions: SearchOptions = {
-        filters,
+        filters: options.filters || {},
         has: authorizedHas,
         author: options.author ?? null,
         scope: options.scope ?? null,

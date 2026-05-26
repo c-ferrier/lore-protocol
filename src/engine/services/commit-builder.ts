@@ -1,6 +1,6 @@
 import type { TrailerParser } from './trailer-parser.js';
 import type { IdGenerator } from './id-generator.js';
-import type { Config } from '../types/config.js';
+import type { EngineConfig } from '../types/config.js';
 import type { Trailers, AtomId } from '../types/domain.js';
 import type { CommitInput } from '../types/commit.js';
 import type { ValidationIssue } from '../types/output.js';
@@ -15,7 +15,7 @@ export class CommitBuilder {
   constructor(
     private readonly trailerParser: TrailerParser,
     private readonly idGenerator: IdGenerator,
-    private readonly config: Config,
+    private readonly config: EngineConfig,
     private readonly protocolRegistry: ProtocolRegistry,
   ) {}
 
@@ -164,9 +164,9 @@ export class CommitBuilder {
         }
       }
       
-      const requiredKeys = new Set(this.config.trailers.required);
-      for (const key of requiredKeys) {
-        if (protocol.owns(key) && !this.hasTrailer(input, key, protocol.namespace)) {
+      for (const key of protocol.getAuthorizedKeys()) {
+        const def = protocol.getDefinition(key);
+        if (def?.required && !this.hasTrailer(input, key, protocol.namespace)) {
            issues.push({
             severity: this.config.validation.strict ? 'error' : 'warning',
             rule: 'required-trailer',

@@ -32,7 +32,7 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
     const mockProtocol: any = {
         name: 'Mock',
         getStaleSignals: vi.fn().mockReturnValue([{ 
-            signal: STALE_SIGNAL.EXPIRED_HINT, 
+            signal: 'expired-hint', 
             description: '[Mock] Hint expired' 
         }])
     };
@@ -41,7 +41,7 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
     const secProtocol: any = {
         name: 'Sec',
         getStaleSignals: vi.fn().mockReturnValue([{ 
-            signal: STALE_SIGNAL.LOW_CONFIDENCE, 
+            signal: 'low-confidence', 
             description: '[Sec] Vulnerability detected' 
         }])
     };

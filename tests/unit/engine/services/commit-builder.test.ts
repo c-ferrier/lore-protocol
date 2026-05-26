@@ -4,7 +4,7 @@ import { CommitBuilder } from '../../../../src/engine/services/commit-builder.js
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 import type { CommitInput } from '../../../../src/engine/types/commit.js';
-import type { Config } from '../../../../src/engine/types/config.js';
+import type { EngineConfig, ProtocolConfig } from '../../../../src/engine/types/config.js';
 
 const MOCK_ID_KEY = "Mock-id";
 
@@ -39,22 +39,27 @@ describe('CommitBuilder', () => {
   let builder: CommitBuilder;
   let mockParser: ReturnType<typeof createMockTrailerParser>;
   let mockIdGen: ReturnType<typeof createMockIdGenerator>;
-  let config: Config;
+  let engineConfig: EngineConfig;
+  let pConfig: ProtocolConfig;
   let protocol: Protocol;
   let protocolRegistry: ProtocolRegistry;
 
   beforeEach(() => {
     mockParser = createMockTrailerParser();
     mockIdGen = createMockIdGenerator();
-    config = { ...MOCK_CONFIG };
+    engineConfig = { ...MOCK_CONFIG };
+    pConfig = { 
+        version: '1.0', 
+        trailers: { required: [], custom: [], definitions: {}, permissive: true } 
+    };
     protocolRegistry = new ProtocolRegistry();
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, pConfig);
     protocolRegistry.register(protocol);
     
     builder = new CommitBuilder(
       mockParser as any,
       mockIdGen as any,
-      config,
+      engineConfig,
       protocolRegistry,
     );
   });
@@ -267,23 +272,22 @@ describe('CommitBuilder', () => {
       expect(refIssues).toHaveLength(0);
     });
 
-    it('should check required trailers from config', () => {
-      const requiredConfig: Config = {
-        ...MOCK_CONFIG,
+    it('should check required trailers from protocol config', () => {
+      const requiredPConfig: ProtocolConfig = {
+        version: '1.0',
         trailers: { 
           required: ['Confidence', 'Constraint'], 
           custom: [], 
           definitions: {}, 
           permissive: true 
         },
-        validation: { ...MOCK_CONFIG.validation, strict: false },
       };
       
       const requiredRegistry = new ProtocolRegistry();
-      const p = new Protocol(MOCK_PROTOCOL_DEFINITION, requiredConfig);
+      const p = new Protocol(MOCK_PROTOCOL_DEFINITION, requiredPConfig);
       requiredRegistry.register(p);
 
-      const requiredBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, requiredConfig, requiredRegistry);
+      const requiredBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, engineConfig, requiredRegistry);
 
       const input: CommitInput = {
         subject: 'test',
@@ -297,21 +301,24 @@ describe('CommitBuilder', () => {
     });
 
     it('should error on missing required trailers in strict mode', () => {
-      const strictConfig: Config = {
+      const strictEngineConfig: EngineConfig = {
         ...MOCK_CONFIG,
+        validation: { ...MOCK_CONFIG.validation, strict: true },
+      };
+      const requiredPConfig: ProtocolConfig = {
+        version: '1.0',
         trailers: { 
           required: ['Confidence'], 
           custom: [], 
           definitions: {}, 
           permissive: true 
         },
-        validation: { ...MOCK_CONFIG.validation, strict: true },
       };
       const strictRegistry = new ProtocolRegistry();
-      const p = new Protocol(MOCK_PROTOCOL_DEFINITION, strictConfig);
+      const p = new Protocol(MOCK_PROTOCOL_DEFINITION, requiredPConfig);
       strictRegistry.register(p);
 
-      const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictRegistry);
+      const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictEngineConfig, strictRegistry);
 
       const input: CommitInput = {
         subject: 'test',
@@ -350,8 +357,8 @@ describe('CommitBuilder', () => {
     });
 
     it('should pass with valid required trailer present', () => {
-      const strictConfig: Config = {
-        ...MOCK_CONFIG,
+      const requiredPConfig: ProtocolConfig = {
+        version: '1.0',
         trailers: { 
           required: ['Confidence'], 
           custom: [], 
@@ -360,10 +367,10 @@ describe('CommitBuilder', () => {
         },
       };
       const strictRegistry = new ProtocolRegistry();
-      const p = new Protocol(MOCK_PROTOCOL_DEFINITION, strictConfig);
+      const p = new Protocol(MOCK_PROTOCOL_DEFINITION, requiredPConfig);
       strictRegistry.register(p);
 
-      const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictRegistry);
+      const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, engineConfig, strictRegistry);
 
       const input: CommitInput = {
         subject: 'test',
@@ -376,21 +383,24 @@ describe('CommitBuilder', () => {
     });
 
     it('should report missing required custom trailer', () => {
-      const strictConfig: Config = {
+      const strictEngineConfig: EngineConfig = {
         ...MOCK_CONFIG,
+        validation: { ...MOCK_CONFIG.validation, strict: true },
+      };
+      const customPConfig: ProtocolConfig = {
+        version: '1.0',
         trailers: { 
           required: ['Assisted-by'], 
           custom: ['Assisted-by'], 
           definitions: {}, 
           permissive: true 
         },
-        validation: { ...MOCK_CONFIG.validation, strict: true },
       };
       const strictRegistry = new ProtocolRegistry();
-      const p = new Protocol(MOCK_PROTOCOL_DEFINITION, strictConfig);
+      const p = new Protocol(MOCK_PROTOCOL_DEFINITION, customPConfig);
       strictRegistry.register(p);
 
-      const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictRegistry);
+      const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictEngineConfig, strictRegistry);
 
       const input: CommitInput = {
         subject: 'test',

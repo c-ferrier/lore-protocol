@@ -1,5 +1,5 @@
 import type { IGitClient } from '../interfaces/git-client.js';
-import type { Config } from '../types/config.js';
+import type { EngineConfig } from '../types/config.js';
 import type { Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
 import { STALE_SIGNAL } from '../../util/constants.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
@@ -20,7 +20,7 @@ export interface StaleAtomReport {
 export class StalenessDetector {
   constructor(
     private readonly gitClient: IGitClient,
-    private readonly config: Config,
+    private readonly config: EngineConfig,
     private readonly protocolRegistry: ProtocolRegistry,
   ) {}
 

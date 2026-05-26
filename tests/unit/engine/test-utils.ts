@@ -19,7 +19,7 @@ export const MOCK_PROTOCOL_DEFINITION: ProtocolDefinition = {
       validation: 'pattern',
       pattern: '^[0-9a-f]{8}$',
       generator: 'hex8',
-      required: true,
+      required: false,
       ui: { kind: 'identity' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       prompt: { order: 0 }
     },

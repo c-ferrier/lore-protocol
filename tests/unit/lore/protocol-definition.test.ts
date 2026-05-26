@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { LORE_STALE_SIGNAL } from '../../../src/lore/constants.js';
 import type { Atom, SupersessionStatus } from '../../../src/engine/types/domain.js';
 
 describe('LoreProtocolDefinition Hooks', () => {
@@ -21,7 +22,7 @@ describe('LoreProtocolDefinition Hooks', () => {
       const signals = LoreProtocolDefinition.getStaleSignals!(atom, new Date(), new Map());
       
       expect(signals).toHaveLength(1);
-      expect(signals[0].signal).toBe('low-confidence');
+      expect(signals[0].signal).toBe(LORE_STALE_SIGNAL.LOW_CONFIDENCE);
       expect(signals[0].description).toContain('[Lore]');
     });
 
@@ -30,7 +31,7 @@ describe('LoreProtocolDefinition Hooks', () => {
       const atom = makeMockAtom({ Directive: ['Cleanup [until:2020-01-01]'] });
       const signals = LoreProtocolDefinition.getStaleSignals!(atom, new Date(), new Map());
       
-      expect(signals.some(s => s.signal === 'expired-hint')).toBe(true);
+      expect(signals.some(s => s.signal === LORE_STALE_SIGNAL.EXPIRED_HINT)).toBe(true);
     });
 
     it('should flag "orphaned-dep" when a dependency is superseded', () => {

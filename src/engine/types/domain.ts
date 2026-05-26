@@ -48,4 +48,4 @@ export interface StaleReason {
 }
 
 /** The set of signals that indicate an atom may be stale. */
-export type StaleSignal = 'age' | 'drift' | 'low-confidence' | 'expired-hint' | 'orphaned-dep';
+export type StaleSignal = 'age' | 'drift' | 'orphaned-dep' | string;

@@ -1,6 +1,6 @@
 import type { TrailerParser } from './trailer-parser.js';
 import type { AtomRepository } from './atom-repository.js';
-import type { Config } from '../types/config.js';
+import type { EngineConfig } from '../types/config.js';
 import type { RawCommit } from '../interfaces/git-client.js';
 import type { CommitValidationResult, ValidationIssue } from '../types/output.js';
 import type { Trailers } from '../types/domain.js';
@@ -17,7 +17,7 @@ export class Validator {
   constructor(
     private readonly trailerParser: TrailerParser,
     private readonly atomRepository: AtomRepository,
-    private readonly config: Config,
+    private readonly config: EngineConfig,
     private readonly protocolRegistry: ProtocolRegistry,
   ) {}
 

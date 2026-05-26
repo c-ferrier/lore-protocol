@@ -23,7 +23,7 @@ export class TextFormatter implements IOutputFormatter {
   protected readonly c: ChalkInstance;
 
   constructor(
-    private readonly protocolRegistry: ProtocolRegistry,
+    protected readonly protocolRegistry: ProtocolRegistry,
     options: { color: boolean }
   ) {
     this.c = new Chalk({ level: options.color ? (chalk.level || 1) : 0 });

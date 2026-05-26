@@ -63,6 +63,9 @@ export interface EngineOptions {
   // Hooks for Wrappers (e.g. Lore) to mutate state before bootstrap
   onConfigLoaded?: (config: EngineConfig) => Promise<EngineConfig>;
   onProtocolsLoaded?: (protocols: ProtocolDefinition[]) => Promise<ProtocolDefinition[]>;
+
+  // Per-protocol runtime configuration provider
+  getProtocolConfig?: (name: string) => ProtocolConfig;
 }
 
 /**
@@ -123,9 +126,16 @@ export async function runCli(options: EngineOptions) {
   const gitClient: IGitClient = new GitClient(activeRoot);
   const protocolRegistry = new ProtocolRegistry();
   
+  const defaultProtocolConfig: ProtocolConfig = {
+    version: '1.0',
+    trailers: { required: [], custom: [], definitions: {}, permissive: true }
+  };
+
   for (const def of allProtocols) {
-    // Note: User overrides for specific protocols could be loaded here in the future
-    protocolRegistry.register(new Protocol(def, config as any));
+    const pConfig = options.getProtocolConfig 
+        ? options.getProtocolConfig(def.name)
+        : defaultProtocolConfig;
+    protocolRegistry.register(new Protocol(def, pConfig));
   }
   
   const trailerParser = new TrailerParser();
@@ -156,10 +166,10 @@ export async function runCli(options: EngineOptions) {
 
   const idGenerator = new IdGenerator();
   const supersessionResolver = new SupersessionResolver(protocolRegistry);
-  const stalenessDetector = new StalenessDetector(gitClient, config as any, protocolRegistry);
-  const commitBuilder = new CommitBuilder(trailerParser, idGenerator, config as any, protocolRegistry);
+  const stalenessDetector = new StalenessDetector(gitClient, config, protocolRegistry);
+  const commitBuilder = new CommitBuilder(trailerParser, idGenerator, config, protocolRegistry);
   const squashMerger = new SquashMerger(idGenerator, protocolRegistry);
-  const validator = new Validator(trailerParser, atomRepository, config as any, protocolRegistry);
+  const validator = new Validator(trailerParser, atomRepository, config, protocolRegistry);
   const prompt = new TerminalPrompt();
   const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry);
   const headIdReader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
@@ -208,6 +218,7 @@ export async function runCli(options: EngineOptions) {
     searchFilter,
     configLoader: engineConfigLoader as any,
     cacheDir: join(activeRoot, options.engineDirName, CACHE_DIR),
+    defaultConfig: options.defaultConfig,
   };
 
   registerWhyCommand(program, sharedDeps);
