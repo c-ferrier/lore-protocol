@@ -3,11 +3,13 @@ import type { AtomRepository } from './atom-repository.js';
 import type { Config } from '../types/config.js';
 import type { RawCommit } from '../interfaces/git-client.js';
 import type { CommitValidationResult, ValidationIssue } from '../types/output.js';
-import type { Trailers, AtomId } from '../types/domain.js';
+import type { Trailers } from '../types/domain.js';
 import type { IProtocol } from '../interfaces/protocol.js';
+import type { ProtocolRegistry } from './protocol-registry.js';
 
 /**
  * Validates existing git commits for protocol compliance.
+ * Supports multiple protocols via the ProtocolRegistry.
  * 
  * SOLID: SRP -- focused purely on domain validation rules.
  */
@@ -16,14 +18,15 @@ export class Validator {
     private readonly trailerParser: TrailerParser,
     private readonly atomRepository: AtomRepository,
     private readonly config: Config,
-    private readonly protocol: IProtocol,
+    private readonly protocolRegistry: ProtocolRegistry,
   ) {}
 
   /**
-   * Validate a set of raw commits.
+   * Validate a set of raw commits across all registered protocols.
    */
   async validate(rawCommits: readonly RawCommit[]): Promise<CommitValidationResult[]> {
     const results: CommitValidationResult[] = [];
+    const protocols = this.protocolRegistry.getAll();
 
     for (const raw of rawCommits) {
       let trailers: Trailers;
@@ -49,17 +52,28 @@ export class Validator {
       // 1. Structural Hygiene (Generic)
       this.validateHygiene(raw, issues);
 
-      // 2. Schema Validation (Protocol-driven)
-      this.validateSchema(trailers, issues);
+      // 2. Multi-Protocol Validation
+      const ids: Record<string, string> = {};
+      for (const protocol of protocols) {
+        this.validateProtocolSchema(protocol, trailers, issues);
+        await this.validateReferenceExistence(protocol, trailers, issues);
+        
+        const id = protocol.getIdentity(trailers);
+        if (id) {
+          ids[protocol.name.toLowerCase()] = id;
+        }
+      }
 
-      // 3. Graph Integrity (Async resolution)
-      await this.validateReferenceExistence(trailers, issues);
+      // 3. Generic Trailer Hygiene
+      this.validateTrailerHygiene(trailers, issues);
 
-      const id = this.protocol.getIdentity(trailers);
+      // Final ID for UI parity (prefer root namespace or first protocol)
+      const primary = this.protocolRegistry.getRoot() || protocols[0];
+      const displayId = primary ? primary.getIdentity(trailers) : null;
 
       results.push({
         commit: raw.hash,
-        id,
+        id: displayId,
         valid: issues.filter((i) => i.severity === 'error').length === 0,
         issues,
       });
@@ -84,7 +98,7 @@ export class Validator {
       });
     }
 
-    // Rule: Overall message length (prevents bloated decision records)
+    // Rule: Overall message length
     const lines = (raw.subject + '\n' + raw.body).split('\n');
     if (lines.length > validation.maxMessageLines) {
       issues.push({
@@ -96,32 +110,32 @@ export class Validator {
   }
 
   /**
-   * Validate a trailer collection against the protocol schema.
+   * Validate a trailer collection against a specific protocol schema.
    */
-  private validateSchema(
+  private validateProtocolSchema(
+    protocol: IProtocol,
     trailers: Trailers,
     issues: ValidationIssue[],
   ): void {
-    const protocolSlug = this.protocol.name.toLowerCase().replace(/-/g, '');
+    const protocolSlug = protocol.name.toLowerCase().replace(/-/g, '');
     const identityRule = `${protocolSlug}-id-present`;
     const formatRule = `${protocolSlug}-id-format`;
 
-    for (const key of this.protocol.getAuthorizedKeys()) {
-      const def = this.protocol.getDefinition(key);
+    for (const key of protocol.getAuthorizedKeys()) {
+      const def = protocol.getDefinition(key);
       if (!def) continue;
 
       const values = trailers[key] || [];
       const isRequired = def.required;
 
-      // Special Rule: Check for empty string explicitly for requiredness
       const hasValue = values.length > 0 && values.every((v: string) => v.trim().length > 0);
 
       if (!hasValue && isRequired) {
         issues.push({
-          severity: this.config.validation.strict || key === this.protocol.identityKey ? 'error' : 'warning',
-          rule: key === this.protocol.identityKey ? identityRule : 'required-trailer',
+          severity: this.config.validation.strict || key === protocol.identityKey ? 'error' : 'warning',
+          rule: key === protocol.identityKey ? identityRule : 'required-trailer',
           field: key,
-          message: `${key} trailer is missing`,
+          message: `[${protocol.name}] ${key} trailer is missing`,
         });
         continue;
       }
@@ -134,7 +148,7 @@ export class Validator {
           severity: 'error',
           rule: 'invalid-cardinality',
           field: key,
-          message: `Trailer "${key}" must have exactly one value (got ${values.length})`,
+          message: `[${protocol.name}] Trailer "${key}" must have exactly one value (got ${values.length})`,
         });
       }
 
@@ -147,25 +161,23 @@ export class Validator {
               severity: 'error',
               rule: 'invalid-enum',
               field: key,
-              message: `Invalid ${key} value: "${val}". Expected one of: ${validValues.join(', ')}`,
+              message: `[${protocol.name}] Invalid ${key} value: "${val}". Expected one of: ${validValues.join(', ')}`,
             });
           }
         } else if (def.validation === 'pattern' && def.pattern) {
           const regex = new RegExp(def.pattern);
           if (!regex.test(val)) {
-            // Map pattern failures to specific semantic rules
             let rule = 'invalid-format';
             let severity: 'error' | 'warning' = 'error';
-            let message = `Value for "${key}" does not match pattern: ${def.pattern}`;
+            let message = `[${protocol.name}] Value for "${key}" does not match pattern: ${def.pattern}`;
 
-            // Context-sensitive rule mapping
-            if (key === this.protocol.identityKey) {
+            if (key === protocol.identityKey) {
               rule = formatRule;
-              message = `${this.protocol.identityKey} "${val}" is not a valid 8-character hex string`;
+              message = `[${protocol.name}] ${protocol.identityKey} "${val}" is not a valid identifier`;
             } else if (def.ui?.kind === 'reference') {
               rule = 'reference-format';
               severity = 'warning';
-              message = `Invalid reference format in ${key}: "${val}". Expected 8-character hex.`;
+              message = `[${protocol.name}] Invalid reference format in ${key}: "${val}".`;
             }
 
             issues.push({ severity, rule, field: key, message });
@@ -173,8 +185,9 @@ export class Validator {
         }
       }
     }
+  }
 
-    // Check for high trailer count (cardinality hygiene)
+  private validateTrailerHygiene(trailers: Trailers, issues: ValidationIssue[]): void {
     for (const [key, values] of Object.entries(trailers)) {
       if (values.length > 5) {
         issues.push({
@@ -189,21 +202,20 @@ export class Validator {
 
   /**
    * Check that referenced IDs actually exist in the repository. 
-   * Emits a warning for each missing reference.
    */
   private async validateReferenceExistence(
+    protocol: IProtocol,
     trailers: Trailers,
     issues: ValidationIssue[],
   ): Promise<void> {
-    const refKeys = this.protocol.getReferenceKeys();
+    const refKeys = protocol.getReferenceKeys();
     
     for (const key of refKeys) {
       const values = trailers[key] || [];
       if (values.length === 0) continue;
 
       for (const id of values) {
-        // Only validate existence for values that look like valid IDs for this protocol
-        if (!this.protocol.isValidIdentity(id)) continue;
+        if (!protocol.isValidIdentity(id)) continue;
         
         const found = await this.atomRepository.findById(id);
         if (found === null) {
@@ -211,7 +223,7 @@ export class Validator {
             severity: 'warning',
             rule: 'reference-exists',
             field: key,
-            message: `Referenced ${this.protocol.name}-id "${id}" in ${key} was not found in history`,
+            message: `[${protocol.name}] Referenced id "${id}" in ${key} was not found in history`,
           });
         }
       }

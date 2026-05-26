@@ -71,7 +71,7 @@ describe('TextFormatter', () => {
   });
 
   describe('formatQueryResult', () => {
-    it('should show "No lore atoms found." when empty', () => {
+    it('should show "No decision atoms found." when empty', () => {
       const data: FormattableQueryResult = {
         result: {
           command: 'context',
@@ -85,7 +85,7 @@ describe('TextFormatter', () => {
       };
 
       const output = formatter.formatQueryResult(data);
-      expect(output).toContain('No lore atoms found.');
+      expect(output).toContain('No decision atoms found.');
     });
 
     it('should format atoms with header and trailers', () => {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SquashMerger } from '../../../../src/engine/services/squash-merger.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
 
@@ -35,7 +36,6 @@ function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
 function makeAtom(overrides: Partial<any> = {}): Atom {
   const trailerOverrides = { ...overrides };
   delete trailerOverrides.id;
-  delete trailerOverrides.id;
   delete trailerOverrides.commitHash;
   delete trailerOverrides.date;
   delete trailerOverrides.author;
@@ -47,7 +47,7 @@ function makeAtom(overrides: Partial<any> = {}): Atom {
 
   const trailers = overrides.trailers ?? makeTrailers(trailerOverrides);
   return {
-    id: overrides.id ?? overrides.id ?? 'a1b2c3d4',
+    id: overrides.id ?? 'a1b2c3d4',
     commitHash: overrides.commitHash ?? 'abc1234567890',
     date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
     author: overrides.author ?? 'alice@example.com',
@@ -69,11 +69,14 @@ describe('SquashMerger', () => {
   let merger: SquashMerger;
   let mockIdGen: ReturnType<typeof createMockIdGenerator>;
   let protocol: Protocol;
+  let registry: ProtocolRegistry;
 
   beforeEach(() => {
     mockIdGen = createMockIdGenerator();
     protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
-    merger = new SquashMerger(mockIdGen as any, protocol);
+    registry = new ProtocolRegistry();
+    registry.register(protocol);
+    merger = new SquashMerger(mockIdGen as any, registry);
   });
 
   it('should throw for empty atoms', () => {
@@ -82,11 +85,11 @@ describe('SquashMerger', () => {
 
   it(`should generate a new ${LORE_ID_KEY}`, () => {
     const atom = makeAtom();
-    const { message, id } = merger.merge([atom], {});
+    const { message, ids } = merger.merge([atom], {});
 
     expect(mockIdGen.generate).toHaveBeenCalledOnce();
     expect(message).toContain(`${LORE_ID_KEY}: deadbeef`);
-    expect(id).toBe('deadbeef');
+    expect(ids.lore).toBe('deadbeef');
   });
 
   describe('intent merging', () => {
@@ -291,8 +294,8 @@ describe('SquashMerger', () => {
       });
 
       const { message } = merger.merge([a1, a2], {});
-      expect(message).not.toContain('Related: aaaa0002');
-      expect(message).not.toContain('Depends-on: aaaa0001');
+      expect(message).not.toContain('Related: aaaaa0002');
+      expect(message).not.toContain('Depends-on: aaaaa0001');
     });
 
     it('should merge and preserve custom trailers', () => {
@@ -342,17 +345,19 @@ describe('SquashMerger', () => {
               Priority: {
                 description: 'Prio',
                 multivalue: false,
-                validation: 'options' as const,
-                options: { low: {}, high: {}, urgent: {} },
+                validation: 'values' as const,
+                values: { low: {}, high: {}, urgent: {} },
                 squash: 'rank-max' as const,
               }
             },
             custom: [],
-            permissive: false,
+            permissive: true,
           }
         };
+        const customRegistry = new ProtocolRegistry();
         const customProtocol = new Protocol(LoreProtocolDefinition, configWithCustom);
-        const customMerger = new SquashMerger(mockIdGen as any, customProtocol);
+        customRegistry.register(customProtocol);
+        const customMerger = new SquashMerger(mockIdGen as any, customRegistry);
 
         const a1 = makeAtom({ trailers: makeTrailers({ Priority: ['low'] } as any) });
         const a2 = makeAtom({ trailers: makeTrailers({ Priority: ['urgent'] } as any) });
@@ -374,13 +379,13 @@ describe('SquashMerger', () => {
         }),
       });
 
-      const { message, id } = merger.merge([atom], {});
+      const { message, ids } = merger.merge([atom], {});
 
       expect(message).toContain('single atom intent');
       expect(message).toContain(`${LORE_ID_KEY}: deadbeef`);
       expect(message).toContain('Constraint: Some constraint');
       expect(message).toContain('Confidence: high');
-      expect(id).toBe('deadbeef');
+      expect(ids.lore).toBe('deadbeef');
     });
   });
 

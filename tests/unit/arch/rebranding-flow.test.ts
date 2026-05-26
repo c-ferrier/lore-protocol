@@ -125,7 +125,9 @@ describe('Rebranding Flow Integration', () => {
       }
     };
     const protocol = new Protocol(fredDef, LORE_DEFAULT_CONFIG);
-    const validator = new Validator(new TrailerParser(), {} as any, LORE_DEFAULT_CONFIG, protocol);
+    const registry = new ProtocolRegistry();
+    registry.register(protocol);
+    const validator = new Validator(new TrailerParser(), {} as any, LORE_DEFAULT_CONFIG, registry);
 
     // 2. Validate a commit with missing Fred-id
     const commit = {
@@ -153,6 +155,6 @@ describe('Rebranding Flow Integration', () => {
     const results2 = await validator.validate([invalidCommit]);
     const formatIssue = results2[0].issues.find(i => i.rule === 'fred-id-format');
     expect(formatIssue).toBeDefined();
-    expect(formatIssue?.message).toContain('Fred-id "not-hex" is not a valid 8-character hex string');
+    expect(formatIssue?.message).toContain('Fred-id "not-hex" is not a valid identifier');
   });
 });

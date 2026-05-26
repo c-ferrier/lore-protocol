@@ -104,14 +104,22 @@ export async function executePathQuery(
   const totalAtoms = atoms.length;
 
   // Step 3: Compute supersession
-  const supersessionMap: Map<string, SupersessionStatus> = supersessionResolver.resolve(atoms);
+  const globalSupersessionMap = supersessionResolver.resolveAll(atoms);
+
+  // Flatten global map into a single map for the formatter
+  const flatSupersessionMap = new Map<string, SupersessionStatus>();
+  for (const statusMap of globalSupersessionMap.values()) {
+      for (const [id, status] of statusMap) {
+          flatSupersessionMap.set(id, status);
+      }
+  }
 
   // Step 4: Filter superseded atoms unless --all
   let displayAtoms: readonly Atom[];
   if (queryOptions.all) {
     displayAtoms = atoms;
   } else {
-    displayAtoms = supersessionResolver.filterActive(atoms, supersessionMap);
+    displayAtoms = supersessionResolver.filterActive(atoms, globalSupersessionMap);
   }
 
   // Step 4b: Apply result limit (--limit) after supersession filtering
@@ -130,7 +138,7 @@ export async function executePathQuery(
 
   const formattable: FormattableQueryResult = {
     result,
-    supersessionMap,
+    supersessionMap: flatSupersessionMap,
     visibleTrailers,
   };
 

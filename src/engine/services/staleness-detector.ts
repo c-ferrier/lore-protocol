@@ -3,7 +3,7 @@ import type { Config } from '../types/config.js';
 import type { Atom, SupersessionStatus } from '../types/domain.js';
 import { STALE_SIGNAL } from '../../util/constants.js';
 import type { StaleSignal } from '../types/domain.js';
-import type { IProtocol } from '../interfaces/protocol.js';
+import type { ProtocolRegistry } from './protocol-registry.js';
 
 export interface StaleReason {
   readonly signal: StaleSignal;
@@ -17,6 +17,7 @@ export interface StaleAtomReport {
 
 /**
  * Analyzes Atoms to detect "staleness" signals.
+ * Supports multiple protocols via the ProtocolRegistry.
  * 
  * SOLID: SRP -- only responsible for staleness analysis.
  * GRASP: Information Expert -- knows how to interpret time, drift, and directives.
@@ -25,18 +26,11 @@ export class StalenessDetector {
   constructor(
     private readonly gitClient: IGitClient,
     private readonly config: Config,
-    private readonly protocol: IProtocol,
+    private readonly protocolRegistry: ProtocolRegistry,
   ) {}
 
   /**
    * Performs analysis on a set of atoms and returns reports for those that are stale.
-   * 
-   * Analyzes signals:
-   * 1. Age: atom is older than the configured threshold.
-   * 2. Drift: files changed by the atom have had many commits since.
-   * 3. Low Confidence: atom is marked as Confidence: low.
-   * 4. Expired Hints: [until:...] directive hint is in the past.
-   * 5. Orphaned Dependency: atom depends on a superseded atom.
    */
   async analyze(
     atoms: readonly Atom[],
@@ -44,24 +38,19 @@ export class StalenessDetector {
   ): Promise<StaleAtomReport[]> {
     const reports: StaleAtomReport[] = [];
     const now = new Date();
+    const protocols = this.protocolRegistry.getAll();
 
     for (const atom of atoms) {
       const reasons: StaleReason[] = [];
 
-      // 1. Age Signal
+      // 1. Structural Signals (Generic)
       this.checkAge(atom, now, reasons);
-
-      // 2. Drift Signal (requires git calls)
       await this.checkDrift(atom, reasons);
 
-      // 3. Low Confidence Signal
-      this.checkLowConfidence(atom, reasons);
-
-      // 4. Expired Hints Signal
-      this.checkExpiredHints(atom, now, reasons);
-
-      // 5. Orphaned Dependency Signal
-      this.checkOrphanedDependencies(atom, reasons, supersessionMap);
+      // 2. Multi-Protocol Signals
+      for (const protocol of protocols) {
+          this.checkProtocolStaleness(protocol, atom, now, reasons, supersessionMap);
+      }
 
       if (reasons.length > 0) {
         reports.push({ atom, reasons });
@@ -69,6 +58,55 @@ export class StalenessDetector {
     }
 
     return reports;
+  }
+
+  private checkProtocolStaleness(
+      protocol: any,
+      atom: Atom,
+      now: Date,
+      reasons: StaleReason[],
+      supersessionMap: Map<string, SupersessionStatus>
+  ): void {
+      const state = atom.protocols.get(protocol.name.toLowerCase());
+      if (!state) return;
+
+      // 1. Low Confidence Signal
+      const confidence = state.trailers.Confidence?.[0];
+      if (confidence === 'low') {
+        reasons.push({
+          signal: STALE_SIGNAL.LOW_CONFIDENCE,
+          description: `[${protocol.name}] Atom is marked as Confidence: low`,
+        });
+      }
+
+      // 2. Expired Hints Signal
+      const untilPattern = /\[until:([^\]]+)\]/g;
+      for (const directive of state.trailers.Directive || []) {
+        untilPattern.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = untilPattern.exec(directive)) !== null) {
+          const dateStr = match[1];
+          const expiryDate = this.parseUntilDate(dateStr);
+          if (expiryDate !== null && now > expiryDate) {
+            reasons.push({
+              signal: STALE_SIGNAL.EXPIRED_HINT,
+              description: `[${protocol.name}] Directive "${directive}" has expired [until:${dateStr}]`,
+            });
+          }
+        }
+      }
+
+      // 3. Orphaned Dependency Signal
+      const dependsOn = state.trailers['Depends-on'] || [];
+      for (const id of dependsOn) {
+        const status = supersessionMap.get(id);
+        if (status?.superseded) {
+          reasons.push({
+            signal: STALE_SIGNAL.ORPHANED_DEP,
+            description: `[${protocol.name}] Dependency "${id}" has been superseded by ${status.supersededBy}`,
+          });
+        }
+      }
   }
 
   /**
@@ -109,67 +147,6 @@ export class StalenessDetector {
         signal: STALE_SIGNAL.DRIFT,
         description: `Source files have drifted (${driftedFiles.length} files with >${threshold} commits)`,
       });
-    }
-  }
-
-  /**
-   * Check if the atom has low confidence.
-   */
-  private checkLowConfidence(atom: Atom, reasons: StaleReason[]): void {
-    const state = atom.protocols.get(this.protocol.name.toLowerCase());
-    const confidence = state?.trailers.Confidence?.[0];
-    if (confidence === 'low') {
-      reasons.push({
-        signal: STALE_SIGNAL.LOW_CONFIDENCE,
-        description: 'Atom is marked as Confidence: low',
-      });
-    }
-  }
-
-  /**
-   * Check for expired behavioral hints in directives.
-   */
-  private checkExpiredHints(atom: Atom, now: Date, reasons: StaleReason[]): void {
-    const untilPattern = /\[until:([^\]]+)\]/g;
-    let match: RegExpExecArray | null;
-
-    const state = atom.protocols.get(this.protocol.name.toLowerCase());
-    for (const directive of state?.trailers.Directive || []) {
-      // Reset lastIndex for each directive
-      untilPattern.lastIndex = 0;
-
-      while ((match = untilPattern.exec(directive)) !== null) {
-        const dateStr = match[1];
-        const expiryDate = this.parseUntilDate(dateStr);
-
-        if (expiryDate !== null && now > expiryDate) {
-          reasons.push({
-            signal: STALE_SIGNAL.EXPIRED_HINT,
-            description: `Directive "${directive}" has expired [until:${dateStr}]`,
-          });
-        }
-      }
-    }
-  }
-
-  /**
-   * Check if any dependencies of the atom are superseded.
-   */
-  private checkOrphanedDependencies(
-    atom: Atom,
-    reasons: StaleReason[],
-    supersessionMap: Map<string, SupersessionStatus>,
-  ): void {
-    const state = atom.protocols.get(this.protocol.name.toLowerCase());
-    const dependsOn = state?.trailers['Depends-on'] || [];
-    for (const id of dependsOn) {
-      const status = supersessionMap.get(id);
-      if (status?.superseded) {
-        reasons.push({
-          signal: STALE_SIGNAL.ORPHANED_DEP,
-          description: `Dependency "${id}" has been superseded by ${status.supersededBy}`,
-        });
-      }
     }
   }
 
@@ -221,10 +198,8 @@ export class StalenessDetector {
 
   /**
    * Parse an [until:...] date string.
-   * Supports YYYY-MM (treated as end of month) and YYYY-MM-DD.
    */
   private parseUntilDate(dateStr: string): Date | null {
-    // 1. YYYY-MM format: treat as end of that month (start of next)
     const monthMatch = dateStr.match(/^(\d{4})-(\d{2})$/);
     if (monthMatch) {
       const year = parseInt(monthMatch[1], 10);
@@ -233,7 +208,6 @@ export class StalenessDetector {
       return isNaN(d.getTime()) ? null : d;
     }
 
-    // 2. YYYY-MM-DD format: treat as end of that day
     const dayMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (dayMatch) {
       const year = parseInt(dayMatch[1], 10);

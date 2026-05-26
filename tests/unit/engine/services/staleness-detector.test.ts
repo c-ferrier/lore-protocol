@@ -4,6 +4,7 @@ import type { IGitClient } from '../../../../src/engine/interfaces/git-client.js
 import type { Config } from '../../../../src/engine/types/config.js';
 import type { Atom, SupersessionStatus } from '../../../../src/engine/types/domain.js';
 import type { IProtocol } from '../../../../src/engine/interfaces/protocol.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -86,7 +87,6 @@ function makeAtom(options: {
   });
 
   return {
-    id,
     commitHash: options.commitHash ?? 'abc12345',
     date: options.date ?? new Date('2025-01-15T10:00:00Z'),
     author: options.author ?? 'dev@example.com',
@@ -105,13 +105,16 @@ describe('StalenessDetector', () => {
   let gitClient: IGitClient;
   let config: Config;
   let protocol: IProtocol;
+  let protocolRegistry: ProtocolRegistry;
   let detector: StalenessDetector;
 
   beforeEach(() => {
     gitClient = createMockGitClient();
     config = createDefaultConfig();
     protocol = createMockProtocol();
-    detector = new StalenessDetector(gitClient, config, protocol);
+    protocolRegistry = new ProtocolRegistry();
+    protocolRegistry.register(protocol);
+    detector = new StalenessDetector(gitClient, config, protocolRegistry);
   });
 
   describe('analyze', () => {
@@ -141,7 +144,7 @@ describe('StalenessDetector', () => {
 
       it('should respect custom age threshold', async () => {
         config = createDefaultConfig({ olderThan: '30d' });
-        detector = new StalenessDetector(gitClient, config, protocol);
+        detector = new StalenessDetector(gitClient, config, protocolRegistry);
 
         // Atom is 60 days old, threshold is 30 days
         const date = new Date();
@@ -156,7 +159,7 @@ describe('StalenessDetector', () => {
 
       it('should handle year duration format', async () => {
         config = createDefaultConfig({ olderThan: '1y' });
-        detector = new StalenessDetector(gitClient, config, protocol);
+        detector = new StalenessDetector(gitClient, config, protocolRegistry);
 
         // Atom is 2 years old
         const date = new Date();
@@ -170,7 +173,7 @@ describe('StalenessDetector', () => {
 
       it('should handle week duration format', async () => {
         config = createDefaultConfig({ olderThan: '2w' });
-        detector = new StalenessDetector(gitClient, config, protocol);
+        detector = new StalenessDetector(gitClient, config, protocolRegistry);
 
         // Atom is 3 weeks old
         const date = new Date();
@@ -244,7 +247,7 @@ describe('StalenessDetector', () => {
 
       it('should respect custom drift threshold', async () => {
         config = createDefaultConfig({ driftThreshold: 5 });
-        detector = new StalenessDetector(gitClient, config, protocol);
+        detector = new StalenessDetector(gitClient, config, protocolRegistry);
         vi.mocked(gitClient.countCommitsSince).mockResolvedValue(10);
 
         const atom = makeAtom({
@@ -516,7 +519,9 @@ describe('StalenessDetector', () => {
         const result = await detector.analyze([staleAtom, freshAtom], makeSupersessionMap([]));
 
         expect(result).toHaveLength(1);
-        expect(result[0].atom.id).toBe('aaaa1111');
+        // Map the atom by searching its protocols for the ID
+        const atomId = Array.from(result[0].atom.protocols.values())[0].trailers[LORE_ID_KEY][0];
+        expect(atomId).toBe('aaaa1111');
       });
 
       it('should handle empty atom list', async () => {

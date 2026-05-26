@@ -1,45 +1,36 @@
 import type { IdGenerator } from './id-generator.js';
 import type { Atom, AtomId } from '../types/domain.js';
 import type { IProtocol } from '../interfaces/protocol.js';
+import type { ProtocolRegistry } from './protocol-registry.js';
 
 /**
  * Orchestrates the merging of multiple decision atoms during a git squash.
+ * Now supports multi-protocol squashing.
  * 
  * SOLID: SRP -- responsible only for combining atom data into a single message.
  * SOLID: OCP -- metadata-driven merging logic for all protocol trailers.
- * GRASP: Creator -- knows how to synthesize Lore context from multiple lineage atoms.
+ * GRASP: Creator -- knows how to synthesize context from multiple lineage atoms.
  */
 export class SquashMerger {
   constructor(
     private readonly idGenerator: IdGenerator,
-    private readonly protocol: IProtocol,
+    private readonly protocolRegistry: ProtocolRegistry,
   ) {}
 
   /**
-   * Merge a collection of atoms into a single Lore-enriched commit message.
-   *
-   * Synthesizes a new atom by:
-   * 1. Generating a new unique Lore-id.
-   * 2. Picking the newest intent as the new subject (unless overridden).
-   * 3. Concatenating all unique body summaries.
-   * 4. Applying metadata-driven squash strategies (union, rank-min, rank-max)
-   *    to merge trailers across all atoms.
-   * 5. Dropping internal references (those pointing to atoms within the squash set).
+   * Merge a collection of atoms into a single enriched commit message.
    */
   merge(
     atoms: readonly Atom[],
     options: { intent?: string; body?: string },
-  ): { message: string; id: AtomId } {
+  ): { message: string; ids: Record<string, AtomId> } {
     if (atoms.length === 0) {
       throw new Error('Cannot merge zero atoms');
     }
 
-    const newLoreId = this.idGenerator.generate();
-    const protocolName = this.protocol.name.toLowerCase();
-    const internalIds = new Set(atoms
-      .map((a) => this.protocol.getIdentity(a.protocols.get(protocolName)?.trailers))
-      .filter((id): id is string => Boolean(id))
-    );
+    const protocols = this.protocolRegistry.getAll();
+    const ids: Record<string, AtomId> = {};
+    const trailerLines: string[] = [];
 
     // Sort atoms by date ascending so the newest is last
     const sorted = [...atoms].sort(
@@ -53,58 +44,70 @@ export class SquashMerger {
     // Body: use option or concatenate body summaries
     const body = options.body ?? this.mergeBodySummaries(sorted);
 
-    const trailerLines: string[] = [];
-    trailerLines.push(`${this.protocol.identityKey}: ${newLoreId}`);
+    // 1. Process each protocol for identity and trailers
+    for (const protocol of protocols) {
+      const pName = protocol.name.toLowerCase();
+      const newId = this.idGenerator.generate(protocol);
+      ids[pName] = newId;
 
-    // 1. Process All Trailers uniformly
-    // Flatten all present keys across all atoms
-    const allKeys = new Set<string>();
-    for (const atom of atoms) {
-      const state = atom.protocols.get(protocolName);
-      if (!state) continue;
+      const prefix = protocol.namespace ? `${protocol.namespace}/` : '';
+      const identityKey = `${prefix}${protocol.identityKey}`;
+      trailerLines.push(`${identityKey}: ${newId}`);
 
-      for (const key of Object.keys(state.trailers)) {
-        if (key !== this.protocol.identityKey) { 
-          allKeys.add(key);
+      const internalIds = new Set(atoms
+        .map((a) => protocol.getIdentity(a.protocols.get(pName)?.trailers))
+        .filter((id): id is string => Boolean(id))
+      );
+
+      // Collect all present keys for this protocol across all atoms
+      const allKeys = new Set<string>();
+      for (const atom of atoms) {
+        const state = atom.protocols.get(pName);
+        if (!state) continue;
+
+        for (const key of Object.keys(state.trailers)) {
+          if (key !== protocol.identityKey) { 
+            allKeys.add(key);
+          }
         }
       }
-    }
 
-    const sortedKeys = Array.from(allKeys).sort((a, b) => {
-      const defA = this.protocol.getDefinition(a);
-      const defB = this.protocol.getDefinition(b);
-      const orderA = defA?.prompt?.order ?? 1000;
-      const orderB = defB?.prompt?.order ?? 1000;
-      return orderA - orderB;
-    });
+      const sortedKeys = Array.from(allKeys).sort((a, b) => {
+        const defA = protocol.getDefinition(a);
+        const defB = protocol.getDefinition(b);
+        const orderA = defA?.prompt?.order ?? 1000;
+        const orderB = defB?.prompt?.order ?? 1000;
+        return orderA - orderB;
+      });
 
-    for (const key of sortedKeys) {
-      const def = this.protocol.getDefinition(key);
-      const strategy = def?.squash || 'union';
-      
-      // Values are always arrays in the new flat structure
-      const allValues = atoms.map(a => a.protocols.get(protocolName)?.trailers[key] || []);
-
-      if (strategy === 'rank-min' && def?.values) {
-        const valueKeys = Object.keys(def.values);
-        const scalars = allValues.map(v => v[0] || null);
-        const merged = this.pickMinRank(scalars, valueKeys);
-        if (merged !== null) trailerLines.push(`${key}: ${merged}`);
-      } else if (strategy === 'rank-max' && def?.values) {
-        const valueKeys = Object.keys(def.values);
-        const scalars = allValues.map(v => v[0] || null);
-        const merged = this.pickMaxRank(scalars, valueKeys);
-        if (merged !== null) trailerLines.push(`${key}: ${merged}`);
-      } else {
-        // Default: Union + Dedup
-        let merged = this.unionDedup(allValues);
+      for (const key of sortedKeys) {
+        const fullKey = `${prefix}${key}`;
+        const def = protocol.getDefinition(key);
+        const strategy = def?.squash || 'union';
         
-        if (def?.ui?.kind === 'reference') {
-          merged = this.filterExternal(merged, internalIds);
-        }
+        const allValues = atoms.map(a => a.protocols.get(pName)?.trailers[key] || []);
 
-        for (const v of merged) {
-          trailerLines.push(`${key}: ${v}`);
+        if (strategy === 'rank-min' && def?.values) {
+          const valueKeys = Object.keys(def.values);
+          const scalars = allValues.map(v => v[0] || null);
+          const merged = this.pickMinRank(scalars, valueKeys);
+          if (merged !== null) trailerLines.push(`${fullKey}: ${merged}`);
+        } else if (strategy === 'rank-max' && def?.values) {
+          const valueKeys = Object.keys(def.values);
+          const scalars = allValues.map(v => v[0] || null);
+          const merged = this.pickMaxRank(scalars, valueKeys);
+          if (merged !== null) trailerLines.push(`${fullKey}: ${merged}`);
+        } else {
+          // Default: Union + Dedup
+          let merged = this.unionDedup(allValues);
+          
+          if (def?.ui?.kind === 'reference') {
+            merged = this.filterExternal(merged, internalIds);
+          }
+
+          for (const v of merged) {
+            trailerLines.push(`${fullKey}: ${v}`);
+          }
         }
       }
     }
@@ -120,7 +123,7 @@ export class SquashMerger {
     parts.push('');
     parts.push(trailerLines.join('\n'));
 
-    return { message: parts.join('\n'), id: newLoreId };
+    return { message: parts.join('\n'), ids };
   }
 
   /**

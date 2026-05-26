@@ -34,7 +34,7 @@ export class CommitBuilder {
     // 1. Process each protocol for identity and authorized keys
     for (const protocol of protocols) {
       const pName = protocol.name.toLowerCase();
-      const id = (existingIds && existingIds[pName]) || this.idGenerator.generate();
+      const id = (existingIds && existingIds[pName]) || this.idGenerator.generate(protocol);
       ids[pName] = id;
 
       const prefix = protocol.namespace ? `${protocol.namespace}/` : '';

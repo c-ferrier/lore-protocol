@@ -139,12 +139,13 @@ export async function runCli(options: EngineOptions) {
     config.cli.queryCachePruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
   );
 
-  const primaryProtocol: IProtocol | undefined = protocolRegistry.getAll()[0];
+  // Fallback protocol for UI context (prefer root namespace)
+  const defaultProtocol: IProtocol | undefined = protocolRegistry.getRoot() || protocolRegistry.getAll()[0];
 
   const atomRepository = new AtomRepository(
     gitClient,
     trailerParser,
-    primaryProtocol as any,
+    defaultProtocol,
     protocolRegistry,
     searchFilter,
     atomCache,
@@ -152,12 +153,12 @@ export async function runCli(options: EngineOptions) {
     isScoped,
   );
 
-  const idGenerator = new IdGenerator(primaryProtocol as any);
-  const supersessionResolver = new SupersessionResolver(primaryProtocol as any);
-  const stalenessDetector = new StalenessDetector(gitClient, config, primaryProtocol as any);
+  const idGenerator = new IdGenerator();
+  const supersessionResolver = new SupersessionResolver(protocolRegistry);
+  const stalenessDetector = new StalenessDetector(gitClient, config, protocolRegistry);
   const commitBuilder = new CommitBuilder(trailerParser, idGenerator, config, protocolRegistry);
-  const squashMerger = new SquashMerger(idGenerator, primaryProtocol as any);
-  const validator = new Validator(trailerParser, atomRepository, config, primaryProtocol as any);
+  const squashMerger = new SquashMerger(idGenerator, protocolRegistry);
+  const validator = new Validator(trailerParser, atomRepository, config, protocolRegistry);
   const prompt = new TerminalPrompt();
   const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry);
   const headIdReader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
@@ -189,17 +190,16 @@ export async function runCli(options: EngineOptions) {
     pathResolver,
     getFormatter,
     config,
-    protocol: primaryProtocol,
+    protocol: defaultProtocol,
   };
 
   // Hook to ensure a protocol exists before running commands that require one
   program.hook('preAction', (executedCommand) => {
-    // These commands can run without a protocol (agnostic mode)
     const whitelist = [options.binaryName, 'cache', 'init', 'config', 'doctor', 'log', 'search'];
     
     if (whitelist.includes(executedCommand.name())) return;
     
-    if (!primaryProtocol) {
+    if (!defaultProtocol) {
       console.error('fatal: At least one protocol must be registered to run this command.');
       process.exit(1);
     }
@@ -211,13 +211,13 @@ export async function runCli(options: EngineOptions) {
     gitClient,
     pathResolver,
     getFormatter,
-    protocol: primaryProtocol as any,
+    protocol: defaultProtocol,
   });
 
   registerSearchCommand(program, {
     ...sharedDeps,
     searchFilter,
-    protocol: primaryProtocol as any,
+    protocol: defaultProtocol,
   });
 
   registerLogCommand(program, sharedDeps);
@@ -231,7 +231,7 @@ export async function runCli(options: EngineOptions) {
     atomRepository,
     gitClient,
     getFormatter,
-    protocol: primaryProtocol as any,
+    protocol: defaultProtocol,
   });
 
   registerCommitCommand(program, {
@@ -241,7 +241,7 @@ export async function runCli(options: EngineOptions) {
     headIdReader,
     getFormatter,
     config,
-    protocol: primaryProtocol as any,
+    protocol: defaultProtocol,
     protocolRegistry,
     trailerParser,
   });
@@ -250,7 +250,7 @@ export async function runCli(options: EngineOptions) {
     validator,
     gitClient,
     getFormatter,
-    protocol: primaryProtocol as any,
+    protocol: defaultProtocol,
   });
 
   registerSquashCommand(program, {
@@ -267,7 +267,7 @@ export async function runCli(options: EngineOptions) {
   registerConfigCommand(program, {
     configLoader: engineConfigLoader,
     getFormatter,
-    protocol: primaryProtocol as any,
+    protocol: defaultProtocol,
   });
 
   registerDoctorCommand(program, {
@@ -275,7 +275,7 @@ export async function runCli(options: EngineOptions) {
     configLoader: engineConfigLoader,
     gitClient,
     getFormatter,
-    protocol: primaryProtocol as any,
+    protocol: defaultProtocol,
   });
 
   return { program, getFormatter, sharedDeps, config };

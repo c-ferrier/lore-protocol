@@ -63,8 +63,11 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
         findByScope: vi.fn(),
         resolveFollowLinks: vi.fn(),
       } as any,
+      gitClient: {
+          resolveRef: vi.fn().mockResolvedValue('head-hash'),
+      } as any,
       supersessionResolver: {
-        resolve: mockResolve,
+        resolveAll: mockResolve,
         filterActive: mockFilterActive,
       } as any,
       pathResolver: {
@@ -110,7 +113,8 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
       ['dddd4444', { superseded: false, supersededBy: null }],
       ['eeee5555', { superseded: false, supersededBy: null }],
     ]);
-    mockResolve.mockReturnValue(supersessionMap);
+    const globalSupersessionMap = new Map([['lore', supersessionMap]]);
+    mockResolve.mockReturnValue(globalSupersessionMap);
 
     // filterActive returns only 3 non-superseded atoms
     const activeAtoms = [atoms[2], atoms[3], atoms[4]];

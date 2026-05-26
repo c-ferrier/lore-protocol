@@ -62,15 +62,23 @@ export function registerStaleCommand(
       }
 
       // Compute supersession for dependency-orphan detection
-      const supersessionMap: Map<string, SupersessionStatus> = supersessionResolver.resolve(atoms);
+      const globalSupersessionMap = supersessionResolver.resolveAll(atoms);
+
+      // Flatten global map into a single map for the detector (greedy dependency orphan check)
+      const flatSupersessionMap = new Map<string, SupersessionStatus>();
+      for (const statusMap of globalSupersessionMap.values()) {
+          for (const [id, status] of statusMap) {
+              flatSupersessionMap.set(id, status);
+          }
+      }
 
       // Filter to active atoms only (stale check on superseded atoms is not useful)
-      const activeAtoms = supersessionResolver.filterActive(atoms, supersessionMap);
+      const activeAtoms = supersessionResolver.filterActive(atoms, globalSupersessionMap);
 
       // Run staleness analysis
-      let reports: StaleAtomReport[] = await stalenessDetector.analyze(
+      let reports = await stalenessDetector.analyze(
         activeAtoms,
-        supersessionMap,
+        flatSupersessionMap,
       );
 
       // Apply additional CLI-level filters: keep reports that match ANY active signal

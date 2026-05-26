@@ -112,7 +112,15 @@ export function registerSearchCommand(
       atoms = searchFilter.filter(atoms, searchOptions);
 
       // Compute supersession on full set so each atom's status is available to the formatter
-      const supersessionMap: Map<string, SupersessionStatus> = supersessionResolver.resolve(atoms);
+      const globalSupersessionMap = supersessionResolver.resolveAll(atoms);
+
+      // Flatten global map into a single map for the formatter
+      const flatSupersessionMap = new Map<string, SupersessionStatus>();
+      for (const statusMap of globalSupersessionMap.values()) {
+          for (const [id, status] of statusMap) {
+              flatSupersessionMap.set(id, status);
+          }
+      }
 
       const totalAtoms = atoms.length;
 
@@ -121,7 +129,7 @@ export function registerSearchCommand(
       if (options.all) {
         displayAtoms = atoms;
       } else {
-        displayAtoms = supersessionResolver.filterActive(atoms, supersessionMap);
+        displayAtoms = supersessionResolver.filterActive(atoms, globalSupersessionMap);
       }
 
       // Apply result limit (--limit) after all filtering and supersession
@@ -139,7 +147,7 @@ export function registerSearchCommand(
 
       const formattable: FormattableQueryResult = {
         result,
-        supersessionMap,
+        supersessionMap: flatSupersessionMap,
         visibleTrailers: 'all',
       };
 

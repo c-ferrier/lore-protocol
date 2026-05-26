@@ -64,7 +64,15 @@ export function registerLogCommand(
     }
 
     // Compute supersession status
-    const supersessionMap: Map<string, SupersessionStatus> = supersessionResolver.resolve(atoms);
+    const globalSupersessionMap = supersessionResolver.resolveAll(atoms);
+    
+    // Flatten global map into a single map for the formatter (legacy text UI parity)
+    const flatSupersessionMap = new Map<string, SupersessionStatus>();
+    for (const statusMap of globalSupersessionMap.values()) {
+        for (const [id, status] of statusMap) {
+            flatSupersessionMap.set(id, status);
+        }
+    }
 
     const totalAtoms = atoms.length;
 
@@ -73,7 +81,7 @@ export function registerLogCommand(
     if (options.all) {
       displayAtoms = atoms;
     } else {
-      displayAtoms = supersessionResolver.filterActive(atoms, supersessionMap);
+      displayAtoms = supersessionResolver.filterActive(atoms, globalSupersessionMap);
     }
 
     // Apply the display-level limit
@@ -91,7 +99,7 @@ export function registerLogCommand(
 
     const formattable: FormattableQueryResult = {
       result,
-      supersessionMap,
+      supersessionMap: flatSupersessionMap,
       visibleTrailers: 'all',
     };
 

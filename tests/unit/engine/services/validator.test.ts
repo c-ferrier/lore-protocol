@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Validator } from '../../../../src/engine/services/validator.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 
 import type { Config } from '../../../../src/engine/types/config.js';
@@ -61,13 +62,16 @@ describe('Validator', () => {
   let mockAtomRepo: Partial<AtomRepository>;
   let config: Config;
   let protocol: Protocol;
+  let protocolRegistry: ProtocolRegistry;
 
   beforeEach(() => {
     mockParser = createMockTrailerParser();
     mockAtomRepo = createMockAtomRepository();
     config = { ...LORE_DEFAULT_CONFIG };
+    protocolRegistry = new ProtocolRegistry();
     protocol = new Protocol(LoreProtocolDefinition, config);
-    validator = new Validator(mockParser as any, mockAtomRepo as any, config, protocol);
+    protocolRegistry.register(protocol);
+    validator = new Validator(mockParser as any, mockAtomRepo as any, config, protocolRegistry);
   });
 
   describe('basic validation', () => {
@@ -223,8 +227,10 @@ describe('Validator', () => {
           }
         }
       };
+      const customRegistry = new ProtocolRegistry();
       const customProtocol = new Protocol(LoreProtocolDefinition, customConfig);
-      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, customConfig, customProtocol);
+      customRegistry.register(customProtocol);
+      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, customConfig, customRegistry);
 
       mockParser.parse.mockReturnValue(makeTrailers({ 
         'Team': ['Engineering', 'Product'] 
@@ -351,8 +357,10 @@ describe('Validator', () => {
         ...LORE_DEFAULT_CONFIG,
         validation: { ...LORE_DEFAULT_CONFIG.validation, intentMaxLength: 50 },
       };
+      const customRegistry = new ProtocolRegistry();
       const customProtocol = new Protocol(LoreProtocolDefinition, customConfig);
-      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, customConfig, customProtocol);
+      customRegistry.register(customProtocol);
+      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, customConfig, customRegistry);
 
       const commit = makeCommit({ subject: 'a'.repeat(51) });
       const results = await customValidator.validate([commit]);
@@ -370,8 +378,10 @@ describe('Validator', () => {
         trailers: { required: ['Confidence', 'Constraint'], custom: [], definitions: {}, permissive: true },
         validation: { ...LORE_DEFAULT_CONFIG.validation, strict: false },
       };
+      const requiredRegistry = new ProtocolRegistry();
       const requiredProtocol = new Protocol(LoreProtocolDefinition, requiredConfig);
-      const requiredValidator = new Validator(mockParser as any, mockAtomRepo as any, requiredConfig, requiredProtocol);
+      requiredRegistry.register(requiredProtocol);
+      const requiredValidator = new Validator(mockParser as any, mockAtomRepo as any, requiredConfig, requiredRegistry);
       mockParser.parse.mockReturnValue(makeTrailers({ Confidence: [] }));
 
       const commit = makeCommit();
@@ -390,8 +400,10 @@ describe('Validator', () => {
         trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true },
         validation: { ...LORE_DEFAULT_CONFIG.validation, strict: true },
       };
+      const strictRegistry = new ProtocolRegistry();
       const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
-      const strictValidator = new Validator(mockParser as any, mockAtomRepo as any, strictConfig, strictProtocol);
+      strictRegistry.register(strictProtocol);
+      const strictValidator = new Validator(mockParser as any, mockAtomRepo as any, strictConfig, strictRegistry);
       mockParser.parse.mockReturnValue(makeTrailers({ Confidence: [] }));
 
       const commit = makeCommit();
@@ -403,13 +415,15 @@ describe('Validator', () => {
       expect(requiredIssues[0].severity).toBe('error');
     });
 
-    it('should not warn when required trailers are `present', async () => {
+    it('should not warn when required trailers are present', async () => {
       const requiredConfig: Config = {
         ...LORE_DEFAULT_CONFIG,
         trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true },
       };
+      const requiredRegistry = new ProtocolRegistry();
       const requiredProtocol = new Protocol(LoreProtocolDefinition, requiredConfig);
-      const requiredValidator = new Validator(mockParser as any, mockAtomRepo as any, requiredConfig, requiredProtocol);
+      requiredRegistry.register(requiredProtocol);
+      const requiredValidator = new Validator(mockParser as any, mockAtomRepo as any, requiredConfig, requiredRegistry);
       mockParser.parse.mockReturnValue(
         makeTrailers({ Confidence: ['medium'] }),
       );
@@ -597,9 +611,9 @@ describe('Validator', () => {
         author: 'dev@example.com',
         intent: 'test',
         body: '',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aabbccdd'] }),
+        protocols: new Map(),
         filesChanged: [],
-      });
+      } as any);
       mockParser.parse.mockReturnValue(
         makeTrailers({
           Related: ['aabbccdd'],
@@ -617,7 +631,7 @@ describe('Validator', () => {
   });
 
   describe('Rule 11: custom trailer definitions', () => {
-    it('should error when a trailer marked as required in definitions `is missing', async () => {
+    it('should error when a trailer marked as required in definitions is missing', async () => {
       const configWithDef: Config = {
         ...LORE_DEFAULT_CONFIG,
         trailers: {
@@ -629,8 +643,10 @@ describe('Validator', () => {
           permissive: false,
         },
       };
+      const customRegistry = new ProtocolRegistry();
       const customProtocol = new Protocol(LoreProtocolDefinition, configWithDef);
-      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, configWithDef, customProtocol);
+      customRegistry.register(customProtocol);
+      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, configWithDef, customRegistry);
       mockParser.parse.mockReturnValue(makeTrailers({ [LORE_ID_KEY]: ['abc'] } as any)); // Missing Department
 
       const commit = makeCommit();
@@ -651,15 +667,17 @@ describe('Validator', () => {
               description: 'team',
               multivalue: false,
               validation: 'values',
-              values: { Alpha: '', Beta: '' },
+              values: { Alpha: { description: '' }, Beta: { description: '' } },
             },
           },
           custom: [],
           permissive: false,
         },
       };
+      const customRegistry = new ProtocolRegistry();
       const customProtocol = new Protocol(LoreProtocolDefinition, configWithDef);
-      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, configWithDef, customProtocol);
+      customRegistry.register(customProtocol);
+      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, configWithDef, customRegistry);
 
       mockParser.parse.mockReturnValue(makeTrailers({ Team: ['Gamma'] } as any));
 
@@ -683,8 +701,10 @@ describe('Validator', () => {
           permissive: false,
         },
       };
+      const customRegistry = new ProtocolRegistry();
       const customProtocol = new Protocol(LoreProtocolDefinition, configWithDef);
-      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, configWithDef, customProtocol);
+      customRegistry.register(customProtocol);
+      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, configWithDef, customRegistry);
 
       mockParser.parse.mockReturnValue(makeTrailers({ Ticket: ['invalid-123'] } as any));
 

@@ -1,27 +1,25 @@
 import type { Atom, AtomId, SupersessionStatus } from '../types/domain.js';
 import type { IProtocol } from '../interfaces/protocol.js';
+import type { ProtocolRegistry } from './protocol-registry.js';
 
 /**
  * Computes supersession chains and determines which atoms are active vs. superseded.
+ * Now supports resolving supersession across multiple protocols.
  *
  * GRASP: Information Expert -- the data it needs (Supersedes trailers) lives in atoms.
  * SRP: Only supersession logic, no git interaction or formatting.
  */
 export class SupersessionResolver {
-  constructor(private readonly protocol: IProtocol | undefined) {}
+  constructor(private readonly protocolRegistry: ProtocolRegistry) {}
 
   /**
-   * Given a set of atoms, compute which are superseded and by whom.
-   * Returns a map from AtomId to SupersessionStatus.
+   * Resolves supersession for a specific protocol.
    */
-  resolve(atoms: readonly Atom[]): Map<string, SupersessionStatus> {
+  resolveForProtocol(atoms: readonly Atom[], protocol: IProtocol): Map<string, SupersessionStatus> {
     const statusMap = new Map<string, SupersessionStatus>();
-    const protocol = this.protocol;
-    if (!protocol) return statusMap;
-
     const protocolName = protocol.name.toLowerCase();
 
-    // Initialize all atoms as not superseded
+    // 1. Initialize all atoms as not superseded
     for (const atom of atoms) {
       const state = atom.protocols.get(protocolName);
       const id = protocol.getIdentity(state?.trailers);
@@ -43,7 +41,7 @@ export class SupersessionResolver {
       }
     }
 
-    // First pass: mark direct supersessions
+    // 2. First pass: mark direct supersessions
     for (const atom of atoms) {
       const state = atom.protocols.get(protocolName);
       if (!state) continue;
@@ -65,44 +63,67 @@ export class SupersessionResolver {
       }
     }
 
-    // Second pass: resolve transitive chains
-    this.resolveTransitiveChains(atoms, atomById, statusMap);
+    // 3. Second pass: resolve transitive chains
+    this.resolveTransitiveChains(atoms, atomById, statusMap, protocol);
 
     return statusMap;
   }
 
   /**
-   * Filter atoms to only those that are active (not superseded).
+   * Resolves a global supersession map for all registered protocols.
+   * Returns a Map of protocolName -> statusMap.
+   */
+  resolveAll(atoms: readonly Atom[]): Map<string, Map<string, SupersessionStatus>> {
+    const results = new Map<string, Map<string, SupersessionStatus>>();
+    for (const protocol of this.protocolRegistry.getAll()) {
+        results.set(protocol.name.toLowerCase(), this.resolveForProtocol(atoms, protocol));
+    }
+    return results;
+  }
+
+  /**
+   * Filter atoms to only those that are active (not superseded in any matching protocol).
    */
   filterActive(
     atoms: readonly Atom[],
-    supersessionMap: Map<string, SupersessionStatus>,
+    globalStatusMap: Map<string, Map<string, SupersessionStatus>>,
   ): Atom[] {
-    const protocol = this.protocol;
-    if (!protocol) return [...atoms];
-
-    const protocolName = protocol.name.toLowerCase();
     return atoms.filter((atom) => {
-      const state = atom.protocols.get(protocolName);
-      const id = protocol.getIdentity(state?.trailers);
-      if (!id) return true; // If it doesn't have an ID for this protocol, it can't be superseded in this context
-      
-      const status = supersessionMap.get(id);
-      return status === undefined || !status.superseded;
+      let isSupersededInAny = false;
+      let hasProtocolMatch = false;
+
+      for (const [pName, statusMap] of globalStatusMap) {
+        const state = atom.protocols.get(pName);
+        const protocol = this.protocolRegistry.get(pName);
+        if (!protocol) continue;
+
+        const id = protocol.getIdentity(state?.trailers);
+
+        if (id) {
+          hasProtocolMatch = true;
+          const status = statusMap.get(id);
+          if (status?.superseded) {
+              isSupersededInAny = true;
+              break;
+          }
+        }
+      }
+
+      // If it's a protocol atom and superseded in its context, hide it.
+      // If it's not a protocol atom (agnostic mode), always show it.
+      return !hasProtocolMatch || !isSupersededInAny;
     });
   }
 
   /**
-   * Resolve transitive supersession chains.
+   * Resolve transitive supersession chains for a specific protocol.
    */
   private resolveTransitiveChains(
     atoms: readonly Atom[],
     atomById: Map<string, Atom>,
     statusMap: Map<string, SupersessionStatus>,
+    protocol: IProtocol,
   ): void {
-    const protocol = this.protocol;
-    if (!protocol) return;
-
     const protocolName = protocol.name.toLowerCase();
 
     for (const atom of atoms) {

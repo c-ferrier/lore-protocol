@@ -33,18 +33,35 @@ describe('Lore CLI 0.5.0 Compatibility Contract', () => {
     vi.unstubAllGlobals();
   });
 
-  it('CONTRACT: must support all 0.5.0 top-level commands', async () => {
+  it('CONTRACT: must support all 0.5.0 top-level commands and descriptions', async () => {
     const { program } = await buildLoreCli();
+    expect(program.description()).toBe('Structured decision context in git commits');
+    
     const commandNames = program.commands.map(cmd => cmd.name());
 
-    const expectedCommands = [
-      'init', 'context', 'constraints', 'rejected', 'directives', 
-      'tested', 'coverage', 'why', 'search', 'log', 'stale', 
-      'trace', 'commit', 'validate', 'squash', 'doctor'
-    ];
+    const expectedCommands: Record<string, string> = {
+      'init': 'Initialize .lore/ config in repository',
+      'context': 'Full lore summary for a code region',
+      'constraints': 'Active constraints for a code region',
+      'rejected': 'Previously rejected alternatives for a code region',
+      'directives': 'Active forward-looking warnings for a code region',
+      'tested': 'Test coverage: what was and was not verified',
+      'coverage': 'Test coverage map (alias for tested)',
+      'why': 'Decision context for a specific line or line range (Lore)',
+      'search': 'Search across all lore atoms with filters',
+      'log': 'Lore-enriched git log',
+      'stale': 'Flag potentially outdated knowledge',
+      'trace': 'Trace the lineage and relationships of a decision',
+      'commit': 'Create a Lore-enriched commit',
+      'validate': 'Validate commits for Lore protocol compliance',
+      'squash': 'Merge atoms for squash-merge preparation',
+      'doctor': 'Check the health of the decision repository'
+    };
 
-    for (const cmd of expectedCommands) {
-      expect(commandNames).toContain(cmd);
+    for (const [name, desc] of Object.entries(expectedCommands)) {
+      const cmd = program.commands.find(c => c.name() === name);
+      expect(cmd, `Command ${name} missing`).toBeDefined();
+      expect(cmd?.description(), `Description mismatch for ${name}`).toBe(desc);
     }
   });
 

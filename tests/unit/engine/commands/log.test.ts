@@ -66,13 +66,15 @@ interface Harness {
   consoleSpy: ReturnType<typeof vi.spyOn>;
 }
 
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+
 function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
   const findAll = vi.fn().mockResolvedValue(atoms);
   const findByTarget = vi.fn().mockResolvedValue(filteredAtoms ?? atoms);
   const atomRepository = { findAll, findByTarget } as unknown as AtomRepository;
 
   const supersessionResolver = {
-    resolve: vi.fn().mockReturnValue(new Map()),
+    resolveAll: vi.fn().mockReturnValue(new Map([['lore', new Map()]])),
     filterActive: vi.fn((atoms: Atom[]) => atoms),
   } as unknown as SupersessionResolver;
 
@@ -96,6 +98,10 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
 
   const program = new Command();
   program.exitOverride();
+  const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+  const protocolRegistry = new ProtocolRegistry();
+  protocolRegistry.register(protocol);
+
   registerLogCommand(program, {
     atomRepository,
     gitClient: {
@@ -104,7 +110,7 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
     supersessionResolver,
     getFormatter: () => formatter,
     config: LORE_DEFAULT_CONFIG,
-    protocol: new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG),
+    protocol,
   });
 
   return { program, capturedResult, findAll, findByTarget, consoleSpy };

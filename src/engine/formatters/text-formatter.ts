@@ -34,7 +34,7 @@ export class TextFormatter implements IOutputFormatter {
     const lines: string[] = [];
 
     if (result.atoms.length === 0) {
-      lines.push(this.c.dim('No lore atoms found.'));
+      lines.push(this.c.dim('No decision atoms found.'));
       return lines.join('\n');
     }
 
@@ -56,6 +56,8 @@ export class TextFormatter implements IOutputFormatter {
       // Final fallback to shortened commit hash
       const displayId = id || atom.commitHash.slice(0, 8);
 
+      // Determine supersession for the displayId
+      // In a multi-protocol result, we check if it is superseded in its primary protocol context
       const supersession = id ? supersessionMap.get(id) : undefined;
       const isSuperseded = supersession?.superseded ?? false;
 
@@ -70,7 +72,7 @@ export class TextFormatter implements IOutputFormatter {
         lines.push(`  ${this.c.dim(atom.body)}`);
       }
 
-      const trailerLines = this.formatTrailers(atom, visibleTrailers);
+      const trailerLines = this.formatTrailers(atom, visibleTrailers, displayId);
       for (const tl of trailerLines) {
         lines.push(`  ${tl}`);
       }
@@ -303,17 +305,13 @@ export class TextFormatter implements IOutputFormatter {
   private formatTrailers(
     atom: Atom,
     visibleTrailers: readonly string[] | 'all',
+    headerId: string
   ): string[] {
     const lines: string[] = [];
     const shouldShow = (key: string): boolean => {
       if (visibleTrailers === 'all') return true;
       return visibleTrailers.includes(key);
     };
-
-    // Find the ID shown in the header to avoid redundancy
-    const rootProtocol = this.protocolRegistry.getRoot();
-    const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
-    const headerId = rootProtocol?.getIdentity(primaryState?.trailers) || 'Unknown';
 
     // Render ALL protocol interpretations equally
     for (const [name, state] of atom.protocols.entries()) {
