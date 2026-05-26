@@ -22,7 +22,7 @@ describe('Cache Bypass Integration (--no-cache)', () => {
       engineDirName: '.atom',
       configFileName: 'config.toml',
       defaultConfig: MOCK_CONFIG,
-      protocols: [MOCK_PROTOCOL_DEFINITION],
+      staticProtocols: [MOCK_PROTOCOL_DEFINITION],
       packageJsonPath: pkgPath
     });
 

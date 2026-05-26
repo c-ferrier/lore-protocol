@@ -43,7 +43,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       engineDirName: '.test-atom',
       configFileName: 'config.toml',
       defaultConfig: MOCK_CONFIG,
-      protocols: [CUSTOM_PROTOCOL],
+      staticProtocols: [CUSTOM_PROTOCOL],
       packageJsonPath: pkgPath
     });
 
@@ -70,7 +70,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       engineDirName: '.atom',
       configFileName: 'config.toml',
       defaultConfig: MOCK_CONFIG,
-      protocols: [], // Atom starts empty
+      staticProtocols: [], // Atom starts empty
       packageJsonPath: pkgPath
     });
 
@@ -90,7 +90,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       engineDirName: '.atom',
       configFileName: 'config.toml',
       defaultConfig: MOCK_CONFIG,
-      protocols: [],
+      staticProtocols: [],
       packageJsonPath: pkgPath
     });
 
@@ -110,7 +110,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       engineDirName: '.atom',
       configFileName: 'config.toml',
       defaultConfig: MOCK_CONFIG,
-      protocols: [],
+      staticProtocols: [],
       packageJsonPath: pkgPath
     });
 

@@ -2,23 +2,12 @@ import { readFile, access, stat } from 'node:fs/promises';
 import { join, dirname, resolve, parse as parsePath } from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import type { IConfigLoader } from '../interfaces/config-loader.js';
-import type { 
-  Config, 
-  CustomTrailerDefinition, 
-  ValueDefinition,
-  TrailerUiKind,
-  TrailerUiColor
-} from '../types/config.js';
-import { 
-  TRAILER_UI_KINDS, 
-  TRAILER_UI_COLORS,
-} from '../../util/constants.js';
+import type { EngineConfig } from '../types/config.js';
 
-type ConfigSection = keyof Config;
+type ConfigSection = keyof EngineConfig;
 
 /**
  * Maps camelCase config keys to their TOML snake_case equivalents per section.
- * Direction: camelCase -> snake_case (the lookup we actually perform).
  */
 const CAMEL_TO_SNAKE: Record<string, Record<string, string>> = {
   validation: {
@@ -37,6 +26,7 @@ const CAMEL_TO_SNAKE: Record<string, Record<string, string>> = {
   },
   cli: {
     updateCheck: 'update_check',
+    cache: 'cache',
     queryCache: 'query_cache',
     queryCachePruneThreshold: 'query_cache_prune_threshold',
   },
@@ -45,21 +35,17 @@ const CAMEL_TO_SNAKE: Record<string, Record<string, string>> = {
 const VALID_OUTPUT_FORMATS = new Set(['text', 'json']);
 
 /**
- * Loads and merges config.toml files.
- * Walks up the directory tree for monorepo support.
- *
- * GRASP: Pure Fabrication -- filesystem access abstracted from domain.
- * SOLID: OCP -- adding a new config section requires only a DEFAULT_CONFIG entry
- *        and optionally a CAMEL_TO_SNAKE entry, not new if-blocks.
+ * Host-level configuration loader for the Atom Engine.
+ * Loads engine settings from .atom/config.toml
  */
-export class ConfigLoader implements IConfigLoader {
+export class EngineConfigLoader implements IConfigLoader<EngineConfig> {
   constructor(
     private readonly configDir: string,
     private readonly configFilename: string,
-    private readonly defaultConfig: Config,
+    private readonly defaultConfig: EngineConfig,
   ) {}
 
-  async loadForPath(targetPath: string): Promise<Config> {
+  async loadForPath(targetPath: string): Promise<EngineConfig> {
     const configPaths = await this.walkConfigPaths(resolve(targetPath));
 
     if (configPaths.length === 0) {
@@ -76,7 +62,7 @@ export class ConfigLoader implements IConfigLoader {
     return this.buildConfig(merged);
   }
 
-  async loadFromFile(configPath: string): Promise<Config> {
+  async loadFromFile(configPath: string): Promise<EngineConfig> {
     const parsed = await this.parseConfigFile(configPath);
     return this.buildConfig(parsed);
   }
@@ -86,29 +72,26 @@ export class ConfigLoader implements IConfigLoader {
     return paths[0] ?? null;
   }
 
-  /**
-   * Walk up directories collecting config.toml paths.
-   * Returns nearest-first order. Stops after first match when stopAtFirst is true.
-   */
   private async walkConfigPaths(startPath: string, stopAtFirst = false): Promise<string[]> {
     const paths: string[] = [];
-    let dir = await this.resolveStartDir(startPath);
+    let dir = resolve(startPath);
+    
+    // Resolve to directory if startPath is a file
+    try {
+      const s = await stat(dir);
+      if (s.isFile()) dir = dirname(dir);
+    } catch { /* best effort */ }
+
     const root = parsePath(dir).root;
 
     while (true) {
       const configPath = join(dir, this.configDir, this.configFilename);
-      const hasConfig = await this.fileExists(configPath);
-      if (hasConfig) {
+      if (await this.fileExists(configPath)) {
         paths.push(configPath);
         if (stopAtFirst) return paths;
       }
 
-      // Stop walking up if we hit a Git repository boundary.
-      // This prevents the engine from picking up parent configs that belong to a 
-      // different Git history (e.g. submodules or nested repos).
-      if (await this.fileExists(join(dir, '.git'))) {
-        break;
-      }
+      if (await this.fileExists(join(dir, '.git'))) break;
 
       const parentDir = dirname(dir);
       if (parentDir === dir || dir === root) break;
@@ -118,36 +101,12 @@ export class ConfigLoader implements IConfigLoader {
     return paths;
   }
 
-  /**
-   * Resolve a start path to the directory to begin walking from.
-   * Uses stat() for reliable file/directory detection,
-   * falling back to extension heuristic for non-existent paths.
-   */
-  private async resolveStartDir(startPath: string): Promise<string> {
-    const resolvedPath = resolve(startPath);
-
-    try {
-      const stats = await stat(resolvedPath);
-      return stats.isFile() ? dirname(resolvedPath) : resolvedPath;
-    } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-        return parsePath(resolvedPath).ext ? dirname(resolvedPath) : resolvedPath;
-      }
-      return resolvedPath;
-    }
-  }
-
   private async parseConfigFile(configPath: string): Promise<Record<string, unknown>> {
     const content = await readFile(configPath, 'utf-8');
     return parseToml(content) as Record<string, unknown>;
   }
 
-  /**
-   * Build a Config from raw TOML data.
-   * Iterates default configuration sections, resolves snake_case/camelCase aliases,
-   * and fills missing values from defaults.
-   */
-  private buildConfig(parsed: Record<string, unknown>): Config {
+  private buildConfig(parsed: Record<string, unknown>): EngineConfig {
     const sections = Object.keys(this.defaultConfig) as ConfigSection[];
     const result: Record<string, unknown> = {};
 
@@ -164,10 +123,6 @@ export class ConfigLoader implements IConfigLoader {
       const built: Record<string, unknown> = {};
 
       for (const [key, defaultValue] of Object.entries(defaults)) {
-        if (section === 'trailers' && key === 'definitions') {
-          built[key] = this.resolveDefinitions(sectionData[key]);
-          continue;
-        }
         built[key] = this.resolveFieldValue(sectionData, key, aliases[key], defaultValue);
       }
 
@@ -178,112 +133,20 @@ export class ConfigLoader implements IConfigLoader {
       result[section] = built;
     }
 
-    return result as unknown as Config;
+    return result as unknown as EngineConfig;
   }
 
-  /**
-   * Resolve a single field value from TOML data.
-   * Checks snake_case alias first, then camelCase key, then falls back to default.
-   */
   private resolveFieldValue(
     sectionData: Record<string, unknown>,
     camelKey: string,
     snakeKey: string | undefined,
     defaultValue: unknown,
   ): unknown {
-    let rawValue = (snakeKey ? sectionData[snakeKey] : undefined) ?? sectionData[camelKey];
-
-    // Legacy Fallbacks
-    if (rawValue === undefined && camelKey === 'subjectMaxLength') {
-      rawValue = sectionData['intent_max_length'];
-    }
+    const rawValue = (snakeKey ? sectionData[snakeKey] : undefined) ?? sectionData[camelKey];
 
     if (rawValue === undefined) return defaultValue;
     if (Array.isArray(defaultValue)) return Array.isArray(rawValue) ? rawValue : defaultValue;
     return typeof rawValue === typeof defaultValue ? rawValue : defaultValue;
-  }
-
-  /**
-   * Parse and validate custom trailer definitions from raw config data.
-   */
-  private resolveDefinitions(rawData: unknown): Record<string, CustomTrailerDefinition> {
-    if (!rawData || typeof rawData !== 'object') {
-      return {};
-    }
-
-    const result: Record<string, CustomTrailerDefinition> = {};
-    const entries = Object.entries(rawData as Record<string, unknown>);
-
-    for (const [key, value] of entries) {
-      if (!value || typeof value !== 'object') continue;
-
-      const def = value as Record<string, unknown>;
-      
-      let validation: 'values' | 'pattern' | 'none' = 'none';
-      if (def.validation === 'values' || def.validation === 'options') {
-        validation = 'values';
-      } else if (def.validation === 'pattern') {
-        validation = 'pattern';
-      }
-
-      const directives = Array.isArray(def.directives)
-        ? def.directives.filter((d): d is string => typeof d === 'string')
-        : undefined;
-
-      const uiRaw = typeof def.ui === 'object' && def.ui !== null ? def.ui as Record<string, unknown> : undefined;
-
-      result[key] = {
-        description: typeof def.description === 'string' ? def.description : '',
-        multivalue: typeof def.multivalue === 'boolean' ? def.multivalue : false,
-        validation,
-        values: this.resolveValues(def.values || def.options),
-        pattern: typeof def.pattern === 'string' ? def.pattern : undefined,
-        required: typeof def.required === 'boolean' ? def.required : false,
-        directives,
-        ui: uiRaw ? {
-          kind: (TRAILER_UI_KINDS as readonly string[]).includes(uiRaw.kind as string) 
-            ? uiRaw.kind as TrailerUiKind 
-            : undefined,
-          color: (TRAILER_UI_COLORS as readonly string[]).includes(uiRaw.color as string) 
-            ? uiRaw.color as TrailerUiColor 
-            : undefined,
-        } : undefined,
-      };
-    }
-
-    return result;
-  }
-
-  /**
-   * Normalize values from either a string array or a metadata record.
-   */
-  private resolveValues(valuesRaw: unknown): Record<string, ValueDefinition> | undefined {
-    if (Array.isArray(valuesRaw)) {
-      const result: Record<string, ValueDefinition> = {};
-      for (const opt of valuesRaw) {
-        if (typeof opt === 'string') {
-          result[opt] = { description: '' };
-        }
-      }
-      return result;
-    }
-
-    if (valuesRaw && typeof valuesRaw === 'object') {
-      const result: Record<string, ValueDefinition> = {};
-      for (const [key, value] of Object.entries(valuesRaw as Record<string, unknown>)) {
-        if (typeof value === 'string') {
-          result[key] = { description: value };
-        } else if (value && typeof value === 'object') {
-          const optDef = value as Record<string, unknown>;
-          result[key] = {
-            description: typeof optDef.description === 'string' ? optDef.description : '',
-          };
-        }
-      }
-      return result;
-    }
-
-    return undefined;
   }
 
   private async fileExists(filePath: string): Promise<boolean> {

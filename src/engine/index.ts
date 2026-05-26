@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { GitClient } from './services/git-client.js';
-import { ConfigLoader } from './services/config-loader.js';
+import { EngineConfigLoader } from './services/config-loader.js';
 import { Protocol } from './services/protocol.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
 import { TrailerParser } from './services/trailer-parser.js';
@@ -21,6 +21,7 @@ import { TerminalPrompt } from './services/terminal-prompt.js';
 import { CommitInputResolver } from './services/commit-input-resolver.js';
 import { HeadIdReader } from './services/head-id-reader.js';
 import { resolveProtocolRoot } from './services/root-resolver.js';
+import { DynamicProtocolLoader } from './services/protocol-loader.js';
 import { shouldCheckForUpdate } from '../util/update-check.js';
 import { getDisplayVersion } from '../util/version.js';
 import {
@@ -43,7 +44,7 @@ import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, ATOM_CACHE_DIR, QUERY_CACHE_D
 import type { IGitClient } from './interfaces/git-client.js';
 import type { IProtocol } from './interfaces/protocol.js';
 import type { ProtocolDefinition } from './interfaces/protocol-definition.js';
-import type { Config } from './types/config.js';
+import type { EngineConfig, ProtocolConfig } from './types/config.js';
 import type { IAtomCache } from './interfaces/atom-cache.js';
 import type { IQueryCache } from './interfaces/query-cache.js';
 import type { IOutputFormatter } from './interfaces/output-formatter.js';
@@ -52,13 +53,16 @@ export interface EngineOptions {
   binaryName: string;
   description: string;
   engineDirName: string;
-  protocolDirName?: string;
   configFileName: string;
-  defaultConfig: Config;
-  protocols: ProtocolDefinition[];
+  defaultConfig: EngineConfig;
+  staticProtocols: ProtocolDefinition[];
   packageJsonPath: string;
   jsonFormatterFactory?: (registry: ProtocolRegistry) => IOutputFormatter;
   textFormatterFactory?: (registry: ProtocolRegistry, options: { color: boolean }) => IOutputFormatter;
+  
+  // Hooks for Wrappers (e.g. Lore) to mutate state before bootstrap
+  onConfigLoaded?: (config: EngineConfig) => Promise<EngineConfig>;
+  onProtocolsLoaded?: (protocols: ProtocolDefinition[]) => Promise<ProtocolDefinition[]>;
 }
 
 /**
@@ -67,36 +71,28 @@ export interface EngineOptions {
 export async function runCli(options: EngineOptions) {
   const program = new Command();
 
-  // 1. Load Engine Configuration (Global/Local Engine Settings)
-  const engineConfigLoader = new ConfigLoader(
-    options.engineDirName,
-    options.configFileName,
-    options.defaultConfig
-  );
-
-  // 2. Resolve Engine Root
+  // 1. Resolve Roots
   const tempGitClient = new GitClient(process.cwd());
-  const { protocolRoot: engineRoot, gitRoot } = await resolveProtocolRoot(process.cwd(), engineConfigLoader, tempGitClient);
+  const engineConfigLoader = new EngineConfigLoader(options.engineDirName, options.configFileName, options.defaultConfig);
+  const { protocolRoot, gitRoot } = await resolveProtocolRoot(process.cwd(), engineConfigLoader, tempGitClient);
+  const activeRoot = protocolRoot || process.cwd();
 
-  // 3. Load Protocol Configuration if a separate dir is provided (e.g. .lore)
-  let config = await engineConfigLoader.loadForPath(engineRoot || process.cwd());
-  let protocolRoot = engineRoot;
-  let protocolConfigLoader = engineConfigLoader;
-
-  if (options.protocolDirName && options.protocolDirName !== options.engineDirName) {
-    protocolConfigLoader = new ConfigLoader(
-      options.protocolDirName,
-      options.configFileName,
-      config // Use engine config as base for protocol config
-    );
-    const { protocolRoot: pRoot } = await resolveProtocolRoot(process.cwd(), protocolConfigLoader, tempGitClient);
-    if (pRoot) {
-      protocolRoot = pRoot;
-      config = await protocolConfigLoader.loadForPath(pRoot);
-    }
+  // 2. Load Engine Configuration
+  let config = await engineConfigLoader.loadForPath(activeRoot);
+  if (options.onConfigLoaded) {
+    config = await options.onConfigLoaded(config);
   }
 
-  // Determine if we are running in a scoped context (protocol root is a subfolder of git root)
+  // 3. Load Protocols
+  const protocolsDir = join(activeRoot, options.engineDirName, 'protocols');
+  const dynamicLoader = new DynamicProtocolLoader(protocolsDir);
+  let allProtocols = [...options.staticProtocols, ...(await dynamicLoader.loadAll())];
+  
+  if (options.onProtocolsLoaded) {
+    allProtocols = await options.onProtocolsLoaded(allProtocols);
+  }
+
+  // Determine if we are running in a scoped context
   const isScoped = !!gitRoot && !!protocolRoot && protocolRoot !== gitRoot;
 
   // 4. Global Options
@@ -112,29 +108,28 @@ export async function runCli(options: EngineOptions) {
     .option('--context <path>', 'Run in the context of a specific directory')
     .option('--format <type>', 'Output format (text, json)', 'text');
 
-  // 5. Create primary services with resolved root context
-  const gitClient: IGitClient = new GitClient(protocolRoot);
+  // 5. Create primary services
+  const gitClient: IGitClient = new GitClient(activeRoot);
   const protocolRegistry = new ProtocolRegistry();
   
-  // Register provided protocols
-  for (const def of options.protocols) {
-    protocolRegistry.register(new Protocol(def, config));
+  for (const def of allProtocols) {
+    // Note: User overrides for specific protocols could be loaded here in the future
+    protocolRegistry.register(new Protocol(def, config as any));
   }
   
   const trailerParser = new TrailerParser();
-  const pathResolver = new PathResolver(process.cwd(), protocolRoot);
+  const pathResolver = new PathResolver(process.cwd(), activeRoot);
   const searchFilter = new SearchFilter(protocolRegistry);
   
   const atomCache: IAtomCache = new AtomCache(
-    join(protocolRoot || process.cwd(), options.engineDirName, CACHE_DIR, ATOM_CACHE_DIR),
+    join(activeRoot, options.engineDirName, CACHE_DIR, ATOM_CACHE_DIR),
   );
 
   const queryCache: IQueryCache = new QueryCache(
-    join(protocolRoot || process.cwd(), options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
+    join(activeRoot, options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
     config.cli.queryCachePruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
   );
 
-  // Fallback protocol for UI context (prefer root namespace)
   const defaultProtocol: IProtocol | undefined = protocolRegistry.getRoot() || protocolRegistry.getAll()[0];
 
   const atomRepository = new AtomRepository(
@@ -150,25 +145,23 @@ export async function runCli(options: EngineOptions) {
 
   const idGenerator = new IdGenerator();
   const supersessionResolver = new SupersessionResolver(protocolRegistry);
-  const stalenessDetector = new StalenessDetector(gitClient, config, protocolRegistry);
-  const commitBuilder = new CommitBuilder(trailerParser, idGenerator, config, protocolRegistry);
+  const stalenessDetector = new StalenessDetector(gitClient, config as any, protocolRegistry);
+  const commitBuilder = new CommitBuilder(trailerParser, idGenerator, config as any, protocolRegistry);
   const squashMerger = new SquashMerger(idGenerator, protocolRegistry);
-  const validator = new Validator(trailerParser, atomRepository, config, protocolRegistry);
+  const validator = new Validator(trailerParser, atomRepository, config as any, protocolRegistry);
   const prompt = new TerminalPrompt();
   const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry);
   const headIdReader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
 
   // 6. Check for updates
   if (config.cli.updateCheck && await shouldCheckForUpdate(packageJson.version)) {
-    // Non-blocking update check was successful
+    // Non-blocking update check
   }
 
   // 7. Formatter factory
   let cachedFormatter: IOutputFormatter | null = null;
   const getFormatter = (): IOutputFormatter => {
-    if (cachedFormatter !== null) {
-      return cachedFormatter;
-    }
+    if (cachedFormatter !== null) return cachedFormatter;
     const opts = program.opts();
     const isJson = opts.json || opts.format === 'json';
 
@@ -191,7 +184,7 @@ export async function runCli(options: EngineOptions) {
     commitInputResolver,
     headIdReader,
     getFormatter,
-    config,
+    config: config as any,
     protocol: defaultProtocol,
     protocolRegistry,
     trailerParser,
@@ -202,8 +195,8 @@ export async function runCli(options: EngineOptions) {
     stalenessDetector,
     pathResolver,
     searchFilter,
-    configLoader: protocolConfigLoader,
-    cacheDir: join(protocolRoot || process.cwd(), options.engineDirName, CACHE_DIR),
+    configLoader: engineConfigLoader as any,
+    cacheDir: join(activeRoot, options.engineDirName, CACHE_DIR),
   };
 
   registerWhyCommand(program, sharedDeps);
@@ -224,7 +217,7 @@ export async function runCli(options: EngineOptions) {
 /**
  * Executes the configured commander program.
  */
-export async function execute(program: Command, getFormatter: () => IOutputFormatter, config: Config) {
+export async function execute(program: Command, getFormatter: () => IOutputFormatter, config: EngineConfig) {
   try {
     await program.parseAsync(process.argv);
   } catch (error: unknown) {

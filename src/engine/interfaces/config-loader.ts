@@ -1,7 +1,5 @@
-import type { Config } from '../types/config.js';
-
-export interface IConfigLoader {
-  loadForPath(targetPath: string): Promise<Config>;
-  loadFromFile(configPath: string): Promise<Config>;
+export interface IConfigLoader<T = any> {
+  loadForPath(targetPath: string): Promise<T>;
+  loadFromFile(configPath: string): Promise<T>;
   findConfigPath(startPath: string): Promise<string | null>;
 }

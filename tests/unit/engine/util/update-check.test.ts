@@ -29,7 +29,7 @@ describe('Update Check Integration', () => {
         ...MOCK_CONFIG,
         cli: { ...MOCK_CONFIG.cli, updateCheck: true }
       },
-      protocols: [MOCK_PROTOCOL_DEFINITION],
+      staticProtocols: [MOCK_PROTOCOL_DEFINITION],
       packageJsonPath: pkgPath
     });
 
@@ -48,7 +48,7 @@ describe('Update Check Integration', () => {
         ...MOCK_CONFIG,
         cli: { ...MOCK_CONFIG.cli, updateCheck: false }
       },
-      protocols: [MOCK_PROTOCOL_DEFINITION],
+      staticProtocols: [MOCK_PROTOCOL_DEFINITION],
       packageJsonPath: pkgPath
     });
 

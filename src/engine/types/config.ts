@@ -7,6 +7,9 @@ export interface ValueDefinition {
   readonly description: string;
 }
 
+/**
+ * Definition of a single trailer type within a protocol.
+ */
 export interface CustomTrailerDefinition {
   readonly description: string;
   readonly multivalue: boolean;
@@ -38,31 +41,19 @@ export interface CustomTrailerDefinition {
   };
   /**
    * Strategy for merging values during 'atom squash'.
-   * - 'union': List all unique values (default for arrays).
-   * - 'rank-min': Pick value with lowest index in 'values'.
-   * - 'rank-max': Pick value with highest index in 'values'.
    */
   readonly squash?: 'union' | 'rank-min' | 'rank-max';
   /**
    * Strategy for generating new values (primarily used for identity keys).
-   * - 'hex8': Generate a random 8-character hex string (default).
-   * - 'uuid': Generate a v4 UUID.
-   * - 'none': Do not generate; user must provide.
    */
   readonly generator?: 'hex8' | 'uuid' | 'none';
 }
 
-export interface Config {
-  readonly protocol: {
-    readonly name: string;
-    readonly version: string;
-  };
-  readonly trailers: {
-    readonly required: readonly string[];
-    readonly custom: readonly string[];
-    readonly definitions: Record<string, CustomTrailerDefinition>;
-    readonly permissive: boolean;
-  };
+/**
+ * Host-level settings for the Decision Atom Engine.
+ * Stored in .atom/config.toml
+ */
+export interface EngineConfig {
   readonly validation: {
     readonly strict: boolean;
     readonly maxMessageLines: number;
@@ -80,8 +71,31 @@ export interface Config {
   };
   readonly cli: {
     readonly updateCheck: boolean;
-    readonly cache?: boolean;
-    readonly queryCache?: boolean;
-    readonly queryCachePruneThreshold?: number;
+    readonly cache: boolean;
+    readonly queryCache: boolean;
+    readonly queryCachePruneThreshold: number;
   };
+}
+
+/**
+ * Runtime configuration for a specific protocol instance.
+ * Merges static ProtocolDefinition with user overrides.
+ */
+export interface ProtocolConfig {
+  readonly version: string;
+  readonly trailers: {
+    readonly required: readonly string[];
+    readonly custom: readonly string[];
+    readonly definitions: Record<string, CustomTrailerDefinition>;
+    readonly permissive: boolean;
+  };
+}
+
+/** Legacy unified config type for backward compatibility during refactor */
+export interface Config extends EngineConfig {
+  readonly protocol: {
+    readonly name: string;
+    readonly version: string;
+  };
+  readonly trailers: ProtocolConfig['trailers'];
 }

@@ -1,3 +1,4 @@
+export * from './init.js';
 export * from './why.js';
 export * from './search.js';
 export * from './log.js';

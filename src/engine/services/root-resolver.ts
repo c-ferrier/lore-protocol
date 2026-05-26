@@ -17,7 +17,7 @@ export interface ProtocolRoots {
  */
 export async function resolveProtocolRoot(
   cwd: string,
-  configLoader: IConfigLoader,
+  configLoader: IConfigLoader<any>,
   gitClient: IGitClient,
 ): Promise<ProtocolRoots> {
   let protocolRoot = cwd;

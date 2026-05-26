@@ -1,36 +1,62 @@
 import type { Command } from 'commander';
 import type { IOutputFormatter } from '../../engine/interfaces/output-formatter.js';
-import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
+import { mkdir, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
-import { parse as parseToml } from 'smol-toml';
-import { LORE_CONFIG_DIR, LORE_CONFIG_FILENAME, LORE_DEFAULT_CONFIG } from '../defaults.js';
-import { ProtocolError } from '../../util/errors.js';
-import type { Config } from '../../engine/types/config.js';
+import { LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from '../defaults.js';
+import { registerInitCommand as registerEngineInit } from '../../engine/commands/init.js';
+import type { EngineConfig } from '../../engine/types/config.js';
 
+/**
+ * Lore-specific init command.
+ * 
+ * 1. Delegates core .atom setup to the Engine.
+ * 2. Creates legacy .lore/config.toml for 0.5.0 parity.
+ */
 export function registerInitCommand(
   program: Command,
   deps: {
     getFormatter: () => IOutputFormatter;
-    protocolName: string;
+    engineDirName: string;
+    configFileName: string;
+    defaultConfig: EngineConfig;
   },
 ): void {
-  const { protocolName } = deps;
-  const defaultContent = `[protocol]
+  const { getFormatter, engineDirName, configFileName, defaultConfig } = deps;
+
+  program
+    .command('init')
+    .description('Initialize Lore protocol and Atom Engine in repository')
+    .action(async () => {
+      const formatter = getFormatter();
+
+      // 1. Core Engine Setup (.atom/)
+      const engineInitAction = async () => {
+          const configDir = join(process.cwd(), engineDirName);
+          const configPath = join(configDir, configFileName);
+          await mkdir(configDir, { recursive: true });
+          await mkdir(join(configDir, 'protocols'), { recursive: true });
+          
+          if (!(await fileExists(configPath))) {
+              // Write a simple engine config
+              await writeFile(configPath, `[cli]\nupdate_check = true\ncache = true\n`, 'utf-8');
+              console.log(formatter.formatSuccess(`Created ${engineDirName}/${configFileName}`));
+          }
+      };
+      await engineInitAction();
+
+      // 2. Legacy Lore Setup (.lore/)
+      const loreDir = join(process.cwd(), LORE_CONFIG_DIR);
+      const lorePath = join(loreDir, LORE_CONFIG_FILENAME);
+
+      await mkdir(loreDir, { recursive: true });
+      if (!(await fileExists(lorePath))) {
+          const legacyContent = `[protocol]
 version = "1.0"
 
 [trailers]
-# If true, all unknown trailers are preserved. If false, only defined/custom are kept.
 permissive = true
 required = []
 custom = []
-
-# Define custom trailer rules here
-# [trailers.definitions.Department]
-# description = "The department responsible"
-# multivalue = false
-# validation = "options"
-# options = ["Engineering", "Product", "Design"]
-# required = true
 
 [validation]
 strict = false
@@ -43,154 +69,54 @@ drift_threshold = 20
 
 [output]
 default_format = "text"
-
-[follow]
-max_depth = 3
-
-[cli]
-update_check = true
 `;
-
-  program
-    .command('init')
-    .description(`Initialize .${protocolName.toLowerCase()}/ config in repository`)
-    .action(async () => {
-      const formatter = deps.getFormatter();
-      const configDir = join(process.cwd(), LORE_CONFIG_DIR);
-      const configPath = join(configDir, LORE_CONFIG_FILENAME);
-
-      // Check if config already exists
-      let exists = false;
-      try {
-        await access(configPath);
-        exists = true;
-      } catch {
-        // File does not exist
+          await writeFile(lorePath, legacyContent, 'utf-8');
+          console.log(formatter.formatSuccess(`Created ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} (0.5.0 parity)`));
+      } else {
+          console.log(formatter.formatSuccess(`Legacy config already exists at ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME}`));
       }
 
-      if (exists) {
-        const content = await readFile(configPath, 'utf-8');
-        console.log(formatter.formatSuccess(
-          `Config already exists at ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME}:`,
-        ));
-        console.log(content);
-
-        let parsed: Record<string, unknown>;
-        try {
-          parsed = parseToml(content) as Record<string, unknown>;
-        } catch (err) {
-          const message = `Your configuration file is corrupted and cannot be parsed: ${err instanceof Error ? err.message : String(err)}\n\nPlease fix the TOML syntax or reset your config.\nExample: mv ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME}.corrupted && lore init`;
-          throw new ProtocolError(message, 1);
-        }
-
-        const { missing, customized } = findConfigDiff(parsed);
-
-        if (missing.length > 0) {
-          console.log('\n' + formatter.formatSuccess(
-            'Your configuration is missing new options:',
-          ));
-          for (const item of missing) {
-            console.log(`  - ${item}`);
-          }
-
-          if (customized.length === 0) {
-            console.log('\nNotice: You are using default settings. You can safely reset your config to get the latest options.');
-            console.log(`Example: rm ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} && lore init`);
-          } else {
-            console.log('\nNotice: You have customized the following options:');
-            for (const item of customized) {
-              console.log(`  - ${item}`);
-            }
-            console.log('\nTo update: Rename your current config, run \`lore init\` again, and manually merge your changes.');
-            console.log(`Example: mv ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME}.bak && lore init`);
-          }
-        }
-        
-        // Ensure cache is ignored even if config already exists
-        await ensureCacheIgnored(formatter);
-        return;
-      }
-
-      // Create directory and write config
-      await mkdir(configDir, { recursive: true });
-      await writeFile(configPath, defaultContent, 'utf-8');
-
-      console.log(formatter.formatSuccess(
-        `Created ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} with protocol version 1.0`,
-      ));
-
-      // Ensure cache is ignored
-      await ensureCacheIgnored(formatter);
+      // 3. Gitignore (Idempotent)
+      await ensureIgnored(formatter, [
+          `${engineDirName}/cache`,
+          `${LORE_CONFIG_DIR}/cache`
+      ]);
     });
 }
 
-/**
- * Ensures that .lore/cache is added to the .gitignore in the current directory.
- * Uses process.cwd() to match where `lore init` creates .lore/config.toml.
- * Idempotent: does nothing if the pattern is already present.
- */
-async function ensureCacheIgnored(formatter: IOutputFormatter): Promise<void> {
-  const gitignorePath = join(process.cwd(), '.gitignore');
-  const ignorePattern = '.lore/cache';
-  let content = '';
-  let exists = false;
-
-  try {
-    content = await readFile(gitignorePath, 'utf-8');
-    exists = true;
-  } catch {
-    // File does not exist
-  }
-
-  const lines = content.split('\n').map((l) => l.trim());
-  if (lines.includes(ignorePattern)) {
-    return;
-  }
-
-  const suffix = content === '' || content.endsWith('\n') ? '' : '\n';
-  const newContent = `${content}${suffix}${ignorePattern}\n`;
-
-  await writeFile(gitignorePath, newContent, 'utf-8');
-
-  if (exists) {
-    console.log(formatter.formatSuccess(`Updated .gitignore to ignore ${ignorePattern}`));
-  } else {
-    console.log(formatter.formatSuccess(`Created .gitignore to ignore ${ignorePattern}`));
-  }
+async function fileExists(path: string): Promise<boolean> {
+    try {
+        await access(path);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
-function findConfigDiff(parsed: Record<string, unknown>): { missing: string[]; customized: string[] } {
-  const missing: string[] = [];
-  const customized: string[] = [];
+async function ensureIgnored(formatter: IOutputFormatter, patterns: string[]): Promise<void> {
+    const gitignorePath = join(process.cwd(), '.gitignore');
+    let content = '';
+    try {
+        const buf = await access(gitignorePath).then(() => true).catch(() => false);
+        if (buf) {
+            const raw = await import('node:fs').then(fs => fs.readFileSync(gitignorePath, 'utf-8'));
+            content = raw;
+        }
+    } catch { /* ignore */ }
 
-  const configKeys = Object.keys(LORE_DEFAULT_CONFIG) as (keyof Config)[];
+    const lines = content.split('\n').map(l => l.trim());
+    let updated = false;
 
-  for (const section of configKeys) {
-    const s = String(section) as keyof Config;
-    const defaults = LORE_DEFAULT_CONFIG[s] as Record<string, unknown>;
-    const userSection = parsed[s] as Record<string, unknown> | undefined;
-
-    if (!userSection || typeof userSection !== 'object') {
-      missing.push(`[${s}] section`);
-      continue;
+    for (const pattern of patterns) {
+        if (!lines.includes(pattern)) {
+            const suffix = content === '' || content.endsWith('\n') ? '' : '\n';
+            content += `${suffix}${pattern}\n`;
+            updated = true;
+            console.log(formatter.formatSuccess(`Updated .gitignore to ignore ${pattern}`));
+        }
     }
 
-    const sectionData = userSection as Record<string, unknown>;
-    for (const [key, defaultValue] of Object.entries(defaults)) {
-      // Skip the definitions dictionary as it's meant to be user-extensible
-      if (section === 'trailers' && key === 'definitions') continue;
-
-      // Convert camelCase from Config type to snake_case for TOML comparison
-      const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-      const userValue = sectionData[snakeKey] ?? sectionData[key];
-
-      if (userValue === undefined) {
-        missing.push(`${s}.${snakeKey}`);
-      } else if (JSON.stringify(userValue) !== JSON.stringify(defaultValue)) {
-        customized.push(`${s}.${snakeKey}`);
-      }
+    if (updated) {
+        await writeFile(gitignorePath, content, 'utf-8');
     }
-  }
-
-  return { missing, customized };
 }

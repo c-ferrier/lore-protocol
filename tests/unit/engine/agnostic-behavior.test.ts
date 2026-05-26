@@ -26,7 +26,7 @@ describe('Agnostic Behavior (Zero Protocols)', () => {
       engineDirName: '.atom',
       configFileName: 'config.toml',
       defaultConfig: MOCK_CONFIG,
-      protocols: [], // NO protocols
+      staticProtocols: [], // NO protocols
       packageJsonPath: pkgPath
     });
 

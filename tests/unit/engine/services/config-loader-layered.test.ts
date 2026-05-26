@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ConfigLoader } from '../../../../src/engine/services/config-loader.js';
+import { EngineConfigLoader } from '../../../../src/engine/services/config-loader.js';
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -33,7 +33,7 @@ query_cache = true
     `);
 
     // 2. Test Loading
-    const engineLoader = new ConfigLoader(ENGINE_DIR, 'config.toml', DEFAULT_CONFIG);
+    const engineLoader = new EngineConfigLoader(ENGINE_DIR, 'config.toml', DEFAULT_CONFIG);
     const engineConfig = await engineLoader.loadForPath(tempDir);
 
     expect(engineConfig.cli.updateCheck).toBe(false);
