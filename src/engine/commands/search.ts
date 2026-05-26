@@ -55,7 +55,7 @@ export function registerSearchCommand(
     .option('--has <trailer>', 'Filter atoms that contain this trailer type')
     .option('--author <email>', 'Filter by commit author')
     .option('--scope <name>', 'Filter by conventional commit scope')
-    .option('--text <query>', 'Full-text search across intent, body, and trailer values')
+    .option('--text <query>', 'Full-text search across subject, body, and trailer values')
     .option('--since <ref>', 'Only consider commits since ref/date')
     .option('--until <ref>', 'Upper time/revision bound')
     .option('--all', 'Include superseded entries')

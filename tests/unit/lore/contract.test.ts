@@ -48,7 +48,7 @@ describe('Lore CLI 0.5.0 Compatibility Contract', () => {
       'tested': 'Test coverage: what was and was not verified',
       'coverage': 'Test coverage map (alias for tested)',
       'why': 'Decision context for a specific line or line range (Lore)',
-      'search': 'Search across all lore atoms with filters',
+      'search': 'Search across all lore with filters',
       'log': 'Lore-enriched git log',
       'stale': 'Flag potentially outdated knowledge',
       'trace': 'Trace the lineage and relationships of a decision',

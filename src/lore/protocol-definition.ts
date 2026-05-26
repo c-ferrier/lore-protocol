@@ -1,5 +1,8 @@
 import type { ProtocolDefinition } from '../engine/interfaces/protocol-definition.js';
 import type { TrailerUiKind, TrailerUiColor } from '../engine/types/config.js';
+import type { Atom, StaleReason, SupersessionStatus } from '../engine/types/domain.js';
+import { parseTriggerHints } from '../util/trigger-parser.js';
+import { STALE_SIGNAL } from '../util/constants.js';
 
 /**
  * Enum values for Confidence, Scope-risk, and Reversibility.
@@ -224,5 +227,48 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
         order: 200,
       },
     }
-  }
+  },
+
+  getStaleSignals(atom: Atom, now: Date, supersessionMap: Map<string, SupersessionStatus>): StaleReason[] {
+    const reasons: StaleReason[] = [];
+    const state = atom.protocols.get('lore');
+    if (!state) return reasons;
+
+    // 1. Low Confidence Signal
+    const confidence = state.trailers.Confidence?.[0];
+    if (confidence === 'low') {
+      reasons.push({
+        signal: STALE_SIGNAL.LOW_CONFIDENCE,
+        description: '[Lore] Atom is marked as Confidence: low',
+      });
+    }
+
+    // 2. Expired Hints Signal
+    for (const directive of state.trailers.Directive || []) {
+      const hints = parseTriggerHints(directive);
+      if (hints.until && now > hints.until) {
+        reasons.push({
+          signal: STALE_SIGNAL.EXPIRED_HINT,
+          description: `[Lore] Directive "${directive}" has expired`,
+        });
+      }
+    }
+
+    // 3. Orphaned Dependency Signal
+    const refKeys = ['Supersedes', 'Depends-on', 'Related'];
+    for (const key of refKeys) {
+      const ids = state.trailers[key] || [];
+      for (const id of ids) {
+        const status = supersessionMap.get(id);
+        if (status?.superseded) {
+          reasons.push({
+            signal: STALE_SIGNAL.ORPHANED_DEP,
+            description: `[Lore] Dependency "${id}" (in ${key}) has been superseded by ${status.supersededBy}`,
+          });
+        }
+      }
+    }
+
+    return reasons;
+  },
 };

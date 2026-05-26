@@ -77,7 +77,7 @@ export class Protocol implements IProtocol {
 
   /**
    * Returns the raw regex pattern that identifies a commit belonging to this protocol.
-   * e.g., "^Lore-id: [0-9a-f]{8}"
+   * e.g., "^atom-id: [0-9a-f]{8}"
    */
   getDiscoveryPattern(): string {
     const prefix = this.namespace ? `${this.namespace}/` : '';
@@ -401,46 +401,10 @@ export class Protocol implements IProtocol {
     now: Date,
     supersessionMap: Map<string, SupersessionStatus>,
   ): StaleReason[] {
-    const reasons: StaleReason[] = [];
-    const state = atom.protocols.get(this.name.toLowerCase());
-    if (!state) return reasons;
-
-    // 1. Low Confidence Signal
-    const confidence = state.trailers.Confidence?.[0];
-    if (confidence === 'low') {
-      reasons.push({
-        signal: STALE_SIGNAL.LOW_CONFIDENCE,
-        description: `[${this.name}] Atom is marked as Confidence: low`,
-      });
+    if (this.definition.getStaleSignals) {
+      return this.definition.getStaleSignals(atom, now, supersessionMap);
     }
-
-    // 2. Expired Hints Signal
-    for (const directive of state.trailers.Directive || []) {
-      const hints = parseTriggerHints(directive);
-      if (hints.until && now > hints.until) {
-        reasons.push({
-          signal: STALE_SIGNAL.EXPIRED_HINT,
-          description: `[${this.name}] Directive "${directive}" has expired`,
-        });
-      }
-    }
-
-    // 3. Orphaned Dependency Signal
-    const refKeys = this.getReferenceKeys();
-    for (const key of refKeys) {
-      const ids = state.trailers[key] || [];
-      for (const id of ids) {
-        const status = supersessionMap.get(id);
-        if (status?.superseded) {
-          reasons.push({
-            signal: STALE_SIGNAL.ORPHANED_DEP,
-            description: `[${this.name}] Dependency "${id}" (in ${key}) has been superseded by ${status.supersededBy}`,
-          });
-        }
-      }
-    }
-
-    return reasons;
+    return [];
   }
 
   private normalizeValues(

@@ -1,7 +1,7 @@
 import type { Trailers } from './domain.js';
 
 /**
- * The structured input for creating a Lore atom.
+ * The structured input for creating a atom.
  * Maps directly to the uniform domain model.
  */
 export interface CommitInput {

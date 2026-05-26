@@ -95,7 +95,7 @@ export interface IProtocol {
 
   /**
    * Returns the raw regex pattern that identifies a commit belonging to this protocol.
-   * e.g., "^Lore-id: [0-9a-f]{8}"
+   * e.g., "^atom-id: [0-9a-f]{8}"
    */
   getDiscoveryPattern(): string;
 
@@ -122,7 +122,7 @@ export interface IProtocol {
 
   /**
    * Returns a Git grep pattern for finding a specific atom by its identity.
-   * e.g., "lore123" -> "^Lore-id: lore123"
+   * e.g., "lore123" -> "^atom-id: lore123"
    */
   getIdentityPattern(id: string): string;
 

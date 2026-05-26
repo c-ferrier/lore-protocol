@@ -1,4 +1,5 @@
 import type { CustomTrailerDefinition } from '../types/config.js';
+import type { Atom, StaleReason, SupersessionStatus } from '../types/domain.js';
 
 /**
  * Static definition for a protocol's metadata and schema.
@@ -11,4 +12,13 @@ export interface ProtocolDefinition {
   readonly namespace: string;
   readonly identityKey: string;
   readonly trailers: Record<string, CustomTrailerDefinition>;
+
+  /**
+   * Optional hook to identify staleness signals for an atom.
+   */
+  readonly getStaleSignals?: (
+    atom: Atom,
+    now: Date,
+    supersessionMap: Map<string, SupersessionStatus>,
+  ) => StaleReason[];
 }

@@ -37,7 +37,7 @@ export class InteractiveInputReader implements ICommitInputReader {
   }
 
   private async collectSubject(): Promise<string> {
-    return this.prompt.askText(PROMPT_STRINGS.INTENT, {
+    return this.prompt.askText(PROMPT_STRINGS.SUBJECT, {
       maxLength: 72,
     });
   }

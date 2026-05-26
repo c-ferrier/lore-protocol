@@ -3,7 +3,7 @@ import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import { rm } from 'node:fs/promises';
 
 /**
- * Register the `lore cache` command.
+ * Register the ` cache` command.
  * Provides management utilities for the local sharded cache.
  */
 export function registerCacheCommand(

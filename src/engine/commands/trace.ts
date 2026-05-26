@@ -8,7 +8,7 @@ import type { IGitClient } from '../interfaces/git-client.js';
 import type { IProtocol } from '../interfaces/protocol.js';
 
 /**
- * Register the `lore trace <id>` command.
+ * Register the ` trace <id>` command.
  * Finds an atom by its identity key, then BFS through all references to build
  * a graph of related decisions.
  *

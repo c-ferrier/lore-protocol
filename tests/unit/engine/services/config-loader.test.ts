@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ConfigLoader } from '../../../../src/engine/services/config-loader.js';
 import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
 
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -461,5 +461,22 @@ version = "1.5"
 
       expect(config.protocol.version).toBe('1.5');
     });
+    it('should fall back to legacy intent_max_length if subject_max_length is missing', async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), 'lore-config-fallback-'));
+      const configDir = join(tempDir, '.lore');
+      const configFile = join(configDir, 'config.toml');
+      
+      await mkdir(configDir, { recursive: true });
+      await writeFile(configFile, `
+[validation]
+intent_max_length = 50
+`);
+      
+      const config = await loader.loadForPath(tempDir);
+      expect(config.validation.subjectMaxLength).toBe(50);
+      
+      await rm(tempDir, { recursive: true, force: true });
+    });
   });
 });
+

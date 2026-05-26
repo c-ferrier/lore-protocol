@@ -18,7 +18,7 @@ import { slugify } from '../../util/string.js';
 
  */
 interface CommitCommandOptions {
-  readonly intent?: string;
+  readonly subject?: string;
   readonly body?: string;
   readonly file?: string;
   readonly interactive?: boolean;

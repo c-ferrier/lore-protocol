@@ -17,7 +17,7 @@ interface StaleCommandOptions {
 }
 
 /**
- * Register the `lore stale [target]` command.
+ * Register the ` stale [target]` command.
  * Flags potentially outdated knowledge using multiple staleness signals.
  * Target is optional -- if omitted, analyzes all atoms globally.
  */
@@ -33,7 +33,7 @@ export function registerStaleCommand(
 ): void {
   program
     .command('stale [target]')
-    .description('Flag potentially outdated knowledge')
+    .description('Flag potentially outdated atoms')
     .option('--older-than <duration>', 'Time-based staleness threshold (e.g., 6m, 1y)')
     .option('--drift <n>', 'File drift threshold (commits since atom)', parseInt)
     .option('--low-confidence', 'Flag low-confidence atoms')

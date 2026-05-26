@@ -62,6 +62,36 @@ export async function buildLoreCli() {
         }
     });
   }
+
+  const squashCmd = program.commands.find(c => c.name() === 'squash');
+  if (squashCmd) {
+    const subjectOpt = squashCmd.options.find(o => o.long === '--subject');
+    if (subjectOpt) (subjectOpt as any).hidden = true;
+
+    squashCmd.option('--intent <text>', 'Override the intent line of the merged message');
+
+    squashCmd.hook('preAction', (thisCommand) => {
+        const opts = thisCommand.opts();
+        if (opts.intent) {
+            thisCommand.setOptionValue('subject', opts.intent);
+        }
+    });
+  }
+
+  // 0.5.0 Parity: Command Descriptions and Options
+  const searchCmd = program.commands.find(c => c.name() === 'search');
+  if (searchCmd) {
+      searchCmd.description('Search across all lore with filters');
+      const textOpt = searchCmd.options.find(o => o.long === '--text');
+      if (textOpt) {
+          (textOpt as any).description = 'Full-text search across intent, body, and trailer values';
+      }
+  }
+
+  const staleCmd = program.commands.find(c => c.name() === 'stale');
+  if (staleCmd) {
+      staleCmd.description('Flag potentially outdated knowledge');
+  }
   // --------------------------
 
   // Register Lore-specific commands

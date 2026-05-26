@@ -7,9 +7,9 @@ export const DEFAULT_MAX_COMMITS = 1000;
 /** Default max number of query cache entries to keep (LRU pruning threshold) */
 export const DEFAULT_CACHE_PRUNE_THRESHOLD = 100;
 
-/** Prompt strings for interactive mode (Intent and Body only) */
+/** Prompt strings for interactive mode (Subject and Body only) */
 export const PROMPT_STRINGS = {
-  INTENT: 'Intent (why the change was made):',
+  SUBJECT: 'Subject (why the change was made):',
   ADD_BODY: 'Add a body? (narrative context)',
   BODY_INPUT: 'Body (press Enter on empty line to finish):',
 } as const;

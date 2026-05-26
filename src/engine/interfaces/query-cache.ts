@@ -2,8 +2,8 @@ import type { QueryOptions } from '../types/query.js';
 
 /**
  * Interface for the Query Cache.
- * Caches the final filtered list of git hashes for a given query intent.
- * This allows Lore to skip even the "Coarse" Git discovery pass if the HEAD has not changed.
+ * Caches the final filtered list of git hashes for a given query subject.
+ * This allows the Engine to skip even the "Coarse" Git discovery pass if the HEAD has not changed.
  *
  * GRASP: Pure Fabrication -- caching is a technical concern.
  */

@@ -14,7 +14,7 @@ import { mergeOptions } from './helpers/merge-options.js';
 
 /**
  * Register the log command.
- * Lore-enriched git log.
+ * atom-enriched git log.
  * Accepts paths as arguments and routes to the appropriate repository method.
  */
 export function registerLogCommand(
