@@ -294,7 +294,7 @@ export class TextFormatter implements IOutputFormatter {
     return lines.join('\n');
   }
 
-  private formatAtomHeader(atom: Atom, id: AtomId, superseded: boolean): string {
+  protected formatAtomHeader(atom: Atom, id: AtomId, superseded: boolean): string {
     const dateStr = this.formatDate(atom.date);
     const header = `\u2500\u2500 ${id} (${dateStr}, ${atom.author}) `;
     const rule = '\u2500'.repeat(Math.max(0, 60 - header.length));
