@@ -7,7 +7,6 @@ import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
 import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 
 const LORE_ID_KEY = "Lore-id";
-
 function makeAtom(options: {
   id: string;
   supersedes?: string[];
@@ -41,6 +40,7 @@ function makeAtom(options: {
     filesChanged: [],
   };
 }
+
 
 describe('SupersessionResolver', () => {
   let resolver: SupersessionResolver;

@@ -35,7 +35,6 @@ function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
 
 function makeAtom(overrides: Partial<any> = {}): Atom {
   const trailerOverrides = { ...overrides };
-  delete trailerOverrides.id;
   delete trailerOverrides.commitHash;
   delete trailerOverrides.date;
   delete trailerOverrides.author;
@@ -47,7 +46,6 @@ function makeAtom(overrides: Partial<any> = {}): Atom {
 
   const trailers = overrides.trailers ?? makeTrailers(trailerOverrides);
   return {
-    id: overrides.id ?? 'a1b2c3d4',
     commitHash: overrides.commitHash ?? 'abc1234567890',
     date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
     author: overrides.author ?? 'alice@example.com',

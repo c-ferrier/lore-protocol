@@ -44,7 +44,6 @@ function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
   }
   
   return {
-    id,
     commitHash: overrides.commitHash ?? 'abc1234567890',
     date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
     author: overrides.author ?? 'alice@example.com',
@@ -115,7 +114,7 @@ describe('TextFormatter', () => {
             newest: atom.date,
           },
         },
-        supersessionMap: new Map([[atom.id, { superseded: false, supersededBy: null }]]),
+        supersessionMap: new Map([['a1b2c3d4', { superseded: false, supersededBy: null }]]),
         visibleTrailers: 'all',
       };
 
@@ -172,7 +171,7 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap: new Map([[atom.id, { superseded: false, supersededBy: null }]]),
+        supersessionMap: new Map([['a1b2c3d4', { superseded: false, supersededBy: null }]]),
         visibleTrailers: ['Constraint'],
       };
 
@@ -204,7 +203,7 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap: new Map([[atom.id, { superseded: false, supersededBy: null }]]),
+        supersessionMap: new Map([['a1b2c3d4', { superseded: false, supersededBy: null }]]),
         visibleTrailers: 'all',
       };
 
@@ -229,7 +228,7 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap: new Map([[atom.id, { superseded: false, supersededBy: null }]]),
+        supersessionMap: new Map([['a1b2c3d4', { superseded: false, supersededBy: null }]]),
         visibleTrailers: 'all',
       };
 
@@ -247,7 +246,7 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 5, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap: new Map([[atom.id, { superseded: false, supersededBy: null }]]),
+        supersessionMap: new Map([['a1b2c3d4', { superseded: false, supersededBy: null }]]),
         visibleTrailers: 'all',
       };
 

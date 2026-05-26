@@ -19,7 +19,6 @@ describe('SearchFilter', () => {
 
   const mockAtoms: Atom[] = [
     {
-      id: 'abc12345',
       commitHash: 'h1',
       date: new Date('2026-05-01T12:00:00Z'),
       author: 'cole@example.com',
@@ -40,9 +39,8 @@ describe('SearchFilter', () => {
         }]
       ]),
       filesChanged: ['f1.ts'],
-    } as any,
+    },
     {
-      id: 'def67890',
       commitHash: 'h2',
       date: new Date('2026-05-10T12:00:00Z'),
       author: 'ivan@example.com',
@@ -63,19 +61,19 @@ describe('SearchFilter', () => {
         }]
       ]),
       filesChanged: ['f2.ts'],
-    } as any,
+    },
   ];
 
   it('should filter by scope', () => {
     const results = filter.filter(mockAtoms, { scope: 'auth' } as any);
     expect(results).toHaveLength(1);
-    expect(results[0].id).toBe('abc12345');
+    expect(results[0].commitHash).toBe('h1');
   });
 
   it('should filter by author', () => {
     const results = filter.filter(mockAtoms, { author: 'ivan' } as any);
     expect(results).toHaveLength(1);
-    expect(results[0].id).toBe('def67890');
+    expect(results[0].commitHash).toBe('h2');
   });
 
   it('should filter by date range (since)', () => {
@@ -83,13 +81,13 @@ describe('SearchFilter', () => {
       sinceDate: new Date('2026-05-05'),
     } as any);
     expect(results).toHaveLength(1);
-    expect(results[0].id).toBe('def67890');
+    expect(results[0].commitHash).toBe('h2');
   });
 
   it('should filter by trailer presence (has)', () => {
     const results = filter.filter(mockAtoms, { has: 'Constraint' } as any);
     expect(results).toHaveLength(1);
-    expect(results[0].id).toBe('abc12345');
+    expect(results[0].commitHash).toBe('h1');
   });
 
   it('should filter by confidence', () => {
@@ -97,13 +95,13 @@ describe('SearchFilter', () => {
       filters: { confidence: 'high' } 
     } as any);
     expect(results).toHaveLength(1);
-    expect(results[0].id).toBe('abc12345');
+    expect(results[0].commitHash).toBe('h1');
   });
 
   it('should filter by full-text search', () => {
     const results = filter.filter(mockAtoms, { text: 'layout' } as any);
     expect(results).toHaveLength(1);
-    expect(results[0].id).toBe('def67890');
+    expect(results[0].commitHash).toBe('h2');
   });
 
   describe('Backward Compatibility (Legacy Fallback)', () => {
