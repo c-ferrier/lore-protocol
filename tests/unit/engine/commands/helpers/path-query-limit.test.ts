@@ -35,7 +35,7 @@ function makeAtom(id: string, supersedes: string[] = []): Atom {
     commitHash: `hash_${id}`,
     date: new Date('2025-01-01'),
     author: 'test@example.com',
-    intent: `feat: ${id}`,
+    subject: `feat: ${id}`,
     body: '',
     protocols,
     filesChanged: ['src/test.ts'],

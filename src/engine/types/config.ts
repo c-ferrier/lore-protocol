@@ -66,7 +66,7 @@ export interface Config {
   readonly validation: {
     readonly strict: boolean;
     readonly maxMessageLines: number;
-    readonly intentMaxLength: number;
+    readonly subjectMaxLength: number;
   };
   readonly stale: {
     readonly olderThan: string;

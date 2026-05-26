@@ -45,14 +45,14 @@ export class SearchFilter {
     // Precise pass: Git --grep might match code snippets in the body.
     // This pass ensures we only match the actual intent line's scope.
     if (options.scope) {
-      const extractedScope = this.extractScope(atom.intent);
+      const extractedScope = this.extractScope(atom.subject);
       if (!extractedScope) return false;
 
       // If options.scope looks like a regex pattern (from AtomRepository), test it
       if (options.scope.includes('^') || options.scope.includes('\\')) {
         try {
           const regex = new RegExp(options.scope, 'i');
-          if (!regex.test(atom.intent)) return false;
+          if (!regex.test(atom.subject)) return false;
         } catch {
           // Fallback to simple comparison if regex is invalid
           if (extractedScope.toLowerCase() !== options.scope.toLowerCase()) return false;
@@ -94,7 +94,7 @@ export class SearchFilter {
   private atomMatchesText(atom: Atom, query: string): boolean {
     const textLower = query.toLowerCase();
 
-    if (atom.intent.toLowerCase().includes(textLower)) return true;
+    if (atom.subject.toLowerCase().includes(textLower)) return true;
     if (atom.body.toLowerCase().includes(textLower)) return true;
 
     // Search all trailers in all protocols uniformly

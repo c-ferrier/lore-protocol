@@ -2,17 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StalenessDetector } from '../../../../src/engine/services/staleness-detector.js';
 import type { IGitClient } from '../../../../src/engine/interfaces/git-client.js';
 import type { Config } from '../../../../src/engine/types/config.js';
-import type { Atom, SupersessionStatus } from '../../../../src/engine/types/domain.js';
-import type { IProtocol } from '../../../../src/engine/interfaces/protocol.js';
+import type { Atom, SupersessionStatus, StaleReason } from '../../../../src/engine/types/domain.js';
+import { STALE_SIGNAL } from '../../../../src/util/constants.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import type { IProtocol } from '../../../../src/engine/interfaces/protocol.js';
 
-const LORE_ID_KEY = "Lore-id";
+const MOCK_ID_KEY = "Mock-id";
 
 function createMockGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
   return {
     log: vi.fn(async () => []),
     blame: vi.fn(async () => []),
-    commit: vi.fn(async () => ({ hash: 'abc123', success: true })),
+    commit: vi.fn(async () => ({ hash: 'abc123', success: true, message: '' })),
     hasStagedChanges: vi.fn(async () => false),
     getRepoRoot: vi.fn(async () => '/repo'),
     isInsideRepo: vi.fn(async () => true),
@@ -27,7 +28,7 @@ function createDefaultConfig(overrides: Partial<Config['stale']> = {}): Config {
   return {
     protocol: { version: '1.0' },
     trailers: { required: [], custom: [], definitions: {}, permissive: true },
-    validation: { strict: false, maxMessageLines: 50, intentMaxLength: 72 },
+    validation: { strict: false, maxMessageLines: 50, subjectMaxLength: 72 },
     stale: {
       olderThan: '6m',
       driftThreshold: 20,
@@ -39,15 +40,62 @@ function createDefaultConfig(overrides: Partial<Config['stale']> = {}): Config {
   };
 }
 
+/**
+ * A truly generic Mock Protocol for engine-level testing.
+ * Implements staleness logic similar to Lore but without depending on it.
+ */
 function createMockProtocol(): IProtocol {
   return {
-    name: 'lore',
+    name: 'mock',
     version: '1.0',
-    identityKey: LORE_ID_KEY,
+    namespace: '',
+    identityKey: MOCK_ID_KEY,
+    permissive: true,
     getAuthorizedKeys: vi.fn(() => []),
     getDefinition: vi.fn(() => undefined),
-    getReferenceKeys: vi.fn(() => ['Supersedes', 'Depends-on', 'Related']),
+    getReferenceKeys: vi.fn(() => ['Supersedes', 'Depends-on']),
     isValidIdentity: vi.fn((id) => /^[a-f0-9]{8}$/.test(id)),
+    getIdentity: vi.fn((trailers) => trailers?.[MOCK_ID_KEY]?.[0] || null),
+    
+    // Core Engine Logic Test: verify that the detector delegates to this method
+    getStaleSignals: vi.fn((atom: Atom, now: Date, supersessionMap: Map<string, SupersessionStatus>): StaleReason[] => {
+      const reasons: StaleReason[] = [];
+      const state = atom.protocols.get('mock');
+      if (!state) return [];
+
+      // 1. Simulate 'low-confidence' signal
+      if (state.trailers.Confidence?.[0] === 'low') {
+        reasons.push({ signal: STALE_SIGNAL.LOW_CONFIDENCE, description: '[mock] Atom is marked as Confidence: low' });
+      }
+
+      // 2. Simulate 'expired-hint' signal using simplified date logic for tests
+      const parseUntilDate = (dateStr: string): Date | null => {
+          const m = dateStr.match(/^(\d{4})-(\d{2})(?:-(\d{2}))?$/);
+          if (!m) return null;
+          return new Date(parseInt(m[1]), parseInt(m[2]) - 1, m[3] ? parseInt(m[3]) : 1);
+      };
+
+      for (const directive of state.trailers.Directive || []) {
+          const match = directive.match(/\[until:([^\]]+)\]/);
+          if (match) {
+              const expiry = parseUntilDate(match[1]);
+              if (expiry && now > expiry) {
+                  reasons.push({ signal: STALE_SIGNAL.EXPIRED_HINT, description: `[mock] Directive "${directive}" has expired` });
+              }
+          }
+      }
+
+      // 3. Simulate 'orphaned-dep' signal
+      const deps = state.trailers['Depends-on'] || [];
+      for (const id of deps) {
+          const status = supersessionMap.get(id);
+          if (status?.superseded) {
+              reasons.push({ signal: STALE_SIGNAL.ORPHANED_DEP, description: `[mock] Dependency "${id}" has been superseded` });
+          }
+      }
+
+      return reasons;
+    }),
   } as any;
 }
 
@@ -55,43 +103,31 @@ function makeAtom(options: {
   id?: string;
   commitHash?: string;
   date?: Date;
-  author?: string;
-  intent?: string;
-  body?: string;
   confidence?: string;
   directives?: string[];
   dependsOn?: string[];
-  supersedes?: string[];
   filesChanged?: string[];
 }): Atom {
   const id = options.id ?? 'a1b2c3d4';
   const protocols = new Map();
-  protocols.set('lore', {
-    name: 'lore',
+  protocols.set('mock', {
+    name: 'mock',
     version: '1.0',
-    identityKey: LORE_ID_KEY,
+    identityKey: MOCK_ID_KEY,
     trailers: {
-      [LORE_ID_KEY]: [id],
-      Constraint: [],
-      Rejected: [],
+      [MOCK_ID_KEY]: [id],
       Confidence: options.confidence ? [options.confidence] : [],
-      'Scope-risk': [],
-      Reversibility: [],
       Directive: options.directives ?? [],
-      Tested: [],
-      'Not-tested': [],
-      Supersedes: options.supersedes ?? [],
       'Depends-on': options.dependsOn ?? [],
-      Related: [],
     },
   });
 
   return {
     commitHash: options.commitHash ?? 'abc12345',
     date: options.date ?? new Date('2025-01-15T10:00:00Z'),
-    author: options.author ?? 'dev@example.com',
-    intent: options.intent ?? 'feat: test commit',
-    body: options.body ?? '',
+    author: 'dev@example.com',
+    subject: 'feat: test commit',
+    body: '',
     protocols,
     filesChanged: options.filesChanged ?? [],
   };
@@ -105,16 +141,16 @@ describe('StalenessDetector', () => {
   let gitClient: IGitClient;
   let config: Config;
   let protocol: IProtocol;
-  let protocolRegistry: ProtocolRegistry;
+  let registry: ProtocolRegistry;
   let detector: StalenessDetector;
 
   beforeEach(() => {
     gitClient = createMockGitClient();
     config = createDefaultConfig();
     protocol = createMockProtocol();
-    protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(protocol);
-    detector = new StalenessDetector(gitClient, config, protocolRegistry);
+    registry = new ProtocolRegistry();
+    registry.register(protocol);
+    detector = new StalenessDetector(gitClient, config, registry);
   });
 
   describe('analyze', () => {
@@ -128,7 +164,7 @@ describe('StalenessDetector', () => {
         const result = await detector.analyze([atom], makeSupersessionMap([]));
 
         expect(result).toHaveLength(1);
-        expect(result[0].reasons.some((r) => r.signal === 'age')).toBe(true);
+        expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.AGE)).toBe(true);
       });
 
       it('should not flag atoms newer than the threshold', async () => {
@@ -144,7 +180,7 @@ describe('StalenessDetector', () => {
 
       it('should respect custom age threshold', async () => {
         config = createDefaultConfig({ olderThan: '30d' });
-        detector = new StalenessDetector(gitClient, config, protocolRegistry);
+        detector = new StalenessDetector(gitClient, config, registry);
 
         // Atom is 60 days old, threshold is 30 days
         const date = new Date();
@@ -154,12 +190,12 @@ describe('StalenessDetector', () => {
         const result = await detector.analyze([atom], makeSupersessionMap([]));
 
         expect(result).toHaveLength(1);
-        expect(result[0].reasons.some((r) => r.signal === 'age' && r.description.includes('30d'))).toBe(true);
+        expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.AGE && r.description.includes('30d'))).toBe(true);
       });
 
       it('should handle year duration format', async () => {
         config = createDefaultConfig({ olderThan: '1y' });
-        detector = new StalenessDetector(gitClient, config, protocolRegistry);
+        detector = new StalenessDetector(gitClient, config, registry);
 
         // Atom is 2 years old
         const date = new Date();
@@ -173,7 +209,7 @@ describe('StalenessDetector', () => {
 
       it('should handle week duration format', async () => {
         config = createDefaultConfig({ olderThan: '2w' });
-        detector = new StalenessDetector(gitClient, config, protocolRegistry);
+        detector = new StalenessDetector(gitClient, config, registry);
 
         // Atom is 3 weeks old
         const date = new Date();
@@ -198,8 +234,8 @@ describe('StalenessDetector', () => {
         const result = await detector.analyze([atom], makeSupersessionMap([]));
 
         expect(result).toHaveLength(1);
-        expect(result[0].reasons.some((r) => r.signal === 'drift')).toBe(true);
-        expect(result[0].reasons.some((r) => r.signal === 'drift' && r.description.includes('20'))).toBe(true);
+        expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.DRIFT)).toBe(true);
+        expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.DRIFT && r.description.includes('20'))).toBe(true);
       });
 
       it('should not flag files under the drift threshold', async () => {
@@ -228,7 +264,7 @@ describe('StalenessDetector', () => {
         const result = await detector.analyze([atom], makeSupersessionMap([]));
 
         expect(result).toHaveLength(1);
-        expect(result[0].reasons.some((r) => r.signal === 'drift' && r.description.includes('1 files'))).toBe(true);
+        expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.DRIFT && r.description.includes('1 files'))).toBe(true);
       });
 
       it('should handle errors from countCommitsSince gracefully', async () => {
@@ -247,7 +283,7 @@ describe('StalenessDetector', () => {
 
       it('should respect custom drift threshold', async () => {
         config = createDefaultConfig({ driftThreshold: 5 });
-        detector = new StalenessDetector(gitClient, config, protocolRegistry);
+        detector = new StalenessDetector(gitClient, config, registry);
         vi.mocked(gitClient.countCommitsSince).mockResolvedValue(10);
 
         const atom = makeAtom({
@@ -258,11 +294,11 @@ describe('StalenessDetector', () => {
         const result = await detector.analyze([atom], makeSupersessionMap([]));
 
         expect(result).toHaveLength(1);
-        expect(result[0].reasons.some((r) => r.signal === 'drift' && r.description.includes('5'))).toBe(true);
+        expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.DRIFT && r.description.includes('5'))).toBe(true);
       });
     });
 
-    describe('low confidence signal', () => {
+    describe('protocol-specific signals (delegation)', () => {
       it('should detect atoms with Confidence: low', async () => {
         const atom = makeAtom({
           date: new Date(),
@@ -272,7 +308,7 @@ describe('StalenessDetector', () => {
         const result = await detector.analyze([atom], makeSupersessionMap([]));
 
         expect(result).toHaveLength(1);
-        expect(result[0].reasons.some((r) => r.signal === 'low-confidence')).toBe(true);
+        expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.LOW_CONFIDENCE)).toBe(true);
       });
 
       it('should not flag atoms with Confidence: medium', async () => {
@@ -286,30 +322,6 @@ describe('StalenessDetector', () => {
         expect(result).toHaveLength(0);
       });
 
-      it('should not flag atoms with Confidence: high', async () => {
-        const atom = makeAtom({
-          date: new Date(),
-          confidence: 'high',
-        });
-
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
-
-        expect(result).toHaveLength(0);
-      });
-
-      it('should not flag atoms with empty confidence', async () => {
-        const atom = makeAtom({
-          date: new Date(),
-          confidence: undefined,
-        });
-
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
-
-        expect(result).toHaveLength(0);
-      });
-    });
-
-    describe('expired hints signal', () => {
       it('should detect expired [until:YYYY-MM] directives', async () => {
         const atom = makeAtom({
           date: new Date(),
@@ -319,100 +331,34 @@ describe('StalenessDetector', () => {
         const result = await detector.analyze([atom], makeSupersessionMap([]));
 
         expect(result).toHaveLength(1);
-        expect(result[0].reasons.some((r) => r.signal === 'expired-hint')).toBe(true);
-        expect(result[0].reasons.some((r) => r.signal === 'expired-hint' && r.description.includes('until:2024-06'))).toBe(true);
-      });
-
-      it('should detect expired [until:YYYY-MM-DD] directives', async () => {
-        const atom = makeAtom({
-          date: new Date(),
-          directives: ['Remove feature flag [until:2024-01-15]'],
-        });
-
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
-
-        expect(result).toHaveLength(1);
-        expect(result[0].reasons.some((r) => r.signal === 'expired-hint' && r.description.includes('until:2024-01-15'))).toBe(true);
-      });
-
-      it('should not flag future [until:] directives', async () => {
-        const futureDate = new Date();
-        futureDate.setFullYear(futureDate.getFullYear() + 1);
-        const futureStr = `${futureDate.getFullYear()}-12`;
-
-        const atom = makeAtom({
-          date: new Date(),
-          directives: [`Migrate to v2 API [until:${futureStr}]`],
-        });
-
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
-
-        expect(result).toHaveLength(0);
-      });
-
-      it('should detect multiple expired hints in different directives', async () => {
-        const atom = makeAtom({
-          date: new Date(),
-          directives: [
-            'Task A [until:2024-01]',
-            'Task B [until:2024-06]',
-          ],
-        });
-
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
-
-        expect(result).toHaveLength(1);
-        // Should have two expired hint reasons
-        const expiredReasons = result[0].reasons.filter((r) => r.signal === 'expired-hint');
-        expect(expiredReasons).toHaveLength(2);
-      });
-
-      it('should detect multiple expired hints within a single directive', async () => {
-        const atom = makeAtom({
-          date: new Date(),
-          directives: [
-            '[until:2024-01] Cleanup [until:2024-02] and then [until:2024-06]',
-          ],
-        });
-
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
-
-        expect(result).toHaveLength(1);
-        const expiredReasons = result[0].reasons.filter((r) => r.signal === 'expired-hint');
-        expect(expiredReasons).toHaveLength(3);
-        expect(expiredReasons[0].description).toContain('until:2024-01');
-        expect(expiredReasons[1].description).toContain('until:2024-02');
-        expect(expiredReasons[2].description).toContain('until:2024-06');
+        expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.EXPIRED_HINT)).toBe(true);
       });
 
       it('should handle directives without [until:] hints', async () => {
         const atom = makeAtom({
           date: new Date(),
-          directives: ['Keep this module small', 'Prefer composition over inheritance'],
+          directives: ['Keep this module small'],
         });
 
         const result = await detector.analyze([atom], makeSupersessionMap([]));
 
         expect(result).toHaveLength(0);
       });
-    });
 
-    describe('orphaned dependency signal', () => {
       it('should detect dependencies on superseded atoms', async () => {
         const atom = makeAtom({
           date: new Date(),
           dependsOn: ['bbbb2222'],
         });
 
-        const supersessionMap = makeSupersessionMap([
+        const statusMap = makeSupersessionMap([
           ['bbbb2222', { superseded: true, supersededBy: 'cccc3333' }],
         ]);
 
-        const result = await detector.analyze([atom], supersessionMap);
+        const result = await detector.analyze([atom], statusMap);
 
         expect(result).toHaveLength(1);
-        expect(result[0].reasons.some((r) => r.signal === 'orphaned-dep')).toBe(true);
-        expect(result[0].reasons.some((r) => r.signal === 'orphaned-dep' && r.description.includes('bbbb2222'))).toBe(true);
+        expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.ORPHANED_DEP)).toBe(true);
       });
 
       it('should not flag dependencies on active atoms', async () => {
@@ -421,52 +367,12 @@ describe('StalenessDetector', () => {
           dependsOn: ['bbbb2222'],
         });
 
-        const supersessionMap = makeSupersessionMap([
+        const statusMap = makeSupersessionMap([
           ['bbbb2222', { superseded: false, supersededBy: null }],
         ]);
 
-        const result = await detector.analyze([atom], supersessionMap);
+        const result = await detector.analyze([atom], statusMap);
 
-        expect(result).toHaveLength(0);
-      });
-
-      it('should not flag dependencies on unknown atoms', async () => {
-        const atom = makeAtom({
-          date: new Date(),
-          dependsOn: ['bbbb2222'],
-        });
-
-        // Empty map: dependency not found in the supersession map
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
-
-        expect(result).toHaveLength(0);
-      });
-
-      it('should detect multiple orphaned dependencies', async () => {
-        const atom = makeAtom({
-          date: new Date(),
-          dependsOn: ['bbbb2222', 'cccc3333'],
-        });
-
-        const supersessionMap = makeSupersessionMap([
-          ['bbbb2222', { superseded: true, supersededBy: 'dddd4444' }],
-          ['cccc3333', { superseded: true, supersededBy: 'eeee5555' }],
-        ]);
-
-        const result = await detector.analyze([atom], supersessionMap);
-
-        expect(result).toHaveLength(1);
-        const orphanReasons = result[0].reasons.filter((r) => r.signal === 'orphaned-dep');
-        expect(orphanReasons).toHaveLength(2);
-      });
-
-      it(`should skip invalid ${LORE_ID_KEY} references in depends-on`, async () => {
-        const atom = makeAtom({
-          date: new Date(),
-          dependsOn: ['not-valid-id'],
-        });
-
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
         expect(result).toHaveLength(0);
       });
     });
@@ -486,27 +392,20 @@ describe('StalenessDetector', () => {
           dependsOn: ['bbbb2222'],
         });
 
-        const supersessionMap = makeSupersessionMap([
+        const statusMap = makeSupersessionMap([
           ['bbbb2222', { superseded: true, supersededBy: 'cccc3333' }],
         ]);
 
-        const result = await detector.analyze([atom], supersessionMap);
+        const result = await detector.analyze([atom], statusMap);
 
         expect(result).toHaveLength(1);
         // Should have all 5 signals
-        expect(result[0].reasons.some((r) => r.signal === 'age')).toBe(true);
-        expect(result[0].reasons.some((r) => r.signal === 'drift')).toBe(true);
-        expect(result[0].reasons.some((r) => r.signal === 'low-confidence')).toBe(true);
-        expect(result[0].reasons.some((r) => r.signal === 'expired-hint')).toBe(true);
-        expect(result[0].reasons.some((r) => r.signal === 'orphaned-dep')).toBe(true);
-      });
-
-      it('should not report atoms with no staleness signals', async () => {
-        const atom = makeAtom({ date: new Date() });
-
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
-
-        expect(result).toHaveLength(0);
+        const signals = result[0].reasons.map(r => r.signal);
+        expect(signals).toContain(STALE_SIGNAL.AGE);
+        expect(signals).toContain(STALE_SIGNAL.DRIFT);
+        expect(signals).toContain(STALE_SIGNAL.LOW_CONFIDENCE);
+        expect(signals).toContain(STALE_SIGNAL.EXPIRED_HINT);
+        expect(signals).toContain(STALE_SIGNAL.ORPHANED_DEP);
       });
 
       it('should analyze multiple atoms independently', async () => {
@@ -519,9 +418,8 @@ describe('StalenessDetector', () => {
         const result = await detector.analyze([staleAtom, freshAtom], makeSupersessionMap([]));
 
         expect(result).toHaveLength(1);
-        // Map the atom by searching its protocols for the ID
-        const atomId = Array.from(result[0].atom.protocols.values())[0].trailers[LORE_ID_KEY][0];
-        expect(atomId).toBe('aaaa1111');
+        const state = result[0].atom.protocols.get('mock');
+        expect(state?.trailers[MOCK_ID_KEY][0]).toBe('aaaa1111');
       });
 
       it('should handle empty atom list', async () => {

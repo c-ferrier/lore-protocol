@@ -9,7 +9,7 @@ export const LORE_CONFIG_FILENAME = 'config.toml';
 export const LORE_DEFAULT_CONFIG: Config = {
   protocol: { name: 'Lore', version: '1.0' },
   trailers: { required: [], custom: [], definitions: {}, permissive: true },
-  validation: { strict: false, maxMessageLines: 50, intentMaxLength: 72 },
+  validation: { strict: false, maxMessageLines: 50, subjectMaxLength: 72 },
   stale: { olderThan: '6m', driftThreshold: 20 },
   output: { defaultFormat: 'text' },
   follow: { maxDepth: 3 },

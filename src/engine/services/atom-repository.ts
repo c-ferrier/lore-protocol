@@ -375,7 +375,7 @@ export class AtomRepository {
       commitHash: raw.hash,
       date: new Date(raw.date),
       author: raw.author,
-      intent: raw.subject,
+      subject: raw.subject,
       body: this.stripTrailersFromBody(raw.body, raw.trailers),
       filesChanged,
       protocols,

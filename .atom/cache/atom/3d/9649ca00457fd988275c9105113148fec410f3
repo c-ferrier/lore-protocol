@@ -1,9 +1,0 @@
-src/commands/commit.ts
-src/interfaces/git-client.ts
-src/main.ts
-src/services/commit-builder.ts
-src/services/commit-input-resolver.ts
-src/services/git-client.ts
-src/services/head-lore-id-reader.ts
-tests/unit/services/commit-builder.test.ts
-tests/unit/services/head-lore-id-reader.test.ts

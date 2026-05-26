@@ -47,7 +47,7 @@ function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
     commitHash: overrides.commitHash ?? 'abc1234567890',
     date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
     author: overrides.author ?? 'alice@example.com',
-    intent: overrides.intent ?? 'feat(auth): add login flow',
+    subject: overrides.subject ?? 'feat(auth): add login flow',
     body: overrides.body ?? '',
     protocols: overrides.protocols ?? new Map([
       ['lore', { name: 'Lore', version: '1.0', identityKey: LORE_ID_KEY, trailers }]
@@ -365,7 +365,7 @@ describe('TextFormatter', () => {
             valid: false,
             issues: [
               { severity: 'error', rule: 'lore-id-present', message: `${LORE_ID_KEY} trailer is missing` },
-              { severity: 'warning', rule: 'intent-length', message: 'Intent too long' },
+              { severity: 'warning', rule: 'subject-length', message: 'Intent too long' },
             ],
           },
         ],
@@ -437,7 +437,7 @@ describe('TextFormatter', () => {
   describe('formatTraceResult', () => {
     it('should show root and edges with tree characters', () => {
       const root = makeAtom({ id: 'aaaabbbb' });
-      const targetAtom = makeAtom({ id: 'ccccdddd', intent: 'related change' });
+      const targetAtom = makeAtom({ id: 'ccccdddd', subject: 'related change' });
       const data: FormattableTraceResult = {
         root,
         edges: [
@@ -520,13 +520,13 @@ describe('TextFormatter', () => {
     it('should show error messages with severity', () => {
       const output = formatter.formatError(1, [
         { severity: 'error', message: 'Something went wrong' },
-        { severity: 'warning', field: 'intent', message: 'Too long' },
+        { severity: 'warning', field: 'subject', message: 'Too long' },
       ]);
 
       expect(output).toContain('error');
       expect(output).toContain('Something went wrong');
       expect(output).toContain('warning');
-      expect(output).toContain('[intent]');
+      expect(output).toContain('[subject]');
       expect(output).toContain('Too long');
       expect(output).toContain('exit code 1');
     });

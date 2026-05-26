@@ -68,7 +68,7 @@ describe('Doctor Command', () => {
       commitHash: 'h1',
       date: new Date(),
       author: 'cole@example.com',
-      intent: 'intent',
+      subject: 'subject',
       body: '',
       protocols: new Map([
         ['fred', { name: 'Fred', identityKey: 'Fred-id', trailers: { 'Fred-id': ['12345678'], 'Depends-on': ['deadbeef'] } as any, version: '1.0' }]

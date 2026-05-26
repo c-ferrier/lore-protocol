@@ -48,14 +48,17 @@ function createMockFormatter(): IOutputFormatter {
 
 function createMockCommitBuilder(): CommitBuilder {
   return {
-    build: vi.fn().mockReturnValue({ message: 'built message', ids: { lore: 'a1b2c3d4' } }),
+    build: vi.fn().mockReturnValue({ 
+      message: 'built message', 
+      protocols: { lore: { lore_id: 'a1b2c3d4', version: '1.0' } } 
+    }),
     validate: vi.fn().mockReturnValue([]),
   } as unknown as CommitBuilder;
 }
 
 function createMockInputResolver(): CommitInputResolver {
   return {
-    resolve: vi.fn().mockResolvedValue({ intent: 'test commit' }),
+    resolve: vi.fn().mockResolvedValue({ subject: 'test commit' }),
   } as unknown as CommitInputResolver;
 }
 
@@ -106,7 +109,7 @@ describe('lore commit --amend', () => {
 
     // Without --amend, would throw NoStagedChangesError
     // With --amend, should succeed
-    await runCommitCommand(['--amend', '--intent', 'amend test'], deps);
+    await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
 
     expect(gitClient.hasStagedChanges).not.toHaveBeenCalled();
   });
@@ -115,7 +118,7 @@ describe('lore commit --amend', () => {
     const headIdReader = createMockHeadIdReader({ lore: 'cafebabe' });
     const deps = createDeps({ headIdReader });
 
-    await runCommitCommand(['--amend', '--intent', 'amend test'], deps);
+    await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
 
     expect(headIdReader.readIds).toHaveBeenCalledOnce();
     expect(deps.commitBuilder.build).toHaveBeenCalledWith(
@@ -127,7 +130,7 @@ describe('lore commit --amend', () => {
   it('should pass --amend flag to gitClient.commit', async () => {
     const deps = createDeps();
 
-    await runCommitCommand(['--amend', '--intent', 'amend test'], deps);
+    await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
 
     expect(deps.gitClient.commit).toHaveBeenCalledWith(
       'built message',
@@ -156,10 +159,10 @@ describe('lore commit --amend', () => {
     ).rejects.toThrow('--no-edit keeps the existing message unchanged');
   });
 
-  it('should throw when --no-edit is combined with --intent', async () => {
+  it('should throw when --no-edit is combined with --subject', async () => {
     const deps = createDeps();
     await expect(
-      runCommitCommand(['--amend', '--no-edit', '--intent', 'new'], deps),
+      runCommitCommand(['--amend', '--no-edit', '--subject', 'new'], deps),
     ).rejects.toThrow('--no-edit keeps the existing message unchanged');
   });
 
@@ -202,7 +205,7 @@ describe('lore commit --amend', () => {
     const deps = createDeps();
 
     await expect(
-      runCommitCommand(['--no-edit', '--intent', 'test'], deps),
+      runCommitCommand(['--no-edit', '--subject', 'test'], deps),
     ).rejects.toThrow('--no-edit can only be used with --amend');
   });
 
@@ -210,7 +213,7 @@ describe('lore commit --amend', () => {
     const headIdReader = createMockHeadIdReader({});
     const deps = createDeps({ headIdReader });
 
-    await runCommitCommand(['--amend', '--intent', 'amend non-lore'], deps);
+    await runCommitCommand(['--amend', '--subject', 'amend non-lore'], deps);
 
     expect(headIdReader.readIds).toHaveBeenCalledOnce();
     // empty from reader -> undefined passed to build -> generates new ID
@@ -224,7 +227,7 @@ describe('lore commit --amend', () => {
     const headIdReader = createMockHeadIdReader({ lore: 'cafebabe' });
     const deps = createDeps({ headIdReader });
 
-    await runCommitCommand(['--intent', 'normal commit'], deps);
+    await runCommitCommand(['--subject', 'normal commit'], deps);
 
     expect(headIdReader.readIds).not.toHaveBeenCalled();
     expect(deps.commitBuilder.build).toHaveBeenCalledWith(
@@ -237,7 +240,7 @@ describe('lore commit --amend', () => {
     const gitClient = createMockGitClient();
     const deps = createDeps({ gitClient });
 
-    await runCommitCommand(['--intent', 'normal'], deps);
+    await runCommitCommand(['--subject', 'normal'], deps);
 
     expect(gitClient.hasStagedChanges).toHaveBeenCalledOnce();
   });

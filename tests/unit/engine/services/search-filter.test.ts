@@ -22,7 +22,7 @@ describe('SearchFilter', () => {
       commitHash: 'h1',
       date: new Date('2026-05-01T12:00:00Z'),
       author: 'cole@example.com',
-      intent: 'feat(auth): valid login',
+      subject: 'feat(auth): valid login',
       body: 'Body text here',
       protocols: new Map([
         ['lore', { 
@@ -44,7 +44,7 @@ describe('SearchFilter', () => {
       commitHash: 'h2',
       date: new Date('2026-05-10T12:00:00Z'),
       author: 'ivan@example.com',
-      intent: 'fix(ui): layout bug',
+      subject: 'fix(ui): layout bug',
       body: 'Body text here',
       protocols: new Map([
         ['lore', { 
@@ -109,7 +109,7 @@ describe('SearchFilter', () => {
       const legacyAtom: any = {
         id: 'legacy123',
         trailers: { Confidence: ['high'] },
-        intent: 'legacy commit',
+        subject: 'legacy commit',
         body: '',
         date: new Date(),
         protocols: new Map()
@@ -128,7 +128,7 @@ describe('SearchFilter', () => {
     it('should match if a text query is found in a secondary protocol state', () => {
       const multiAtom: any = {
         id: 'id123',
-        intent: 'subject',
+        subject: 'subject',
         body: 'body',
         date: new Date(),
         protocols: new Map([
@@ -144,7 +144,7 @@ describe('SearchFilter', () => {
     it('should match if any protocol in the atom matches generic filters', () => {
       const multiAtom: any = {
         id: 'id123',
-        intent: 'subject',
+        subject: 'subject',
         body: 'body',
         date: new Date(),
         protocols: new Map([

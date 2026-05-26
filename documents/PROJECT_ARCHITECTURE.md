@@ -973,7 +973,7 @@ The config loader accepts **both** snake_case (TOML convention) and camelCase fo
 | TOML key | Also accepts | Maps to |
 |----------|-------------|---------|
 | `max_message_lines` | `maxMessageLines` | `validation.maxMessageLines` |
-| `intent_max_length` | `intentMaxLength` | `validation.intentMaxLength` |
+| `intent_max_length` | `subjectMaxLength` | `validation.subjectMaxLength` |
 | `older_than` | `olderThan` | `stale.olderThan` |
 | `drift_threshold` | `driftThreshold` | `stale.driftThreshold` |
 | `default_format` | `defaultFormat` | `output.defaultFormat` |

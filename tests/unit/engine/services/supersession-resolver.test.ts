@@ -32,7 +32,7 @@ function makeAtom(options: {
     commitHash: `hash-${options.id}`,
     date: new Date('2025-01-15T10:00:00Z'),
     author: 'dev@example.com',
-    intent: 'test commit',
+    subject: 'test commit',
     body: '',
     protocols: new Map([
       ['lore', { name: 'Lore', version: '1.0', identityKey: LORE_ID_KEY, trailers }]

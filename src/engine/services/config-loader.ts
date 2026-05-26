@@ -23,7 +23,7 @@ type ConfigSection = keyof Config;
 const CAMEL_TO_SNAKE: Record<string, Record<string, string>> = {
   validation: {
     maxMessageLines: 'max_message_lines',
-    intentMaxLength: 'intent_max_length',
+    subjectMaxLength: 'subject_max_length',
   },
   stale: {
     olderThan: 'older_than',
@@ -191,7 +191,12 @@ export class ConfigLoader implements IConfigLoader {
     snakeKey: string | undefined,
     defaultValue: unknown,
   ): unknown {
-    const rawValue = (snakeKey ? sectionData[snakeKey] : undefined) ?? sectionData[camelKey];
+    let rawValue = (snakeKey ? sectionData[snakeKey] : undefined) ?? sectionData[camelKey];
+
+    // Legacy Fallbacks
+    if (rawValue === undefined && camelKey === 'subjectMaxLength') {
+      rawValue = sectionData['intent_max_length'];
+    }
 
     if (rawValue === undefined) return defaultValue;
     if (Array.isArray(defaultValue)) return Array.isArray(rawValue) ? rawValue : defaultValue;

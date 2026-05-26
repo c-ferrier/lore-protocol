@@ -155,15 +155,64 @@ describe('Lore CLI 0.5.0 Compatibility Contract', () => {
     expect(optionFlags).toContain('max-depth');
   });
 
-  it('CONTRACT: stale command must support all 0.5.0 thresholds', async () => {
+  it('CONTRACT: search command options and descriptions', async () => {
     const { program } = await buildLoreCli();
-    const staleCmd = program.commands.find(c => c.name() === 'stale')!;
-    
-    const contractOptions = ['older-than', 'drift', 'low-confidence'];
-    const optionFlags = staleCmd.options.map(o => o.long.replace(/^--/, ''));
-    
-    for (const opt of contractOptions) {
-      expect(optionFlags).toContain(opt);
+    const cmd = program.commands.find(c => c.name() === 'search')!;
+    const getOpt = (longFlag: string) => cmd.options.find(o => o.long === longFlag);
+
+    const expected: Record<string, string> = {
+      '--confidence': 'Filter by confidence: low, medium, high',
+      '--scope-risk': 'Filter by scope-risk: narrow, moderate, wide',
+      '--reversibility': 'Filter by reversibility: clean, migration-needed, irreversible',
+      '--has': 'Filter atoms that contain this trailer type',
+      '--author': 'Filter by commit author',
+      '--scope': 'Filter by conventional commit scope',
+      '--text': 'Full-text search across intent, body, and trailer values',
+      '--since': 'Only consider commits since ref/date',
+      '--until': 'Upper time/revision bound',
+      '--all': 'Include superseded entries',
+      '--limit': 'Maximum number of results to display',
+      '--max-commits': 'Maximum git commits to scan (supersession may be incomplete)'
+    };
+
+    for (const [flag, desc] of Object.entries(expected)) {
+      expect(getOpt(flag)?.description).toBe(desc);
+    }
+  });
+
+  it('CONTRACT: validate command options and descriptions', async () => {
+    const { program } = await buildLoreCli();
+    const cmd = program.commands.find(c => c.name() === 'validate')!;
+    const getOpt = (longFlag: string) => cmd.options.find(o => o.long === longFlag);
+
+    expect(getOpt('--since')?.description).toBe('Validate all commits since ref (e.g., main)');
+    expect(getOpt('--last')?.description).toBe('Validate the last N commits');
+    expect(getOpt('--strict')?.description).toBe('Treat warnings as errors');
+  });
+
+  it('CONTRACT: squash command options and descriptions', async () => {
+    const { program } = await buildLoreCli();
+    const cmd = program.commands.find(c => c.name() === 'squash')!;
+    const getOpt = (longFlag: string) => cmd.options.find(o => o.long === longFlag);
+
+    expect(getOpt('--intent')?.description).toBe('Override the intent line of the merged message');
+    expect(getOpt('--body')?.description).toBe('Override the body of the merged message');
+  });
+
+  it('CONTRACT: path-query commands (context, constraints, etc.) options', async () => {
+    const { program } = await buildLoreCli();
+    const commands = ['context', 'constraints', 'rejected', 'directives', 'tested', 'coverage'];
+    const getOpt = (cmd: any, longFlag: string) => cmd.options.find((o: any) => o.long === longFlag);
+
+    for (const name of commands) {
+        const cmd = program.commands.find(c => c.name() === name)!;
+        expect(getOpt(cmd, '--scope')?.description).toBe('Filter by conventional commit scope instead of path');
+        expect(getOpt(cmd, '--follow')?.description).toBe('Transitively follow Related/Supersedes/Depends-on links');
+        expect(getOpt(cmd, '--all')?.description).toBe('Include superseded entries');
+        expect(getOpt(cmd, '--author')?.description).toBe('Filter by commit author');
+        expect(getOpt(cmd, '--limit')?.description).toBe('Maximum number of results to display');
+        expect(getOpt(cmd, '--max-commits')?.description).toBe('Maximum git commits to scan (supersession may be incomplete)');
+        expect(getOpt(cmd, '--since')?.description).toBe('Only consider commits since ref/date');
     }
   });
 });

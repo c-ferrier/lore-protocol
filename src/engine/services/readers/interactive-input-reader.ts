@@ -27,16 +27,16 @@ export class InteractiveInputReader implements ICommitInputReader {
 
   async read(): Promise<CommitInput> {
     try {
-      const intent = await this.collectIntent();
+      const subject = await this.collectSubject();
       const body = await this.collectBody();
       const trailers = await this.collectTrailers();
-      return { intent, body, trailers };
+      return { subject, body, trailers };
     } finally {
       this.prompt.close();
     }
   }
 
-  private async collectIntent(): Promise<string> {
+  private async collectSubject(): Promise<string> {
     return this.prompt.askText(PROMPT_STRINGS.INTENT, {
       maxLength: 72,
     });

@@ -31,23 +31,15 @@ export interface CommitCommandOptions {
   readonly edit?: boolean;
   readonly file?: string;
   readonly interactive?: boolean;
-  readonly intent?: string;
+  readonly subject?: string;
   readonly body?: string;
   readonly trailer?: string[];
-  /** Dynamic core flags from definitions (e.g. confidence, scope-risk) */
+  /** Dynamic flags from definitions (e.g. confidence, scope-risk) */
   readonly [key: string]: unknown;
 }
 
 /**
  * Resolves commit input from the appropriate source based on CLI options.
- * Now supports multiple protocols via ProtocolRegistry.
- *
- * Pure dispatcher: determines the input mode, constructs the appropriate
- * ICommitInputReader strategy, and delegates reading to it.
- *
- * Mode priority: interactive > file > flags > stdin.
- * When no flags are set and stdin is a TTY, resolves to 'interactive' to
- * avoid hanging on stdin.
  */
 export class CommitInputResolver {
   constructor(
@@ -75,10 +67,10 @@ export class CommitInputResolver {
       return InputMode.File;
     }
     
-    // Check if any intent or any trailer flag was provided
-    const baseFlags = ['amend', 'edit', 'intent', 'body', 'file', 'trailer', 'interactive', 'json', 'format', 'color', 'context', 'cache'];
+    // Check if the subject line or any trailer flag was provided
+    const baseFlags = ['amend', 'edit', 'subject', 'body', 'file', 'trailer', 'interactive', 'json', 'format', 'color', 'context', 'cache'];
     const extraKeys = Object.keys(options).filter(k => !baseFlags.includes(k) && options[k] !== undefined);
-    const hasFlags = !!options.intent || (options.trailer && options.trailer.length > 0) || extraKeys.length > 0;
+    const hasFlags = !!options.subject || (options.trailer && options.trailer.length > 0) || extraKeys.length > 0;
 
     if (hasFlags) {
       return InputMode.Flags;

@@ -1,5 +1,0 @@
-src/commands/init.ts
-src/main.ts
-src/types/config.ts
-src/util/constants.ts
-tests/unit/commands/init.test.ts

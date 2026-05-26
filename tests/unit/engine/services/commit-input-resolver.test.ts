@@ -32,9 +32,9 @@ describe('CommitInputResolver', () => {
 
   describe('mode resolution priority', () => {
     it('should dispatch to flags reader when --intent is set', async () => {
-      const options = { intent: 'feat: add login' };
+      const options = { subject: 'feat: add login' };
       const result = await resolver.resolve(options);
-      expect(result.intent).toBe('feat: add login');
+      expect(result.subject).toBe('feat: add login');
     });
 
     it('should prefer interactive over file when both are set', async () => {
@@ -43,7 +43,7 @@ describe('CommitInputResolver', () => {
       // Since resolve() actually runs it, we need to mock the reader or just verify behavior.
       vi.mocked(prompt.askText).mockResolvedValue('inter-intent');
       const result = await resolver.resolve(options);
-      expect(result.intent).toBe('inter-intent');
+      expect(result.subject).toBe('inter-intent');
     });
 
     it('should prefer flags over stdin when intent is set and not a TTY', async () => {
@@ -52,10 +52,10 @@ describe('CommitInputResolver', () => {
         stdin: { isTTY: false },
       });
 
-      const options = { intent: 'feat: from flags' };
+      const options = { subject: 'feat: from flags' };
       const result = await resolver.resolve(options);
 
-      expect(result.intent).toBe('feat: from flags');
+      expect(result.subject).toBe('feat: from flags');
       vi.unstubAllGlobals();
     });
   });

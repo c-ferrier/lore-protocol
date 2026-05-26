@@ -1,9 +1,0 @@
-src/main.ts
-src/services/atom-repository.ts
-src/services/config-loader.ts
-src/services/git-client.ts
-src/services/path-resolver.ts
-src/services/root-resolver.ts
-tests/unit/root-resolver.test.ts
-tests/unit/services/atom-repository.test.ts
-tests/unit/services/path-resolver.test.ts

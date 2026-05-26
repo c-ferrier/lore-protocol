@@ -20,13 +20,15 @@ import type { ProtocolRegistry } from '../services/protocol-registry.js';
  * SOLID: SRP -- only responsible for human-readable text formatting.
  */
 export class TextFormatter implements IOutputFormatter {
-  private readonly c: ChalkInstance;
+  protected readonly c: ChalkInstance;
+  private readonly subjectLabel: string;
 
   constructor(
     private readonly protocolRegistry: ProtocolRegistry,
-    options: { color: boolean }
+    options: { color: boolean; subjectLabel?: string }
   ) {
     this.c = new Chalk({ level: options.color ? (chalk.level || 1) : 0 });
+    this.subjectLabel = options.subjectLabel || 'Subject';
   }
 
   formatQueryResult(data: FormattableQueryResult): string {
@@ -57,7 +59,6 @@ export class TextFormatter implements IOutputFormatter {
       const displayId = id || atom.commitHash.slice(0, 8);
 
       // Determine supersession for the displayId
-      // In a multi-protocol result, we check if it is superseded in its primary protocol context
       const supersession = id ? supersessionMap.get(id) : undefined;
       const isSuperseded = supersession?.superseded ?? false;
 
@@ -67,6 +68,9 @@ export class TextFormatter implements IOutputFormatter {
       if (isSuperseded && supersession?.supersededBy) {
         lines.push(this.c.dim(`  (superseded by ${supersession.supersededBy})`));
       }
+
+      // Always show the subject line
+      lines.push(`  ${this.c.bold(atom.subject)}`);
 
       if (atom.body) {
         lines.push(`  ${this.c.dim(atom.body)}`);
@@ -145,7 +149,7 @@ export class TextFormatter implements IOutputFormatter {
         this.c.yellow('STALE') +
           `  ${this.c.bold(id)} (${dateStr})`,
       );
-      lines.push(`  ${this.c.dim(report.atom.intent)}`);
+      lines.push(`  ${this.c.dim(report.atom.subject)}`);
       for (const reason of report.reasons) {
         lines.push(`  ${this.c.yellow('\u26A0')} ${reason.description}`);
       }
@@ -163,7 +167,7 @@ export class TextFormatter implements IOutputFormatter {
     const rootId = rootProtocol?.getIdentity(state?.trailers) || 'Unknown';
 
     lines.push(
-      `${this.c.bold(rootId)} ${this.c.dim(data.root.intent)}`,
+      `${this.c.bold(rootId)} ${this.c.dim(data.root.subject)}`,
     );
 
     const edgeCount = data.edges.length;
@@ -175,7 +179,7 @@ export class TextFormatter implements IOutputFormatter {
       
       if (edge.targetAtom) {
         lines.push(
-          `${connector} ${relLabel} ${this.c.bold(edge.to)} ${this.c.dim(edge.targetAtom.intent)}`,
+          `${connector} ${relLabel} ${this.c.bold(edge.to)} ${this.c.dim(edge.targetAtom.subject)}`,
         );
       } else {
         lines.push(

@@ -2,6 +2,7 @@ import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js
 import type { CommitInput } from '../../types/commit.js';
 import type { CommitCommandOptions } from '../commit-input-resolver.js';
 import type { IProtocol } from '../../interfaces/protocol.js';
+import { slugify, camelCase } from '../../../util/string.js';
 
 /**
  * Reads commit input from CLI flag values.
@@ -28,8 +29,8 @@ export class FlagsInputReader implements ICommitInputReader {
       const def = this.protocol.getDefinition(key);
       if (!def) continue;
 
-      const flagName = def.cli?.flag || this.slugify(key);
-      const camelName = this.camelCase(flagName);
+      const flagName = def.cli?.flag || slugify(key);
+      const camelName = camelCase(flagName);
       
       const flagValue = (this.options as Record<string, unknown>)[camelName] ?? (this.options as Record<string, unknown>)[flagName];
       if (flagValue !== undefined && flagValue !== null) {
@@ -51,7 +52,7 @@ export class FlagsInputReader implements ICommitInputReader {
     }
 
     return {
-      intent: this.options.intent ?? '',
+      subject: this.options.subject ?? '',
       body: this.options.body,
       trailers: trailers as CommitInput['trailers'],
     };
@@ -76,13 +77,5 @@ export class FlagsInputReader implements ICommitInputReader {
     }
 
     return map;
-  }
-
-  private slugify(text: string): string {
-    return text.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-  }
-
-  private camelCase(text: string): string {
-    return text.replace(/-([a-z0-9])/g, (_, char) => char.toUpperCase());
   }
 }

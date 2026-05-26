@@ -12,7 +12,7 @@ describe('lore commit (dynamic flags)', () => {
     commitBuilder: { build: vi.fn(), validate: vi.fn(() => []) },
     gitClient: { commit: vi.fn().mockResolvedValue({ hash: 'h1', rawMessage: 'm' }), hasStagedChanges: vi.fn().mockResolvedValue(true) },
     getFormatter: () => ({ formatSuccess: vi.fn() }),
-    commitInputResolver: { resolve: vi.fn().mockResolvedValue({ intent: 'i' }) },
+    commitInputResolver: { resolve: vi.fn().mockResolvedValue({ subject: 'i' }) },
     headIdReader: { readIds: vi.fn().mockResolvedValue({}) },
     trailerParser: new TrailerParser(),
   } as any;

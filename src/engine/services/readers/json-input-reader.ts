@@ -21,7 +21,7 @@ export class JsonInputReader implements ICommitInputReader {
     try {
       const data = JSON.parse(this.json);
       const input: CommitInput = {
-        intent: typeof data.intent === 'string' ? data.intent : '',
+        subject: typeof data.intent === 'string' ? data.intent : (typeof data.subject === 'string' ? data.subject : ''),
         body: typeof data.body === 'string' ? data.body : undefined,
       };
 

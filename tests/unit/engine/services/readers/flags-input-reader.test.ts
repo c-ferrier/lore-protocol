@@ -16,7 +16,7 @@ describe('FlagsInputReader', () => {
 
   it('should map all CLI options correctly', async () => {
     const options: CommitCommandOptions = {
-      intent: 'feat: add auth',
+      subject: 'feat: add auth',
       body: 'Detailed description',
       constraint: ['must be fast', 'no breaking changes'],
       rejected: ['approach A | too complex'],
@@ -34,7 +34,7 @@ describe('FlagsInputReader', () => {
     const reader = new FlagsInputReader(options, protocol);
     const result = await reader.read();
 
-    expect(result.intent).toBe('feat: add auth');
+    expect(result.subject).toBe('feat: add auth');
     expect(result.body).toBe('Detailed description');
     expect(result.trailers?.Constraint).toEqual(['must be fast', 'no breaking changes']);
     expect(result.trailers?.Rejected).toEqual(['approach A | too complex']);
@@ -52,44 +52,44 @@ describe('FlagsInputReader', () => {
   it('should default intent to empty string when undefined', async () => {
     const reader = new FlagsInputReader({}, protocol);
     const result = await reader.read();
-    expect(result.intent).toBe('');
+    expect(result.subject).toBe('');
   });
 
   it('should leave body undefined when not provided', async () => {
-    const reader = new FlagsInputReader({ intent: 't' }, protocol);
+    const reader = new FlagsInputReader({ subject: 't' }, protocol);
     const result = await reader.read();
     expect(result.body).toBeUndefined();
   });
 
   it('should leave array trailers undefined when not provided', async () => {
-    const reader = new FlagsInputReader({ intent: 't' }, protocol);
+    const reader = new FlagsInputReader({ subject: 't' }, protocol);
     const result = await reader.read();
     expect(result.trailers?.Constraint).toBeUndefined();
   });
 
   it('should leave enum trailers undefined when not provided', async () => {
-    const reader = new FlagsInputReader({ intent: 't' }, protocol);
+    const reader = new FlagsInputReader({ subject: 't' }, protocol);
     const result = await reader.read();
     expect(result.trailers?.Confidence).toBeUndefined();
   });
 
   it('should handle only intent and one trailer', async () => {
     const options: CommitCommandOptions = {
-      intent: 'quick fix',
+      subject: 'quick fix',
       confidence: 'low',
     };
 
     const reader = new FlagsInputReader(options, protocol);
     const result = await reader.read();
 
-    expect(result.intent).toBe('quick fix');
+    expect(result.subject).toBe('quick fix');
     expect(result.trailers?.Confidence).toEqual(['low']);
     expect(result.trailers?.Constraint).toBeUndefined();
   });
 
   it('should parse custom trailers correctly', async () => {
     const options: CommitCommandOptions = {
-      intent: 'feat',
+      subject: 'feat',
       trailer: ['Team=Gamma', 'Ticket:123', 'Foo=Bar=Baz'],
     };
 
@@ -103,7 +103,7 @@ describe('FlagsInputReader', () => {
 
   it('should allow core trailers in the custom flag during parsing (validation caught later)', async () => {
     const options: CommitCommandOptions = {
-      intent: 'feat',
+      subject: 'feat',
       trailer: ['Confidence=high'],
     };
 
@@ -114,7 +114,7 @@ describe('FlagsInputReader', () => {
 
   it('should map core trailers dynamically using metadata', async () => {
     const options: any = {
-      intent: 'dynamic',
+      subject: 'dynamic',
       confidence: 'medium',
       reversibility: 'clean',
       constraint: ['c1'],
@@ -135,7 +135,7 @@ describe('FlagsInputReader', () => {
     };
     const customProtocol = new Protocol(LoreProtocolDefinition, config);
     const options: any = {
-      intent: 't',
+      subject: 't',
       squad: ['Alpha'],
       teamName: ['Omega'],
     };
@@ -164,7 +164,7 @@ describe('FlagsInputReader', () => {
     };
     const customProtocol = new Protocol(LoreProtocolDefinition, config);
     const options: any = {
-      intent: 't',
+      subject: 't',
       dept: 'Eng',
     };
 
@@ -190,7 +190,7 @@ describe('FlagsInputReader', () => {
     };
     const customProtocol = new Protocol(LoreProtocolDefinition, config);
     const options: any = {
-      intent: 't',
+      subject: 't',
       assistedBy: ['Gemini'], // camelCase from kebab-case --assisted-by
     };
 
@@ -218,7 +218,7 @@ describe('FlagsInputReader', () => {
     
     // 2. Simulate CLI option 'regulatoryCompliance' (slugified + camelCased)
     const options = {
-      intent: 'feat',
+      subject: 'feat',
       regulatoryCompliance: ['GDPR', 'HIPAA'],
     };
 
@@ -231,7 +231,7 @@ describe('FlagsInputReader', () => {
 
   it('should preserve existing trailers when adding custom ones', async () => {
     const options: CommitCommandOptions = {
-      intent: 'feat',
+      subject: 'feat',
       confidence: 'low',
       trailer: ['Confidence=high', 'Department=Eng'],
     };

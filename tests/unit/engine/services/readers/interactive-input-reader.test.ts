@@ -86,7 +86,7 @@ describe('InteractiveInputReader', () => {
       const reader = new InteractiveInputReader(prompt, createTrailerCollectors(new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG)));
       const result = await reader.read();
 
-      expect(result.intent).toBe('refactor auth module');
+      expect(result.subject).toBe('refactor auth module');
       expect(result.body).toBe('This is the body text.');
       expect(result.trailers?.Constraint).toEqual(['must be fast']);
       expect(result.trailers?.Rejected).toEqual(['approach A | too slow']);
@@ -114,7 +114,7 @@ describe('InteractiveInputReader', () => {
       const reader = new InteractiveInputReader(prompt, createTrailerCollectors(new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG)));
       const result = await reader.read();
 
-      expect(result.intent).toBe('minimal intent');
+      expect(result.subject).toBe('minimal intent');
       expect(result.body).toBeUndefined();
       expect(result.trailers).toEqual({});
       expect(prompt.close).toHaveBeenCalled();

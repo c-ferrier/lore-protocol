@@ -65,22 +65,23 @@ describe('CommitBuilder', () => {
   describe('build', () => {
     it(`should build a minimal commit with intent and ${LORE_ID_KEY}`, () => {
       const input: CommitInput = {
-        intent: 'feat(auth): add login flow',
+        subject: 'feat(auth): add login flow',
         trailers: {}
       };
 
-      const { message, ids } = builder.build(input);
+      const { message, protocols } = builder.build(input);
 
       expect(mockIdGen.generate).toHaveBeenCalledOnce();
       expect(mockParser.serialize).toHaveBeenCalledOnce();
       expect(message).toContain('feat(auth): add login flow');
       expect(message).toContain(`${LORE_ID_KEY}: a1b2c3d4`);
-      expect(ids.lore).toBe('a1b2c3d4');
+      expect(protocols.lore.id).toBe('a1b2c3d4');
+      expect(protocols.lore.version).toBe('1.0');
     });
 
     it('should include body separated by blank lines', () => {
       const input: CommitInput = {
-        intent: 'feat: add feature',
+        subject: 'feat: add feature',
         body: 'This is a detailed explanation.',
         trailers: {}
       };
@@ -93,7 +94,7 @@ describe('CommitBuilder', () => {
 
     it('should include all trailer types', () => {
       const input: CommitInput = {
-        intent: 'feat: full commit',
+        subject: 'feat: full commit',
         trailers: {
           Constraint: ['Must use HTTPS', 'No external deps'],
           Rejected: ['Polling approach'],
@@ -127,36 +128,36 @@ describe('CommitBuilder', () => {
 
     it(`should auto-generate ${LORE_ID_KEY}`, () => {
       mockIdGen.generate.mockReturnValue('deadbeef');
-      const input: CommitInput = { intent: 'test', trailers: {} };
+      const input: CommitInput = { subject: 'test', trailers: {} };
 
-      const { message, ids } = builder.build(input);
+      const { message, protocols } = builder.build(input);
 
       expect(message).toContain(`${LORE_ID_KEY}: deadbeef`);
-      expect(ids.lore).toBe('deadbeef');
+      expect(protocols.lore.id).toBe('deadbeef');
     });
 
     it('should use provided existingId instead of generating one', () => {
-      const input: CommitInput = { intent: 'amend: update commit', trailers: {} };
+      const input: CommitInput = { subject: 'amend: update commit', trailers: {} };
 
-      const { message, ids } = builder.build(input, { lore: 'cafebabe' });
+      const { message, protocols } = builder.build(input, { lore: 'cafebabe' });
 
       expect(message).toContain(`${LORE_ID_KEY}: cafebabe`);
-      expect(ids.lore).toBe('cafebabe');
+      expect(protocols.lore.id).toBe('cafebabe');
       expect(mockIdGen.generate).not.toHaveBeenCalled();
     });
 
     it(`should generate new ${LORE_ID_KEY} when no existingId is provided`, () => {
-      const input: CommitInput = { intent: 'new commit', trailers: {} };
+      const input: CommitInput = { subject: 'new commit', trailers: {} };
 
-      const { ids } = builder.build(input);
+      const { protocols } = builder.build(input);
 
       expect(mockIdGen.generate).toHaveBeenCalledOnce();
-      expect(ids.lore).toBe('a1b2c3d4');
+      expect(protocols.lore.id).toBe('a1b2c3d4');
     });
 
     it('should pass correct trailers to serialize', () => {
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         trailers: { Confidence: ['medium'] },
       };
 
@@ -169,7 +170,7 @@ describe('CommitBuilder', () => {
 
     it('should pass custom trailers through to Trailers as arrays', () => {
       const input: CommitInput = {
-        intent: 'feat: with custom trailers',
+        subject: 'feat: with custom trailers',
         trailers: {
           Confidence: ['high'],
           'Assisted-by': ['Gemini:CLI'],
@@ -186,23 +187,50 @@ describe('CommitBuilder', () => {
       expect(passedTrailers['Ticket']).toEqual(['PROJ-123']);
     });
 
-    it('should produce empty object when no custom trailers provided', () => {
+    it('should correctly resolve trailer ownership between explicit and permissive protocols', () => {
+      // 1. Setup Fred protocol (Strict, namespaced)
+      const fredDef: any = {
+        name: 'Fred',
+        version: '1.0',
+        namespace: 'fred',
+        identityKey: 'Fred-id',
+        trailers: {
+          'Fred-id': { description: 'ID' },
+          'Fred-Level': { description: 'Level' },
+        }
+      };
+      const fredProtocol = new Protocol(fredDef, LORE_DEFAULT_CONFIG);
+      protocolRegistry.register(fredProtocol);
+
+      // 2. Setup Input with mixed trailers
       const input: CommitInput = {
-        intent: 'feat: no custom',
-        trailers: { Confidence: ['high'] },
+        subject: 'feat: mixed trailers',
+        trailers: {
+          'fred/Fred-Level': ['high'], // Explicitly namespaced for Fred
+          'Confidence': ['medium'],    // Root orphan, should be claimed by Lore
+          'Unknown-key': ['val'],      // Root orphan, should be claimed by Lore
+        }
       };
 
-      builder.build(input);
+      const { message, protocols } = builder.build(input, { lore: 'l1', fred: 'f1' });
 
-      const passedTrailers = vi.mocked(mockParser.serialize).mock.calls[0][0] as Record<string, string[]>;
-      expect(passedTrailers['Assisted-by']).toBeUndefined();
+      // 3. Verify Message (Serialized by mock parser)
+      expect(message).toContain('fred/Fred-id: f1'); // Identity MUST be namespaced
+      expect(message).toContain('fred/Fred-Level: high');
+      expect(message).toContain('Lore-id: l1');
+      expect(message).toContain('Confidence: medium');
+      expect(message).toContain('Unknown-key: val');
+
+      // 4. Verify Protocol State (Internal build results)
+      expect(protocols.fred.id).toBe('f1');
+      expect(protocols.lore.id).toBe('l1');
     });
   });
 
   describe('validate', () => {
     it('should return no issues for valid input', () => {
       const input: CommitInput = {
-        intent: 'feat: valid commit message',
+        subject: 'feat: valid commit message',
         trailers: {
           Confidence: ['medium'],
         },
@@ -214,12 +242,12 @@ describe('CommitBuilder', () => {
 
     it('should warn when intent exceeds max length', () => {
       const input: CommitInput = {
-        intent: 'a'.repeat(100),
+        subject: 'a'.repeat(100),
         trailers: {}
       };
 
       const issues = builder.validate(input);
-      const intentIssue = issues.find((i) => i.rule === 'intent-length');
+      const intentIssue = issues.find((i) => i.rule === 'subject-length');
       expect(intentIssue).toBeDefined();
       expect(intentIssue!.severity).toBe('warning');
       expect(intentIssue!.message).toContain('72');
@@ -227,19 +255,19 @@ describe('CommitBuilder', () => {
 
     it('should error when intent is empty', () => {
       const input: CommitInput = {
-        intent: '   ',
+        subject: '   ',
         trailers: {}
       };
 
       const issues = builder.validate(input);
-      const intentIssue = issues.find((i) => i.rule === 'intent-required');
+      const intentIssue = issues.find((i) => i.rule === 'subject-required');
       expect(intentIssue).toBeDefined();
       expect(intentIssue!.severity).toBe('error');
     });
 
     it('should error on invalid Confidence enum', () => {
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         trailers: { Confidence: ['super-high'] as any },
       };
 
@@ -253,7 +281,7 @@ describe('CommitBuilder', () => {
 
     it('should error on invalid Scope-risk enum', () => {
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         trailers: { 'Scope-risk': ['huge'] as any },
       };
 
@@ -266,7 +294,7 @@ describe('CommitBuilder', () => {
 
     it('should error on invalid Reversibility enum', () => {
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         trailers: { Reversibility: ['maybe'] as any },
       };
 
@@ -279,7 +307,7 @@ describe('CommitBuilder', () => {
 
     it('should error on invalid lore-id format in references', () => {
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         trailers: {
           Supersedes: ['not-hex!'],
           'Depends-on': ['aabbccdd'],
@@ -294,7 +322,7 @@ describe('CommitBuilder', () => {
 
     it('should accept valid 8-char hex references', () => {
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         trailers: {
           Supersedes: ['aabbccdd'],
           'Depends-on': ['11223344'],
@@ -325,7 +353,7 @@ describe('CommitBuilder', () => {
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictRegistry);
 
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         trailers: {}
       };
 
@@ -353,7 +381,7 @@ describe('CommitBuilder', () => {
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictRegistry);
 
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         trailers: {}
       };
 
@@ -365,7 +393,7 @@ describe('CommitBuilder', () => {
     it('should warn when message exceeds max lines', () => {
       const longBody = Array.from({ length: 60 }, (_, i) => `Line ${i + 1}`).join('\n');
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         body: longBody,
         trailers: {}
       };
@@ -378,7 +406,7 @@ describe('CommitBuilder', () => {
 
     it('should not warn when message is within line limit', () => {
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         body: 'Short body.',
         trailers: {}
       };
@@ -405,7 +433,7 @@ describe('CommitBuilder', () => {
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictRegistry);
 
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         trailers: { Confidence: ['medium'] },
       };
 
@@ -432,7 +460,7 @@ describe('CommitBuilder', () => {
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictRegistry);
 
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         trailers: { Confidence: ['high'] },
       };
 
@@ -461,7 +489,7 @@ describe('CommitBuilder', () => {
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictRegistry);
 
       const input: CommitInput = {
-        intent: 'test',
+        subject: 'test',
         trailers: {
           Confidence: ['high'],
           'Assisted-by': ['Gemini:CLI'],
@@ -493,7 +521,7 @@ describe('CommitBuilder', () => {
       const fredBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, LORE_DEFAULT_CONFIG, fredRegistry);
 
       const input = {
-        intent: 'feat',
+        subject: 'feat',
         trailers: { 'fred/Depends-on': ['invalid-id'] }
       };
 

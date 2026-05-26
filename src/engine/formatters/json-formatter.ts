@@ -10,6 +10,7 @@ import type {
 } from '../types/output.js';
 import type { Atom, ProtocolState } from '../types/domain.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import { snakeCase } from '../../util/string.js';
 
 /**
  * Strategy implementation for JSON output.
@@ -18,12 +19,19 @@ import type { ProtocolRegistry } from '../services/protocol-registry.js';
  * SOLID: SRP -- only responsible for JSON formatting.
  */
 export class JsonFormatter implements IOutputFormatter {
-  constructor(private readonly protocolRegistry: ProtocolRegistry) {}
+  private readonly subjectJsonKey: string;
+
+  constructor(
+    private readonly protocolRegistry: ProtocolRegistry,
+    subjectLabel = 'Subject'
+  ) {
+    this.subjectJsonKey = snakeCase(subjectLabel);
+  }
 
   formatQueryResult(data: FormattableQueryResult): string {
     const { result, supersessionMap, visibleTrailers } = data;
 
-    const rootProtocol = this.protocolRegistry.getRoot() || this.protocolRegistry.all()[0];
+    const rootProtocol = this.protocolRegistry.getRoot() || this.protocolRegistry.getAll()[0];
 
     const results = result.atoms.map((atom) => {
       const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
@@ -34,7 +42,7 @@ export class JsonFormatter implements IOutputFormatter {
         commit: atom.commitHash,
         date: atom.date.toISOString(),
         author: atom.author,
-        intent: atom.intent,
+        [this.subjectJsonKey]: atom.subject,
         body: atom.body,
         protocols: this.serializeProtocols(atom, visibleTrailers),
         files_changed: [...atom.filesChanged],
@@ -77,7 +85,6 @@ export class JsonFormatter implements IOutputFormatter {
           id: r.id,
           valid: r.valid,
           issues: r.issues.map((issue) => ({
-
             severity: issue.severity,
             rule: issue.rule,
             message: issue.message,
@@ -98,7 +105,7 @@ export class JsonFormatter implements IOutputFormatter {
             commit: report.atom.commitHash,
             date: report.atom.date.toISOString(),
             author: report.atom.author,
-            intent: report.atom.intent,
+            [this.subjectJsonKey]: report.atom.subject,
             protocols: this.serializeProtocols(report.atom, 'all'),
             reasons: report.reasons.map((r) => ({
               signal: r.signal,
@@ -120,7 +127,7 @@ export class JsonFormatter implements IOutputFormatter {
           commit: data.root.commitHash,
           date: data.root.date.toISOString(),
           author: data.root.author,
-          intent: data.root.intent,
+          [this.subjectJsonKey]: data.root.subject,
           protocols: this.serializeProtocols(data.root, 'all'),
         },
         edges: data.edges.map((edge) => ({
@@ -133,7 +140,7 @@ export class JsonFormatter implements IOutputFormatter {
                 commit: edge.targetAtom.commitHash,
                 date: edge.targetAtom.date.toISOString(),
                 author: edge.targetAtom.author,
-                intent: edge.targetAtom.intent,
+                [this.subjectJsonKey]: edge.targetAtom.subject,
                 protocols: this.serializeProtocols(edge.targetAtom, 'all'),
               }
             : null,
@@ -241,49 +248,45 @@ export class JsonFormatter implements IOutputFormatter {
   private serializeProtocolState(
     state: ProtocolState,
     visibleTrailers: readonly string[] | 'all',
-    definitions: Record<string, FormattableTrailerDefinition>
+    _definitions: Record<string, FormattableTrailerDefinition>
   ): Record<string, any> {
     const protocolObj = this.protocolRegistry.get(state.name.toLowerCase());
     const id = protocolObj ? protocolObj.getIdentity(state.trailers) : state.trailers[state.identityKey]?.[0] ?? null;
 
-    const idKey = `${state.name.toLowerCase().replace(/-/g, '_')}_id`;
-    const versionKey = `${state.name.toLowerCase().replace(/-/g, '_')}_version`;
     return {
-      [idKey]: id,
-      [versionKey]: state.version,
-      ...this.serializeTrailers(state, visibleTrailers, definitions),
+      id,
+      identity_key: state.identityKey,
+      version: state.version,
+      trailers: this.serializeTrailers(state, visibleTrailers),
     };
   }
 
   /**
-   * Transforms trailers into a flat JSON-friendly record.
+   * Transforms trailers into a flat JSON-friendly record using CANONICAL keys.
+   * Standardizes on symmetry: what you get out is what you put back in.
    */
   private serializeTrailers(
-    state: { identityKey: string; trailers: Record<string, readonly string[]> },
-    visibleTrailers: readonly string[] | 'all',
-    trailerDefinitions: Record<string, FormattableTrailerDefinition>,
+    state: ProtocolState,
+    visibleTrailers: readonly string[] | 'all'
   ): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     const trailers = state.trailers;
+    const protocolObj = this.protocolRegistry.get(state.name.toLowerCase());
 
     const shouldShow = (key: string): boolean => {
       if (visibleTrailers === 'all') return true;
       return visibleTrailers.includes(key);
     };
 
-    for (const key of Object.keys(trailers)) {
+    for (const [key, values] of Object.entries(trailers)) {
       if (key === state.identityKey) continue;
       if (!shouldShow(key)) continue;
-
-      const values = trailers[key];
       if (!values || values.length === 0) continue;
-
-      const jsonKey = key.toLowerCase().replace(/-/g, '_');
       
-      const def = trailerDefinitions[key];
+      const def = protocolObj?.getDefinition(key);
       const isScalar = def && !def.multivalue;
-      
-      result[jsonKey] = isScalar ? values[0] : [...values];
+
+      result[key] = isScalar ? values[0] : [...values];
     }
 
     return result;

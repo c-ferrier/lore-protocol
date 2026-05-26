@@ -5,7 +5,7 @@ describe('JsonInputReader', () => {
   describe('valid JSON', () => {
     it('should parse a complete JSON input with all trailers', async () => {
       const input = {
-        intent: 'fix bug in parser',
+        subject: 'fix bug in parser',
         body: 'Detailed explanation',
         trailers: {
           Constraint: ['must preserve backward compat'],
@@ -25,7 +25,7 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.intent).toBe('fix bug in parser');
+      expect(result.subject).toBe('fix bug in parser');
       expect(result.body).toBe('Detailed explanation');
       expect(result.trailers?.Constraint).toEqual(['must preserve backward compat']);
       expect(result.trailers?.Rejected).toEqual(['approach A | too complex']);
@@ -41,48 +41,48 @@ describe('JsonInputReader', () => {
     });
 
     it('should parse minimal JSON with only intent', async () => {
-      const input = { intent: 'minimal commit' };
+      const input = { subject: 'minimal commit' };
 
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.intent).toBe('minimal commit');
+      expect(result.subject).toBe('minimal commit');
       expect(result.body).toBeUndefined();
       expect(result.trailers).toBeUndefined();
     });
 
     it('should parse JSON with intent and body but no trailers', async () => {
-      const input = { intent: 'with body', body: 'Some body text' };
+      const input = { subject: 'with body', body: 'Some body text' };
 
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.intent).toBe('with body');
+      expect(result.subject).toBe('with body');
       expect(result.body).toBe('Some body text');
       expect(result.trailers).toBeUndefined();
     });
 
     it('should parse JSON with empty trailers object', async () => {
-      const input = { intent: 'with empty trailers', trailers: {} };
+      const input = { subject: 'with empty trailers', trailers: {} };
 
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.intent).toBe('with empty trailers');
+      expect(result.subject).toBe('with empty trailers');
       expect(result.trailers).toEqual({});
     });
 
     it('should default intent to empty string when not a string', async () => {
-      const input = { intent: 123 };
+      const input = { subject: 123 };
 
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.intent).toBe('');
+      expect(result.subject).toBe('');
     });
 
     it('should ignore body when not a string', async () => {
-      const input = { intent: 'test', body: 42 };
+      const input = { subject: 'test', body: 42 };
 
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
@@ -94,7 +94,7 @@ describe('JsonInputReader', () => {
   describe('array parsing', () => {
     it('should filter non-string values from arrays', async () => {
       const input = {
-        intent: 'test',
+        subject: 'test',
         trailers: {
           Constraint: ['valid', 123, 'also valid', null, true],
         },
@@ -108,7 +108,7 @@ describe('JsonInputReader', () => {
 
     it('should coerce a single string trailer value to an array', async () => {
       const input = {
-        intent: 'test',
+        subject: 'test',
         trailers: {
           Constraint: 'single constraint',
           Directive: '[until:2026-06] Remove before release',
@@ -124,7 +124,7 @@ describe('JsonInputReader', () => {
 
     it('should return undefined for non-string non-array trailer values', async () => {
       const input = {
-        intent: 'test',
+        subject: 'test',
         trailers: {
           Constraint: 42,
         },
@@ -140,7 +140,7 @@ describe('JsonInputReader', () => {
   describe('custom trailers', () => {
     it('should collect unknown trailer keys at the top level', async () => {
       const input = {
-        intent: 'test',
+        subject: 'test',
         trailers: {
           'Assisted-by': 'Gemini:CLI',
           Confidence: 'high',
@@ -156,7 +156,7 @@ describe('JsonInputReader', () => {
 
     it('should collect multiple custom trailers', async () => {
       const input = {
-        intent: 'test',
+        subject: 'test',
         trailers: {
           'Assisted-by': 'Gemini:CLI',
           'Ticket': ['PROJ-123', 'PROJ-456'],
@@ -174,7 +174,7 @@ describe('JsonInputReader', () => {
 
     it('should skip custom trailers with non-string values', async () => {
       const input = {
-        intent: 'test',
+        subject: 'test',
         trailers: {
           'Valid-custom': 'value',
           'Invalid-custom': 42,
@@ -192,7 +192,7 @@ describe('JsonInputReader', () => {
   describe('enum parsing', () => {
     it('should return array values for enum trailers', async () => {
       const input = {
-        intent: 'test',
+        subject: 'test',
         trailers: {
           Confidence: 'high',
           'Scope-risk': 'wide',
@@ -210,7 +210,7 @@ describe('JsonInputReader', () => {
 
     it('should return undefined for non-string enum values', async () => {
       const input = {
-        intent: 'test',
+        subject: 'test',
         trailers: {
           Confidence: 42,
           'Scope-risk': true,

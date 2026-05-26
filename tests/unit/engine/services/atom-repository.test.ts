@@ -520,7 +520,7 @@ describe('AtomRepository', () => {
         commitHash: 'aaa',
         date: new Date('2025-01-15T10:00:00Z'),
         author: 'dev@example.com',
-        intent: 'feat(auth): add login',
+        subject: 'feat(auth): add login',
         body: '',
         protocols: new Map([
           ['lore', {
@@ -560,7 +560,7 @@ describe('AtomRepository', () => {
         commitHash: 'aaa',
         date: new Date(),
         author: 'dev@example.com',
-        intent: 'test',
+        subject: 'test',
         body: '',
         protocols: new Map([
           ['lore', {
@@ -598,7 +598,7 @@ describe('AtomRepository', () => {
         commitHash: 'aaa',
         date: new Date(),
         author: 'dev@example.com',
-        intent: 'test',
+        subject: 'test',
         body: '',
         protocols: new Map([
           ['lore', {
@@ -642,7 +642,7 @@ describe('AtomRepository', () => {
         commitHash: 'aaa',
         date: new Date(),
         author: 'dev@example.com',
-        intent: 'test',
+        subject: 'test',
         body: '',
         protocols: new Map([
           ['lore', {
@@ -688,7 +688,7 @@ describe('AtomRepository', () => {
         commitHash: 'aaa',
         date: new Date(),
         author: 'dev@example.com',
-        intent: 'test',
+        subject: 'test',
         body: '',
         protocols: new Map([
           ['lore', {

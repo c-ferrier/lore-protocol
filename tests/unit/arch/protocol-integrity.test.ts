@@ -87,8 +87,8 @@ describe('Protocol Architectural Integrity', () => {
     const formatter = new JsonFormatter(registry);
     const output = JSON.parse(formatter.formatQueryResult(data));
     
-    // Key should be snake_cased in JSON inside the protocol object
-    expect(output.results[0].protocols.lore.ticket_id).toEqual(['PROJ-123', 'PROJ-456']);
+    // Key should be CANONICAL in JSON inside the protocol's trailers object
+    expect(output.results[0].protocols.lore.trailers['Ticket-ID']).toEqual(['PROJ-123', 'PROJ-456']);
   });
 
   it('should handle a hybrid flow of core and custom trailers simultaneously', async () => {

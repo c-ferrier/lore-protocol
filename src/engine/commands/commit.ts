@@ -9,11 +9,13 @@ import type { HeadIdReader } from '../services/head-id-reader.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import type { IProtocol } from '../interfaces/protocol.js';
 import type { AtomId } from '../types/domain.js';
-import type { ProtocolRegistry } from '../services/protocol-registry.js';
-import type { TrailerParser } from '../services/trailer-parser.js';
+import { ProtocolRegistry } from '../services/protocol-registry.js';
+import { TrailerParser } from '../services/trailer-parser.js';
+import { slugify } from '../../util/string.js';
 
 /**
  * CLI Options for the commit command.
+
  */
 interface CommitCommandOptions {
   readonly intent?: string;
@@ -50,7 +52,7 @@ export function registerCommitCommand(
   const cmd = program
     .command('commit')
     .description(`Create a ${protocolName}-enriched commit`)
-    .option('--intent <text>', 'Intent line (why the change was made)')
+    .option('--subject <text>', 'Primary subject line (why the change was made)')
     .option('--body <text>', 'Body (narrative context)')
     .option('--file <path>', 'Read JSON input from file')
     .option('-i, --interactive', 'Interactive mode (guided prompts)', false)
@@ -95,9 +97,9 @@ export function registerCommitCommand(
       const formatter = getFormatter();
 
       if (options.amend && isNoEdit) {
-        const hasOtherInput = !!(options.intent || options.body || options.file || options.trailer?.length || options.interactive);
+        const hasOtherInput = !!(options.subject || options.body || options.file || options.trailer?.length || options.interactive);
         
-        const baseFlags = ['amend', 'edit', 'intent', 'body', 'file', 'trailer', 'interactive', 'json', 'format', 'color'];
+        const baseFlags = ['amend', 'edit', 'subject', 'body', 'file', 'trailer', 'interactive', 'json', 'format', 'color'];
         const hasDynamicFlags = Object.keys(options).some(k => 
           !baseFlags.includes(k) && options[k] !== undefined
         );
@@ -129,14 +131,13 @@ if (options.amend) {
   existingIds = await headIdReader.readIds();
 }
 
-const { message, ids } = commitBuilder.build(input, existingIds);
+const { message, protocols } = commitBuilder.build(input, existingIds);
 const result = await gitClient.commit(message, { amend: options.amend });
 
 console.log(formatter.formatSuccess(result.message, { 
   hash: result.hash,
-  ids 
+  protocols 
 }));
-
 } catch (error) {
 if (error instanceof ProtocolError) {
   const formatter = getFormatter();
@@ -152,15 +153,4 @@ throw error;
 }
 
   });
-}
-
-/**
- * Helper to convert a trailer key to a safe CLI flag name.
- */
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
 }

@@ -99,8 +99,8 @@ describe('Rebranding Flow Integration', () => {
     expect(json.version).toBe('1.0'); // Engine version
     
     // Identity must be found inside the protocols map
-    expect(json.results[0].protocols.fred).toHaveProperty('fred_id', 'aabbccdd');
-    expect(json.results[0].protocols.fred).toHaveProperty('fred_version', '2.5');
+    expect(json.results[0].protocols.fred.id).toBe('aabbccdd');
+    expect(json.results[0].protocols.fred.version).toBe('2.5');
     
     // Top-level trailers should NOT exist (per Total Neutrality rules)
     expect(json.results[0]).not.toHaveProperty('trailers');

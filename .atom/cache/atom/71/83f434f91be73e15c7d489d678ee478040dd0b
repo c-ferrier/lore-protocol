@@ -1,2 +1,0 @@
-src/commands/commit.ts
-tests/unit/commands/commit-amend.test.ts

@@ -112,11 +112,11 @@ describe('Validator', () => {
 
   describe('Hygiene rules', () => {
     it('should warn when intent exceeds max length', async () => {
-      const longIntent = 'a'.repeat(LORE_DEFAULT_CONFIG.validation.intentMaxLength + 1);
+      const longIntent = 'a'.repeat(LORE_DEFAULT_CONFIG.validation.subjectMaxLength + 1);
       const commit = makeCommit({ subject: longIntent });
       const results = await validator.validate([commit]);
 
-      const issue = results[0].issues.find((i) => i.rule === 'intent-length');
+      const issue = results[0].issues.find((i) => i.rule === 'subject-length');
       expect(issue).toBeDefined();
       expect(issue?.severity).toBe('warning');
     });
@@ -339,7 +339,7 @@ describe('Validator', () => {
       const commit = makeCommit({ subject: 'a'.repeat(100) });
       const results = await validator.validate([commit]);
 
-      const intentIssue = results[0].issues.find((i) => i.rule === 'intent-length');
+      const intentIssue = results[0].issues.find((i) => i.rule === 'subject-length');
       expect(intentIssue).toBeDefined();
       expect(intentIssue!.severity).toBe('warning');
     });
@@ -348,14 +348,14 @@ describe('Validator', () => {
       const commit = makeCommit({ subject: 'feat: short intent' });
       const results = await validator.validate([commit]);
 
-      const intentIssue = results[0].issues.find((i) => i.rule === 'intent-length');
+      const intentIssue = results[0].issues.find((i) => i.rule === 'subject-length');
       expect(intentIssue).toBeUndefined();
     });
 
     it('should use config value for max length', async () => {
       const customConfig: Config = {
         ...LORE_DEFAULT_CONFIG,
-        validation: { ...LORE_DEFAULT_CONFIG.validation, intentMaxLength: 50 },
+        validation: { ...LORE_DEFAULT_CONFIG.validation, subjectMaxLength: 50 },
       };
       const customRegistry = new ProtocolRegistry();
       const customProtocol = new Protocol(LoreProtocolDefinition, customConfig);
@@ -365,7 +365,7 @@ describe('Validator', () => {
       const commit = makeCommit({ subject: 'a'.repeat(51) });
       const results = await customValidator.validate([commit]);
 
-      const intentIssue = results[0].issues.find((i) => i.rule === 'intent-length');
+      const intentIssue = results[0].issues.find((i) => i.rule === 'subject-length');
       expect(intentIssue).toBeDefined();
       expect(intentIssue!.message).toContain('50');
     });
@@ -609,7 +609,7 @@ describe('Validator', () => {
         commitHash: 'abc',
         date: new Date(),
         author: 'dev@example.com',
-        intent: 'test',
+        subject: 'test',
         body: '',
         protocols: new Map(),
         filesChanged: [],

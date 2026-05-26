@@ -43,6 +43,21 @@ import { registerCacheCommand } from './commands/cache.js';
 import { registerConfigCommand } from './commands/config.js';
 import { registerDoctorCommand } from './commands/doctor.js';
 
+// Export commands for application wrappers
+export {
+  registerWhyCommand,
+  registerSearchCommand,
+  registerLogCommand,
+  registerStaleCommand,
+  registerTraceCommand,
+  registerCommitCommand,
+  registerValidateCommand,
+  registerSquashCommand,
+  registerCacheCommand,
+  registerConfigCommand,
+  registerDoctorCommand,
+};
+
 import {
   CACHE_DIR,
   ATOM_CACHE_DIR,
@@ -59,12 +74,17 @@ import { getDisplayVersion } from '../util/version.js';
 export interface EngineOptions {
   readonly binaryName: string;
   readonly description: string;
+  readonly subjectLabel: string;        // e.g. 'Intent' or 'Subject'
   readonly engineDirName: string;       // e.g. '.atom'
   readonly protocolDirName?: string;    // e.g. '.lore' (optional)
   readonly configFileName: string;
   readonly defaultConfig: Config;
   readonly protocols: readonly ProtocolDefinition[];
   readonly packageJsonPath: string;
+  /** Optional override for the JSON output formatter */
+  readonly jsonFormatterFactory?: (registry: ProtocolRegistry, subjectLabel: string) => IOutputFormatter;
+  /** Optional override for the Text output formatter */
+  readonly textFormatterFactory?: (registry: ProtocolRegistry, options: { color: boolean; subjectLabel: string }) => IOutputFormatter;
 }
 
 /**
@@ -127,7 +147,7 @@ export async function runCli(options: EngineOptions) {
   const pathResolver = new PathResolver(process.cwd(), protocolRoot);
   const searchFilter = new SearchFilter(protocolRegistry);
   
-  // Generic scope check - can be improved to be non-lore-specific
+  // Generic scope check
   const isScoped = false; 
 
   const atomCache: IAtomCache = new AtomCache(
@@ -163,6 +183,11 @@ export async function runCli(options: EngineOptions) {
   const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry);
   const headIdReader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
 
+  // 6. Check for updates
+  if (config.cli.updateCheck && await shouldCheckForUpdate(packageJson.version)) {
+    // Non-blocking update check was successful
+  }
+
   // 7. Formatter factory
   let cachedFormatter: IOutputFormatter | null = null;
   const getFormatter = (): IOutputFormatter => {
@@ -173,11 +198,14 @@ export async function runCli(options: EngineOptions) {
     const isJson = opts.json || opts.format === 'json';
 
     if (isJson) {
-      cachedFormatter = new JsonFormatter(protocolRegistry);
+      cachedFormatter = options.jsonFormatterFactory
+        ? options.jsonFormatterFactory(protocolRegistry, options.subjectLabel)
+        : new JsonFormatter(protocolRegistry, options.subjectLabel);
     } else {
-      cachedFormatter = new TextFormatter(protocolRegistry, {
-        color: opts.color !== false && (process.stdout.isTTY ?? false),
-      });
+      const color = opts.color !== false && (process.stdout.isTTY ?? false);
+      cachedFormatter = options.textFormatterFactory
+        ? options.textFormatterFactory(protocolRegistry, { color, subjectLabel: options.subjectLabel })
+        : new TextFormatter(protocolRegistry, { color, subjectLabel: options.subjectLabel });
     }
     return cachedFormatter;
   };
@@ -191,11 +219,20 @@ export async function runCli(options: EngineOptions) {
     getFormatter,
     config,
     protocol: defaultProtocol,
+    subjectLabel: options.subjectLabel,
+    protocolRegistry,
+    trailerParser,
+    commitBuilder,
+    commitInputResolver,
+    headIdReader,
+    validator,
+    stalenessDetector,
+    searchFilter
   };
 
   // Hook to ensure a protocol exists before running commands that require one
   program.hook('preAction', (executedCommand) => {
-    const whitelist = [options.binaryName, 'cache', 'init', 'config', 'doctor', 'log', 'search'];
+    const whitelist = [options.binaryName, 'cache', 'init', 'config', 'doctor', 'log', 'search', 'commit'];
     
     if (whitelist.includes(executedCommand.name())) return;
     

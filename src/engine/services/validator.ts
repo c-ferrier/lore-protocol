@@ -89,12 +89,12 @@ export class Validator {
     const { validation } = this.config;
 
     // Rule: Subject line length
-    if (raw.subject.length > validation.intentMaxLength) {
+    if (raw.subject.length > validation.subjectMaxLength) {
       issues.push({
         severity: 'warning',
-        rule: 'intent-length',
-        field: 'intent',
-        message: `Intent exceeds recommended maximum of ${validation.intentMaxLength} characters`,
+        rule: 'subject-length',
+        field: 'subject',
+        message: `Subject exceeds recommended maximum of ${validation.subjectMaxLength} characters`,
       });
     }
 

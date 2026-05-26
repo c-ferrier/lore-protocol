@@ -38,7 +38,7 @@ function makeAtom(overrides: Partial<any> = {}): Atom {
   delete trailerOverrides.commitHash;
   delete trailerOverrides.date;
   delete trailerOverrides.author;
-  delete trailerOverrides.intent;
+  delete trailerOverrides.subject;
   delete trailerOverrides.body;
   delete trailerOverrides.filesChanged;
   delete trailerOverrides.protocols;
@@ -49,7 +49,7 @@ function makeAtom(overrides: Partial<any> = {}): Atom {
     commitHash: overrides.commitHash ?? 'abc1234567890',
     date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
     author: overrides.author ?? 'alice@example.com',
-    intent: overrides.intent ?? 'feat(auth): add login flow',
+    subject: overrides.subject ?? overrides.intent ?? 'feat(auth): add login flow',
     body: overrides.body ?? '',
     protocols: new Map([
       ['lore', {
@@ -83,17 +83,17 @@ describe('SquashMerger', () => {
 
   it(`should generate a new ${LORE_ID_KEY}`, () => {
     const atom = makeAtom();
-    const { message, ids } = merger.merge([atom], {});
+    const { message, protocols } = merger.merge([atom], {});
 
     expect(mockIdGen.generate).toHaveBeenCalledOnce();
     expect(message).toContain(`${LORE_ID_KEY}: deadbeef`);
-    expect(ids.lore).toBe('deadbeef');
+    expect(protocols.lore.id).toBe('deadbeef');
   });
 
   describe('intent merging', () => {
-    it('should use options.intent when provided', () => {
-      const atom = makeAtom({ intent: 'old intent' });
-      const { message } = merger.merge([atom], { intent: 'new intent' });
+    it('should use options.subject when provided', () => {
+      const atom = makeAtom({ subject: 'old intent' });
+      const { message } = merger.merge([atom], { subject: 'new intent' });
 
       expect(message.startsWith('new intent')).toBe(true);
     });
@@ -102,12 +102,12 @@ describe('SquashMerger', () => {
       const older = makeAtom({
         id: 'aaaa0001',
         date: new Date('2025-01-01'),
-        intent: 'older intent',
+        subject: 'older intent',
       });
       const newer = makeAtom({
         id: 'aaaa0002',
         date: new Date('2025-06-01'),
-        intent: 'newer intent',
+        subject: 'newer intent',
       });
 
       const { message } = merger.merge([older, newer], {});
@@ -377,15 +377,16 @@ describe('SquashMerger', () => {
         }),
       });
 
-      const { message, ids } = merger.merge([atom], {});
+      const { message, protocols } = merger.merge([atom], {});
 
       expect(message).toContain('single atom intent');
       expect(message).toContain(`${LORE_ID_KEY}: deadbeef`);
       expect(message).toContain('Constraint: Some constraint');
       expect(message).toContain('Confidence: high');
-      expect(ids.lore).toBe('deadbeef');
+      expect(protocols.lore.id).toBe('deadbeef');
     });
   });
+
 
   describe('message structure', () => {
     it('should have proper structure: intent, blank line, body, blank line, trailers', () => {
@@ -395,7 +396,7 @@ describe('SquashMerger', () => {
         trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0001'], Confidence: ['high'] }),
       });
 
-      const { message } = merger.merge([atom], { intent: 'Merged intent' });
+      const { message } = merger.merge([atom], { subject: 'Merged intent' });
       const lines = message.split('\n');
 
       expect(lines[0]).toBe('Merged intent');
@@ -403,6 +404,53 @@ describe('SquashMerger', () => {
       expect(lines[2]).toBe('Atom body text');
       expect(lines[3]).toBe('');
       expect(lines[4]).toContain(`${LORE_ID_KEY}: deadbeef`);
+    });
+  });
+
+  describe('Multi-Protocol Merging', () => {
+    it('should synthesize context for multiple registered protocols simultaneously', () => {
+      // 1. Lore protocol (standard)
+      // Already setup in beforeEach
+
+      // 2. Setup Fred protocol (Strict, namespaced)
+      const fredDef: any = {
+        name: 'Fred',
+        version: '1.0',
+        namespace: 'fred',
+        identityKey: 'Fred-id',
+        trailers: {
+          'Fred-id': { description: 'ID' },
+          'Fred-Level': { description: 'Level' },
+        }
+      };
+      const fredProtocol = new Protocol(fredDef, LORE_DEFAULT_CONFIG);
+      registry.register(fredProtocol);
+
+      // 3. Create atom containing both Lore and Fred interpretations
+      const mixedAtom = makeAtom({
+        id: 'l1',
+        body: 'Shared body',
+        trailers: makeTrailers({ 'Lore-id': ['l1'], Confidence: ['high'] })
+      });
+      // Add Fred interpretation manually to the mock atom
+      mixedAtom.protocols.set('fred', {
+          name: 'Fred',
+          version: '1.0',
+          identityKey: 'Fred-id',
+          trailers: { 'Fred-id': ['f1'], 'Fred-Level': ['critical'] }
+      });
+
+      const { message, protocols } = merger.merge([mixedAtom], { subject: 'Merged multi' });
+
+      // 4. Verify Identity Generation
+      expect(protocols.lore.id).toBe('deadbeef');
+      expect(protocols.fred.id).toBe('deadbeef'); // Mock idGen returns same value
+
+      // 5. Verify Combined Message
+      expect(message).toContain('Lore-id: deadbeef');
+      expect(message).toContain('fred/Fred-id: deadbeef'); // Identity MUST be namespaced
+      expect(message).toContain('Confidence: high');
+      expect(message).toContain('fred/Fred-Level: critical');
     });
   });
 });

@@ -89,7 +89,7 @@ custom = []
 [validation]
 strict = false
 max_message_lines = 50
-intent_max_length = 72
+subject_max_length = 72
 [stale]
 older_than = "6m"
 drift_threshold = 20
@@ -173,7 +173,7 @@ update_check = true
     [validation]
     strict = false
     max_message_lines = 50
-    intent_max_length = 72
+    subject_max_length = 72
     [stale]
     older_than = "6m"
     drift_threshold = 20
@@ -203,7 +203,7 @@ update_check = true
     });
 
   it('correctly maps snake_case TOML keys to camelCase config properties', async () => {
-    // validation.intentMaxLength is represented as validation.intent_max_length in TOML
+    // validation.subjectMaxLength is represented as validation.subject_max_length in TOML
     const configWithSnakeCase = `[protocol]
 name = "Lore"
 version = "1.0"
@@ -214,7 +214,7 @@ custom = []
 [validation]
 strict = false
 max_message_lines = 50
-intent_max_length = 72
+subject_max_length = 72
 [stale]
 older_than = "6m"
 drift_threshold = 20
@@ -258,7 +258,7 @@ validation = "none"
 [validation]
 strict = false
 max_message_lines = 50
-intent_max_length = 72
+subject_max_length = 72
 [stale]
 older_than = "6m"
 drift_threshold = 20

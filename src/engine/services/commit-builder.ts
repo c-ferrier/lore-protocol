@@ -23,21 +23,27 @@ export class CommitBuilder {
    * Builds a full git commit message with subject, body, and trailer block.
    * Generates unique IDs for all registered protocols.
    */
-  build(input: CommitInput, existingIds?: Record<string, AtomId>): { message: string; ids: Record<string, AtomId> } {
-    const ids: Record<string, AtomId> = {};
+  build(input: CommitInput, existingIds?: Record<string, AtomId>): { message: string; protocols: Record<string, any> } {
+    const protocols: Record<string, any> = {};
     const trailers: Record<string, string[]> = {};
     const allAuthorizedKeys: string[] = [];
     const claimedKeys = new Set<string>();
 
-    const protocols = this.protocolRegistry.getAll();
+    const registeredProtocols = this.protocolRegistry.getAll();
 
     // 1. Process each protocol for identity and authorized keys
-    for (const protocol of protocols) {
+    for (const protocol of registeredProtocols) {
       const pName = protocol.name.toLowerCase();
       const id = (existingIds && existingIds[pName]) || this.idGenerator.generate(protocol);
-      ids[pName] = id;
+
+      protocols[pName] = {
+        id,
+        identity_key: protocol.identityKey,
+        version: protocol.version,
+      };
 
       const prefix = protocol.namespace ? `${protocol.namespace}/` : '';
+
       
       // Add identity trailer
       const identityKey = `${prefix}${protocol.identityKey}`;
@@ -61,7 +67,7 @@ export class CommitBuilder {
     }
 
     // 2. Permissive protocols claim orphans
-    for (const protocol of protocols) {
+    for (const protocol of registeredProtocols) {
         if (protocol.permissive && input.trailers) {
             for (const [key, values] of Object.entries(input.trailers)) {
                 if (claimedKeys.has(key)) continue;
@@ -83,13 +89,13 @@ export class CommitBuilder {
 
     const trailerBlock = this.trailerParser.serialize(trailers, allAuthorizedKeys);
 
-    let message = input.intent;
+    let message = input.subject;
     if (input.body && input.body.trim()) {
       message += `\n\n${input.body.trim()}`;
     }
     message += `\n\n${trailerBlock}`;
 
-    return { message, ids };
+    return { message, protocols };
   }
 
   /**
@@ -98,19 +104,19 @@ export class CommitBuilder {
   validate(input: CommitInput): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
 
-    if (!input.intent.trim()) {
+    if (!input.subject.trim()) {
       issues.push({
         severity: 'error',
-        rule: 'intent-required',
-        message: 'Commit intent (subject line) is required',
+        rule: 'subject-required',
+        message: 'Commit subject line is required',
       });
     }
 
-    if (input.intent.length > this.config.validation.intentMaxLength) {
+    if (input.subject.length > this.config.validation.subjectMaxLength) {
       issues.push({
         severity: 'warning',
-        rule: 'intent-length',
-        message: `Intent exceeds ${this.config.validation.intentMaxLength} characters (got ${input.intent.length})`,
+        rule: 'subject-length',
+        message: `Subject exceeds ${this.config.validation.subjectMaxLength} characters (got ${input.subject.length})`,
       });
     }
 

@@ -45,7 +45,7 @@ custom = ["Team"]
 [validation]
 strict = true
 maxMessageLines = 100
-intentMaxLength = 80
+subjectMaxLength = 80
 
 [stale]
 olderThan = "1y"
@@ -65,7 +65,7 @@ maxDepth = 5
       expect(config.trailers.custom).toEqual(['Team']);
       expect(config.validation.strict).toBe(true);
       expect(config.validation.maxMessageLines).toBe(100);
-      expect(config.validation.intentMaxLength).toBe(80);
+      expect(config.validation.subjectMaxLength).toBe(80);
       expect(config.stale.olderThan).toBe('1y');
       expect(config.stale.driftThreshold).toBe(50);
       expect(config.output.defaultFormat).toBe('json');
@@ -156,7 +156,7 @@ max_depth = 5
       expect(config.protocol.version).toBe('2.0');
       expect(config.validation.strict).toBe(true);
       expect(config.validation.maxMessageLines).toBe(100);
-      expect(config.validation.intentMaxLength).toBe(80);
+      expect(config.validation.subjectMaxLength).toBe(80);
       expect(config.stale.olderThan).toBe('1y');
       expect(config.stale.driftThreshold).toBe(50);
       expect(config.output.defaultFormat).toBe('json');
@@ -402,7 +402,7 @@ driftThreshold = 100
 [validation]
 strict = true
 maxMessageLines = 80
-intentMaxLength = 60
+subjectMaxLength = 60
 `);
 
       // Child: stale (overrides grandparent stale)

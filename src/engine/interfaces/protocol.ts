@@ -1,4 +1,4 @@
-import type { ProtocolState } from '../types/domain.js';
+import type { ProtocolState, Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
 import type { FormattableTrailerDefinition } from '../types/output.js';
 import type { TrailerUiKind, TrailerUiColor, CustomTrailerDefinition } from '../types/config.js';
 import type { SearchOptions } from '../types/query.js';
@@ -146,4 +146,16 @@ export interface IProtocol {
    * Get Git grep arguments to find commits belonging to this protocol.
    */
   getDiscoveryGrep(): string[];
+
+  /**
+   * Returns a list of staleness signals identified for an atom.
+   * @param atom The atom to analyze.
+   * @param now Current date for time-based checks.
+   * @param supersessionMap Global supersession context.
+   */
+  getStaleSignals(
+    atom: Atom,
+    now: Date,
+    supersessionMap: Map<string, SupersessionStatus>,
+  ): StaleReason[];
 }

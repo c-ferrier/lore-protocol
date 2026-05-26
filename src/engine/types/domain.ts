@@ -25,8 +25,8 @@ export interface Atom {
   readonly commitHash: string;
   readonly date: Date;
   readonly author: string;
-  readonly intent: string; // Subject line
-  readonly body: string;   // Body text (trailers stripped)
+  readonly subject: string; // The commit subject line
+  readonly body: string;    // Body text (trailers stripped)
   readonly filesChanged: readonly string[];
 
   /**
@@ -39,6 +39,12 @@ export interface Atom {
 export interface SupersessionStatus {
   readonly superseded: boolean;
   readonly supersededBy: AtomId | null;
+}
+
+/** A single staleness signal identified for an atom. */
+export interface StaleReason {
+  readonly signal: StaleSignal;
+  readonly description: string;
 }
 
 /** The set of signals that indicate an atom may be stale. */

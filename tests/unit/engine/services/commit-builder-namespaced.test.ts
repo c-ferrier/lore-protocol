@@ -26,7 +26,7 @@ describe('CommitBuilder Namespacing', () => {
 
   it('should include namespaced trailers in the built message', () => {
     const input = {
-      intent: 'feat: add feature',
+      subject: 'feat: add feature',
       trailers: {
         'Lore-id': ['ignore-me'], // Should be replaced by generated ID
         'fred/Impact': ['high'],
@@ -44,7 +44,7 @@ describe('CommitBuilder Namespacing', () => {
   it('should validate namespaced trailers if permissive is true', () => {
     // Lore is permissive by default in LORE_DEFAULT_CONFIG
     const input = {
-      intent: 'feat: test',
+      subject: 'feat: test',
       trailers: {
         'any/Trailer': ['val']
       }

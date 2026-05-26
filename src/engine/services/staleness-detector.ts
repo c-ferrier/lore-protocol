@@ -1,14 +1,8 @@
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { Config } from '../types/config.js';
-import type { Atom, SupersessionStatus } from '../types/domain.js';
+import type { Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
 import { STALE_SIGNAL } from '../../util/constants.js';
-import type { StaleSignal } from '../types/domain.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
-
-export interface StaleReason {
-  readonly signal: StaleSignal;
-  readonly description: string;
-}
 
 export interface StaleAtomReport {
   readonly atom: Atom;
@@ -20,7 +14,8 @@ export interface StaleAtomReport {
  * Supports multiple protocols via the ProtocolRegistry.
  * 
  * SOLID: SRP -- only responsible for staleness analysis.
- * GRASP: Information Expert -- knows how to interpret time, drift, and directives.
+ * GRASP: Information Expert -- knows how to interpret time and drift.
+ * Protocols handle their own domain-specific staleness rules.
  */
 export class StalenessDetector {
   constructor(
@@ -43,13 +38,14 @@ export class StalenessDetector {
     for (const atom of atoms) {
       const reasons: StaleReason[] = [];
 
-      // 1. Structural Signals (Generic)
+      // 1. Structural Signals (Generic Engine Level)
       this.checkAge(atom, now, reasons);
       await this.checkDrift(atom, reasons);
 
-      // 2. Multi-Protocol Signals
+      // 2. Protocol-Specific Signals
       for (const protocol of protocols) {
-          this.checkProtocolStaleness(protocol, atom, now, reasons, supersessionMap);
+          const pReasons = protocol.getStaleSignals(atom, now, supersessionMap);
+          reasons.push(...pReasons);
       }
 
       if (reasons.length > 0) {
@@ -58,55 +54,6 @@ export class StalenessDetector {
     }
 
     return reports;
-  }
-
-  private checkProtocolStaleness(
-      protocol: any,
-      atom: Atom,
-      now: Date,
-      reasons: StaleReason[],
-      supersessionMap: Map<string, SupersessionStatus>
-  ): void {
-      const state = atom.protocols.get(protocol.name.toLowerCase());
-      if (!state) return;
-
-      // 1. Low Confidence Signal
-      const confidence = state.trailers.Confidence?.[0];
-      if (confidence === 'low') {
-        reasons.push({
-          signal: STALE_SIGNAL.LOW_CONFIDENCE,
-          description: `[${protocol.name}] Atom is marked as Confidence: low`,
-        });
-      }
-
-      // 2. Expired Hints Signal
-      const untilPattern = /\[until:([^\]]+)\]/g;
-      for (const directive of state.trailers.Directive || []) {
-        untilPattern.lastIndex = 0;
-        let match: RegExpExecArray | null;
-        while ((match = untilPattern.exec(directive)) !== null) {
-          const dateStr = match[1];
-          const expiryDate = this.parseUntilDate(dateStr);
-          if (expiryDate !== null && now > expiryDate) {
-            reasons.push({
-              signal: STALE_SIGNAL.EXPIRED_HINT,
-              description: `[${protocol.name}] Directive "${directive}" has expired [until:${dateStr}]`,
-            });
-          }
-        }
-      }
-
-      // 3. Orphaned Dependency Signal
-      const dependsOn = state.trailers['Depends-on'] || [];
-      for (const id of dependsOn) {
-        const status = supersessionMap.get(id);
-        if (status?.superseded) {
-          reasons.push({
-            signal: STALE_SIGNAL.ORPHANED_DEP,
-            description: `[${protocol.name}] Dependency "${id}" has been superseded by ${status.supersededBy}`,
-          });
-        }
-      }
   }
 
   /**
@@ -194,29 +141,5 @@ export class StalenessDetector {
       return `${weeks} week${weeks === 1 ? '' : 's'}`;
     }
     return `${days} day${days === 1 ? '' : 's'}`;
-  }
-
-  /**
-   * Parse an [until:...] date string.
-   */
-  private parseUntilDate(dateStr: string): Date | null {
-    const monthMatch = dateStr.match(/^(\d{4})-(\d{2})$/);
-    if (monthMatch) {
-      const year = parseInt(monthMatch[1], 10);
-      const month = parseInt(monthMatch[2], 10);
-      const d = new Date(year, month, 1);
-      return isNaN(d.getTime()) ? null : d;
-    }
-
-    const dayMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (dayMatch) {
-      const year = parseInt(dayMatch[1], 10);
-      const month = parseInt(dayMatch[2], 10) - 1;
-      const day = parseInt(dayMatch[3], 10);
-      const d = new Date(year, month, day, 23, 59, 59, 999);
-      return isNaN(d.getTime()) ? null : d;
-    }
-
-    return null;
   }
 }

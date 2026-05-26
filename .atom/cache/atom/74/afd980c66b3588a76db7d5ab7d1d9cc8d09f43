@@ -1,6 +1,0 @@
-src/main.ts
-src/protocols/lore.ts
-src/services/id-generator.ts
-src/types/config.ts
-src/util/constants.ts
-tests/unit/services/id-generator.test.ts

@@ -49,7 +49,7 @@ function makeAtom(overrides: Partial<Atom> & { filesChanged: readonly string[] }
     commitHash: 'a'.repeat(40),
     date: new Date('2026-01-01T00:00:00Z'),
     author: 'Tester <tester@example.com>',
-    intent: 'fix: example',
+    subject: 'fix: example',
     body: '',
     protocols,
     filesChanged: overrides.filesChanged,

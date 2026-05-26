@@ -1,11 +1,13 @@
 import type { Config, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
-import type { ProtocolState } from '../types/domain.js';
+import type { ProtocolState, Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
 import type { FormattableTrailerDefinition } from '../types/output.js';
 import type { IProtocol, AuthorizedTrailerDefinition } from '../interfaces/protocol.js';
 import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
 
 import { TrailerParser } from './trailer-parser.js';
 import { escapeRegex } from '../../util/regex.js';
+import { parseTriggerHints } from '../../util/trigger-parser.js';
+import { STALE_SIGNAL } from '../../util/constants.js';
 
 /**
  * A generic engine for Decision Protocols.
@@ -389,6 +391,56 @@ export class Protocol implements IProtocol {
       };
     }
     return result;
+  }
+
+  /**
+   * Returns a list of staleness signals identified for an atom.
+   */
+  getStaleSignals(
+    atom: Atom,
+    now: Date,
+    supersessionMap: Map<string, SupersessionStatus>,
+  ): StaleReason[] {
+    const reasons: StaleReason[] = [];
+    const state = atom.protocols.get(this.name.toLowerCase());
+    if (!state) return reasons;
+
+    // 1. Low Confidence Signal
+    const confidence = state.trailers.Confidence?.[0];
+    if (confidence === 'low') {
+      reasons.push({
+        signal: STALE_SIGNAL.LOW_CONFIDENCE,
+        description: `[${this.name}] Atom is marked as Confidence: low`,
+      });
+    }
+
+    // 2. Expired Hints Signal
+    for (const directive of state.trailers.Directive || []) {
+      const hints = parseTriggerHints(directive);
+      if (hints.until && now > hints.until) {
+        reasons.push({
+          signal: STALE_SIGNAL.EXPIRED_HINT,
+          description: `[${this.name}] Directive "${directive}" has expired`,
+        });
+      }
+    }
+
+    // 3. Orphaned Dependency Signal
+    const refKeys = this.getReferenceKeys();
+    for (const key of refKeys) {
+      const ids = state.trailers[key] || [];
+      for (const id of ids) {
+        const status = supersessionMap.get(id);
+        if (status?.superseded) {
+          reasons.push({
+            signal: STALE_SIGNAL.ORPHANED_DEP,
+            description: `[${this.name}] Dependency "${id}" (in ${key}) has been superseded by ${status.supersededBy}`,
+          });
+        }
+      }
+    }
+
+    return reasons;
   }
 
   private normalizeValues(

@@ -7,6 +7,8 @@ import { registerConstraintsCommand } from './commands/constraints.js';
 import { registerDirectivesCommand } from './commands/directives.js';
 import { registerTestedCommand } from './commands/tested.js';
 import { registerRejectedCommand } from './commands/rejected.js';
+import { LoreJsonFormatter } from './formatters/lore-json-formatter.js';
+import { LoreTextFormatter } from './formatters/lore-text-formatter.js';
 import { resolve } from 'node:path';
 
 /**
@@ -26,15 +28,41 @@ export async function buildLoreCli() {
   const options = {
     binaryName: 'lore',
     description: 'Structured decision context in git commits',
+    subjectLabel: 'Intent',
     engineDirName: '.atom',
     protocolDirName: LORE_CONFIG_DIR,
     configFileName: LORE_CONFIG_FILENAME,
     defaultConfig: LORE_DEFAULT_CONFIG,
     protocols: [LoreProtocolDefinition],
     packageJsonPath: resolve(new URL('../../package.json', import.meta.url).pathname),
+    
+    // Inject Legacy Parity Formatters
+    jsonFormatterFactory: (registry: any) => new LoreJsonFormatter(registry),
+    textFormatterFactory: (registry: any, opts: any) => new LoreTextFormatter(registry, opts),
   };
 
   const { program, getFormatter, sharedDeps, config } = await runCli(options);
+
+  // --- REBRANDING WRAPPER ---
+  // Rebrand 'subject' to 'intent' for Lore CLI parity
+  const commitCmd = program.commands.find(c => c.name() === 'commit');
+  if (commitCmd) {
+    // 1. Hide the engine's standard --subject option from help
+    const subjectOpt = commitCmd.options.find(o => o.long === '--subject');
+    if (subjectOpt) (subjectOpt as any).hidden = true;
+    
+    // 2. Inject the legacy --intent option
+    commitCmd.option('--intent <text>', 'Intent line (why the change was made)');
+
+    // 3. Use hook to map intent -> subject before execution
+    commitCmd.hook('preAction', (thisCommand) => {
+        const opts = thisCommand.opts();
+        if (opts.intent) {
+            thisCommand.setOptionValue('subject', opts.intent);
+        }
+    });
+  }
+  // --------------------------
 
   // Register Lore-specific commands
   registerInitCommand(program, { 

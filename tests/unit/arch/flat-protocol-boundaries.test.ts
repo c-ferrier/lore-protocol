@@ -62,14 +62,14 @@ describe('Flat Protocol Boundaries', () => {
         commitHash: 'h',
         date: new Date(),
         author: 'a',
-        intent: 'i',
+        subject: 'i',
         body: '',
-        trailers,
         protocols: new Map([
           ['lore', { name: 'Lore', version: '1.0', identityKey: LORE_ID_KEY, trailers }]
         ]),
         filesChanged: []
       };
+
 
       const data: FormattableQueryResult = {
         result: { atoms: [atom], meta: { totalAtoms: 1, filteredAtoms: 1, oldest: null, newest: null }, command: 'c', target: 't', targetType: 'file' },
@@ -80,10 +80,10 @@ describe('Flat Protocol Boundaries', () => {
       const output = JSON.parse(formatter.formatQueryResult(data));
       const lore = output.results[0].protocols.lore;
 
-      expect(lore.confidence).toBe('high');        // Coerced to scalar
-      expect(lore.constraint).toEqual(['C1', 'C2']); // Remained array
-      expect(lore.tested).toEqual(['T1']);           // Remained array
-      expect(lore.custom).toEqual(['V1']);           // Remained array
+      expect(lore.trailers.Confidence).toBe('high');        // Canonical Key + Coerced to scalar
+      expect(lore.trailers.Constraint).toEqual(['C1', 'C2']); // Canonical Key + Remained array
+      expect(lore.trailers.Tested).toEqual(['T1']);           // Canonical Key + Remained array
+      expect(lore.trailers.Custom).toEqual(['V1']);           // Remained array
     });
   });
 

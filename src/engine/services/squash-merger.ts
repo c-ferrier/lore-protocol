@@ -22,14 +22,14 @@ export class SquashMerger {
    */
   merge(
     atoms: readonly Atom[],
-    options: { intent?: string; body?: string },
-  ): { message: string; ids: Record<string, AtomId> } {
+    options: { subject?: string; body?: string },
+  ): { message: string; protocols: Record<string, any> } {
     if (atoms.length === 0) {
       throw new Error('Cannot merge zero atoms');
     }
 
-    const protocols = this.protocolRegistry.getAll();
-    const ids: Record<string, AtomId> = {};
+    const registeredProtocols = this.protocolRegistry.getAll();
+    const protocols: Record<string, any> = {};
     const trailerLines: string[] = [];
 
     // Sort atoms by date ascending so the newest is last
@@ -38,17 +38,22 @@ export class SquashMerger {
     );
     const newest = sorted[sorted.length - 1];
 
-    // Intent: use option or newest atom's intent
-    const intent = options.intent ?? newest.intent;
+    // Subject: use option or newest atom's subject
+    const subject = options.subject ?? newest.subject;
 
     // Body: use option or concatenate body summaries
     const body = options.body ?? this.mergeBodySummaries(sorted);
 
     // 1. Process each protocol for identity and trailers
-    for (const protocol of protocols) {
+    for (const protocol of registeredProtocols) {
       const pName = protocol.name.toLowerCase();
       const newId = this.idGenerator.generate(protocol);
-      ids[pName] = newId;
+      
+      protocols[pName] = {
+        id: newId,
+        identity_key: protocol.identityKey,
+        version: protocol.version,
+      };
 
       const prefix = protocol.namespace ? `${protocol.namespace}/` : '';
       const identityKey = `${prefix}${protocol.identityKey}`;
@@ -113,7 +118,7 @@ export class SquashMerger {
     }
 
     // Assemble message
-    const parts: string[] = [intent];
+    const parts: string[] = [subject];
 
     if (body) {
       parts.push('');
@@ -123,7 +128,7 @@ export class SquashMerger {
     parts.push('');
     parts.push(trailerLines.join('\n'));
 
-    return { message: parts.join('\n'), ids };
+    return { message: parts.join('\n'), protocols };
   }
 
   /**

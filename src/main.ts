@@ -6,7 +6,7 @@ import type { Config } from './engine/types/config.js';
 const ATOM_DEFAULT_CONFIG: Config = {
   protocol: { name: 'Atom', version: '1.0' },
   trailers: { required: [], custom: [], definitions: {}, permissive: true },
-  validation: { strict: false, maxMessageLines: 50, intentMaxLength: 72 },
+  validation: { strict: false, maxMessageLines: 50, subjectMaxLength: 72 },
   stale: { olderThan: '6m', driftThreshold: 20 },
   output: { defaultFormat: 'text' },
   follow: { maxDepth: 3 },
@@ -24,8 +24,10 @@ const ATOM_DEFAULT_CONFIG: Config = {
 async function main() {
   const options = {
     binaryName: 'atom',
-    description: 'Agnostic decision graph engine',
+    description: 'Agnostic Decision Engine for Git',
+    subjectLabel: 'Subject',
     engineDirName: '.atom',
+
     configFileName: 'config.toml',
     defaultConfig: ATOM_DEFAULT_CONFIG,
     protocols: [], // Atom starts with zero protocols by default
