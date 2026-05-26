@@ -97,14 +97,27 @@ export function registerCommitCommand(
       const formatter = getFormatter();
 
       if (options.amend && isNoEdit) {
-        const hasOtherInput = !!(options.subject || options.body || options.file || options.trailer?.length || options.interactive);
-        
-        const baseFlags = ['amend', 'edit', 'subject', 'body', 'file', 'trailer', 'interactive', 'json', 'format', 'color'];
-        const hasDynamicFlags = Object.keys(options).some(k => 
-          !baseFlags.includes(k) && options[k] !== undefined
-        );
+        // Validation: --no-edit is mutually exclusive with any flag that changes atom data
+        const hasCoreInput = !!(options.subject || options.body || options.file || options.interactive);
+        const hasTrailers = !!(options.trailer && options.trailer.length > 0);
 
-        if (hasOtherInput || hasDynamicFlags) {
+        // Identify any dynamic protocol-specific flags passed
+        const protocolFlags = new Set<string>();
+        for (const p of protocolRegistry.getAll()) {
+            for (const key of p.getAuthorizedKeys()) {
+                const def = p.getDefinition(key) as CustomTrailerDefinition;
+                protocolFlags.add(def.cli?.flag || slugify(key));
+            }
+        }
+        
+        const hasProtocolInput = Object.keys(options).some(k => {
+            if (!protocolFlags.has(k)) return false;
+            const val = options[k];
+            if (Array.isArray(val)) return val.length > 0;
+            return !!val;
+        });
+
+        if (hasCoreInput || hasTrailers || hasProtocolInput) {
           throw new ProtocolError('--no-edit keeps the existing message unchanged; it cannot be combined with other input flags', 1);
         }
 
@@ -112,10 +125,11 @@ export function registerCommitCommand(
         if (!hasStaged) {
           throw new ProtocolError('No staged changes to commit. Use `git add` to stage files.', 3);
         }
-const result = await gitClient.commit('', { amend: true, noEdit: true });
-console.log(formatter.formatSuccess(result.message, { hash: result.hash }));
-return;
-}
+
+        const result = await gitClient.commit('', { amend: true, noEdit: true });
+        console.log(formatter.formatSuccess(result.message, { hash: result.hash }));
+        return;
+      }
 
 // Normal path
 if (!options.amend) {

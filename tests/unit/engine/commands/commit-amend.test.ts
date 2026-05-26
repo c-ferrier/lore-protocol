@@ -148,6 +148,24 @@ describe('atom commit --amend', () => {
     );
   });
 
+  it('should allow --amend --no-edit when combined with global engine flags', async () => {
+    const deps = createDeps();
+
+    // Simulation of 'lore commit --amend --no-edit --context /path --no-color'
+    const program = new Command();
+    program.exitOverride();
+    program.option('--context <path>');
+    program.option('--no-color');
+    registerCommitCommand(program, deps);
+    
+    await program.parseAsync(['node', 'atom', '--context', '/repo', '--no-color', 'commit', '--amend', '--no-edit']);
+
+    expect(deps.gitClient.commit).toHaveBeenCalledWith(
+      '',
+      { amend: true, noEdit: true },
+    );
+  });
+
   it('should throw when --no-edit is combined with --file', async () => {
     const deps = createDeps();
     await expect(
