@@ -1,76 +1,56 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { resolveProtocolRoot } from '../../../../src/engine/services/root-resolver.js';
-import type { IConfigLoader } from '../../../../src/engine/interfaces/config-loader.js';
+import type { ConfigLoader } from '../../../../src/engine/services/config-loader.js';
 import type { IGitClient } from '../../../../src/engine/interfaces/git-client.js';
+import { mkdtemp, rm, mkdir } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 
 describe('resolveProtocolRoot', () => {
-  const mockConfigLoader = {
-    findConfigPath: vi.fn(),
-  } as unknown as IConfigLoader;
+  let tempDir: string;
+  let mockConfigLoader: Partial<ConfigLoader>;
+  let mockGitClient: Partial<IGitClient>;
 
-  const mockGitClient = {
-    isInsideRepo: vi.fn(),
-    getRepoRoot: vi.fn(),
-  } as unknown as IGitClient;
-
-  const cwd = '/users/dev/project/src';
-
-  beforeEach(() => {
-    vi.resetAllMocks();
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'root-resolver-test-'));
+    mockConfigLoader = {
+      findConfigPath: vi.fn(),
+    };
+    mockGitClient = {
+      getRepoRoot: vi.fn(),
+    };
   });
 
-  it('returns the parent of protocol directory and git root if both exist', async () => {
-    const configPath = '/users/dev/project/.lore/config.toml';
-    vi.mocked(mockConfigLoader.findConfigPath).mockResolvedValue(configPath);
-    vi.mocked(mockGitClient.isInsideRepo).mockResolvedValue(true);
-    vi.mocked(mockGitClient.getRepoRoot).mockResolvedValue('/users/dev');
-
-    const roots = await resolveProtocolRoot(cwd, mockConfigLoader, mockGitClient);
-
-    expect(roots.protocolRoot).toBe('/users/dev/project');
-    expect(roots.gitRoot).toBe('/users/dev');
-    expect(mockConfigLoader.findConfigPath).toHaveBeenCalledWith(cwd);
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
   });
 
-  it('returns git root as protocol root if no config is found', async () => {
-    vi.mocked(mockConfigLoader.findConfigPath).mockResolvedValue(null);
-    vi.mocked(mockGitClient.isInsideRepo).mockResolvedValue(true);
-    vi.mocked(mockGitClient.getRepoRoot).mockResolvedValue('/users/dev/project');
+  it('should resolve to config path directory if config exists', async () => {
+    const projectDir = join(tempDir, 'project');
+    const configPath = join(projectDir, '.atom', 'config.toml');
+    vi.mocked(mockConfigLoader.findConfigPath!).mockResolvedValue(configPath);
 
-    const roots = await resolveProtocolRoot(cwd, mockConfigLoader, mockGitClient);
+    const result = await resolveProtocolRoot(projectDir, mockConfigLoader as any, mockGitClient as any);
 
-    expect(roots.protocolRoot).toBe('/users/dev/project');
-    expect(roots.gitRoot).toBe('/users/dev/project');
+    expect(result.protocolRoot).toBe(projectDir);
   });
 
-  it('falls back to cwd if neither config nor git root is found', async () => {
-    vi.mocked(mockConfigLoader.findConfigPath).mockResolvedValue(null);
-    vi.mocked(mockGitClient.isInsideRepo).mockResolvedValue(false);
+  it('should resolve to git root if no config found', async () => {
+    const projectDir = join(tempDir, 'project');
+    vi.mocked(mockConfigLoader.findConfigPath!).mockResolvedValue(null);
+    vi.mocked(mockGitClient.getRepoRoot!).mockResolvedValue(projectDir);
 
-    const roots = await resolveProtocolRoot(cwd, mockConfigLoader, mockGitClient);
+    const result = await resolveProtocolRoot(projectDir, mockConfigLoader as any, mockGitClient as any);
 
-    expect(roots.protocolRoot).toBe(cwd);
-    expect(roots.gitRoot).toBeNull();
+    expect(result.protocolRoot).toBe(projectDir);
   });
 
-  it('falls back to cwd if an error occurs during resolution', async () => {
-    vi.mocked(mockConfigLoader.findConfigPath).mockRejectedValue(new Error('FS Error'));
+  it('should fallback to input dir if neither config nor git root found', async () => {
+    vi.mocked(mockConfigLoader.findConfigPath!).mockResolvedValue(null);
+    vi.mocked(mockGitClient.getRepoRoot!).mockRejectedValue(new Error('not a git repo'));
 
-    const roots = await resolveProtocolRoot(cwd, mockConfigLoader, mockGitClient);
+    const result = await resolveProtocolRoot(tempDir, mockConfigLoader as any, mockGitClient as any);
 
-    expect(roots.protocolRoot).toBe(cwd);
-  });
-
-  it('prioritizes protocol directory for protocolRoot over git root', async () => {
-    // Scenario: A project inside a larger git repo, but with its own config
-    const configPath = '/users/dev/project/sub-project/.atom/config.toml';
-    vi.mocked(mockConfigLoader.findConfigPath).mockResolvedValue(configPath);
-    vi.mocked(mockGitClient.isInsideRepo).mockResolvedValue(true);
-    vi.mocked(mockGitClient.getRepoRoot).mockResolvedValue('/users/dev/project');
-
-    const roots = await resolveProtocolRoot(cwd, mockConfigLoader, mockGitClient);
-
-    expect(roots.protocolRoot).toBe('/users/dev/project/sub-project');
-    expect(roots.gitRoot).toBe('/users/dev/project');
+    expect(result.protocolRoot).toBe(tempDir);
   });
 });

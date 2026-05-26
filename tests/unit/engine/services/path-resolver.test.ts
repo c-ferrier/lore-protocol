@@ -3,21 +3,21 @@ import { resolve } from 'node:path';
 import { PathResolver } from '../../../../src/engine/services/path-resolver.js';
 
 describe('PathResolver', () => {
-  // Base configuration: Lore root is the same as CWD
-  const baseLoreRoot = resolve('/work/project');
-  const baseCwd = baseLoreRoot;
-  const baseResolver = new PathResolver(baseCwd, baseLoreRoot);
+  // Base configuration: Mock root is the same as CWD
+  const baseMockRoot = resolve('/work/project');
+  const baseCwd = baseMockRoot;
+  const baseResolver = new PathResolver(baseCwd, baseMockRoot);
 
   // Cross-platform normalization for test assertions
   const normalizeResult = (p: string) => p.replace(/\\/g, '/');
 
   describe('parseTarget', () => {
-    describe('Normalization (Lore-root centric)', () => {
-      const nestedLoreRoot = resolve('/work/project');
+    describe('Normalization (Mock-root centric)', () => {
+      const nestedMockRoot = resolve('/work/project');
       const nestedCwd = resolve('/work/project/src');
-      const nestedResolver = new PathResolver(nestedCwd, nestedLoreRoot);
+      const nestedResolver = new PathResolver(nestedCwd, nestedMockRoot);
 
-      it('should normalize CWD-relative file to Lore-root relative', () => {
+      it('should normalize CWD-relative file to Mock-root relative', () => {
         // CWD is /work/project/src, Target is main.ts
         // Result should be src/main.ts
         const result = nestedResolver.parseTarget('main.ts');
@@ -32,7 +32,7 @@ describe('PathResolver', () => {
       });
 
       it('should handle absolute paths inside the lore root', () => {
-        const absPath = resolve(nestedLoreRoot, 'package.json');
+        const absPath = resolve(nestedMockRoot, 'package.json');
         const result = nestedResolver.parseTarget(absPath);
         expect(normalizeResult(result.filePath)).toBe('package.json');
       });
@@ -224,9 +224,9 @@ describe('PathResolver', () => {
 
   describe('toGitLogArgsMulti', () => {
     it('should normalize and combine multiple paths', () => {
-      const nestedLoreRoot = resolve('/work/project');
+      const nestedMockRoot = resolve('/work/project');
       const nestedCwd = resolve('/work/project/src');
-      const nestedResolver = new PathResolver(nestedCwd, nestedLoreRoot);
+      const nestedResolver = new PathResolver(nestedCwd, nestedMockRoot);
 
       const args = nestedResolver.toGitLogArgsMulti(['main.ts', '../README.md']);
       expect(args).toEqual(['--', 'src/main.ts', 'README.md']);

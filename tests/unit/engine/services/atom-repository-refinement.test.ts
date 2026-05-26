@@ -2,17 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../../src/engine/services/atom-repository.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 import { SearchFilter } from '../../../../src/engine/services/search-filter.js';
 import { NullAtomCache } from '../../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { SearchOptions } from '../../../../src/engine/types/query.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
-const LORE_ID_KEY = "Lore-id";
+const MOCK_ID_KEY = "Mock-id";
 
 describe('AtomRepository Refinement', () => {
   let gitClient: IGitClient;
@@ -32,11 +31,11 @@ describe('AtomRepository Refinement', () => {
       }),
       resolveDate: vi.fn(async (d: string) => new Date(d)),
     } as any;
-    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     trailerParser = new TrailerParser();
-    searchFilter = new SearchFilter();
+    searchFilter = new SearchFilter(protocolRegistry);
     const atomCache = new NullAtomCache();
     const queryCache = new NullQueryCache();
     repo = new AtomRepository(gitClient, trailerParser, protocol, protocolRegistry, searchFilter, atomCache, queryCache);
@@ -44,13 +43,13 @@ describe('AtomRepository Refinement', () => {
 
   describe('stripTrailersFromBody (Internal Refinement)', () => {
     it('should remove trailers even with varying whitespace', async () => {
-      const trailers = `${LORE_ID_KEY}: 12345678\nConfidence: high`;
+      const trailers = `${MOCK_ID_KEY}: 12345678\nConfidence: high`;
       const raw: RawCommit = {
         hash: 'h1',
         date: '2026-01-01T00:00:00Z',
         author: 'a@b.com',
         subject: 'feat: sub',
-        body: `Main body text.\n\n   ${LORE_ID_KEY}: 12345678  \n Confidence: high \n\n`,
+        body: `Main body text.\n\n   ${MOCK_ID_KEY}: 12345678  \n Confidence: high \n\n`,
         trailers: trailers,
       };
       vi.mocked(gitClient.log).mockResolvedValue([raw]);
@@ -60,24 +59,24 @@ describe('AtomRepository Refinement', () => {
     });
 
     it('should not strip text that looks like a trailer but is in the middle of the body', async () => {
-      const trailers = `${LORE_ID_KEY}: 12345678`;
+      const trailers = `${MOCK_ID_KEY}: 12345678`;
       const raw: RawCommit = {
         hash: 'h1',
         date: '2026-01-01T00:00:00Z',
         author: 'a@b.com',
         subject: 'feat: sub',
-        body: `This line looks like a trailer:\nConstraint: must be fast\n\nBut the real one is here.\n\n${LORE_ID_KEY}: 12345678`,
+        body: `This line looks like a trailer:\nConstraint: must be fast\n\nBut the real one is here.\n\n${MOCK_ID_KEY}: 12345678`,
         trailers: trailers,
       };
       vi.mocked(gitClient.log).mockResolvedValue([raw]);
 
       const [atom] = await repo.findAll();
       expect(atom.body).toContain('Constraint: must be fast');
-      expect(atom.body).not.toContain(`${LORE_ID_KEY}: 12345678`);
+      expect(atom.body).not.toContain(`${MOCK_ID_KEY}: 12345678`);
     });
 
     it('should handle empty bodies gracefully', async () => {
-      const trailers = `${LORE_ID_KEY}: 12345678`;
+      const trailers = `${MOCK_ID_KEY}: 12345678`;
       const raw: RawCommit = {
         hash: 'h1',
         date: '2026-01-01T00:00:00Z',
@@ -95,8 +94,8 @@ describe('AtomRepository Refinement', () => {
 
   describe('followLinks Integration (End-to-End)', () => {
     it('should transitively resolve links when followLinks is enabled', async () => {
-      const trailersA = `${LORE_ID_KEY}: aaaaaaaa\nRelated: bbbbbbbb`;
-      const trailersB = `${LORE_ID_KEY}: bbbbbbbb`;
+      const trailersA = `${MOCK_ID_KEY}: aaaaaaaa\nRelated: bbbbbbbb`;
+      const trailersB = `${MOCK_ID_KEY}: bbbbbbbb`;
 
       const commitA: RawCommit = {
         hash: 'hash-a',
@@ -139,12 +138,12 @@ describe('AtomRepository Refinement', () => {
       atoms = await repo.resolveFollowLinks(atoms, 1);
 
       expect(atoms).toHaveLength(2);
-      const ids = atoms.map(a => a.protocols.get('lore')?.trailers['Lore-id']?.[0]);
+      const ids = atoms.map(a => a.protocols.get('mock')?.trailers[MOCK_ID_KEY]?.[0]);
       expect(ids).toContain('aaaaaaaa');
       expect(ids).toContain('bbbbbbbb');
       
       const secondCallArgs = vi.mocked(gitClient.log).mock.calls[1][0];
-      expect(secondCallArgs).toContain(`--grep=^${LORE_ID_KEY}: bbbbbbbb`);
+      expect(secondCallArgs).toContain(`--grep=^${MOCK_ID_KEY}: bbbbbbbb`);
     });
   });
 
@@ -158,8 +157,8 @@ describe('AtomRepository Refinement', () => {
         date: '2026-01-01T00:00:00Z',
         author: 'a@b.com',
         subject: 'feat: cross talk',
-        body: `Some text...\n${LORE_ID_KEY}: ${targetId}\n...more text.`,
-        trailers: `${LORE_ID_KEY}: ${actualId}`,
+        body: `Some text...\n${MOCK_ID_KEY}: ${targetId}\n...more text.`,
+        trailers: `${MOCK_ID_KEY}: ${actualId}`,
       };
 
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
@@ -177,7 +176,7 @@ describe('AtomRepository Refinement', () => {
         author: 'a@b.com',
         subject: 'feat: match',
         body: 'Main body',
-        trailers: `${LORE_ID_KEY}: ${targetId}`,
+        trailers: `${MOCK_ID_KEY}: ${targetId}`,
       };
 
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
@@ -185,7 +184,7 @@ describe('AtomRepository Refinement', () => {
       const result = await repo.findById(targetId);
 
       expect(result).not.toBeNull();
-      expect(result!.protocols.get('lore')?.trailers['Lore-id']?.[0]).toBe(targetId);
+      expect(result!.protocols.get('mock')?.trailers[MOCK_ID_KEY]?.[0]).toBe(targetId);
     });
   });
 });

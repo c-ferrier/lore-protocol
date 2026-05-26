@@ -34,7 +34,7 @@ export class SearchFilter {
     }
 
     // 2. Author filter
-    // Authoritative pass: Git --author matches full "Name <email>"; Lore
+    // Authoritative pass: Git --author matches full "Name <email>"; Mock
     // atoms only store the email (%ae). This pass ensures consistency.
     if (options.author) {
       const authorLower = options.author.toLowerCase();

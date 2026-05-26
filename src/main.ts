@@ -25,7 +25,6 @@ async function main() {
   const options = {
     binaryName: 'atom',
     description: 'Agnostic Decision Engine for Git',
-    subjectLabel: 'Subject',
     engineDirName: '.atom',
 
     configFileName: 'config.toml',

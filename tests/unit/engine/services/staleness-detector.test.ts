@@ -42,7 +42,7 @@ function createDefaultConfig(overrides: Partial<Config['stale']> = {}): Config {
 
 /**
  * A truly generic Mock Protocol for engine-level testing.
- * Implements staleness logic similar to Lore but without depending on it.
+ * Implements staleness logic similar to Mock but without depending on it.
  */
 function createMockProtocol(): IProtocol {
   return {

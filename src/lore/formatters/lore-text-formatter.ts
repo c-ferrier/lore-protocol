@@ -12,7 +12,7 @@ import type { Atom } from '../../engine/types/domain.js';
 export class LoreTextFormatter extends TextFormatter {
   constructor(
     private readonly registry: ProtocolRegistry,
-    options: { color: boolean; subjectLabel: string }
+    options: { color: boolean }
   ) {
     super(registry, options);
   }

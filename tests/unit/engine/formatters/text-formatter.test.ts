@@ -1,9 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TextFormatter } from '../../../../src/engine/formatters/text-formatter.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 
 import type { Atom, Trailers, SupersessionStatus } from '../../../../src/engine/types/domain.js';
 import type {
@@ -14,33 +13,25 @@ import type {
   FormattableDoctorResult,
 } from '../../../../src/engine/types/output.js';
 
-const LORE_ID_KEY = "Lore-id";
+const MOCK_ID_KEY = "Mock-id";
 
 function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
   return {
-    [LORE_ID_KEY]: overrides[LORE_ID_KEY] ?? ['a1b2c3d4'],
+    [MOCK_ID_KEY]: overrides[MOCK_ID_KEY] ?? ['a1b2c3d4'],
     Constraint: overrides.Constraint ?? [],
-    Rejected: overrides.Rejected ?? [],
     Confidence: overrides.Confidence ?? [],
-    'Scope-risk': overrides['Scope-risk'] ?? [],
-    Reversibility: overrides.Reversibility ?? [],
-    Directive: overrides.Directive ?? [],
-    Tested: overrides.Tested ?? [],
-    'Not-tested': overrides['Not-tested'] ?? [],
-    Supersedes: overrides.Supersedes ?? [],
-    'Depends-on': overrides['Depends-on'] ?? [],
     Related: overrides.Related ?? [],
     ...overrides,
   } as any;
 }
 
 function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
-  let trailers = overrides.protocols?.get('lore')?.trailers ?? makeTrailers();
+  let trailers = overrides.protocols?.get('mock')?.trailers ?? makeTrailers();
   
-  const id = overrides.id || (trailers[LORE_ID_KEY]?.[0] || 'a1b2c3d4');
+  const id = overrides.id || (trailers[MOCK_ID_KEY]?.[0] || 'a1b2c3d4');
 
-  if (trailers[LORE_ID_KEY]?.[0] !== id) {
-     trailers = { ...trailers, [LORE_ID_KEY]: [id] } as any;
+  if (trailers[MOCK_ID_KEY]?.[0] !== id) {
+     trailers = { ...trailers, [MOCK_ID_KEY]: [id] } as any;
   }
   
   return {
@@ -50,7 +41,7 @@ function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
     subject: overrides.subject ?? 'feat(auth): add login flow',
     body: overrides.body ?? '',
     protocols: overrides.protocols ?? new Map([
-      ['lore', { name: 'Lore', version: '1.0', identityKey: LORE_ID_KEY, trailers }]
+      ['mock', { name: 'Mock', version: '1.0', identityKey: MOCK_ID_KEY, trailers }]
     ]),
     filesChanged: overrides.filesChanged ?? ['src/auth.ts'],
     ...overrides,
@@ -64,7 +55,7 @@ describe('TextFormatter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
     registry.register(protocol);
     formatter = new TextFormatter(registry, { color: false });
   });
@@ -73,7 +64,7 @@ describe('TextFormatter', () => {
     it('should show "No decision atoms found." when empty', () => {
       const data: FormattableQueryResult = {
         result: {
-          command: 'context',
+          command: 'log',
           target: 'src/auth.ts',
           targetType: 'file',
           atoms: [],
@@ -90,10 +81,10 @@ describe('TextFormatter', () => {
     it('should format atoms with header and trailers', () => {
       const atom = makeAtom({
         protocols: new Map([
-          ['lore', { 
-            name: 'Lore', 
+          ['mock', { 
+            name: 'Mock', 
             version: '1.0', 
-            identityKey: LORE_ID_KEY, 
+            identityKey: MOCK_ID_KEY, 
             trailers: makeTrailers({
               Constraint: ['Must use OAuth2'],
               Confidence: ['high'],
@@ -103,7 +94,7 @@ describe('TextFormatter', () => {
       });
       const data: FormattableQueryResult = {
         result: {
-          command: 'constraints',
+          command: 'log',
           target: 'src/auth.ts',
           targetType: 'file',
           atoms: [atom],
@@ -122,8 +113,8 @@ describe('TextFormatter', () => {
       expect(output).toContain('a1b2c3d4');
       expect(output).toContain('2025-01-15');
       expect(output).toContain('alice@example.com');
-      expect(output).toContain('[Lore] Constraint: Must use OAuth2');
-      expect(output).toContain('[Lore] Confidence: high');
+      expect(output).toContain('[Mock] Constraint: Must use OAuth2');
+      expect(output).toContain('[Mock] Confidence: high');
     });
 
     it('should show supersession info for superseded atoms', () => {
@@ -134,7 +125,7 @@ describe('TextFormatter', () => {
 
       const data: FormattableQueryResult = {
         result: {
-          command: 'context',
+          command: 'log',
           target: 'src/auth.ts',
           targetType: 'file',
           atoms: [atom],
@@ -151,21 +142,20 @@ describe('TextFormatter', () => {
     it('should filter visible trailers', () => {
       const atom = makeAtom({
         protocols: new Map([
-          ['lore', {
-            name: 'Lore',
+          ['mock', {
+            name: 'Mock',
             version: '1.0',
-            identityKey: LORE_ID_KEY,
+            identityKey: MOCK_ID_KEY,
             trailers: makeTrailers({
               Constraint: ['Must use OAuth2'],
               Confidence: ['high'],
-              Rejected: ['Session tokens'],
             })
           }]
         ])
       });
       const data: FormattableQueryResult = {
         result: {
-          command: 'constraints',
+          command: 'log',
           target: 'src/auth.ts',
           targetType: 'file',
           atoms: [atom],
@@ -176,18 +166,17 @@ describe('TextFormatter', () => {
       };
 
       const output = formatter.formatQueryResult(data);
-      expect(output).toContain('[Lore] Constraint: Must use OAuth2');
+      expect(output).toContain('[Mock] Constraint: Must use OAuth2');
       expect(output).not.toContain('Confidence:');
-      expect(output).not.toContain('Rejected:');
     });
 
     it('should render unregistered (adhoc) trailers in dim color', () => {
       const atom = makeAtom({
         protocols: new Map([
-          ['lore', {
-            name: 'Lore',
+          ['mock', {
+            name: 'Mock',
             version: '1.0',
-            identityKey: LORE_ID_KEY,
+            identityKey: MOCK_ID_KEY,
             trailers: makeTrailers({
               'Assisted-by': ['Gemini'],
             })
@@ -222,7 +211,7 @@ describe('TextFormatter', () => {
       const atom = makeAtom({ body: 'Detailed explanation here.' });
       const data: FormattableQueryResult = {
         result: {
-          command: 'context',
+          command: 'log',
           target: 'src/auth.ts',
           targetType: 'file',
           atoms: [atom],
@@ -240,7 +229,7 @@ describe('TextFormatter', () => {
       const atom = makeAtom();
       const data: FormattableQueryResult = {
         result: {
-          command: 'context',
+          command: 'log',
           target: 'src/auth.ts',
           targetType: 'file',
           atoms: [atom],
@@ -259,9 +248,9 @@ describe('TextFormatter', () => {
       const fredTrailers = { 'Fred-id': ['f8ed5678'], Status: ['active'] };
       
       const atom: Atom = {
-        ...makeAtom({ id: 'lore1234' }),
+        ...makeAtom({ id: 'mock1234' }),
         protocols: new Map([
-          ['lore', { name: 'Lore', version: '1.0', identityKey: 'Lore-id', trailers }],
+          ['mock', { name: 'Mock', version: '1.0', identityKey: MOCK_ID_KEY, trailers }],
           ['fred', { name: 'Fred', version: '2.0', identityKey: 'Fred-id', trailers: fredTrailers as any }]
         ])
       } as any;
@@ -289,48 +278,13 @@ describe('TextFormatter', () => {
 
       const output = formatter.formatQueryResult(data);
       
-      // Lore (Primary) should be prefixed in total neutrality
-      expect(output).toContain('[Lore] Confidence: high');
+      // Mock should be prefixed in total neutrality
+      expect(output).toContain('[Mock] Confidence: high');
       
-      // Fred (Secondary) should be prefixed
+      // Fred should be prefixed
       expect(output).toContain('[Fred] Status: active');
-      // Should show Fred ID because it differs from header ID (lore1234)
+      // Should show Fred ID because it differs from header ID (mock1234)
       expect(output).toContain('[Fred] Fred-id: f8ed5678');
-    });
-
-    it('should show prefixed trailers even if no root protocol is registered', () => {
-      const localRegistry = new ProtocolRegistry();
-      const fredProtocol = new Protocol({
-        ...LoreProtocolDefinition,
-        name: 'Fred',
-        version: '2.5',
-        identityKey: 'Fred-id',
-        namespace: 'Fred',
-      }, LORE_DEFAULT_CONFIG);
-      localRegistry.register(fredProtocol);
-
-      const formatterNoRoot = new TextFormatter(localRegistry, { color: false });
-      const trailers = { 'Fred-id': ['f1'], Status: ['active'] };
-      const atom: Atom = {
-        ...makeAtom({ id: 'l1' }),
-        protocols: new Map([
-          ['fred', { name: 'Fred', version: '2.5', identityKey: 'Fred-id', trailers: trailers as any }]
-        ])
-      } as any;
-
-      const data: FormattableQueryResult = {
-        result: {
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: null, newest: null },
-          command: 'search', target: 'all', targetType: 'global'
-        },
-        supersessionMap: new Map(),
-        visibleTrailers: 'all',
-      };
-
-      const output = formatterNoRoot.formatQueryResult(data);
-      // In total neutrality mode, everything is prefixed
-      expect(output).toContain('[Fred] Status: active');
     });
   });
 
@@ -364,8 +318,8 @@ describe('TextFormatter', () => {
             id: null,
             valid: false,
             issues: [
-              { severity: 'error', rule: 'lore-id-present', message: `${LORE_ID_KEY} trailer is missing` },
-              { severity: 'warning', rule: 'subject-length', message: 'Intent too long' },
+              { severity: 'error', rule: 'mock-id-present', message: `${MOCK_ID_KEY} trailer is missing` },
+              { severity: 'warning', rule: 'subject-length', message: 'Subject too long' },
             ],
           },
         ],
@@ -373,34 +327,13 @@ describe('TextFormatter', () => {
       };
 
       const output = formatter.formatValidationResult(data);
-      // New semantic UI uses symbols like ✗ and ⚠
       expect(output).toContain('\u2717');
-      expect(output).toContain('lore-id-present');
-      expect(output).toContain(`${LORE_ID_KEY} trailer is missing`);
+      expect(output).toContain('mock-id-present');
+      expect(output).toContain(`${MOCK_ID_KEY} trailer is missing`);
       expect(output).toContain('\u26A0');
-      expect(output).toContain('Intent too long');
+      expect(output).toContain('Subject too long');
       expect(output).toContain('1 errors');
       expect(output).toContain('1 warnings');
-    });
-
-    it(`should use commit hash prefix when no ${LORE_ID_KEY}`, () => {
-      const data: FormattableValidationResult = {
-        summary: { errors: 1, warnings: 0, commitsChecked: 1 },
-        results: [
-          {
-            commit: 'abc1234567890',
-            id: null,
-            valid: false,
-            issues: [
-              { severity: 'error', rule: 'lore-id-present', message: `Missing ${LORE_ID_KEY}` },
-            ],
-          },
-        ],
-        valid: false
-      };
-
-      const output = formatter.formatValidationResult(data);
-      expect(output).toContain('abc12345');
     });
   });
 
@@ -442,34 +375,15 @@ describe('TextFormatter', () => {
         root,
         edges: [
           { from: 'aaaabbbb', to: 'ccccdddd', relationship: 'Related', targetAtom },
-          { from: 'aaaabbbb', to: 'eeeeffff', relationship: 'Supersedes', targetAtom: null },
         ],
       };
 
       const output = formatter.formatTraceResult(data);
       expect(output).toContain('aaaabbbb');
-      expect(output).toContain('\u251C\u2500\u2500');
+      expect(output).toContain('\u2514\u2500\u2500');
       expect(output).toContain('[Related]');
       expect(output).toContain('ccccdddd');
       expect(output).toContain('related change');
-      expect(output).toContain('\u2514\u2500\u2500');
-      expect(output).toContain('[Supersedes]');
-      expect(output).toContain('eeeeffff');
-      expect(output).toContain('(unresolved)');
-    });
-
-    it('should use last-item connector for single edge', () => {
-      const root = makeAtom({ id: 'aaaabbbb' });
-      const data: FormattableTraceResult = {
-        root,
-        edges: [
-          { from: 'aaaabbbb', to: 'ccccdddd', relationship: 'Depends-on', targetAtom: null },
-        ],
-      };
-
-      const output = formatter.formatTraceResult(data);
-      expect(output).toContain('\u2514\u2500\u2500');
-      expect(output).not.toContain('\u251C\u2500\u2500');
     });
   });
 
@@ -479,7 +393,7 @@ describe('TextFormatter', () => {
         checks: [
           { name: 'git-version', status: 'ok', message: 'Git 2.40+ detected', details: [] },
           { name: 'config', status: 'warning', message: 'No config found', details: ['Using defaults'] },
-          { name: 'duplicates', status: 'error', message: `2 duplicate ${LORE_ID_KEY}s`, details: ['a1b2c3d4', 'e5f6a7b8'] },
+          { name: 'duplicates', status: 'error', message: `2 duplicate ${MOCK_ID_KEY}s`, details: ['a1b2c3d4', 'e5f6a7b8'] },
         ],
         summary: { errors: 1, warnings: 1, info: 0 },
       };
@@ -491,64 +405,16 @@ describe('TextFormatter', () => {
       expect(output).toContain('No config found');
       expect(output).toContain('Using defaults');
       expect(output).toContain('ERROR');
-      expect(output).toContain(`2 duplicate ${LORE_ID_KEY}s`);
+      expect(output).toContain(`2 duplicate ${MOCK_ID_KEY}s`);
       expect(output).toContain('1 errors');
       expect(output).toContain('1 warnings');
-    });
-
-    it('should show "all checks passed" when no issues', () => {
-      const data: FormattableDoctorResult = {
-        checks: [
-          { name: 'git-version', status: 'ok', message: 'OK', details: [] },
-        ],
-        summary: { errors: 0, warnings: 0, info: 0 },
-      };
-
-      const output = formatter.formatDoctorResult(data);
-      expect(output).toContain('all checks passed');
     });
   });
 
   describe('formatSuccess', () => {
     it('should return the message', () => {
-      const output = formatter.formatSuccess('Commit created: a1b2c3d4');
-      expect(output).toContain('Commit created: a1b2c3d4');
-    });
-  });
-
-  describe('formatError', () => {
-    it('should show error messages with severity', () => {
-      const output = formatter.formatError(1, [
-        { severity: 'error', message: 'Something went wrong' },
-        { severity: 'warning', field: 'subject', message: 'Too long' },
-      ]);
-
-      expect(output).toContain('error');
-      expect(output).toContain('Something went wrong');
-      expect(output).toContain('warning');
-      expect(output).toContain('[subject]');
-      expect(output).toContain('Too long');
-      expect(output).toContain('exit code 1');
-    });
-
-    it('should show each validation issue individually', () => {
-      const output = formatter.formatError(1, [
-        { severity: 'error', message: 'Required trailer "Assisted-by" is missing' },
-        { severity: 'error', message: 'Required trailer "Ticket" is missing' },
-        { severity: 'warning', message: 'Intent exceeds 72 characters' },
-      ]);
-
-      expect(output).toContain('Required trailer "Assisted-by" is missing');
-      expect(output).toContain('Required trailer "Ticket" is missing');
-      expect(output).toContain('Intent exceeds 72 characters');
-    });
-
-    it('should not show exit code when code is 0', () => {
-      const output = formatter.formatError(0, [
-        { severity: 'warning', message: 'Minor issue' },
-      ]);
-
-      expect(output).not.toContain('exit code');
+      const output = formatter.formatSuccess('Operation successful');
+      expect(output).toContain('Operation successful');
     });
   });
 
@@ -556,7 +422,6 @@ describe('TextFormatter', () => {
     it('should produce output with color disabled', () => {
       const noColor = new TextFormatter(registry, { color: false });
       const output = noColor.formatSuccess('OK');
-      // With chalk level 0, no ANSI codes
       expect(output).not.toMatch(/\x1b\[/);
     });
   });

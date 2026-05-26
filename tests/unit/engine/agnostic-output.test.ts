@@ -41,7 +41,7 @@ describe('Agnostic Output (Zero Protocols)', () => {
 
   describe('JsonFormatter', () => {
     it('should use "subject" key by default and return empty protocols map', () => {
-      const formatter = new JsonFormatter(registry); // Should default to 'Subject'
+      const formatter = new JsonFormatter(registry);
       const output = JSON.parse(formatter.formatQueryResult(mockData));
 
       const firstResult = output.results[0];
@@ -50,8 +50,13 @@ describe('Agnostic Output (Zero Protocols)', () => {
       expect(firstResult.commit).toBe('abc1234567890');
     });
 
-    it('should respect custom subjectLabel and snake_case it', () => {
-      const formatter = new JsonFormatter(registry, 'Decision Intent');
+    it('should allow overriding the subject key via subclassing (Wrapping Pattern)', () => {
+      class CustomJsonFormatter extends JsonFormatter {
+          protected override getSubjectKey(): string {
+              return 'decision_intent';
+          }
+      }
+      const formatter = new CustomJsonFormatter(registry);
       const output = JSON.parse(formatter.formatQueryResult(mockData));
 
       const firstResult = output.results[0];

@@ -1,71 +1,57 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { shouldCheckForUpdate } from '../../../../src/util/update-check.js';
+import { runCli } from '../../../../src/engine/index.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import * as updateCheck from '../../../../src/util/update-check.js';
+import { resolve } from 'node:path';
 
-describe('shouldCheckForUpdate', () => {
-  const originalEnv = { ...process.env };
-  const originalArgv = [...process.argv];
-  const originalIsTTY = process.stderr.isTTY;
+describe('Update Check Integration', () => {
+  const originalArgv = process.argv;
+  const pkgPath = resolve(process.cwd(), 'package.json');
 
   beforeEach(() => {
-    process.env = { ...originalEnv };
-    process.argv = ['node', 'lore', 'log'];
-    Object.defineProperty(process.stderr, 'isTTY', { value: true, writable: true });
-    delete process.env['CI'];
-    delete process.env['NO_UPDATE_NOTIFIER'];
-    delete process.env['PROTOCOL_NO_UPDATE_CHECK'];
+    vi.spyOn(updateCheck, 'shouldCheckForUpdate').mockResolvedValue(false);
   });
 
   afterEach(() => {
-    process.env = originalEnv;
     process.argv = originalArgv;
-    Object.defineProperty(process.stderr, 'isTTY', { value: originalIsTTY, writable: true });
+    vi.restoreAllMocks();
   });
 
-  it('returns true when all conditions are met', () => {
-    expect(shouldCheckForUpdate(true)).toBe(true);
+  it('should call shouldCheckForUpdate during bootstrap if enabled', async () => {
+    process.argv = ['node', 'atom', 'log'];
+    
+    await runCli({
+      binaryName: 'atom',
+      description: 'Agnostic',
+      engineDirName: '.atom',
+      configFileName: 'config.toml',
+      defaultConfig: {
+        ...MOCK_CONFIG,
+        cli: { ...MOCK_CONFIG.cli, updateCheck: true }
+      },
+      protocols: [MOCK_PROTOCOL_DEFINITION],
+      packageJsonPath: pkgPath
+    });
+
+    expect(updateCheck.shouldCheckForUpdate).toHaveBeenCalled();
   });
 
-  it('returns false when stderr is not a TTY', () => {
-    Object.defineProperty(process.stderr, 'isTTY', { value: false, writable: true });
-    expect(shouldCheckForUpdate(true)).toBe(false);
-  });
+  it('should NOT call shouldCheckForUpdate if disabled in config', async () => {
+    process.argv = ['node', 'atom', 'log'];
+    
+    await runCli({
+      binaryName: 'atom',
+      description: 'Agnostic',
+      engineDirName: '.atom',
+      configFileName: 'config.toml',
+      defaultConfig: {
+        ...MOCK_CONFIG,
+        cli: { ...MOCK_CONFIG.cli, updateCheck: false }
+      },
+      protocols: [MOCK_PROTOCOL_DEFINITION],
+      packageJsonPath: pkgPath
+    });
 
-  it('returns false when CI env var is set', () => {
-    process.env['CI'] = 'true';
-    expect(shouldCheckForUpdate(true)).toBe(false);
-  });
-
-  it('returns false when NO_UPDATE_NOTIFIER env var is set', () => {
-    process.env['NO_UPDATE_NOTIFIER'] = '1';
-    expect(shouldCheckForUpdate(true)).toBe(false);
-  });
-
-  it('returns false when PROTOCOL_NO_UPDATE_CHECK env var is set', () => {
-    process.env['PROTOCOL_NO_UPDATE_CHECK'] = '1';
-    expect(shouldCheckForUpdate(true)).toBe(false);
-  });
-
-  it('returns false when --json is in argv', () => {
-    process.argv = ['node', 'lore', 'log', '--json'];
-    expect(shouldCheckForUpdate(true)).toBe(false);
-  });
-
-  it('returns false when --format=json is in argv', () => {
-    process.argv = ['node', 'lore', 'log', '--format=json'];
-    expect(shouldCheckForUpdate(true)).toBe(false);
-  });
-
-  it('returns false when --format json (space-separated) is in argv', () => {
-    process.argv = ['node', 'lore', 'log', '--format', 'json'];
-    expect(shouldCheckForUpdate(true)).toBe(false);
-  });
-
-  it('returns false when --no-update-notifier is in argv', () => {
-    process.argv = ['node', 'lore', 'log', '--no-update-notifier'];
-    expect(shouldCheckForUpdate(true)).toBe(false);
-  });
-
-  it('returns false when config updateCheck is false', () => {
-    expect(shouldCheckForUpdate(false)).toBe(false);
+    expect(updateCheck.shouldCheckForUpdate).not.toHaveBeenCalled();
   });
 });

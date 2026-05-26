@@ -12,6 +12,15 @@ import { snakeCase } from '../../util/string.js';
 import type { ProtocolRegistry } from '../../engine/services/protocol-registry.js';
 
 /**
+ * Agnostic JSON Formatter specialized for Lore.
+ */
+class LoreAgnosticJsonFormatter extends JsonFormatter {
+    protected override getSubjectKey(): string {
+        return 'intent';
+    }
+}
+
+/**
  * Lore CLI 0.5.0 Legacy Formatter.
  * 
  * A total reconstruction of the Lore 0.5.0 JSON schema.
@@ -22,7 +31,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
   private readonly inner: JsonFormatter;
 
   constructor(private readonly protocolRegistry: ProtocolRegistry) {
-      this.inner = new JsonFormatter(protocolRegistry, 'Intent');
+      this.inner = new LoreAgnosticJsonFormatter(protocolRegistry);
   }
 
   formatQueryResult(data: FormattableQueryResult): string {

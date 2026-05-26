@@ -12,7 +12,7 @@ export interface IQueryCache {
    * Retrieve cached hashes for a query.
    * @param headHash The 40-char HEAD commit hash.
    * @param gitLogArgs The path-resolution arguments (files/dirs).
-   * @param options The Lore-specific query filters.
+   * @param options The Mock-specific query filters.
    * @returns List of matching commit hashes, or null if not in cache.
    */
   get(

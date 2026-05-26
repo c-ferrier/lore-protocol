@@ -19,6 +19,7 @@ describe('ProtocolRegistry', () => {
     getAuthorizedKeys: vi.fn(),
     getScalarKeys: vi.fn(),
     getListKeys: vi.fn(),
+    getAllKeys: vi.fn(),
     getReferenceKeys: vi.fn(),
     isCore: vi.fn(),
     getUiKind: vi.fn(),
@@ -28,78 +29,79 @@ describe('ProtocolRegistry', () => {
     isValidIdentity: vi.fn(),
     owns: vi.fn(),
     getIdentityPattern: vi.fn().mockReturnValue(`^${name}-id: `),
+    getIdentity: vi.fn(),
   } as unknown as IProtocol);
 
   it('should register and retrieve protocols', () => {
     const registry = new ProtocolRegistry();
-    const lore = createMockProtocol('Lore');
+    const mock = createMockProtocol('Mock');
     
-    registry.register(lore);
+    registry.register(mock);
     
-    expect(registry.get('Lore')).toBe(lore);
-    expect(registry.get('lore')).toBe(lore); // Case-insensitive
-    expect(registry.all()).toContain(lore);
+    expect(registry.get('Mock')).toBe(mock);
+    expect(registry.get('mock')).toBe(mock); // Case-insensitive
+    expect(registry.getAll()).toContain(mock);
   });
 
   it('should detect protocols that claim raw trailers', () => {
     const registry = new ProtocolRegistry();
-    const lore = createMockProtocol('Lore', true);
+    const mock = createMockProtocol('Mock', true);
     const fred = createMockProtocol('Fred', false);
     
-    registry.register(lore);
+    registry.register(mock);
     registry.register(fred);
     
     const detected = registry.detect('some trailers');
-    expect(detected).toContain(lore);
+    expect(detected).toContain(mock);
     expect(detected).not.toContain(fred);
   });
 
   it('should aggregate discovery grep arguments from all protocols into a single OR statement', () => {
     const registry = new ProtocolRegistry();
-    const lore = createMockProtocol('Lore');
+    const mock = createMockProtocol('Mock');
     const fred = createMockProtocol('Fred');
     
-    registry.register(lore);
+    registry.register(mock);
     registry.register(fred);
     
     const greps = registry.getDiscoveryGrep();
     expect(greps).toHaveLength(1);
-    expect(greps[0]).toContain('^Lore-id: [0-9a-f]{8}');
+    expect(greps[0]).toContain('^Mock-id: [0-9a-f]{8}');
     expect(greps[0]).toContain('^Fred-id: [0-9a-f]{8}');
     expect(greps[0]).toContain('|');
     // Ensure grouping parentheses are present
-    expect(greps[0]).toMatch(/\(\^Lore-id: \[0-9a-f\]\{8\}\)\|\(\^Fred-id: \[0-9a-f\]\{8\}\)/);
+    expect(greps[0]).toMatch(/\(\^Mock-id: \[0-9a-f\]\{8\}\)\|\(\^Fred-id: \[0-9a-f\]\{8\}\)/);
   });
 
   it('should throw an error if registering more than one permissive protocol in same namespace', () => {
     const registry = new ProtocolRegistry();
     
-    const lore = createMockProtocol('Lore');
-    Object.defineProperty(lore, 'permissive', { get: () => true });
-    Object.defineProperty(lore, 'namespace', { get: () => '' });
+    const mock = createMockProtocol('Mock');
+    Object.defineProperty(mock, 'permissive', { get: () => true });
+    Object.defineProperty(mock, 'namespace', { get: () => '' });
     
     const fred = createMockProtocol('Fred');
     Object.defineProperty(fred, 'permissive', { get: () => true });
     Object.defineProperty(fred, 'namespace', { get: () => '' });
     
-    registry.register(lore);
-    expect(() => registry.register(fred)).toThrow(/A permissive protocol \("Lore"\) is already registered for namespace "root"/);
+    registry.register(mock);
+    expect(() => registry.register(fred)).toThrow(/A permissive protocol \("Mock"\) is already registered for namespace "root"/);
   });
 
   it('should allow multiple permissive protocols in DIFFERENT namespaces', () => {
     const registry = new ProtocolRegistry();
     
-    const lore = createMockProtocol('Lore');
-    Object.defineProperty(lore, 'permissive', { get: () => true });
-    Object.defineProperty(lore, 'namespace', { get: () => '' });
+    const mock = createMockProtocol('Mock');
+    Object.defineProperty(mock, 'permissive', { get: () => true });
+    Object.defineProperty(mock, 'namespace', { get: () => '' });
     
     const fred = createMockProtocol('Fred');
     Object.defineProperty(fred, 'permissive', { get: () => true });
     Object.defineProperty(fred, 'namespace', { get: () => 'Fred' });
     
-    registry.register(lore);
+    registry.register(mock);
     expect(() => registry.register(fred)).not.toThrow();
-    expect(registry.all()).toHaveLength(2);
+    expect(registry.getAll()).toHaveLength(2);
   });
 
   it('should return empty array for discovery grep if no protocols registered', () => {
@@ -110,22 +112,22 @@ describe('ProtocolRegistry', () => {
   it('should treat namespace comparison as case-insensitive for safety rules', () => {
     const registry = new ProtocolRegistry();
     
-    const lore = createMockProtocol('Lore');
-    Object.defineProperty(lore, 'permissive', { get: () => true });
-    Object.defineProperty(lore, 'namespace', { get: () => 'System' });
+    const mock = createMockProtocol('Mock');
+    Object.defineProperty(mock, 'permissive', { get: () => true });
+    Object.defineProperty(mock, 'namespace', { get: () => 'System' });
     
     const fred = createMockProtocol('Fred');
     Object.defineProperty(fred, 'permissive', { get: () => true });
     Object.defineProperty(fred, 'namespace', { get: () => 'system' }); // lowercase
     
-    registry.register(lore);
+    registry.register(mock);
     expect(() => registry.register(fred)).toThrow(/namespace "system"/);
   });
 
   it('should return the root protocol if registered', () => {
     const registry = new ProtocolRegistry();
-    const lore = createMockProtocol('Lore');
-    Object.defineProperty(lore, 'namespace', { get: () => '' });
+    const mock = createMockProtocol('Mock');
+    Object.defineProperty(mock, 'namespace', { get: () => '' });
     
     const fred = createMockProtocol('Fred');
     Object.defineProperty(fred, 'namespace', { get: () => 'Fred' });
@@ -133,7 +135,7 @@ describe('ProtocolRegistry', () => {
     registry.register(fred);
     expect(registry.getRoot()).toBeUndefined();
     
-    registry.register(lore);
-    expect(registry.getRoot()).toBe(lore);
+    registry.register(mock);
+    expect(registry.getRoot()).toBe(mock);
   });
 });

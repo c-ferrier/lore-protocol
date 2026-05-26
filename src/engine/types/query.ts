@@ -45,7 +45,7 @@ export interface SearchOptions extends PathQueryOptions {
 }
 
 /**
- * Unified options for all Lore queries (log, search, context, etc.).
+ * Unified options for all Mock queries (log, search, context, etc.).
  * These options form the identity of a query for caching purposes.
  */
 export type QueryOptions = SearchOptions;

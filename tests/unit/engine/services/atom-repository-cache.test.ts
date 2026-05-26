@@ -1,17 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../../src/engine/services/atom-repository.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 import { SearchFilter } from '../../../../src/engine/services/search-filter.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
-import type { IAtomCache, AtomCacheEntry } from '../../../../src/engine/interfaces/atom-cache.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
-
+import type { IAtomCache } from '../../../../src/engine/interfaces/atom-cache.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
-const LORE_ID_KEY = "Lore-id";
+const MOCK_ID_KEY = "Mock-id";
 
 describe('AtomRepository Cache Interaction', () => {
   let gitClient: IGitClient;
@@ -27,7 +25,7 @@ describe('AtomRepository Cache Interaction', () => {
       resolveDate: vi.fn(async (d: string) => new Date(d)),
     } as any;
 
-    const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     trailerParser = new TrailerParser();
@@ -47,53 +45,53 @@ describe('AtomRepository Cache Interaction', () => {
     );
   });
 
-  const mockLoreCommit: RawCommit = {
+  const mockCommit: RawCommit = {
     hash: 'abc12345',
     date: '2025-01-15T10:00:00Z',
     author: 'dev@example.com',
     subject: 'feat(auth): add login',
     body: 'Implemented login flow.',
-    trailers: `${LORE_ID_KEY}: a1b2c3d4`,
+    trailers: `${MOCK_ID_KEY}: a1b2c3d4`,
   };
 
   it('should use cached files and skip git lookup on cache hit', async () => {
     const cachedFiles = ['src/auth.ts', 'src/util.ts'];
     vi.mocked(atomCache.get).mockResolvedValue({ filesChanged: cachedFiles });
-    vi.mocked(gitClient.log).mockResolvedValue([mockLoreCommit]);
+    vi.mocked(gitClient.log).mockResolvedValue([mockCommit]);
 
     const result = await repo.findAll();
 
     expect(result).toHaveLength(1);
     expect(result[0].filesChanged).toEqual(cachedFiles);
-    expect(atomCache.get).toHaveBeenCalledWith(mockLoreCommit.hash);
+    expect(atomCache.get).toHaveBeenCalledWith(mockCommit.hash);
     expect(gitClient.getFilesChanged).not.toHaveBeenCalled();
   });
 
   it('should hit git and update cache on cache miss', async () => {
     const gitFiles = ['src/new.ts'];
     vi.mocked(atomCache.get).mockResolvedValue(null); // Miss
-    vi.mocked(gitClient.log).mockResolvedValue([mockLoreCommit]);
-    vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[mockLoreCommit.hash, gitFiles]]));
+    vi.mocked(gitClient.log).mockResolvedValue([mockCommit]);
+    vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[mockCommit.hash, gitFiles]]));
 
     const result = await repo.findAll();
 
     expect(result).toHaveLength(1);
     expect(result[0].filesChanged).toEqual(gitFiles);
-    expect(atomCache.get).toHaveBeenCalledWith(mockLoreCommit.hash);
-    expect(gitClient.getFilesChanged).toHaveBeenCalledWith([mockLoreCommit.hash]);
+    expect(atomCache.get).toHaveBeenCalledWith(mockCommit.hash);
+    expect(gitClient.getFilesChanged).toHaveBeenCalledWith([mockCommit.hash]);
     
     // Verify cache update
-    expect(atomCache.set).toHaveBeenCalledWith(mockLoreCommit.hash, { filesChanged: gitFiles });
+    expect(atomCache.set).toHaveBeenCalledWith(mockCommit.hash, { filesChanged: gitFiles });
   });
 
   it('should handle partial cache hits in a batch', async () => {
     const cachedFiles = ['src/cached.ts'];
     const gitFiles = ['src/git.ts'];
-    const mockLoreCommit2: RawCommit = { ...mockLoreCommit, hash: 'hash2', trailers: `${LORE_ID_KEY}: bbb222` };
+    const mockCommit2: RawCommit = { ...mockCommit, hash: 'hash2', trailers: `${MOCK_ID_KEY}: bbb222` };
 
     vi.mocked(gitClient.log).mockResolvedValue([
-      { ...mockLoreCommit, hash: 'hash1', trailers: `${LORE_ID_KEY}: aaa111` },
-      mockLoreCommit2
+      { ...mockCommit, hash: 'hash1', trailers: `${MOCK_ID_KEY}: aaa111` },
+      mockCommit2
     ]);
 
     vi.mocked(atomCache.get).mockImplementation(async (h) => h === 'hash1' ? { filesChanged: cachedFiles } : null);

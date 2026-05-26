@@ -28,7 +28,6 @@ export async function buildLoreCli() {
   const options = {
     binaryName: 'lore',
     description: 'Structured decision context in git commits',
-    subjectLabel: 'Intent',
     engineDirName: '.atom',
     protocolDirName: LORE_CONFIG_DIR,
     configFileName: LORE_CONFIG_FILENAME,

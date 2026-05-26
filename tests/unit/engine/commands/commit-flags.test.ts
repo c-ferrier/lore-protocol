@@ -2,17 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerCommitCommand } from '../../../../src/engine/commands/commit.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 
-describe('lore commit (dynamic flags)', () => {
+describe('atom commit (dynamic flags)', () => {
   const mockDeps = {
     commitBuilder: { build: vi.fn(), validate: vi.fn(() => []) },
     gitClient: { commit: vi.fn().mockResolvedValue({ hash: 'h1', rawMessage: 'm' }), hasStagedChanges: vi.fn().mockResolvedValue(true) },
     getFormatter: () => ({ formatSuccess: vi.fn() }),
-    commitInputResolver: { resolve: vi.fn().mockResolvedValue({ subject: 'i' }) },
+    commitInputResolver: { resolve: vi.fn().mockResolvedValue({ subject: 's' }) },
     headIdReader: { readIds: vi.fn().mockResolvedValue({}) },
     trailerParser: new TrailerParser(),
   } as any;
@@ -23,9 +22,9 @@ describe('lore commit (dynamic flags)', () => {
 
   it('should register flags for custom trailers defined in config', async () => {
     const config = {
-      ...LORE_DEFAULT_CONFIG,
+      ...MOCK_CONFIG,
       trailers: {
-        ...LORE_DEFAULT_CONFIG.trailers,
+        ...MOCK_CONFIG.trailers,
         definitions: {
           Department: {
             description: 'Dept',
@@ -36,7 +35,7 @@ describe('lore commit (dynamic flags)', () => {
         }
       }
     };
-    const protocol = new Protocol(LoreProtocolDefinition, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
     const protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
 
@@ -54,9 +53,9 @@ describe('lore commit (dynamic flags)', () => {
 
   it('should automatically slugify custom trailer keys into flags', async () => {
     const config = {
-      ...LORE_DEFAULT_CONFIG,
+      ...MOCK_CONFIG,
       trailers: {
-        ...LORE_DEFAULT_CONFIG.trailers,
+        ...MOCK_CONFIG.trailers,
         definitions: {
           'Assisted-by': {
             description: 'A',
@@ -66,7 +65,7 @@ describe('lore commit (dynamic flags)', () => {
         }
       }
     };
-    const protocol = new Protocol(LoreProtocolDefinition, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
     const protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
 

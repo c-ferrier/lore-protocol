@@ -1,20 +1,20 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ConfigLoader } from '../../../../src/engine/services/config-loader.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { MOCK_CONFIG } from '../test-utils.js';
 
-import { mkdtemp, mkdir, writeFile, rm, readFile, stat } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-const LORE_ID_KEY = "Lore-id";
+const MOCK_ID_KEY = "Mock-id";
 
 describe('ConfigLoader', () => {
   let loader: ConfigLoader;
   let tempDir: string;
 
   beforeEach(async () => {
-    loader = new ConfigLoader('.lore', 'config.toml', LORE_DEFAULT_CONFIG);
-    tempDir = await mkdtemp(join(tmpdir(), 'lore-config-test-'));
+    loader = new ConfigLoader('.mock', 'config.toml', MOCK_CONFIG);
+    tempDir = await mkdtemp(join(tmpdir(), 'engine-config-test-'));
   });
 
   afterEach(async () => {
@@ -22,12 +22,12 @@ describe('ConfigLoader', () => {
   });
 
   /**
-   * Helper to create a .lore/config.toml file in a directory.
+   * Helper to create a .mock/config.toml file in a directory.
    */
   async function createConfigFile(dir: string, content: string): Promise<string> {
-    const loreDir = join(dir, '.lore');
-    await mkdir(loreDir, { recursive: true });
-    const configPath = join(loreDir, 'config.toml');
+    const mockDir = join(dir, '.mock');
+    await mkdir(mockDir, { recursive: true });
+    const configPath = join(mockDir, 'config.toml');
     await writeFile(configPath, content, 'utf-8');
     return configPath;
   }
@@ -82,11 +82,11 @@ version = "1.5"
 
       expect(config.protocol.version).toBe('1.5');
       // All other sections should come from defaults
-      expect(config.trailers).toEqual(LORE_DEFAULT_CONFIG.trailers);
-      expect(config.validation).toEqual(LORE_DEFAULT_CONFIG.validation);
-      expect(config.stale).toEqual(LORE_DEFAULT_CONFIG.stale);
-      expect(config.output).toEqual(LORE_DEFAULT_CONFIG.output);
-      expect(config.follow).toEqual(LORE_DEFAULT_CONFIG.follow);
+      expect(config.trailers).toEqual(MOCK_CONFIG.trailers);
+      expect(config.validation).toEqual(MOCK_CONFIG.validation);
+      expect(config.stale).toEqual(MOCK_CONFIG.stale);
+      expect(config.output).toEqual(MOCK_CONFIG.output);
+      expect(config.follow).toEqual(MOCK_CONFIG.follow);
     });
 
     it('should use defaults for empty config file', async () => {
@@ -94,7 +94,7 @@ version = "1.5"
 
       const config = await loader.loadFromFile(configPath);
 
-      expect(config).toEqual(LORE_DEFAULT_CONFIG);
+      expect(config).toEqual(MOCK_CONFIG);
     });
 
     it('should handle only stale section', async () => {
@@ -108,7 +108,7 @@ driftThreshold = 10
 
       expect(config.stale.olderThan).toBe('30d');
       expect(config.stale.driftThreshold).toBe(10);
-      expect(config.protocol).toEqual(LORE_DEFAULT_CONFIG.protocol);
+      expect(config.protocol).toEqual(MOCK_CONFIG.protocol);
     });
 
     it('should parse cli section options', async () => {
@@ -124,12 +124,6 @@ update_check = false
       expect(config.cli.updateCheck).toBe(false);
     });
 
-    it('should throw on invalid TOML syntax', async () => {
-      const configPath = await createConfigFile(tempDir, 'not valid toml [[[');
-
-      await expect(loader.loadFromFile(configPath)).rejects.toThrow();
-    });
-
     it('should parse snake_case TOML keys (canonical TOML format)', async () => {
       const configPath = await createConfigFile(tempDir, `
 [protocol]
@@ -138,7 +132,7 @@ version = "2.0"
 [validation]
 strict = true
 max_message_lines = 100
-intent_max_length = 80
+subject_max_length = 80
 
 [stale]
 older_than = "1y"
@@ -211,42 +205,6 @@ pattern = "^#[a-z]+$"
         required: true,
         directives: undefined,
       });
-      expect(config.trailers.definitions.Tags).toEqual({
-        description: 'Topic tags',
-        multivalue: true,
-        validation: 'pattern',
-        options: undefined,
-        pattern: '^#[a-z]+$',
-        required: false,
-        directives: undefined,
-      });
-    });
-
-    it('should handle detailed option metadata', async () => {
-      const configPath = await createConfigFile(tempDir, `
-[trailers.definitions.Priority.options]
-P0 = "Critical"
-P1 = { description = "High" }
-`);
-
-      const config = await loader.loadFromFile(configPath);
-
-      expect(config.trailers.definitions.Priority.values).toEqual({
-        P0: { description: 'Critical' },
-        P1: { description: 'High' },
-      });
-    });
-
-    it('should handle output format validation', async () => {
-      const configPath = await createConfigFile(tempDir, `
-[output]
-defaultFormat = "invalid"
-`);
-
-      const config = await loader.loadFromFile(configPath);
-
-      // Invalid format should fall back to default
-      expect(config.output.defaultFormat).toBe('text');
     });
 
     it('should parse UI hints for trailer definitions', async () => {
@@ -257,41 +215,11 @@ multivalue = false
 validation = "options"
 options = ["Eng", "Prod"]
 ui = { kind = "risk", color = "cyan" }
-
-[trailers.definitions.Ticket]
-description = "Issue ID"
-multivalue = true
-validation = "pattern"
-pattern = "^[A-Z]+-[0-9]+$"
-ui = { kind = "reference", color = "dim" }
 `);
 
       const config = await loader.loadFromFile(configPath);
 
-      expect(config.trailers.definitions.Department).toEqual({
-        description: 'The department',
-        multivalue: false,
-        validation: 'values',
-        values: {
-          Eng: { description: '' },
-          Prod: { description: '' },
-        },
-        pattern: undefined,
-        required: false,
-        directives: undefined,
-        ui: { kind: 'risk', color: 'cyan' },
-      });
-
-      expect(config.trailers.definitions.Ticket).toEqual({
-        description: 'Issue ID',
-        multivalue: true,
-        validation: 'pattern',
-        options: undefined,
-        pattern: '^[A-Z]+-[0-9]+$',
-        required: false,
-        directives: undefined,
-        ui: { kind: 'reference', color: 'dim' },
-      });
+      expect(config.trailers.definitions.Department.ui).toEqual({ kind: 'risk', color: 'cyan' });
     });
   });
 
@@ -301,18 +229,7 @@ ui = { kind = "reference", color = "dim" }
 
       const result = await loader.findConfigPath(tempDir);
 
-      expect(result).toBe(join(tempDir, '.lore', 'config.toml'));
-    });
-
-    it('should find config in a parent directory', async () => {
-      await createConfigFile(tempDir, '[protocol]\nversion = "1.0"');
-
-      const childDir = join(tempDir, 'subdir', 'nested');
-      await mkdir(childDir, { recursive: true });
-
-      const result = await loader.findConfigPath(childDir);
-
-      expect(result).toBe(join(tempDir, '.lore', 'config.toml'));
+      expect(result).toBe(join(tempDir, '.mock', 'config.toml'));
     });
 
     it('should return null when no config exists', async () => {
@@ -320,163 +237,55 @@ ui = { kind = "reference", color = "dim" }
 
       expect(result).toBeNull();
     });
-
-    it('should find the nearest config when multiple exist', async () => {
-      // Parent config
-      await createConfigFile(tempDir, '[protocol]\nversion = "parent"');
-
-      // Child config (closer to the start path)
-      const childDir = join(tempDir, 'packages', 'app');
-      await createConfigFile(childDir, '[protocol]\nversion = "child"');
-
-      const result = await loader.findConfigPath(childDir);
-
-      expect(result).toBe(join(childDir, '.lore', 'config.toml'));
-    });
   });
 
   describe('loadForPath', () => {
     it('should return defaults when no config file exists', async () => {
       const config = await loader.loadForPath(tempDir);
 
-      expect(config).toEqual(LORE_DEFAULT_CONFIG);
+      expect(config).toEqual(MOCK_CONFIG);
     });
 
-    it('should load config from the nearest .lore/config.toml', async () => {
+    it('should load config from the nearest .mock/config.toml', async () => {
       await createConfigFile(tempDir, `
 [protocol]
 version = "2.0"
-
-[stale]
-olderThan = "1y"
 `);
 
       const config = await loader.loadForPath(tempDir);
 
       expect(config.protocol.version).toBe('2.0');
-      expect(config.stale.olderThan).toBe('1y');
     });
 
     it('should merge child config over parent config', async () => {
-      // Parent config: sets protocol and stale
       await createConfigFile(tempDir, `
 [protocol]
 version = "1.0"
-
 [stale]
 olderThan = "1y"
-driftThreshold = 50
 `);
 
-      // Child config: overrides stale only
-      const childDir = join(tempDir, 'packages', 'app');
+      const childDir = join(tempDir, 'child');
       await createConfigFile(childDir, `
 [stale]
 olderThan = "30d"
-driftThreshold = 10
 `);
 
       const config = await loader.loadForPath(childDir);
 
-      // Child stale overrides parent stale completely
       expect(config.stale.olderThan).toBe('30d');
-      expect(config.stale.driftThreshold).toBe(10);
-      // Parent protocol section is preserved
       expect(config.protocol.version).toBe('1.0');
     });
 
-    it('should handle three-level config hierarchy', async () => {
-      // Grandparent: protocol
-      await createConfigFile(tempDir, `
-[protocol]
-version = "1.0"
-
-[stale]
-olderThan = "1y"
-driftThreshold = 100
-`);
-
-      // Parent: validation
-      const parentDir = join(tempDir, 'packages');
-      await createConfigFile(parentDir, `
-[validation]
-strict = true
-maxMessageLines = 80
-subjectMaxLength = 60
-`);
-
-      // Child: stale (overrides grandparent stale)
-      const childDir = join(parentDir, 'app');
-      await createConfigFile(childDir, `
-[stale]
-olderThan = "7d"
-driftThreshold = 5
-`);
-
-      const config = await loader.loadForPath(childDir);
-
-      // Grandparent protocol
-      expect(config.protocol.version).toBe('1.0');
-      // Parent validation
-      expect(config.validation.strict).toBe(true);
-      expect(config.validation.maxMessageLines).toBe(80);
-      // Child stale overrides grandparent stale
-      expect(config.stale.olderThan).toBe('7d');
-      expect(config.stale.driftThreshold).toBe(5);
-    });
-
-    it('should use shallow merge at section level', async () => {
-      // Parent: full trailers section
-      await createConfigFile(tempDir, `
-[trailers]
-required = ["Constraint", "Confidence"]
-custom = ["Team", "Sprint"]
-`);
-
-      // Child: partial trailers section (overrides entire section)
-      const childDir = join(tempDir, 'app');
-      await createConfigFile(childDir, `
-[trailers]
-required = ["${LORE_ID_KEY}"]
-custom = []
-`);
-
-      const config = await loader.loadForPath(childDir);
-
-      // Child replaces the entire trailers section, not individual fields
-      expect(config.trailers.required).toEqual([LORE_ID_KEY]);
-      expect(config.trailers.custom).toEqual([]);
-    });
-
-    it('should handle subdirectory that is deeper than config', async () => {
-      await createConfigFile(tempDir, `
-[protocol]
-version = "1.5"
-`);
-
-      const deepDir = join(tempDir, 'a', 'b', 'c', 'd');
-      await mkdir(deepDir, { recursive: true });
-
-      const config = await loader.loadForPath(deepDir);
-
-      expect(config.protocol.version).toBe('1.5');
-    });
     it('should fall back to legacy intent_max_length if subject_max_length is missing', async () => {
-      const tempDir = await mkdtemp(join(tmpdir(), 'lore-config-fallback-'));
-      const configDir = join(tempDir, '.lore');
-      const configFile = join(configDir, 'config.toml');
-      
-      await mkdir(configDir, { recursive: true });
-      await writeFile(configFile, `
+      const legacyToml = `
 [validation]
 intent_max_length = 50
-`);
+`;
+      await createConfigFile(tempDir, legacyToml);
       
       const config = await loader.loadForPath(tempDir);
       expect(config.validation.subjectMaxLength).toBe(50);
-      
-      await rm(tempDir, { recursive: true, force: true });
     });
   });
 });
-

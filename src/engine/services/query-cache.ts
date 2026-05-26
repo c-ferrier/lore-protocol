@@ -8,7 +8,7 @@ import type { QueryOptions } from '../types/query.js';
 const HEX_HASH = /^[0-9a-f]{7,64}$/i;
 
 /**
- * File-system based cache for Lore query results.
+ * File-system based cache for Mock query results.
  * Caches lists of commit hashes for specific queries (target + options) at a specific HEAD.
  * Uses file access times (atime) to support LRU pruning.
  */

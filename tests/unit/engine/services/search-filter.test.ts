@@ -2,8 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { SearchFilter } from '../../../../src/engine/services/search-filter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 import type { Atom } from '../../../../src/engine/types/domain.js';
 
 describe('SearchFilter', () => {
@@ -12,8 +11,8 @@ describe('SearchFilter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    const lore = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
-    registry.register(lore);
+    const mock = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    registry.register(mock);
     filter = new SearchFilter(registry);
   });
 
@@ -25,15 +24,13 @@ describe('SearchFilter', () => {
       subject: 'feat(auth): valid login',
       body: 'Body text here',
       protocols: new Map([
-        ['lore', { 
-          name: 'Lore', 
+        ['mock', { 
+          name: 'Mock', 
           version: '1.0', 
-          identityKey: 'Lore-id', 
+          identityKey: 'Mock-id', 
           trailers: {
-            'Lore-id': ['abc12345'],
+            'Mock-id': ['abc12345'],
             Confidence: ['high'],
-            'Scope-risk': ['narrow'],
-            Reversibility: ['clean'],
             Constraint: ['c1'],
           } 
         }]
@@ -47,15 +44,13 @@ describe('SearchFilter', () => {
       subject: 'fix(ui): layout bug',
       body: 'Body text here',
       protocols: new Map([
-        ['lore', { 
-          name: 'Lore', 
+        ['mock', { 
+          name: 'Mock', 
           version: '1.0', 
-          identityKey: 'Lore-id', 
+          identityKey: 'Mock-id', 
           trailers: {
-            'Lore-id': ['def67890'],
+            'Mock-id': ['def67890'],
             Confidence: ['low'],
-            'Scope-risk': ['wide'],
-            Reversibility: ['migration-needed'],
             Rejected: ['r1'],
           } 
         }]
@@ -132,7 +127,7 @@ describe('SearchFilter', () => {
         body: 'body',
         date: new Date(),
         protocols: new Map([
-          ['lore', { name: 'Lore', trailers: {} }],
+          ['mock', { name: 'Mock', trailers: {} }],
           ['fred', { name: 'Fred', trailers: { 'Fred-Notes': ['found me'] } }]
         ])
       };
@@ -148,7 +143,7 @@ describe('SearchFilter', () => {
         body: 'body',
         date: new Date(),
         protocols: new Map([
-          ['lore', { name: 'Lore', trailers: { Confidence: ['medium'] } }],
+          ['mock', { name: 'Mock', trailers: { Confidence: ['medium'] } }],
           ['fred', { name: 'Fred', trailers: { 'Fred-Level': ['high'] } }]
         ])
       };

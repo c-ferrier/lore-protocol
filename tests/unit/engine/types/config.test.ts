@@ -1,34 +1,29 @@
 import { describe, it, expect } from 'vitest';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 
-describe('getEffectiveTrailerKeys (Protocol logic replacement)', () => {
-  it('should return empty list in permissive mode', () => {
+describe('Protocol configuration merging', () => {
+  it('should identify custom keys in permissive mode', () => {
     const config = {
-      ...LORE_DEFAULT_CONFIG,
+      ...MOCK_CONFIG,
       trailers: {
-        ...LORE_DEFAULT_CONFIG.trailers,
+        ...MOCK_CONFIG.trailers,
         permissive: true,
         custom: ['Team'],
         definitions: { Dept: { description: 'D', multivalue: false, validation: 'none' as const } },
       }
     };
-    const protocol = new Protocol(LoreProtocolDefinition, config);
-    // Permissive mode includes all, so we check for defined custom keys only if needed,
-    // but originally getEffectiveTrailerKeys returned [] for permissive.
-    // The Protocol service doesn't have a direct equivalent to 'empty list' because it
-    // authorizes everything.
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
     const customKeys = protocol.getAuthorizedKeys().filter(k => !protocol.isCore(k));
     expect(customKeys).toContain('Team');
     expect(customKeys).toContain('Dept');
   });
 
-  it('should union custom array and definitions keys', () => {
+  it('should union custom array and definitions keys and deduplicate them', () => {
     const config = {
-      ...LORE_DEFAULT_CONFIG,
+      ...MOCK_CONFIG,
       trailers: {
-        ...LORE_DEFAULT_CONFIG.trailers,
+        ...MOCK_CONFIG.trailers,
         permissive: false,
         custom: ['Team', 'Project'],
         definitions: { 
@@ -37,7 +32,7 @@ describe('getEffectiveTrailerKeys (Protocol logic replacement)', () => {
         },
       }
     };
-    const protocol = new Protocol(LoreProtocolDefinition, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
     const customKeys = protocol.getAuthorizedKeys().filter(k => !protocol.isCore(k));
     
     expect(customKeys).toContain('Team');

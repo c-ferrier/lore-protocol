@@ -12,7 +12,7 @@ export interface AuthorizedTrailerDefinition extends CustomTrailerDefinition {
 }
 
 /**
- * Interface for a decision protocol (e.g., Lore, Fred).
+ * Interface for a decision protocol (e.g., Mock, Fred).
  * Defines the semantics, identity, and discovery rules for a specific protocol.
  */
 export interface IProtocol {
@@ -22,7 +22,7 @@ export interface IProtocol {
 
   /**
    * The namespace this protocol operates in.
-   * Empty string "" indicates the Root namespace (e.g., Lore).
+   * Empty string "" indicates the Root namespace (e.g., Mock).
    * Explicitly namespaced trailers use the format: "Namespace/Key: value".
    */
   readonly namespace: string;

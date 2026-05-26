@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Validator } from '../../../../src/engine/services/validator.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { MOCK_CONFIG } from '../test-utils.js';
 import type { RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 
 describe('Agnostic Validation (Zero Protocols)', () => {
@@ -20,7 +20,7 @@ describe('Agnostic Validation (Zero Protocols)', () => {
     validator = new Validator(
       { parse: vi.fn().mockReturnValue({}) } as any,
       {} as any,
-      LORE_DEFAULT_CONFIG,
+      MOCK_CONFIG,
       new ProtocolRegistry() // Empty
     );
   });

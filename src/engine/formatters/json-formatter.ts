@@ -19,19 +19,20 @@ import { snakeCase } from '../../util/string.js';
  * SOLID: SRP -- only responsible for JSON formatting.
  */
 export class JsonFormatter implements IOutputFormatter {
-  private readonly subjectJsonKey: string;
+  constructor(protected readonly protocolRegistry: ProtocolRegistry) {}
 
-  constructor(
-    private readonly protocolRegistry: ProtocolRegistry,
-    subjectLabel = 'Subject'
-  ) {
-    this.subjectJsonKey = snakeCase(subjectLabel);
+  /**
+   * Returns the key name for the subject field in the output JSON.
+   * Can be overridden by subclasses to provide specialized branding (e.g. 'intent').
+   */
+  protected getSubjectKey(): string {
+    return 'subject';
   }
 
   formatQueryResult(data: FormattableQueryResult): string {
     const { result, supersessionMap, visibleTrailers } = data;
-
     const rootProtocol = this.protocolRegistry.getRoot() || this.protocolRegistry.getAll()[0];
+    const subjectKey = this.getSubjectKey();
 
     const results = result.atoms.map((atom) => {
       const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
@@ -42,7 +43,7 @@ export class JsonFormatter implements IOutputFormatter {
         commit: atom.commitHash,
         date: atom.date.toISOString(),
         author: atom.author,
-        [this.subjectJsonKey]: atom.subject,
+        [subjectKey]: atom.subject,
         body: atom.body,
         protocols: this.serializeProtocols(atom, visibleTrailers),
         files_changed: [...atom.filesChanged],
@@ -97,6 +98,8 @@ export class JsonFormatter implements IOutputFormatter {
   }
 
   formatStalenessResult(data: FormattableStalenessResult): string {
+    const subjectKey = this.getSubjectKey();
+
     return JSON.stringify(
       {
         version: '1.0',
@@ -105,7 +108,7 @@ export class JsonFormatter implements IOutputFormatter {
             commit: report.atom.commitHash,
             date: report.atom.date.toISOString(),
             author: report.atom.author,
-            [this.subjectJsonKey]: report.atom.subject,
+            [subjectKey]: report.atom.subject,
             protocols: this.serializeProtocols(report.atom, 'all'),
             reasons: report.reasons.map((r) => ({
               signal: r.signal,
@@ -120,6 +123,8 @@ export class JsonFormatter implements IOutputFormatter {
   }
 
   formatTraceResult(data: FormattableTraceResult): string {
+    const subjectKey = this.getSubjectKey();
+
     return JSON.stringify(
       {
         version: '1.0',
@@ -127,7 +132,7 @@ export class JsonFormatter implements IOutputFormatter {
           commit: data.root.commitHash,
           date: data.root.date.toISOString(),
           author: data.root.author,
-          [this.subjectJsonKey]: data.root.subject,
+          [subjectKey]: data.root.subject,
           protocols: this.serializeProtocols(data.root, 'all'),
         },
         edges: data.edges.map((edge) => ({
@@ -140,7 +145,7 @@ export class JsonFormatter implements IOutputFormatter {
                 commit: edge.targetAtom.commitHash,
                 date: edge.targetAtom.date.toISOString(),
                 author: edge.targetAtom.author,
-                [this.subjectJsonKey]: edge.targetAtom.subject,
+                [subjectKey]: edge.targetAtom.subject,
                 protocols: this.serializeProtocols(edge.targetAtom, 'all'),
               }
             : null,

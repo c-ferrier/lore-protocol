@@ -1,50 +1,29 @@
 import { Command } from 'commander';
-import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
-
-import type { IGitClient } from './interfaces/git-client.js';
-import type { IAtomCache } from './interfaces/atom-cache.js';
-import type { IQueryCache } from './interfaces/query-cache.js';
-import type { IOutputFormatter } from './interfaces/output-formatter.js';
-import type { Config } from './types/config.js';
-import type { ProtocolDefinition } from './interfaces/protocol-definition.js';
-import type { IProtocol } from './interfaces/protocol.js';
-
+import { join } from 'node:path';
 import { GitClient } from './services/git-client.js';
-import { TrailerParser } from './services/trailer-parser.js';
-import { IdGenerator } from './services/id-generator.js';
-import { AtomRepository } from './services/atom-repository.js';
-import { Validator } from './services/validator.js';
 import { ConfigLoader } from './services/config-loader.js';
-import { resolveProtocolRoot } from './services/root-resolver.js';
-import { PathResolver } from './services/path-resolver.js';
-import { SquashMerger } from './services/squash-merger.js';
-import { StalenessDetector } from './services/staleness-detector.js';
-import { SupersessionResolver } from './services/supersession-resolver.js';
-import { CommitBuilder } from './services/commit-builder.js';
-import { CommitInputResolver } from './services/commit-input-resolver.js';
-import { HeadIdReader } from './services/head-id-reader.js';
-import { SearchFilter } from './services/search-filter.js';
 import { Protocol } from './services/protocol.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
-
-import { TextFormatter } from './formatters/text-formatter.js';
-import { JsonFormatter } from './formatters/json-formatter.js';
-
-import { registerWhyCommand } from './commands/why.js';
-import { registerSearchCommand } from './commands/search.js';
-import { registerLogCommand } from './commands/log.js';
-import { registerStaleCommand } from './commands/stale.js';
-import { registerTraceCommand } from './commands/trace.js';
-import { registerCommitCommand } from './commands/commit.js';
-import { registerValidateCommand } from './commands/validate.js';
-import { registerSquashCommand } from './commands/squash.js';
-import { registerCacheCommand } from './commands/cache.js';
-import { registerConfigCommand } from './commands/config.js';
-import { registerDoctorCommand } from './commands/doctor.js';
-
-// Export commands for application wrappers
-export {
+import { TrailerParser } from './services/trailer-parser.js';
+import { PathResolver } from './services/path-resolver.js';
+import { SearchFilter } from './services/search-filter.js';
+import { AtomRepository } from './services/atom-repository.js';
+import { AtomCache } from './services/atom-cache.js';
+import { QueryCache } from './services/query-cache.js';
+import { IdGenerator } from './services/id-generator.js';
+import { SupersessionResolver } from './services/supersession-resolver.js';
+import { StalenessDetector } from './services/staleness-detector.js';
+import { CommitBuilder } from './services/commit-builder.js';
+import { SquashMerger } from './services/squash-merger.js';
+import { Validator } from './services/validator.js';
+import { TerminalPrompt } from './services/terminal-prompt.js';
+import { CommitInputResolver } from './services/commit-input-resolver.js';
+import { HeadIdReader } from './services/head-id-reader.js';
+import { resolveProtocolRoot } from './services/root-resolver.js';
+import { shouldCheckForUpdate } from '../util/update-check.js';
+import { getDisplayVersion } from '../util/version.js';
+import {
   registerWhyCommand,
   registerSearchCommand,
   registerLogCommand,
@@ -56,35 +35,30 @@ export {
   registerCacheCommand,
   registerConfigCommand,
   registerDoctorCommand,
-};
+} from './commands/index.js';
+import { JsonFormatter } from './formatters/json-formatter.js';
+import { TextFormatter } from './formatters/text-formatter.js';
+import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, ATOM_CACHE_DIR, QUERY_CACHE_DIR } from '../util/constants.js';
 
-import {
-  CACHE_DIR,
-  ATOM_CACHE_DIR,
-  QUERY_CACHE_DIR,
-  DEFAULT_CACHE_PRUNE_THRESHOLD,
-} from '../util/constants.js';
-import { ProtocolError, ValidationError, GitError } from '../util/errors.js';
-import { TerminalPrompt } from './services/terminal-prompt.js';
-import { AtomCache } from './services/atom-cache.js';
-import { QueryCache } from './services/query-cache.js';
-import { shouldCheckForUpdate } from '../util/update-check.js';
-import { getDisplayVersion } from '../util/version.js';
+import type { IGitClient } from './interfaces/git-client.js';
+import type { IProtocol } from './interfaces/protocol.js';
+import type { ProtocolDefinition } from './interfaces/protocol-definition.js';
+import type { Config } from './types/config.js';
+import type { IAtomCache } from './interfaces/atom-cache.js';
+import type { IQueryCache } from './interfaces/query-cache.js';
+import type { IOutputFormatter } from './interfaces/output-formatter.js';
 
 export interface EngineOptions {
-  readonly binaryName: string;
-  readonly description: string;
-  readonly subjectLabel: string;        // e.g. 'Intent' or 'Subject'
-  readonly engineDirName: string;       // e.g. '.atom'
-  readonly protocolDirName?: string;    // e.g. '.lore' (optional)
-  readonly configFileName: string;
-  readonly defaultConfig: Config;
-  readonly protocols: readonly ProtocolDefinition[];
-  readonly packageJsonPath: string;
-  /** Optional override for the JSON output formatter */
-  readonly jsonFormatterFactory?: (registry: ProtocolRegistry, subjectLabel: string) => IOutputFormatter;
-  /** Optional override for the Text output formatter */
-  readonly textFormatterFactory?: (registry: ProtocolRegistry, options: { color: boolean; subjectLabel: string }) => IOutputFormatter;
+  binaryName: string;
+  description: string;
+  engineDirName: string;
+  protocolDirName?: string;
+  configFileName: string;
+  defaultConfig: Config;
+  protocols: ProtocolDefinition[];
+  packageJsonPath: string;
+  jsonFormatterFactory?: (registry: ProtocolRegistry) => IOutputFormatter;
+  textFormatterFactory?: (registry: ProtocolRegistry, options: { color: boolean }) => IOutputFormatter;
 }
 
 /**
@@ -102,14 +76,15 @@ export async function runCli(options: EngineOptions) {
 
   // 2. Resolve Engine Root
   const tempGitClient = new GitClient(process.cwd());
-  const { protocolRoot: engineRoot } = await resolveProtocolRoot(process.cwd(), engineConfigLoader, tempGitClient);
+  const { protocolRoot: engineRoot, gitRoot } = await resolveProtocolRoot(process.cwd(), engineConfigLoader, tempGitClient);
 
   // 3. Load Protocol Configuration if a separate dir is provided (e.g. .lore)
   let config = await engineConfigLoader.loadForPath(engineRoot || process.cwd());
   let protocolRoot = engineRoot;
+  let protocolConfigLoader = engineConfigLoader;
 
   if (options.protocolDirName && options.protocolDirName !== options.engineDirName) {
-    const protocolConfigLoader = new ConfigLoader(
+    protocolConfigLoader = new ConfigLoader(
       options.protocolDirName,
       options.configFileName,
       config // Use engine config as base for protocol config
@@ -120,6 +95,9 @@ export async function runCli(options: EngineOptions) {
       config = await protocolConfigLoader.loadForPath(pRoot);
     }
   }
+
+  // Determine if we are running in a scoped context (protocol root is a subfolder of git root)
+  const isScoped = !!gitRoot && !!protocolRoot && protocolRoot !== gitRoot;
 
   // 4. Global Options
   const packageJson = JSON.parse(readFileSync(options.packageJsonPath, 'utf-8'));
@@ -147,9 +125,6 @@ export async function runCli(options: EngineOptions) {
   const pathResolver = new PathResolver(process.cwd(), protocolRoot);
   const searchFilter = new SearchFilter(protocolRegistry);
   
-  // Generic scope check
-  const isScoped = false; 
-
   const atomCache: IAtomCache = new AtomCache(
     join(protocolRoot || process.cwd(), options.engineDirName, CACHE_DIR, ATOM_CACHE_DIR),
   );
@@ -199,153 +174,66 @@ export async function runCli(options: EngineOptions) {
 
     if (isJson) {
       cachedFormatter = options.jsonFormatterFactory
-        ? options.jsonFormatterFactory(protocolRegistry, options.subjectLabel)
-        : new JsonFormatter(protocolRegistry, options.subjectLabel);
+        ? options.jsonFormatterFactory(protocolRegistry)
+        : new JsonFormatter(protocolRegistry);
     } else {
-      const color = opts.color !== false && (process.stdout.isTTY ?? false);
       cachedFormatter = options.textFormatterFactory
-        ? options.textFormatterFactory(protocolRegistry, { color, subjectLabel: options.subjectLabel })
-        : new TextFormatter(protocolRegistry, { color, subjectLabel: options.subjectLabel });
+        ? options.textFormatterFactory(protocolRegistry, { color: !opts.noColor })
+        : new TextFormatter(protocolRegistry, { color: !opts.noColor });
     }
     return cachedFormatter;
   };
 
-  // 8. Dependency bags
+  // 8. Register Commands
   const sharedDeps = {
     atomRepository,
     gitClient,
-    supersessionResolver,
-    pathResolver,
+    commitInputResolver,
+    headIdReader,
     getFormatter,
     config,
     protocol: defaultProtocol,
-    subjectLabel: options.subjectLabel,
     protocolRegistry,
     trailerParser,
     commitBuilder,
-    commitInputResolver,
-    headIdReader,
+    squashMerger,
     validator,
+    supersessionResolver,
     stalenessDetector,
-    searchFilter
+    pathResolver,
+    searchFilter,
+    configLoader: protocolConfigLoader,
+    cacheDir: join(protocolRoot || process.cwd(), options.engineDirName, CACHE_DIR),
   };
 
-  // Hook to ensure a protocol exists before running commands that require one
-  program.hook('preAction', (executedCommand) => {
-    const whitelist = [options.binaryName, 'cache', 'init', 'config', 'doctor', 'log', 'search', 'commit'];
-    
-    if (whitelist.includes(executedCommand.name())) return;
-    
-    if (!defaultProtocol) {
-      console.error('fatal: At least one protocol must be registered to run this command.');
-      process.exit(1);
-    }
-  });
-
-  // 9. Register core commands
-  registerWhyCommand(program, {
-    atomRepository,
-    gitClient,
-    pathResolver,
-    getFormatter,
-    protocol: defaultProtocol,
-  });
-
-  registerSearchCommand(program, {
-    ...sharedDeps,
-    searchFilter,
-    protocol: defaultProtocol,
-  });
-
+  registerWhyCommand(program, sharedDeps);
+  registerSearchCommand(program, sharedDeps);
   registerLogCommand(program, sharedDeps);
-
-  registerStaleCommand(program, {
-    ...sharedDeps,
-    stalenessDetector,
-  });
-
-  registerTraceCommand(program, {
-    atomRepository,
-    gitClient,
-    getFormatter,
-    protocol: defaultProtocol,
-  });
-
-  registerCommitCommand(program, {
-    commitBuilder,
-    gitClient,
-    commitInputResolver,
-    headIdReader,
-    getFormatter,
-    config,
-    protocol: defaultProtocol,
-    protocolRegistry,
-    trailerParser,
-  });
-
-  registerValidateCommand(program, {
-    validator,
-    gitClient,
-    getFormatter,
-    protocol: defaultProtocol,
-  });
-
-  registerSquashCommand(program, {
-    atomRepository,
-    squashMerger,
-    getFormatter,
-  });
-
-  registerCacheCommand(program, {
-    getFormatter,
-    cacheDir: join(protocolRoot || process.cwd(), options.engineDirName, CACHE_DIR),
-  });
-
-  registerConfigCommand(program, {
-    configLoader: engineConfigLoader,
-    getFormatter,
-    protocol: defaultProtocol,
-  });
-
-  registerDoctorCommand(program, {
-    atomRepository,
-    configLoader: engineConfigLoader,
-    gitClient,
-    getFormatter,
-    protocol: defaultProtocol,
-  });
+  registerStaleCommand(program, sharedDeps);
+  registerTraceCommand(program, sharedDeps);
+  registerCommitCommand(program, sharedDeps);
+  registerValidateCommand(program, sharedDeps);
+  registerSquashCommand(program, sharedDeps);
+  registerCacheCommand(program, sharedDeps);
+  registerConfigCommand(program, sharedDeps);
+  registerDoctorCommand(program, sharedDeps);
 
   return { program, getFormatter, sharedDeps, config };
 }
 
 /**
- * Final execution helper
+ * Executes the configured commander program.
  */
 export async function execute(program: Command, getFormatter: () => IOutputFormatter, config: Config) {
   try {
     await program.parseAsync(process.argv);
-  } catch (error) {
-    if (error instanceof ProtocolError || error instanceof ValidationError || error instanceof GitError) {
-      const formatter = getFormatter();
-      const messages = (error instanceof ValidationError)
-        ? error.issues
-        : [{ severity: 'error', message: (error as Error).message }];
-      
-      console.error(formatter.formatError(error.exitCode || 1, messages as any));
-      process.exit(error.exitCode || 1);
-    } else if (error instanceof Error) {
-      const format = program.opts().json ? 'json' : 'text';
-      if (format === 'json') {
-        console.error(JSON.stringify({
-          version: '1.0',
-          error: true,
-          code: 1,
-          messages: [{ severity: 'error', message: error.message }],
-        }, null, 2));
-      } else {
-        console.error(`error: ${error.message}`);
-      }
-      process.exit(1);
+  } catch (error: unknown) {
+    const formatter = getFormatter();
+    if (error instanceof Error) {
+      console.error(formatter.formatError(1, [{ severity: 'error', message: error.message }]));
+    } else {
+      console.error(formatter.formatError(1, [{ severity: 'error', message: String(error) }]));
     }
+    process.exit(1);
   }
 }

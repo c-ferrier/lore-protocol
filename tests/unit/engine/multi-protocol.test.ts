@@ -7,8 +7,7 @@ import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
-import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from './test-utils.js';
 
 describe('Multi-Protocol Integration', () => {
   let registry: ProtocolRegistry;
@@ -36,16 +35,16 @@ describe('Multi-Protocol Integration', () => {
     } as any;
 
     registry = new ProtocolRegistry();
-    const lore = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
-    const fred = new Protocol(FRED_DEF, LORE_DEFAULT_CONFIG);
+    const mock = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    const fred = new Protocol(FRED_DEF, MOCK_CONFIG);
     
-    registry.register(lore);
+    registry.register(mock);
     registry.register(fred);
 
     repo = new AtomRepository(
       gitClient,
       new TrailerParser(),
-      lore,
+      mock,
       registry,
       new SearchFilter(registry),
       new NullAtomCache(),
@@ -57,13 +56,13 @@ describe('Multi-Protocol Integration', () => {
     await repo.findAll({});
     const args = vi.mocked(gitClient.log).mock.calls[0][0];
     
-    // Pattern for Lore-id and fred/Fred-id
-    expect(args.some(a => a.includes('Lore-id') && a.includes('fred/Fred-id'))).toBe(true);
+    // Pattern for Mock-id and fred/Fred-id
+    expect(args.some(a => a.includes('Mock-id') && a.includes('fred/Fred-id'))).toBe(true);
     expect(args).toContain('--extended-regexp');
   });
 
   it('Ownership: should respect namespaced trailers', async () => {
-    const trailers = 'Lore-id: lore123\nfred/Fred-id: fred456\nfred/Impact: high\nAdhoc: value';
+    const trailers = 'Mock-id: mock123\nfred/Fred-id: fred456\nfred/Impact: high\nAdhoc: value';
     const commit: RawCommit = {
       hash: 'h1',
       date: new Date().toISOString(),
@@ -77,23 +76,19 @@ describe('Multi-Protocol Integration', () => {
 
     const [atom] = await repo.findAll();
     
-    const loreState = atom.protocols.get('lore')!;
+    const mockState = atom.protocols.get('mock')!;
     const fredState = atom.protocols.get('fred')!;
 
-    // Lore is permissive in root namespace, so it gets Lore-id and Adhoc
-    expect(loreState.trailers['Lore-id']).toEqual(['lore123']);
-    expect(loreState.trailers['Adhoc']).toEqual(['value']);
+    // Mock is permissive in root namespace, so it gets Mock-id and Adhoc
+    expect(mockState.trailers['Mock-id']).toEqual(['mock123']);
+    expect(mockState.trailers['Adhoc']).toEqual(['value']);
     
-    // Lore should NOT get fred/Impact
-    expect(loreState.trailers['fred/Impact']).toBeUndefined();
-    expect(loreState.trailers['Impact']).toBeUndefined();
+    // Mock should NOT get fred/Impact
+    expect(mockState.trailers['fred/Impact']).toBeUndefined();
+    expect(mockState.trailers['Impact']).toBeUndefined();
 
     // Fred gets its own namespaced trailer
     expect(fredState.trailers['Impact']).toEqual(['high']);
-    
-    // Identity key was NOT Fred-id in the raw trailers (it was Lore-id)
-    // Fred protocol only claims namespaced trailers if it also has its identity key, 
-    // OR if it's explicitly defined. Fred defines 'Impact'.
   });
 
   it('Conflict: should not allow two permissive protocols in the same namespace', () => {
@@ -101,9 +96,9 @@ describe('Multi-Protocol Integration', () => {
       ...FRED_DEF,
       name: 'Another',
       namespace: '' // Root namespace
-    }, LORE_DEFAULT_CONFIG);
+    }, MOCK_CONFIG);
 
-    // Lore is already registered in root namespace and is permissive
+    // Mock is already registered in root namespace and is permissive
     expect(() => registry.register(anotherPermissive)).toThrow(/Only one permissive protocol is allowed per namespace/);
   });
 });

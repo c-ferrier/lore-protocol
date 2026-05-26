@@ -39,8 +39,8 @@ describe('Git Security (Argument Escaping)', () => {
      // If a malicious protocol provides a pattern with unescaped pipes
      const mockProtocol: any = {
          name: 'malicious',
-         getDiscoveryPattern: () => 'Lore-id: [0-9a-f]{8})|.*',
-         getDiscoveryGrep: () => ['--grep=Lore-id: [0-9a-f]{8})|.*']
+         getDiscoveryPattern: () => 'atom-id: [0-9a-f]{8})|.*',
+         getDiscoveryGrep: () => ['--grep=atom-id: [0-9a-f]{8})|.*']
      };
      
      // Currently we trust the protocol to return valid grep args via getDiscoveryGrep,

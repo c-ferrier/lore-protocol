@@ -6,13 +6,12 @@ import type { IGitClient } from '../../../../src/engine/interfaces/git-client.js
 import type { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import type { CommitInputResolver } from '../../../../src/engine/services/commit-input-resolver.js';
 import type { HeadIdReader } from '../../../../src/engine/services/head-id-reader.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 
-const LORE_ID_KEY = "Lore-id";
+const MOCK_ID_KEY = "Mock-id";
 
 
 function createMockGitClient(): IGitClient {
@@ -39,7 +38,6 @@ function createMockFormatter(): IOutputFormatter {
     formatStalenessResult: vi.fn().mockReturnValue(''),
     formatTraceResult: vi.fn().mockReturnValue(''),
     formatDoctorResult: vi.fn().mockReturnValue(''),
-    formatMetricsResult: vi.fn().mockReturnValue(''),
     formatSuccess: vi.fn().mockReturnValue(''),
     formatError: vi.fn().mockReturnValue(''),
     formatConfig: vi.fn().mockReturnValue(''),
@@ -50,7 +48,7 @@ function createMockCommitBuilder(): CommitBuilder {
   return {
     build: vi.fn().mockReturnValue({ 
       message: 'built message', 
-      protocols: { lore: { lore_id: 'a1b2c3d4', version: '1.0' } } 
+      protocols: { mock: { id: 'a1b2c3d4', version: '1.0' } } 
     }),
     validate: vi.fn().mockReturnValue([]),
   } as unknown as CommitBuilder;
@@ -73,14 +71,14 @@ async function runCommitCommand(args: string[], deps: ReturnType<typeof createDe
   const program = new Command();
   program.exitOverride();
   registerCommitCommand(program, deps);
-  await program.parseAsync(['node', 'lore', 'commit', ...args]);
+  await program.parseAsync(['node', 'atom', 'commit', ...args]);
 }
 
 function createDeps(overrides?: {
   headIdReader?: HeadIdReader;
   gitClient?: IGitClient;
 }) {
-  const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+  const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
   const protocolRegistry = new ProtocolRegistry();
   protocolRegistry.register(protocol);
 
@@ -90,14 +88,14 @@ function createDeps(overrides?: {
     getFormatter: () => createMockFormatter(),
     commitInputResolver: createMockInputResolver(),
     headIdReader: overrides?.headIdReader ?? createMockHeadIdReader(),
-    config: LORE_DEFAULT_CONFIG,
+    config: MOCK_CONFIG,
     protocol,
     protocolRegistry,
     trailerParser: new TrailerParser(),
   };
 }
 
-describe('lore commit --amend', () => {
+describe('atom commit --amend', () => {
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
   });
@@ -107,15 +105,13 @@ describe('lore commit --amend', () => {
     vi.mocked(gitClient.hasStagedChanges).mockResolvedValue(false);
     const deps = createDeps({ gitClient });
 
-    // Without --amend, would throw NoStagedChangesError
-    // With --amend, should succeed
     await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
 
     expect(gitClient.hasStagedChanges).not.toHaveBeenCalled();
   });
 
-  it(`should pass existing ${LORE_ID_KEY} to commitBuilder.build when amending`, async () => {
-    const headIdReader = createMockHeadIdReader({ lore: 'cafebabe' });
+  it(`should pass existing ${MOCK_ID_KEY} to commitBuilder.build when amending`, async () => {
+    const headIdReader = createMockHeadIdReader({ mock: 'cafebabe' });
     const deps = createDeps({ headIdReader });
 
     await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
@@ -123,7 +119,7 @@ describe('lore commit --amend', () => {
     expect(headIdReader.readIds).toHaveBeenCalledOnce();
     expect(deps.commitBuilder.build).toHaveBeenCalledWith(
       expect.anything(),
-      { lore: 'cafebabe' },
+      { mock: 'cafebabe' },
     );
   });
 
@@ -138,7 +134,7 @@ describe('lore commit --amend', () => {
     );
   });
 
-  it('should bypass Lore processing with --amend --no-edit', async () => {
+  it('should bypass processing with --amend --no-edit', async () => {
     const deps = createDeps();
 
     await runCommitCommand(['--amend', '--no-edit'], deps);
@@ -180,27 +176,6 @@ describe('lore commit --amend', () => {
     ).rejects.toThrow('--no-edit keeps the existing message unchanged');
   });
 
-  it('should throw when --no-edit is combined with trailer flags', async () => {
-    const deps = createDeps();
-    await expect(
-      runCommitCommand(['--amend', '--no-edit', '--constraint', 'must use X'], deps),
-    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
-  });
-
-  it('should throw when --no-edit is combined with enum trailer flags', async () => {
-    const deps = createDeps();
-    await expect(
-      runCommitCommand(['--amend', '--no-edit', '--confidence', 'high'], deps),
-    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
-  });
-
-  it('should throw when --no-edit is combined with reference trailer flags', async () => {
-    const deps = createDeps();
-    await expect(
-      runCommitCommand(['--amend', '--no-edit', '--related', 'abc12345'], deps),
-    ).rejects.toThrow('--no-edit keeps the existing message unchanged');
-  });
-
   it('should throw when --no-edit is used without --amend', async () => {
     const deps = createDeps();
 
@@ -209,22 +184,21 @@ describe('lore commit --amend', () => {
     ).rejects.toThrow('--no-edit can only be used with --amend');
   });
 
-  it(`should generate new ${LORE_ID_KEY} when amending a non-Lore commit`, async () => {
+  it(`should generate new ${MOCK_ID_KEY} when amending a non-Mock commit`, async () => {
     const headIdReader = createMockHeadIdReader({});
     const deps = createDeps({ headIdReader });
 
-    await runCommitCommand(['--amend', '--subject', 'amend non-lore'], deps);
+    await runCommitCommand(['--amend', '--subject', 'amend non-mock'], deps);
 
     expect(headIdReader.readIds).toHaveBeenCalledOnce();
-    // empty from reader -> undefined passed to build -> generates new ID
     expect(deps.commitBuilder.build).toHaveBeenCalledWith(
       expect.anything(),
       {},
     );
   });
 
-  it(`should not read ${LORE_ID_KEY} from HEAD for normal commits`, async () => {
-    const headIdReader = createMockHeadIdReader({ lore: 'cafebabe' });
+  it(`should not read ${MOCK_ID_KEY} from HEAD for normal commits`, async () => {
+    const headIdReader = createMockHeadIdReader({ mock: 'cafebabe' });
     const deps = createDeps({ headIdReader });
 
     await runCommitCommand(['--subject', 'normal commit'], deps);

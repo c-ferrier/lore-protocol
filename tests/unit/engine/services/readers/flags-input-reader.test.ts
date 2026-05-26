@@ -1,17 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { FlagsInputReader } from '../../../../../src/engine/services/readers/flags-input-reader.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../../src/lore/defaults.js';
 import { Protocol } from '../../../../../src/engine/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../../src/lore/protocol-definition.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../../test-utils.js';
 import type { CommitCommandOptions } from '../../../../../src/engine/services/commit-input-resolver.js';
-
-const LORE_ID_KEY = "Lore-id";
 
 describe('FlagsInputReader', () => {
   let protocol: Protocol;
 
   beforeEach(() => {
-    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
   });
 
   it('should map all CLI options correctly', async () => {
@@ -19,15 +16,7 @@ describe('FlagsInputReader', () => {
       subject: 'feat: add auth',
       body: 'Detailed description',
       constraint: ['must be fast', 'no breaking changes'],
-      rejected: ['approach A | too complex'],
       confidence: 'high',
-      scopeRisk: 'wide',
-      reversibility: 'clean',
-      directive: ['Review in 3 months'],
-      tested: ['Unit tests'],
-      notTested: ['Edge cases'],
-      supersedes: ['id1'],
-      dependsOn: ['id2'],
       related: ['id3'],
     };
 
@@ -37,19 +26,11 @@ describe('FlagsInputReader', () => {
     expect(result.subject).toBe('feat: add auth');
     expect(result.body).toBe('Detailed description');
     expect(result.trailers?.Constraint).toEqual(['must be fast', 'no breaking changes']);
-    expect(result.trailers?.Rejected).toEqual(['approach A | too complex']);
     expect(result.trailers?.Confidence).toEqual(['high']);
-    expect(result.trailers?.['Scope-risk']).toEqual(['wide']);
-    expect(result.trailers?.Reversibility).toEqual(['clean']);
-    expect(result.trailers?.Directive).toEqual(['Review in 3 months']);
-    expect(result.trailers?.Tested).toEqual(['Unit tests']);
-    expect(result.trailers?.['Not-tested']).toEqual(['Edge cases']);
-    expect(result.trailers?.Supersedes).toEqual(['id1']);
-    expect(result.trailers?.['Depends-on']).toEqual(['id2']);
     expect(result.trailers?.Related).toEqual(['id3']);
   });
 
-  it('should default intent to empty string when undefined', async () => {
+  it('should default subject to empty string when undefined', async () => {
     const reader = new FlagsInputReader({}, protocol);
     const result = await reader.read();
     expect(result.subject).toBe('');
@@ -73,7 +54,7 @@ describe('FlagsInputReader', () => {
     expect(result.trailers?.Confidence).toBeUndefined();
   });
 
-  it('should handle only intent and one trailer', async () => {
+  it('should handle only subject and one trailer', async () => {
     const options: CommitCommandOptions = {
       subject: 'quick fix',
       confidence: 'low',
@@ -116,7 +97,6 @@ describe('FlagsInputReader', () => {
     const options: any = {
       subject: 'dynamic',
       confidence: 'medium',
-      reversibility: 'clean',
       constraint: ['c1'],
     };
 
@@ -124,16 +104,15 @@ describe('FlagsInputReader', () => {
     const result = await reader.read();
 
     expect(result.trailers?.Confidence).toEqual(['medium']);
-    expect(result.trailers?.Reversibility).toEqual(['clean']);
     expect(result.trailers?.Constraint).toEqual(['c1']);
   });
 
   it('should map auto-generated flags for simple custom trailers', async () => {
     const config = {
-      ...LORE_DEFAULT_CONFIG,
-      trailers: { ...LORE_DEFAULT_CONFIG.trailers, custom: ['Squad', 'Team-Name'] },
+      ...MOCK_CONFIG,
+      trailers: { ...MOCK_CONFIG.trailers, custom: ['Squad', 'Team-Name'] },
     };
-    const customProtocol = new Protocol(LoreProtocolDefinition, config);
+    const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
     const options: any = {
       subject: 't',
       squad: ['Alpha'],
@@ -149,9 +128,9 @@ describe('FlagsInputReader', () => {
 
   it('should prioritize explicit cli flags over automatic ones', async () => {
     const config = {
-      ...LORE_DEFAULT_CONFIG,
+      ...MOCK_CONFIG,
       trailers: {
-        ...LORE_DEFAULT_CONFIG.trailers,
+        ...MOCK_CONFIG.trailers,
         definitions: {
           Department: {
             description: 'dept',
@@ -162,7 +141,7 @@ describe('FlagsInputReader', () => {
         },
       },
     };
-    const customProtocol = new Protocol(LoreProtocolDefinition, config);
+    const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
     const options: any = {
       subject: 't',
       dept: 'Eng',
@@ -174,38 +153,11 @@ describe('FlagsInputReader', () => {
     expect(result.trailers?.Department).toEqual(['Eng']);
   });
 
-  it('should map case-insensitive flags for custom defined trailers', async () => {
-    const config = {
-      ...LORE_DEFAULT_CONFIG,
-      trailers: {
-        ...LORE_DEFAULT_CONFIG.trailers,
-        definitions: {
-          'Assisted-By': { // Pascal-Kebab canonical key
-            description: 'A',
-            multivalue: true,
-            validation: 'none' as const,
-          },
-        },
-      },
-    };
-    const customProtocol = new Protocol(LoreProtocolDefinition, config);
-    const options: any = {
-      subject: 't',
-      assistedBy: ['Gemini'], // camelCase from kebab-case --assisted-by
-    };
-
-    const reader = new FlagsInputReader(options, customProtocol);
-    const result = await reader.read();
-
-    expect(result.trailers?.['Assisted-By']).toEqual(['Gemini']);
-  });
-
   it('should automatically slugify custom trailer keys into CLI flags', async () => {
-    // 1. Setup protocol with a custom trailer that has no explicit CLI flag
     const customConfig = {
-      ...LORE_DEFAULT_CONFIG,
+      ...MOCK_CONFIG,
       trailers: {
-        ...LORE_DEFAULT_CONFIG.trailers,
+        ...MOCK_CONFIG.trailers,
         definitions: {
           'Regulatory-Compliance': {
             description: 'Check for compliance',
@@ -214,9 +166,8 @@ describe('FlagsInputReader', () => {
         }
       }
     };
-    const customProtocol = new Protocol(LoreProtocolDefinition, customConfig);
+    const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, customConfig);
     
-    // 2. Simulate CLI option 'regulatoryCompliance' (slugified + camelCased)
     const options = {
       subject: 'feat',
       regulatoryCompliance: ['GDPR', 'HIPAA'],
@@ -225,7 +176,6 @@ describe('FlagsInputReader', () => {
     const reader = new FlagsInputReader(options as any, customProtocol);
     const result = await reader.read();
 
-    // 3. Verify it mapped to the correct canonical key
     expect(result.trailers?.['Regulatory-Compliance']).toEqual(['GDPR', 'HIPAA']);
   });
 

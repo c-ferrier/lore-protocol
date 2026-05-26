@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CommitInputResolver } from '../../../../src/engine/services/commit-input-resolver.js';
 import type { IPrompt } from '../../../../src/engine/interfaces/prompt.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
 function createMockPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
@@ -11,6 +10,7 @@ function createMockPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
     askText: vi.fn(),
     askConfirm: vi.fn(),
     askChoice: vi.fn(),
+    askMultiline: vi.fn(),
     close: vi.fn(),
     ...overrides,
   };
@@ -24,14 +24,14 @@ describe('CommitInputResolver', () => {
 
   beforeEach(() => {
     prompt = createMockPrompt();
-    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
     registry = new ProtocolRegistry();
     registry.register(protocol);
     resolver = new CommitInputResolver(prompt, registry);
   });
 
   describe('mode resolution priority', () => {
-    it('should dispatch to flags reader when --intent is set', async () => {
+    it('should dispatch to flags reader when --subject is set', async () => {
       const options = { subject: 'feat: add login' };
       const result = await resolver.resolve(options);
       expect(result.subject).toBe('feat: add login');
@@ -39,14 +39,13 @@ describe('CommitInputResolver', () => {
 
     it('should prefer interactive over file when both are set', async () => {
       const options = { interactive: true, file: 'config.json' };
-      // This will hang on interactive if not mocked, but we just check mode if we could
-      // Since resolve() actually runs it, we need to mock the reader or just verify behavior.
-      vi.mocked(prompt.askText).mockResolvedValue('inter-intent');
+      vi.mocked(prompt.askText).mockResolvedValue('inter-subject');
+      vi.mocked(prompt.askConfirm).mockResolvedValue(false);
       const result = await resolver.resolve(options);
-      expect(result.subject).toBe('inter-intent');
+      expect(result.subject).toBe('inter-subject');
     });
 
-    it('should prefer flags over stdin when intent is set and not a TTY', async () => {
+    it('should prefer flags over stdin when subject is set and not a TTY', async () => {
       vi.stubGlobal('process', {
         ...process,
         stdin: { isTTY: false },

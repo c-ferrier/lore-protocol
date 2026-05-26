@@ -37,7 +37,7 @@ export interface CustomTrailerDefinition {
     readonly order?: number;
   };
   /**
-   * Strategy for merging values during 'lore squash'.
+   * Strategy for merging values during 'atom squash'.
    * - 'union': List all unique values (default for arrays).
    * - 'rank-min': Pick value with lowest index in 'values'.
    * - 'rank-max': Pick value with highest index in 'values'.

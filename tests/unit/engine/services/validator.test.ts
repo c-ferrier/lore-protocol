@@ -2,30 +2,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Validator } from '../../../../src/engine/services/validator.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 
 import type { Config } from '../../../../src/engine/types/config.js';
 import type { RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { Trailers } from '../../../../src/engine/types/domain.js';
 import type { AtomRepository } from '../../../../src/engine/services/atom-repository.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
 
-const LORE_ID_KEY = "Lore-id";
+const MOCK_ID_KEY = "Mock-id";
 
 function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
   return {
-    [LORE_ID_KEY]: overrides[LORE_ID_KEY] ?? ['a1b2c3d4'],
+    [MOCK_ID_KEY]: overrides[MOCK_ID_KEY] ?? ['a1b2c3d4'],
     Constraint: overrides.Constraint ?? [],
-    Rejected: overrides.Rejected ?? [],
     Confidence: overrides.Confidence ?? [],
-    'Scope-risk': overrides['Scope-risk'] ?? [],
-    Reversibility: overrides.Reversibility ?? [],
-    Directive: overrides.Directive ?? [],
-    Tested: overrides.Tested ?? [],
-    'Not-tested': overrides['Not-tested'] ?? [],
+    Related: overrides.Related ?? [],
+    Ref: overrides.Ref ?? [],
     Supersedes: overrides.Supersedes ?? [],
     'Depends-on': overrides['Depends-on'] ?? [],
-    Related: overrides.Related ?? [],
     ...overrides,
   } as any;
 }
@@ -52,7 +46,7 @@ function makeCommit(overrides: Partial<RawCommit> = {}): RawCommit {
     author: overrides.author ?? 'alice@example.com',
     subject: overrides.subject ?? 'feat(auth): add login flow',
     body: overrides.body ?? '',
-    trailers: overrides.trailers ?? `${LORE_ID_KEY}: a1b2c3d4`,
+    trailers: overrides.trailers ?? `${MOCK_ID_KEY}: a1b2c3d4`,
   };
 }
 
@@ -67,9 +61,9 @@ describe('Validator', () => {
   beforeEach(() => {
     mockParser = createMockTrailerParser();
     mockAtomRepo = createMockAtomRepository();
-    config = { ...LORE_DEFAULT_CONFIG };
+    config = { ...MOCK_CONFIG };
     protocolRegistry = new ProtocolRegistry();
-    protocol = new Protocol(LoreProtocolDefinition, config);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
     protocolRegistry.register(protocol);
     validator = new Validator(mockParser as any, mockAtomRepo as any, config, protocolRegistry);
   });
@@ -111,9 +105,9 @@ describe('Validator', () => {
   });
 
   describe('Hygiene rules', () => {
-    it('should warn when intent exceeds max length', async () => {
-      const longIntent = 'a'.repeat(LORE_DEFAULT_CONFIG.validation.subjectMaxLength + 1);
-      const commit = makeCommit({ subject: longIntent });
+    it('should warn when subject exceeds max length', async () => {
+      const longSubject = 'a'.repeat(MOCK_CONFIG.validation.subjectMaxLength + 1);
+      const commit = makeCommit({ subject: longSubject });
       const results = await validator.validate([commit]);
 
       const issue = results[0].issues.find((i) => i.rule === 'subject-length');
@@ -122,7 +116,7 @@ describe('Validator', () => {
     });
 
     it('should warn when total message lines exceed max', async () => {
-      const manyLines = '\n'.repeat(LORE_DEFAULT_CONFIG.validation.maxMessageLines + 1);
+      const manyLines = '\n'.repeat(MOCK_CONFIG.validation.maxMessageLines + 1);
       const commit = makeCommit({ body: manyLines });
       const results = await validator.validate([commit]);
 
@@ -146,58 +140,58 @@ describe('Validator', () => {
     });
   });
 
-  describe(`Rule 2: ${LORE_ID_KEY} present`, () => {
-    it(`should error when ${LORE_ID_KEY} is missing`, async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [LORE_ID_KEY]: [] }));
+  describe(`Rule 2: ${MOCK_ID_KEY} present`, () => {
+    it(`should error when ${MOCK_ID_KEY} is missing`, async () => {
+      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: [] }));
 
       const commit = makeCommit();
       const results = await validator.validate([commit]);
 
-      const idIssue = results[0].issues.find((i) => i.rule === 'lore-id-present');
+      const idIssue = results[0].issues.find((i) => i.rule === 'mock-id-present');
       expect(idIssue).toBeDefined();
       expect(idIssue!.severity).toBe('error');
     });
   });
 
-  describe(`Rule 3: ${LORE_ID_KEY} format`, () => {
-    it(`should error when ${LORE_ID_KEY} is not 8-char hex`, async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [LORE_ID_KEY]: ['not-hex!'] }));
+  describe(`Rule 3: ${MOCK_ID_KEY} format`, () => {
+    it(`should error when ${MOCK_ID_KEY} is not 8-char hex`, async () => {
+      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: ['not-hex!'] }));
 
       const commit = makeCommit();
       const results = await validator.validate([commit]);
 
-      const formatIssue = results[0].issues.find((i) => i.rule === 'lore-id-format');
+      const formatIssue = results[0].issues.find((i) => i.rule === 'mock-id-format');
       expect(formatIssue).toBeDefined();
       expect(formatIssue!.severity).toBe('error');
     });
 
-    it(`should pass for valid 8-char hex ${LORE_ID_KEY}`, async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [LORE_ID_KEY]: ['abcd1234'] }));
+    it(`should pass for valid 8-char hex ${MOCK_ID_KEY}`, async () => {
+      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: ['abcd1234'] }));
 
       const commit = makeCommit();
       const results = await validator.validate([commit]);
 
-      const formatIssue = results[0].issues.find((i) => i.rule === 'lore-id-format');
+      const formatIssue = results[0].issues.find((i) => i.rule === 'mock-id-format');
       expect(formatIssue).toBeUndefined();
     });
 
-    it(`should error for too-short ${LORE_ID_KEY}`, async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [LORE_ID_KEY]: ['abc123'] }));
+    it(`should error for too-short ${MOCK_ID_KEY}`, async () => {
+      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: ['abc123'] }));
 
       const commit = makeCommit();
       const results = await validator.validate([commit]);
 
-      const formatIssue = results[0].issues.find((i) => i.rule === 'lore-id-format');
+      const formatIssue = results[0].issues.find((i) => i.rule === 'mock-id-format');
       expect(formatIssue).toBeDefined();
     });
 
-    it(`should error for uppercase hex ${LORE_ID_KEY}`, async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [LORE_ID_KEY]: ['ABCD1234'] }));
+    it(`should error for uppercase hex ${MOCK_ID_KEY}`, async () => {
+      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: ['ABCD1234'] }));
 
       const commit = makeCommit();
       const results = await validator.validate([commit]);
 
-      const formatIssue = results[0].issues.find((i) => i.rule === 'lore-id-format');
+      const formatIssue = results[0].issues.find((i) => i.rule === 'mock-id-format');
       expect(formatIssue).toBeDefined();
     });
   });
@@ -219,16 +213,16 @@ describe('Validator', () => {
 
     it('should error when a single-value custom trailer has multiple values', async () => {
       const customConfig = {
-        ...LORE_DEFAULT_CONFIG,
+        ...MOCK_CONFIG,
         trailers: {
-          ...LORE_DEFAULT_CONFIG.trailers,
+          ...MOCK_CONFIG.trailers,
           definitions: {
             Team: { description: 'T', multivalue: false, validation: 'none' as const }
           }
         }
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(LoreProtocolDefinition, customConfig);
+      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, customConfig);
       customRegistry.register(customProtocol);
       const customValidator = new Validator(mockParser as any, mockAtomRepo as any, customConfig, customRegistry);
 
@@ -273,40 +267,10 @@ describe('Validator', () => {
       expect(enumIssue!.severity).toBe('error');
     });
 
-    it('should error on invalid Scope-risk', async () => {
-      mockParser.parse.mockReturnValue(
-        makeTrailers({ 'Scope-risk': ['huge'] as any }),
-      );
-
-      const commit = makeCommit();
-      const results = await validator.validate([commit]);
-
-      const enumIssue = results[0].issues.find(
-        (i) => i.rule === 'invalid-enum' && i.message.includes('Scope-risk'),
-      );
-      expect(enumIssue).toBeDefined();
-    });
-
-    it('should error on invalid Reversibility', async () => {
-      mockParser.parse.mockReturnValue(
-        makeTrailers({ Reversibility: ['maybe'] as any }),
-      );
-
-      const commit = makeCommit();
-      const results = await validator.validate([commit]);
-
-      const enumIssue = results[0].issues.find(
-        (i) => i.rule === 'invalid-enum' && i.message.includes('Reversibility'),
-      );
-      expect(enumIssue).toBeDefined();
-    });
-
     it('should accept valid enum values', async () => {
       mockParser.parse.mockReturnValue(
         makeTrailers({
           Confidence: ['medium'],
-          'Scope-risk': ['narrow'],
-          Reversibility: ['clean'],
         }),
       );
 
@@ -321,8 +285,6 @@ describe('Validator', () => {
       mockParser.parse.mockReturnValue(
         makeTrailers({
           Confidence: [],
-          'Scope-risk': [],
-          Reversibility: [],
         }),
       );
 
@@ -334,52 +296,52 @@ describe('Validator', () => {
     });
   });
 
-  describe('Rule 5: intent length', () => {
-    it('should warn when intent exceeds max length', async () => {
+  describe('Rule 5: subject length', () => {
+    it('should warn when subject exceeds max length', async () => {
       const commit = makeCommit({ subject: 'a'.repeat(100) });
       const results = await validator.validate([commit]);
 
-      const intentIssue = results[0].issues.find((i) => i.rule === 'subject-length');
-      expect(intentIssue).toBeDefined();
-      expect(intentIssue!.severity).toBe('warning');
+      const issue = results[0].issues.find((i) => i.rule === 'subject-length');
+      expect(issue).toBeDefined();
+      expect(issue!.severity).toBe('warning');
     });
 
-    it('should not warn when intent is within limit', async () => {
-      const commit = makeCommit({ subject: 'feat: short intent' });
+    it('should not warn when subject is within limit', async () => {
+      const commit = makeCommit({ subject: 'feat: short' });
       const results = await validator.validate([commit]);
 
-      const intentIssue = results[0].issues.find((i) => i.rule === 'subject-length');
-      expect(intentIssue).toBeUndefined();
+      const issue = results[0].issues.find((i) => i.rule === 'subject-length');
+      expect(issue).toBeUndefined();
     });
 
     it('should use config value for max length', async () => {
       const customConfig: Config = {
-        ...LORE_DEFAULT_CONFIG,
-        validation: { ...LORE_DEFAULT_CONFIG.validation, subjectMaxLength: 50 },
+        ...MOCK_CONFIG,
+        validation: { ...MOCK_CONFIG.validation, subjectMaxLength: 50 },
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(LoreProtocolDefinition, customConfig);
+      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, customConfig);
       customRegistry.register(customProtocol);
       const customValidator = new Validator(mockParser as any, mockAtomRepo as any, customConfig, customRegistry);
 
       const commit = makeCommit({ subject: 'a'.repeat(51) });
       const results = await customValidator.validate([commit]);
 
-      const intentIssue = results[0].issues.find((i) => i.rule === 'subject-length');
-      expect(intentIssue).toBeDefined();
-      expect(intentIssue!.message).toContain('50');
+      const issue = results[0].issues.find((i) => i.rule === 'subject-length');
+      expect(issue).toBeDefined();
+      expect(issue!.message).toContain('50');
     });
   });
 
   describe('Rule 6: required trailers', () => {
     it('should warn on missing required trailers (non-strict)', async () => {
       const requiredConfig: Config = {
-        ...LORE_DEFAULT_CONFIG,
+        ...MOCK_CONFIG,
         trailers: { required: ['Confidence', 'Constraint'], custom: [], definitions: {}, permissive: true },
-        validation: { ...LORE_DEFAULT_CONFIG.validation, strict: false },
+        validation: { ...MOCK_CONFIG.validation, strict: false },
       };
       const requiredRegistry = new ProtocolRegistry();
-      const requiredProtocol = new Protocol(LoreProtocolDefinition, requiredConfig);
+      const requiredProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, requiredConfig);
       requiredRegistry.register(requiredProtocol);
       const requiredValidator = new Validator(mockParser as any, mockAtomRepo as any, requiredConfig, requiredRegistry);
       mockParser.parse.mockReturnValue(makeTrailers({ Confidence: [] }));
@@ -396,12 +358,12 @@ describe('Validator', () => {
 
     it('should error on missing required trailers (strict)', async () => {
       const strictConfig: Config = {
-        ...LORE_DEFAULT_CONFIG,
+        ...MOCK_CONFIG,
         trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true },
-        validation: { ...LORE_DEFAULT_CONFIG.validation, strict: true },
+        validation: { ...MOCK_CONFIG.validation, strict: true },
       };
       const strictRegistry = new ProtocolRegistry();
-      const strictProtocol = new Protocol(LoreProtocolDefinition, strictConfig);
+      const strictProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, strictConfig);
       strictRegistry.register(strictProtocol);
       const strictValidator = new Validator(mockParser as any, mockAtomRepo as any, strictConfig, strictRegistry);
       mockParser.parse.mockReturnValue(makeTrailers({ Confidence: [] }));
@@ -417,11 +379,11 @@ describe('Validator', () => {
 
     it('should not warn when required trailers are present', async () => {
       const requiredConfig: Config = {
-        ...LORE_DEFAULT_CONFIG,
+        ...MOCK_CONFIG,
         trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true },
       };
       const requiredRegistry = new ProtocolRegistry();
-      const requiredProtocol = new Protocol(LoreProtocolDefinition, requiredConfig);
+      const requiredProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, requiredConfig);
       requiredRegistry.register(requiredProtocol);
       const requiredValidator = new Validator(mockParser as any, mockAtomRepo as any, requiredConfig, requiredRegistry);
       mockParser.parse.mockReturnValue(
@@ -462,7 +424,7 @@ describe('Validator', () => {
     it('should warn on invalid reference format', async () => {
       mockParser.parse.mockReturnValue(
         makeTrailers({
-          Supersedes: ['not-hex!'],
+          Ref: ['not-hex!'],
           Related: ['toolong12'],
         }),
       );
@@ -480,8 +442,8 @@ describe('Validator', () => {
     it('should not warn on valid reference format', async () => {
       mockParser.parse.mockReturnValue(
         makeTrailers({
-          Supersedes: ['aabbccdd'],
-          'Depends-on': ['11223344'],
+          Ref: ['aabbccdd'],
+          Related: ['11223344'],
         }),
       );
 
@@ -519,7 +481,6 @@ describe('Validator', () => {
       mockParser.parse.mockReturnValue(
         makeTrailers({
           Constraint: ['a', 'b', 'c', 'd', 'e'],
-          Rejected: ['x', 'y'],
         }),
       );
 
@@ -535,7 +496,7 @@ describe('Validator', () => {
 
   describe('overall validity', () => {
     it('should be invalid if any error exists', async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [LORE_ID_KEY]: [] }));
+      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: [] }));
 
       const commit = makeCommit();
       const results = await validator.validate([commit]);
@@ -556,7 +517,7 @@ describe('Validator', () => {
     });
   });
 
-  describe(`commit hash and ${LORE_ID_KEY} reporting`, () => {
+  describe(`commit hash and ${MOCK_ID_KEY} reporting`, () => {
     it('should report commit hash', async () => {
       const commit = makeCommit({ hash: 'specific_hash_123' });
       const results = await validator.validate([commit]);
@@ -564,15 +525,15 @@ describe('Validator', () => {
       expect(results[0].commit).toBe('specific_hash_123');
     });
 
-    it(`should report ${LORE_ID_KEY} when present`, async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [LORE_ID_KEY]: ['deadbeef'] }));
+    it(`should report ${MOCK_ID_KEY} when present`, async () => {
+      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: ['deadbeef'] }));
       const commit = makeCommit();
       const results = await validator.validate([commit]);
 
       expect(results[0].id).toBe('deadbeef');
     });
 
-    it(`should report null ${LORE_ID_KEY} when parse fails`, async () => {
+    it(`should report null ${MOCK_ID_KEY} when parse fails`, async () => {
       mockParser.parse.mockImplementation(() => {
         throw new Error('Parse error');
       });
@@ -588,7 +549,7 @@ describe('Validator', () => {
     it('should warn when referenced atom does not exist', async () => {
       mockParser.parse.mockReturnValue(
         makeTrailers({
-          Supersedes: ['aabbccdd'],
+          Ref: ['aabbccdd'],
         }),
       );
 
@@ -633,9 +594,9 @@ describe('Validator', () => {
   describe('Rule 11: custom trailer definitions', () => {
     it('should error when a trailer marked as required in definitions is missing', async () => {
       const configWithDef: Config = {
-        ...LORE_DEFAULT_CONFIG,
+        ...MOCK_CONFIG,
         trailers: {
-          ...LORE_DEFAULT_CONFIG.trailers,
+          ...MOCK_CONFIG.trailers,
           definitions: {
             Department: { description: 'dept', multivalue: false, validation: 'none', required: true },
           },
@@ -644,10 +605,10 @@ describe('Validator', () => {
         },
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(LoreProtocolDefinition, configWithDef);
+      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, configWithDef);
       customRegistry.register(customProtocol);
       const customValidator = new Validator(mockParser as any, mockAtomRepo as any, configWithDef, customRegistry);
-      mockParser.parse.mockReturnValue(makeTrailers({ [LORE_ID_KEY]: ['abc'] } as any)); // Missing Department
+      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: ['abc'] } as any)); // Missing Department
 
       const commit = makeCommit();
       const results = await customValidator.validate([commit]);
@@ -659,9 +620,9 @@ describe('Validator', () => {
 
     it('should error on invalid enum value for custom trailer', async () => {
       const configWithDef: Config = {
-        ...LORE_DEFAULT_CONFIG,
+        ...MOCK_CONFIG,
         trailers: {
-          ...LORE_DEFAULT_CONFIG.trailers,
+          ...MOCK_CONFIG.trailers,
           definitions: {
             Team: {
               description: 'team',
@@ -675,7 +636,7 @@ describe('Validator', () => {
         },
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(LoreProtocolDefinition, configWithDef);
+      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, configWithDef);
       customRegistry.register(customProtocol);
       const customValidator = new Validator(mockParser as any, mockAtomRepo as any, configWithDef, customRegistry);
 
@@ -686,14 +647,14 @@ describe('Validator', () => {
 
       const enumIssues = results[0].issues.filter((i) => i.rule === 'invalid-enum');
       expect(enumIssues).toHaveLength(1);
-      expect(enumIssues[0].message).toContain('Expected one of: Alpha, Beta');
+      expect(enumIssues[0].message).toContain('Alpha, Beta');
     });
 
     it('should error on invalid pattern for custom trailer', async () => {
       const configWithDef: Config = {
-        ...LORE_DEFAULT_CONFIG,
+        ...MOCK_CONFIG,
         trailers: {
-          ...LORE_DEFAULT_CONFIG.trailers,
+          ...MOCK_CONFIG.trailers,
           definitions: {
             Ticket: { description: 'jira', multivalue: false, validation: 'pattern', pattern: '^PROJ-[0-9]+$' },
           },
@@ -702,7 +663,7 @@ describe('Validator', () => {
         },
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(LoreProtocolDefinition, configWithDef);
+      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, configWithDef);
       customRegistry.register(customProtocol);
       const customValidator = new Validator(mockParser as any, mockAtomRepo as any, configWithDef, customRegistry);
 

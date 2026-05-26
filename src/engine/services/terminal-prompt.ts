@@ -4,7 +4,7 @@ import type { IPrompt } from '../interfaces/prompt.js';
 
 /**
  * IPrompt implementation using Node.js readline/promises.
- * Provides interactive terminal prompts for `lore commit -i`.
+ * Provides interactive terminal prompts for `atom commit -i`.
  *
  * GRASP: Protected Variations -- terminal I/O is volatile.
  * SOLID: LSP -- substitutable with a mock for testing.

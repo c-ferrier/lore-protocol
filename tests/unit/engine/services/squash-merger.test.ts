@@ -2,12 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SquashMerger } from '../../../../src/engine/services/squash-merger.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, YAP_PROTOCOL_DEFINITION } from '../test-utils.js';
 
-import type { Atom, Trailers, AtomId } from '../../../../src/engine/types/domain.js';
+import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 
-const LORE_ID_KEY = "Lore-id";
+const MOCK_ID_KEY = "Mock-id";
 
 function createMockIdGenerator(id = 'deadbeef') {
   return {
@@ -17,17 +16,9 @@ function createMockIdGenerator(id = 'deadbeef') {
 
 function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
   return {
-    [LORE_ID_KEY]: overrides[LORE_ID_KEY] ?? ['a1b2c3d4'],
+    [MOCK_ID_KEY]: overrides[MOCK_ID_KEY] ?? ['a1b2c3d4'],
     Constraint: overrides.Constraint ?? [],
-    Rejected: overrides.Rejected ?? [],
     Confidence: overrides.Confidence ?? [],
-    'Scope-risk': overrides['Scope-risk'] ?? [],
-    Reversibility: overrides.Reversibility ?? [],
-    Directive: overrides.Directive ?? [],
-    Tested: overrides.Tested ?? [],
-    'Not-tested': overrides['Not-tested'] ?? [],
-    Supersedes: overrides.Supersedes ?? [],
-    'Depends-on': overrides['Depends-on'] ?? [],
     Related: overrides.Related ?? [],
     ...overrides,
   } as any;
@@ -49,13 +40,13 @@ function makeAtom(overrides: Partial<any> = {}): Atom {
     commitHash: overrides.commitHash ?? 'abc1234567890',
     date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
     author: overrides.author ?? 'alice@example.com',
-    subject: overrides.subject ?? overrides.intent ?? 'feat(auth): add login flow',
+    subject: overrides.subject ?? 'feat(auth): add login flow',
     body: overrides.body ?? '',
     protocols: new Map([
-      ['lore', {
-        name: 'Lore',
+      ['mock', {
+        name: 'Mock',
         version: '1.0',
-        identityKey: LORE_ID_KEY,
+        identityKey: MOCK_ID_KEY,
         trailers
       }]
     ]),
@@ -71,7 +62,7 @@ describe('SquashMerger', () => {
 
   beforeEach(() => {
     mockIdGen = createMockIdGenerator();
-    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
     registry = new ProtocolRegistry();
     registry.register(protocol);
     merger = new SquashMerger(mockIdGen as any, registry);
@@ -81,38 +72,38 @@ describe('SquashMerger', () => {
     expect(() => merger.merge([], {})).toThrow('Cannot merge zero atoms');
   });
 
-  it(`should generate a new ${LORE_ID_KEY}`, () => {
+  it(`should generate a new ${MOCK_ID_KEY}`, () => {
     const atom = makeAtom();
     const { message, protocols } = merger.merge([atom], {});
 
     expect(mockIdGen.generate).toHaveBeenCalledOnce();
-    expect(message).toContain(`${LORE_ID_KEY}: deadbeef`);
-    expect(protocols.lore.id).toBe('deadbeef');
+    expect(message).toContain(`${MOCK_ID_KEY}: deadbeef`);
+    expect(protocols.mock.id).toBe('deadbeef');
   });
 
-  describe('intent merging', () => {
+  describe('subject merging', () => {
     it('should use options.subject when provided', () => {
-      const atom = makeAtom({ subject: 'old intent' });
-      const { message } = merger.merge([atom], { subject: 'new intent' });
+      const atom = makeAtom({ subject: 'old subject' });
+      const { message } = merger.merge([atom], { subject: 'new subject' });
 
-      expect(message.startsWith('new intent')).toBe(true);
+      expect(message.startsWith('new subject')).toBe(true);
     });
 
-    it('should use newest atom intent when no option provided', () => {
+    it('should use newest atom subject when no option provided', () => {
       const older = makeAtom({
         id: 'aaaa0001',
         date: new Date('2025-01-01'),
-        subject: 'older intent',
+        subject: 'older subject',
       });
       const newer = makeAtom({
         id: 'aaaa0002',
         date: new Date('2025-06-01'),
-        subject: 'newer intent',
+        subject: 'newer subject',
       });
 
       const { message } = merger.merge([older, newer], {});
 
-      expect(message.startsWith('newer intent')).toBe(true);
+      expect(message.startsWith('newer subject')).toBe(true);
     });
   });
 
@@ -150,26 +141,24 @@ describe('SquashMerger', () => {
       const a1 = makeAtom({
         id: 'aaaa0001',
         trailers: makeTrailers({
-          [LORE_ID_KEY]: ['aaaa0001'],
-          Constraint: ['Must use HTTPS', 'No external deps'],
-          Tested: ['Unit tests'],
+          [MOCK_ID_KEY]: ['aaaa0001'],
+          Constraint: ['C1', 'C2'],
         }),
       });
       const a2 = makeAtom({
         id: 'aaaa0002',
         trailers: makeTrailers({
-          [LORE_ID_KEY]: ['aaaa0002'],
-          Constraint: ['Must use HTTPS', 'Max 100ms latency'],
-          Tested: ['Integration tests'],
+          [MOCK_ID_KEY]: ['aaaa0002'],
+          Constraint: ['C1', 'C3'],
         }),
       });
 
       const { message } = merger.merge([a1, a2], {});
 
-      expect(message).toContain('Constraint: Must use HTTPS');
-      expect(message).toContain('Constraint: No external deps');
-      expect(message).toContain('Constraint: Max 100ms latency');
-      const matches = message.match(/Constraint: Must use HTTPS/g);
+      expect(message).toContain('Constraint: C1');
+      expect(message).toContain('Constraint: C2');
+      expect(message).toContain('Constraint: C3');
+      const matches = message.match(/Constraint: C1/g);
       expect(matches).toHaveLength(1);
     });
   });
@@ -178,200 +167,94 @@ describe('SquashMerger', () => {
     it('should pick lowest confidence (most conservative)', () => {
       const a1 = makeAtom({
         id: 'aaaa0001',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0001'], Confidence: ['high'] }),
+        trailers: makeTrailers({ [MOCK_ID_KEY]: ['aaaa0001'], Confidence: ['high'] }),
       });
       const a2 = makeAtom({
         id: 'aaaa0002',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], Confidence: ['low'] }),
+        trailers: makeTrailers({ [MOCK_ID_KEY]: ['aaaa0002'], Confidence: ['low'] }),
       });
 
       const { message } = merger.merge([a1, a2], {});
       expect(message).toContain('Confidence: low');
     });
 
-    it('should pick widest scope-risk', () => {
-      const a1 = makeAtom({
-        id: 'aaaa0001',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0001'], 'Scope-risk': ['narrow'] }),
-      });
-      const a2 = makeAtom({
-        id: 'aaaa0002',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], 'Scope-risk': ['wide'] }),
-      });
-
-      const { message } = merger.merge([a1, a2], {});
-      expect(message).toContain('Scope-risk: wide');
-    });
-
-    it('should pick least reversible', () => {
-      const a1 = makeAtom({
-        id: 'aaaa0001',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0001'], Reversibility: ['clean'] }),
-      });
-      const a2 = makeAtom({
-        id: 'aaaa0002',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], Reversibility: ['irreversible'] }),
-      });
-
-      const { message } = merger.merge([a1, a2], {});
-      expect(message).toContain('Reversibility: irreversible');
-    });
-
     it('should handle null enum values gracefully', () => {
       const a1 = makeAtom({
         id: 'aaaa0001',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0001'], Confidence: ['medium'] }),
+        trailers: makeTrailers({ [MOCK_ID_KEY]: ['aaaa0001'], Confidence: ['medium'] }),
       });
       const a2 = makeAtom({
         id: 'aaaa0002',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], Confidence: [] }),
+        trailers: makeTrailers({ [MOCK_ID_KEY]: ['aaaa0002'], Confidence: [] }),
       });
 
       const { message } = merger.merge([a1, a2], {});
       expect(message).toContain('Confidence: medium');
     });
 
-    it('should pick medium over high for confidence', () => {
-      const a1 = makeAtom({
-        id: 'aaaa0001',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0001'], Confidence: ['high'] }),
-      });
-      const a2 = makeAtom({
-        id: 'aaaa0002',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], Confidence: ['medium'] }),
-      });
+    it('should handle ad-hoc enum values by taking the last seen', () => {
+      const a1 = makeAtom({ trailers: { 'Adhoc': ['v1'] } as any });
+      const a2 = makeAtom({ trailers: { 'Adhoc': ['v2'] } as any });
 
       const { message } = merger.merge([a1, a2], {});
-      expect(message).toContain('Confidence: medium');
-    });
-
-    it('should pick moderate over narrow for scope-risk', () => {
-      const a1 = makeAtom({
-        id: 'aaaa0001',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0001'], 'Scope-risk': ['narrow'] }),
-      });
-      const a2 = makeAtom({
-        id: 'aaaa0002',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], 'Scope-risk': ['moderate'] }),
-      });
-
-      const { message } = merger.merge([a1, a2], {});
-      expect(message).toContain('Scope-risk: moderate');
-    });
-
-    it('should pick migration-needed over clean for reversibility', () => {
-      const a1 = makeAtom({
-        id: 'aaaa0001',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0001'], Reversibility: ['clean'] }),
-      });
-      const a2 = makeAtom({
-        id: 'aaaa0002',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0002'], Reversibility: ['migration-needed'] }),
-      });
-
-      const { message } = merger.merge([a1, a2], {});
-      expect(message).toContain('Reversibility: migration-needed');
+      expect(message).toContain('Adhoc: v2');
     });
   });
 
   describe('reference trailer merging', () => {
-    it('should drop internal references (lore-ids within merged set)', () => {
+    it('should drop internal references (ids within merged set)', () => {
       const a1 = makeAtom({
         id: 'aaaa0001',
         trailers: makeTrailers({
-          [LORE_ID_KEY]: ['aaaa0001'],
+          [MOCK_ID_KEY]: ['aaaa0001'],
           Related: ['aaaa0002'],
         }),
       });
       const a2 = makeAtom({
         id: 'aaaa0002',
         trailers: makeTrailers({
-          [LORE_ID_KEY]: ['aaaa0002'],
-          'Depends-on': ['aaaa0001'],
+          [MOCK_ID_KEY]: ['aaaa0002'],
+          Related: ['aaaa0001'],
         }),
       });
 
       const { message } = merger.merge([a1, a2], {});
       expect(message).not.toContain('Related: aaaaa0002');
-      expect(message).not.toContain('Depends-on: aaaaa0001');
+      expect(message).not.toContain('Related: aaaaa0001');
     });
 
-    it('should merge and preserve custom trailers', () => {
+    it('should preserve external references', () => {
       const a1 = makeAtom({
         id: 'aaaa0001',
-        trailers: makeTrailers({
-          [LORE_ID_KEY]: ['aaaa0001'],
-          Team: ['platform'],
-        } as any),
+        trailers: makeTrailers({ Related: ['eeee9999'] }),
       });
-      const a2 = makeAtom({
-        id: 'aaaa0002',
-        trailers: makeTrailers({
-          [LORE_ID_KEY]: ['aaaa0002'],
-          Team: ['core'],
-          Ticket: ['PROJ-123'],
-        } as any),
-      });
-
-      const { message } = merger.merge([a1, a2], {});
-      expect(message).toContain('Team: platform');
-      expect(message).toContain('Team: core');
-      expect(message).toContain('Ticket: PROJ-123');
+      const { message } = merger.merge([a1], {});
+      expect(message).toContain('Related: eeee9999');
     });
+  });
 
-    describe('squash strategies', () => {
-      it('should respect rank-min (Confidence: low < high)', () => {
-        const a1 = makeAtom({ trailers: makeTrailers({ Confidence: ['high'] }) });
-        const a2 = makeAtom({ trailers: makeTrailers({ Confidence: ['low'] }) });
-        const { message } = merger.merge([a1, a2], {});
-        expect(message).toContain('Confidence: low');
-      });
-
-      it('should respect rank-max (Scope-risk: wide > narrow)', () => {
-        const a1 = makeAtom({ trailers: makeTrailers({ 'Scope-risk': ['narrow'] }) });
-        const a2 = makeAtom({ trailers: makeTrailers({ 'Scope-risk': ['wide'] }) });
-        const { message } = merger.merge([a1, a2], {});
-        expect(message).toContain('Scope-risk: wide');
-      });
-
-      it('should support rank-max for custom enums', () => {
-        const configWithCustom = {
-          ...LORE_DEFAULT_CONFIG,
-          trailers: {
-            ...LORE_DEFAULT_CONFIG.trailers,
-            definitions: {
-              Priority: {
-                description: 'Prio',
-                multivalue: false,
-                validation: 'values' as const,
-                values: { low: {}, high: {}, urgent: {} },
-                squash: 'rank-max' as const,
-              }
-            },
-            custom: [],
-            permissive: true,
-          }
-        };
-        const customRegistry = new ProtocolRegistry();
-        const customProtocol = new Protocol(LoreProtocolDefinition, configWithCustom);
-        customRegistry.register(customProtocol);
-        const customMerger = new SquashMerger(mockIdGen as any, customRegistry);
-
-        const a1 = makeAtom({ trailers: makeTrailers({ Priority: ['low'] } as any) });
-        const a2 = makeAtom({ trailers: makeTrailers({ Priority: ['urgent'] } as any) });
-        
-        const { message } = customMerger.merge([a1, a2], {});
-        expect(message).toContain('Priority: urgent');
-      });
+  describe('squash strategies', () => {
+    it('should respect rank-max (Impact: high > low)', () => {
+       const yap = new Protocol(YAP_PROTOCOL_DEFINITION, MOCK_CONFIG);
+       registry.register(yap);
+       
+       const a1 = makeAtom({ id: 'l1', body: '' });
+       a1.protocols.set('yap', { name: 'YAP', version: '2.0', identityKey: 'YAP-id', trailers: { 'Impact': ['low'] } as any });
+       
+       const a2 = makeAtom({ id: 'l2', body: '' });
+       a2.protocols.set('yap', { name: 'YAP', version: '2.0', identityKey: 'YAP-id', trailers: { 'Impact': ['high'] } as any });
+       
+       const { message } = merger.merge([a1, a2], {});
+       expect(message).toContain('yap/Impact: high');
     });
   });
 
   describe('single atom merge', () => {
     it('should work with a single atom', () => {
       const atom = makeAtom({
-        intent: 'single atom intent',
+        subject: 'single atom subject',
         trailers: makeTrailers({
-          [LORE_ID_KEY]: ['a1b2c3d4'],
+          [MOCK_ID_KEY]: ['a1b2c3d4'],
           Constraint: ['Some constraint'],
           Confidence: ['high'],
         }),
@@ -379,78 +262,60 @@ describe('SquashMerger', () => {
 
       const { message, protocols } = merger.merge([atom], {});
 
-      expect(message).toContain('single atom intent');
-      expect(message).toContain(`${LORE_ID_KEY}: deadbeef`);
+      expect(message).toContain('single atom subject');
+      expect(message).toContain(`${MOCK_ID_KEY}: deadbeef`);
       expect(message).toContain('Constraint: Some constraint');
       expect(message).toContain('Confidence: high');
-      expect(protocols.lore.id).toBe('deadbeef');
+      expect(protocols.mock.id).toBe('deadbeef');
     });
   });
 
 
   describe('message structure', () => {
-    it('should have proper structure: intent, blank line, body, blank line, trailers', () => {
+    it('should have proper structure: subject, blank line, body, blank line, trailers', () => {
       const atom = makeAtom({
         id: 'aaaa0001',
         body: 'Atom body text',
-        trailers: makeTrailers({ [LORE_ID_KEY]: ['aaaa0001'], Confidence: ['high'] }),
+        trailers: makeTrailers({ [MOCK_ID_KEY]: ['aaaa0001'], Confidence: ['high'] }),
       });
 
-      const { message } = merger.merge([atom], { subject: 'Merged intent' });
+      const { message } = merger.merge([atom], { subject: 'Merged subject' });
       const lines = message.split('\n');
 
-      expect(lines[0]).toBe('Merged intent');
+      expect(lines[0]).toBe('Merged subject');
       expect(lines[1]).toBe('');
       expect(lines[2]).toBe('Atom body text');
       expect(lines[3]).toBe('');
-      expect(lines[4]).toContain(`${LORE_ID_KEY}: deadbeef`);
+      expect(lines[4]).toContain(`${MOCK_ID_KEY}: deadbeef`);
     });
   });
 
   describe('Multi-Protocol Merging', () => {
     it('should synthesize context for multiple registered protocols simultaneously', () => {
-      // 1. Lore protocol (standard)
-      // Already setup in beforeEach
+      const yap = new Protocol(YAP_PROTOCOL_DEFINITION, MOCK_CONFIG);
+      registry.register(yap);
 
-      // 2. Setup Fred protocol (Strict, namespaced)
-      const fredDef: any = {
-        name: 'Fred',
-        version: '1.0',
-        namespace: 'fred',
-        identityKey: 'Fred-id',
-        trailers: {
-          'Fred-id': { description: 'ID' },
-          'Fred-Level': { description: 'Level' },
-        }
-      };
-      const fredProtocol = new Protocol(fredDef, LORE_DEFAULT_CONFIG);
-      registry.register(fredProtocol);
-
-      // 3. Create atom containing both Lore and Fred interpretations
       const mixedAtom = makeAtom({
         id: 'l1',
         body: 'Shared body',
-        trailers: makeTrailers({ 'Lore-id': ['l1'], Confidence: ['high'] })
+        trailers: makeTrailers({ 'Mock-id': ['l1'], Confidence: ['high'] })
       });
-      // Add Fred interpretation manually to the mock atom
-      mixedAtom.protocols.set('fred', {
-          name: 'Fred',
-          version: '1.0',
-          identityKey: 'Fred-id',
-          trailers: { 'Fred-id': ['f1'], 'Fred-Level': ['critical'] }
+      mixedAtom.protocols.set('yap', {
+          name: 'YAP',
+          version: '2.0',
+          identityKey: 'YAP-id',
+          trailers: { 'YAP-id': ['y1'], 'Impact': ['low'] } as any
       });
 
       const { message, protocols } = merger.merge([mixedAtom], { subject: 'Merged multi' });
 
-      // 4. Verify Identity Generation
-      expect(protocols.lore.id).toBe('deadbeef');
-      expect(protocols.fred.id).toBe('deadbeef'); // Mock idGen returns same value
+      expect(protocols.mock.id).toBe('deadbeef');
+      expect(protocols.yap.id).toBe('deadbeef');
 
-      // 5. Verify Combined Message
-      expect(message).toContain('Lore-id: deadbeef');
-      expect(message).toContain('fred/Fred-id: deadbeef'); // Identity MUST be namespaced
+      expect(message).toContain('Mock-id: deadbeef');
+      expect(message).toContain('yap/YAP-id: deadbeef');
       expect(message).toContain('Confidence: high');
-      expect(message).toContain('fred/Fred-Level: critical');
+      expect(message).toContain('yap/Impact: low');
     });
   });
 });

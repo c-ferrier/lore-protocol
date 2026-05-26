@@ -1,46 +1,53 @@
 import { describe, it, expect } from 'vitest';
 import { TrailerCollectorRegistry } from '../../../../../../src/engine/services/readers/collectors/trailer-collector-registry.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../../../src/lore/defaults.js';
 import { Protocol } from '../../../../../../src/engine/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../../../src/lore/protocol-definition.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../../../test-utils.js';
 
 describe('TrailerCollectorRegistry', () => {
   it('should create default collectors for core trailers', () => {
-    const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
-    // Default core trailers count (11, excluding Lore-id)
-    expect(collectors.length).toBe(11);
+    // Default core trailers count in Mock (Constraint, Confidence, Related, Ref, Supersedes, Depends-on, Ref)
+    // Actually it is: Constraint, Confidence, Related, Supersedes, Depends-on, Ref (6)
+    // Plus any others... let's count:
+    // 1. Constraint
+    // 2. Confidence
+    // 3. Related
+    // 4. Supersedes
+    // 5. Depends-on
+    // 6. Ref
+    expect(collectors.length).toBe(6);
     expect(collectors.map(c => c.key)).toContain('Constraint');
     expect(collectors.map(c => c.key)).toContain('Confidence');
   });
 
   it('should add custom collectors from definitions', () => {
     const config = {
-      ...LORE_DEFAULT_CONFIG,
+      ...MOCK_CONFIG,
       trailers: {
-        ...LORE_DEFAULT_CONFIG.trailers,
+        ...MOCK_CONFIG.trailers,
         definitions: {
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const },
           'Squad': { description: 'Squad name', multivalue: true, validation: 'none' as const }
         }
       }
     };
-    const protocol = new Protocol(LoreProtocolDefinition, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
-    expect(collectors.length).toBe(13); // 11 core + 2 custom
+    expect(collectors.length).toBe(8); // 6 core + 2 custom
     expect(collectors.map(c => c.key)).toContain('Project');
     expect(collectors.map(c => c.key)).toContain('Squad');
   });
 
   it('should handle multi-value enum collectors', () => {
     const config = {
-      ...LORE_DEFAULT_CONFIG,
+      ...MOCK_CONFIG,
       trailers: {
-        ...LORE_DEFAULT_CONFIG.trailers,
+        ...MOCK_CONFIG.trailers,
         definitions: {
           'Features': { 
             description: 'Features', 
@@ -51,7 +58,7 @@ describe('TrailerCollectorRegistry', () => {
         }
       }
     };
-    const protocol = new Protocol(LoreProtocolDefinition, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     const featureCollector = collectors.find(c => c.key === 'Features');
@@ -63,36 +70,36 @@ describe('TrailerCollectorRegistry', () => {
 
   it('should create collectors for simple custom trailers', () => {
     const config = {
-      ...LORE_DEFAULT_CONFIG,
+      ...MOCK_CONFIG,
       trailers: {
-        ...LORE_DEFAULT_CONFIG.trailers,
+        ...MOCK_CONFIG.trailers,
         custom: ['Team'],
         definitions: {
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const }
         }
       }
     };
-    const protocol = new Protocol(LoreProtocolDefinition, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
-    // 11 core + 1 rich def (Project) + 1 simple list (Team) = 13
-    expect(collectors.length).toBe(13);
+    // 6 core + 1 rich def (Project) + 1 simple list (Team) = 8
+    expect(collectors.length).toBe(8);
     expect(collectors.map(c => c.key)).toContain('Team');
   });
 
   it('should sort collectors based on metadata order', () => {
     const config = {
-      ...LORE_DEFAULT_CONFIG,
+      ...MOCK_CONFIG,
       trailers: {
-        ...LORE_DEFAULT_CONFIG.trailers,
+        ...MOCK_CONFIG.trailers,
         definitions: {
           'First': { description: 'f', multivalue: false, validation: 'none' as const, prompt: { order: 1 } },
           'Last': { description: 'l', multivalue: false, validation: 'none' as const, prompt: { order: 10000 } }
         }
       }
     };
-    const protocol = new Protocol(LoreProtocolDefinition, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     const keys = collectors.map(c => c.key);

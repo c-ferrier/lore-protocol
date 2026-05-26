@@ -1,13 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
-import { GitClient } from '../../../../src/engine/services/git-client.js';
 import { AtomRepository } from '../../../../src/engine/services/atom-repository.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { SearchFilter } from '../../../../src/engine/services/search-filter.js';
 import { NullAtomCache } from '../../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { MOCK_CONFIG } from '../test-utils.js';
 
 describe('AtomRepository Body Stripping', () => {
   let repo: AtomRepository;
@@ -17,10 +16,10 @@ describe('AtomRepository Body Stripping', () => {
     identityKey: 'Id',
     namespace: '',
     trailers: {
-      'Id': { description: 'ID', validation: 'none' as const },
-      'Key': { description: 'Key', validation: 'none' as const }
+      'Id': { description: 'ID', multivalue: false, validation: 'none' as const },
+      'Key': { description: 'Key', multivalue: false, validation: 'none' as const }
     }
-  }, LORE_DEFAULT_CONFIG);
+  }, MOCK_CONFIG);
 
   beforeEach(() => {
     const registry = new ProtocolRegistry();
@@ -36,7 +35,6 @@ describe('AtomRepository Body Stripping', () => {
     );
   });
 
-  // Accessing private method for targeted unit testing
   const strip = (body: string, trailers: string) => (repo as any).stripTrailersFromBody(body, trailers);
 
   it('should strip trailers with varying whitespace', () => {

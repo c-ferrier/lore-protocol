@@ -21,14 +21,12 @@ import type { ProtocolRegistry } from '../services/protocol-registry.js';
  */
 export class TextFormatter implements IOutputFormatter {
   protected readonly c: ChalkInstance;
-  private readonly subjectLabel: string;
 
   constructor(
     private readonly protocolRegistry: ProtocolRegistry,
-    options: { color: boolean; subjectLabel?: string }
+    options: { color: boolean }
   ) {
     this.c = new Chalk({ level: options.color ? (chalk.level || 1) : 0 });
-    this.subjectLabel = options.subjectLabel || 'Subject';
   }
 
   formatQueryResult(data: FormattableQueryResult): string {

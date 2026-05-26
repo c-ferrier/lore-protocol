@@ -40,7 +40,7 @@ describe('JsonInputReader', () => {
       expect(result.trailers?.Related).toEqual(['beef1234']);
     });
 
-    it('should parse minimal JSON with only intent', async () => {
+    it('should parse minimal JSON with only subject', async () => {
       const input = { subject: 'minimal commit' };
 
       const reader = new JsonInputReader(JSON.stringify(input));
@@ -51,7 +51,7 @@ describe('JsonInputReader', () => {
       expect(result.trailers).toBeUndefined();
     });
 
-    it('should parse JSON with intent and body but no trailers', async () => {
+    it('should parse JSON with subject and body but no trailers', async () => {
       const input = { subject: 'with body', body: 'Some body text' };
 
       const reader = new JsonInputReader(JSON.stringify(input));
@@ -72,7 +72,7 @@ describe('JsonInputReader', () => {
       expect(result.trailers).toEqual({});
     });
 
-    it('should default intent to empty string when not a string', async () => {
+    it('should default subject to empty string when not a string', async () => {
       const input = { subject: 123 };
 
       const reader = new JsonInputReader(JSON.stringify(input));

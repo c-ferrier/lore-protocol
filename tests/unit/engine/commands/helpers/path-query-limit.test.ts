@@ -2,36 +2,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { executePathQuery } from '../../../../../src/engine/commands/helpers/path-query.js';
 import type { PathQueryDeps, PathQueryCommandOptions } from '../../../../../src/engine/commands/helpers/path-query.js';
 import type { Atom, SupersessionStatus } from '../../../../../src/engine/types/domain.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../../src/lore/defaults.js';
 import { Protocol } from '../../../../../src/engine/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../../src/lore/protocol-definition.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../../test-utils.js';
 
-const LORE_ID_KEY = "Lore-id";
+const MOCK_ID_KEY = "Mock-id";
 
 function makeAtom(id: string, supersedes: string[] = []): Atom {
   const protocols = new Map();
-  protocols.set('lore', {
-    name: 'lore',
+  protocols.set('mock', {
+    name: 'Mock',
     version: '1.0',
-    identityKey: LORE_ID_KEY,
+    identityKey: MOCK_ID_KEY,
     trailers: {
-      [LORE_ID_KEY]: [id],
-      Constraint: [],
-      Rejected: [],
-      Confidence: [],
-      'Scope-risk': [],
-      Reversibility: [],
-      Directive: [],
-      Tested: [],
-      'Not-tested': [],
+      [MOCK_ID_KEY]: [id],
       Supersedes: supersedes,
-      'Depends-on': [],
-      Related: [],
     },
   });
 
   return {
-    id,
     commitHash: `hash_${id}`,
     date: new Date('2025-01-01'),
     author: 'test@example.com',
@@ -39,7 +27,7 @@ function makeAtom(id: string, supersedes: string[] = []): Atom {
     body: '',
     protocols,
     filesChanged: ['src/test.ts'],
-  };
+  } as any;
 }
 
 describe('executePathQuery — --limit as post-supersession result cap', () => {
@@ -55,7 +43,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     mockResolve = vi.fn();
     mockFilterActive = vi.fn();
     formattedOutput = '';
-    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
 
     deps = {
       atomRepository: {
@@ -89,7 +77,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
           return formattedOutput;
         }),
       }) as any,
-      config: LORE_DEFAULT_CONFIG,
+      config: MOCK_CONFIG,
       protocol,
     };
   });
@@ -113,7 +101,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
       ['dddd4444', { superseded: false, supersededBy: null }],
       ['eeee5555', { superseded: false, supersededBy: null }],
     ]);
-    const globalSupersessionMap = new Map([['lore', supersessionMap]]);
+    const globalSupersessionMap = new Map([['mock', supersessionMap]]);
     mockResolve.mockReturnValue(globalSupersessionMap);
 
     // filterActive returns only 3 non-superseded atoms
@@ -146,7 +134,6 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     const queryOptions = mockFindByTarget.mock.calls[0][1];
     expect(queryOptions.maxCommits).toBe(100);
     // limit is in the options but should NOT affect git scan (in repository call)
-    // Actually our executePathQuery passes null limit to findByTarget
     expect(queryOptions.limit).toBeNull();
 
     vi.mocked(console.log).mockRestore();

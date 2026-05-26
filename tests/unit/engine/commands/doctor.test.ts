@@ -2,8 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { registerDoctorCommand } from '../../../../src/engine/commands/doctor.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
 import type { Atom } from '../../../../src/engine/types/domain.js';
 
 function createMockAtomRepository() {
@@ -16,7 +15,7 @@ function createMockAtomRepository() {
 function createMockConfigLoader() {
   return {
     resolveRoot: vi.fn().mockResolvedValue('/repo'),
-    findConfigPath: vi.fn().mockResolvedValue('/repo/.lore/config.toml'),
+    findConfigPath: vi.fn().mockResolvedValue('/repo/.mock/config.toml'),
   };
 }
 
@@ -28,7 +27,7 @@ describe('Doctor Command', () => {
   beforeEach(() => {
     atomRepository = createMockAtomRepository();
     configLoader = createMockConfigLoader();
-    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
     vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
   });
 
@@ -41,7 +40,7 @@ describe('Doctor Command', () => {
     program.exitOverride();
     registerDoctorCommand(program, deps);
     try {
-      await program.parseAsync(['node', 'lore', 'doctor']);
+      await program.parseAsync(['node', 'atom', 'doctor']);
     } catch (err) {
       if (err instanceof Error && err.message === 'process.exit') return;
       throw err;
@@ -59,12 +58,8 @@ describe('Doctor Command', () => {
       getReferenceKeys: () => ['Depends-on'], // Canonical key, no prefix
       all: () => [],
     };
-
-    // Use a custom registry-like behavior or just mock the atom data
-    // The doctor command iterates over atom.trailers using protocol.getReferenceKeys()
     
     const atom: Atom = {
-      id: '12345678', // Use valid hex for ID
       commitHash: 'h1',
       date: new Date(),
       author: 'cole@example.com',
@@ -94,9 +89,6 @@ describe('Doctor Command', () => {
               if (data.checks.some(c => c.status === 'warning' && c.name === 'Orphaned dependencies')) {
                   return 'broken reference(s) found\nFred-id "deadbeef" referenced by 12345678 (Depends-on) not found';
               }
-              if (data.checks.some(c => c.details.some(d => d.includes('appears 2 times')))) {
-                   return 'duplicate Fred-id(s) found\nFred-id "duplicate-123" appears 2 times';
-              }
               return 'ok';
           })
       })
@@ -122,13 +114,11 @@ describe('Doctor Command', () => {
 
     // 2. Mock two atoms with the SAME Fred-id
     const atom1: any = {
-      id: 'atom1',
       protocols: new Map([
         ['fred', { name: 'Fred', identityKey: 'Fred-id', trailers: { 'Fred-id': ['duplicate-123'] }, version: '1.0' }]
       ])
     };
     const atom2: any = {
-      id: 'atom2',
       protocols: new Map([
         ['fred', { name: 'Fred', identityKey: 'Fred-id', trailers: { 'Fred-id': ['duplicate-123'] }, version: '1.0' }]
       ])
