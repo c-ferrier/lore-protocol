@@ -160,6 +160,7 @@ export class JsonFormatter implements IOutputFormatter {
     return JSON.stringify(
       {
         version: '1.0',
+        status: data.status,
         checks: data.checks.map((check) => ({
           name: check.name,
           status: check.status,
@@ -167,6 +168,7 @@ export class JsonFormatter implements IOutputFormatter {
           details: [...check.details],
         })),
         summary: {
+          total_checks: data.summary.total,
           errors: data.summary.errors,
           warnings: data.summary.warnings,
           info: data.summary.info,

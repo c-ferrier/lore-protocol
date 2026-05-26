@@ -56,6 +56,9 @@ export function registerDoctorCommand(
       if (isRepo) {
           const atoms = await atomRepository.findAll({ maxCommits: 500 });
           
+          // a. General Discovery Check
+          checks.push(checkAtoms(atoms));
+
           for (const protocol of protocolRegistry.getAll()) {
               checks.push(await checkProtocolIntegrity(atomRepository, protocol, atoms));
               checks.push(await checkProtocolReferences(atomRepository, protocol, atoms));
@@ -135,6 +138,23 @@ async function checkConfig(configLoader: IConfigLoader, defaultConfig: any): Pro
     status: details.length > 0 ? 'warning' : 'ok',
     message: details.length > 0 ? 'Config file found with gaps' : 'Config file found and verified',
     details,
+  };
+}
+
+function checkAtoms(atoms: any[]): DoctorCheck {
+  if (atoms.length === 0) {
+    return {
+      name: 'Decision Atoms',
+      status: 'info',
+      message: 'No atoms found in the last 500 commits.',
+      details: [],
+    };
+  }
+  return {
+    name: 'Decision Atoms',
+    status: 'ok',
+    message: `Discovered ${atoms.length} atoms in the last 500 commits`,
+    details: [],
   };
 }
 

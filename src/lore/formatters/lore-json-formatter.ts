@@ -129,7 +129,39 @@ export class LoreJsonFormatter implements IOutputFormatter {
   }
 
   formatDoctorResult(data: FormattableDoctorResult): string {
-    return this.inner.formatDoctorResult(data);
+    const checks = data.checks
+        .filter(c => c.name !== 'Git Repository' && c.name !== 'Local Cache' && c.name !== 'Decision Atoms')
+        .map(c => {
+            let name = c.name;
+            if (name === 'Configuration') name = 'Config file';
+            if (name.startsWith('Identity Integrity')) name = 'Lore-id uniqueness';
+            if (name.startsWith('Reference Integrity')) name = 'Reference resolution';
+
+            return {
+                name,
+                status: c.status,
+                message: c.message,
+                details: [...c.details]
+            };
+        });
+
+    const errors = checks.filter(c => c.status === 'error').length;
+    const warnings = checks.filter(c => c.status === 'warning').length;
+    const info = checks.filter(c => c.status === 'info').length;
+
+    return JSON.stringify(
+      {
+        lore_version: this.protocolRegistry.get('lore')?.version ?? '1.0',
+        checks,
+        summary: {
+          errors,
+          warnings,
+          info,
+        },
+      },
+      null,
+      2,
+    );
   }
 
   formatSuccess(_message: string, data?: Record<string, unknown>): string {

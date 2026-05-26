@@ -193,44 +193,47 @@ export class TextFormatter implements IOutputFormatter {
     const lines: string[] = [];
 
     for (const check of data.checks) {
+      let icon: string;
       let statusLabel: string;
+
       switch (check.status) {
         case 'ok':
-          statusLabel = this.c.green('OK');
+          icon = this.c.green('\u2713');
+          statusLabel = this.c.green('[OK]');
           break;
         case 'warning':
-          statusLabel = this.c.yellow('WARNING');
+          icon = this.c.yellow('!');
+          statusLabel = this.c.yellow('[WARNING]');
           break;
         case 'error':
-          statusLabel = this.c.red('ERROR');
+          icon = this.c.red('\u2717');
+          statusLabel = this.c.red('[ERROR]');
           break;
         case 'info':
-          statusLabel = this.c.blue('INFO');
+          icon = this.c.blue('i');
+          statusLabel = this.c.blue('[INFO]');
           break;
       }
-      lines.push(`${statusLabel}  ${check.name}: ${check.message}`);
+      lines.push(`${icon}  ${this.c.bold(`${check.name}:`)} ${check.message} ${statusLabel}`);
 
       for (const detail of check.details || []) {
-        lines.push(`  ${this.c.dim(detail)}`);
+        lines.push(`     ${this.c.dim(detail)}`);
       }
     }
 
-    lines.push('');
-    const summaryParts: string[] = [];
-    if (data.summary.errors > 0) {
-      summaryParts.push(this.c.red(`${data.summary.errors} errors`));
-    }
-    if (data.summary.warnings > 0) {
-      summaryParts.push(this.c.yellow(`${data.summary.warnings} warnings`));
-    }
-    if (data.summary.info > 0) {
-      summaryParts.push(this.c.blue(`${data.summary.info} info`));
-    }
-    if (summaryParts.length === 0) {
-      summaryParts.push(this.c.green('all checks passed'));
-    }
-    lines.push(summaryParts.join(', '));
+    const errors = data.checks.filter(c => c.status === 'error').length;
+    const warnings = data.checks.filter(c => c.status === 'warning').length;
 
+    let summary = '';
+    if (errors > 0 || warnings > 0) {
+        summary = ` (${errors} errors, ${warnings} warnings)`;
+    }
+
+    const statusMsg = data.status === 'healthy' 
+        ? this.c.green('\nSystem is healthy.') 
+        : this.c.red(`\nSystem has issues that require attention.${summary}`);
+    
+    lines.push(statusMsg);
     return lines.join('\n');
   }
 
