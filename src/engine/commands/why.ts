@@ -7,9 +7,9 @@ import type { Atom, SupersessionStatus } from '../types/domain.js';
 import type { QueryResult, QueryMeta } from '../types/query.js';
 import type { FormattableQueryResult } from '../types/output.js';
 import { ProtocolError } from '../../util/errors.js';
-import type { IProtocol } from '../interfaces/protocol.js';
 import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/path-query.js';
 import { mergeOptions } from './helpers/merge-options.js';
+import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
 /**
  * Register the `why <target>` command.
@@ -26,20 +26,19 @@ export function registerWhyCommand(
     gitClient: IGitClient;
     pathResolver: PathResolver;
     getFormatter: () => IOutputFormatter;
-    protocol: IProtocol | undefined;
+    protocolRegistry: ProtocolRegistry;
   },
 ): void {
-  const protocolName = deps.protocol?.name || 'Atom';
   const cmd = program
     .command('why <target>')
-    .description(`Decision context for a specific line or line range (${protocolName})`);
+    .description('Decision context for a specific line or line range');
 
   addPathQueryOptions(cmd);
 
   cmd.action(async (target: string, _options: PathQueryCommandOptions, command: Command) => {
-    const { atomRepository, gitClient, pathResolver, getFormatter, protocol } = deps;
+    const { atomRepository, gitClient, pathResolver, getFormatter, protocolRegistry } = deps;
     
-    if (!protocol) {
+    if (protocolRegistry.getAll().length === 0) {
         throw new Error('At least one protocol must be registered to run this command.');
     }
 
@@ -74,7 +73,6 @@ export function registerWhyCommand(
     // For each unique commit hash, use atomRepository to look up the atom
     let atoms: Atom[] = [];
     const seenIds = new Set<string>();
-    const protocolName = protocol.name.toLowerCase();
 
     for (const hash of commitHashes) {
       const atom = await atomRepository.findByCommitHash(hash);
@@ -83,8 +81,7 @@ export function registerWhyCommand(
       }
 
       // Use the primary identity for deduplication
-      const state = atom.protocols.get(protocolName);
-      const id = protocol.getIdentity(state?.trailers);
+      const id = protocolRegistry.getIdentity(atom);
       if (!id || seenIds.has(id)) {
         continue;
       }
@@ -123,8 +120,7 @@ export function registerWhyCommand(
     // Build a minimal supersession map (no supersession filtering for why)
     const supersessionMap = new Map<string, SupersessionStatus>();
     for (const atom of atoms) {
-      const state = atom.protocols.get(protocolName);
-      const id = protocol.getIdentity(state?.trailers);
+      const id = protocolRegistry.getIdentity(atom);
       if (id) {
         supersessionMap.set(id, {
           superseded: false,

@@ -13,6 +13,8 @@ import { AtomCache } from './services/atom-cache.js';
 import { QueryCache } from './services/query-cache.js';
 import { IdGenerator } from './services/id-generator.js';
 import { SupersessionResolver } from './services/supersession-resolver.js';
+import { type ILogger, LogLevel } from './interfaces/logger.js';
+import { TerminalLogger } from './services/terminal-logger.js';
 import { PROTOCOLS_DIR_NAME } from '../util/constants.js';
 import { StalenessDetector } from './services/staleness-detector.js';
 import { CommitBuilder } from './services/commit-builder.js';
@@ -67,12 +69,27 @@ export interface EngineOptions {
 
   // Per-protocol runtime configuration provider
   getProtocolConfig?: (name: string) => ProtocolConfig;
+
+  /** Optional logger implementation. If not provided, a TerminalLogger is used. */
+  logger?: ILogger;
+  /** Optional log level. Defaults to INFO. */
+  logLevel?: LogLevel;
 }
 
 /**
  * Generic bootstrap for the Decision Engine CLI.
  */
 export async function runCli(options: EngineOptions) {
+  /** 
+   * 0. Initialize Logger
+   * DESIGN NOTE: We ideally want to depend on Commander.js parsed options,
+   * but the logger is initialized during the early bootstrap phase before
+   * full parsing is complete. Thus, we must check process.argv directly 
+   * for '--no-color' to ensure early bootstrap logs are correctly styled.
+   */
+  const useColor = !process.argv.includes('--no-color');
+  const logger = options.logger || new TerminalLogger(options.logLevel ?? LogLevel.INFO, useColor);
+
   const program = new Command();
 
   // 1. Resolve Roots
@@ -152,12 +169,9 @@ export async function runCli(options: EngineOptions) {
     config.cli.queryCachePruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
   );
 
-  const defaultProtocol: IProtocol | undefined = protocolRegistry.getRoot() || protocolRegistry.getAll()[0];
-
   const atomRepository = new AtomRepository(
     gitClient,
     trailerParser,
-    defaultProtocol,
     protocolRegistry,
     searchFilter,
     atomCache,
@@ -207,7 +221,7 @@ export async function runCli(options: EngineOptions) {
     headIdReader,
     getFormatter,
     config: config as any,
-    protocol: defaultProtocol,
+    logger,
     protocolRegistry,
     trailerParser,
     commitBuilder,
@@ -218,6 +232,11 @@ export async function runCli(options: EngineOptions) {
     pathResolver,
     searchFilter,
     configLoader: engineConfigLoader as any,
+    isScoped,
+    protocolRoot: protocolRoot || activeRoot,
+    gitRoot: gitRoot || activeRoot,
+    engineDirName: options.engineDirName,
+    configFileName: options.configFileName,
     cacheDir: join(activeRoot, options.engineDirName, CACHE_DIR),
     defaultConfig: options.defaultConfig,
   };

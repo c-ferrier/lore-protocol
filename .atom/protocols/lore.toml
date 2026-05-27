@@ -1,0 +1,134 @@
+name = "Lore"
+version = "1.0"
+namespace = ""
+identity_key = "Lore-id"
+
+[trailers.Lore-id]
+description = "Stable atom identity."
+multivalue = false
+validation = "pattern"
+pattern = "^[0-9a-f]{8}$"
+generator = "hex8"
+required = true
+
+[trailers.Constraint]
+description = "Rules that shaped this decision and may still be active."
+multivalue = true
+validation = "none"
+
+[trailers.Constraint.cli]
+flag = "constraint"
+
+[trailers.Rejected]
+description = "Alternatives evaluated and dismissed."
+multivalue = true
+validation = "pattern"
+pattern = "^.+ \\| .+$"
+
+[trailers.Rejected.cli]
+flag = "rejected"
+
+[trailers.Confidence]
+description = "Author’s assessment of the decision's correctness."
+multivalue = false
+validation = "values"
+squash = "rank-min"
+
+[trailers.Confidence.values.low]
+description = "Hypothesis/first attempt; no verification."
+
+[trailers.Confidence.values.medium]
+description = "Locally verified or based on docs."
+
+[trailers.Confidence.values.high]
+description = "Thoroughly tested (CI/staging) or extensive domain knowledge."
+
+[trailers.Confidence.cli]
+flag = "confidence"
+
+[trailers.Scope-risk]
+description = "The \"blast radius\" of the change."
+multivalue = false
+validation = "values"
+squash = "rank-max"
+
+[trailers.Scope-risk.values.narrow]
+description = "Isolated to a single function/file; no external callers."
+
+[trailers.Scope-risk.values.moderate]
+description = "Affects a module; bounded/enumerable radius."
+
+[trailers.Scope-risk.values.wide]
+description = "Affects cross-cutting concerns, public APIs, or schemas."
+
+[trailers.Scope-risk.cli]
+flag = "scope-risk"
+
+[trailers.Reversibility]
+description = "Ease of undoing the change."
+multivalue = false
+validation = "values"
+squash = "rank-max"
+
+[trailers.Reversibility.values.clean]
+description = "Revertible via git revert with no side effects."
+
+[trailers.Reversibility.values.migration-needed]
+description = "Requires data migration or infra updates."
+
+[trailers.Reversibility.values.irreversible]
+description = "Cannot be fully undone (e.g., data deletion)."
+
+[trailers.Reversibility.cli]
+flag = "reversibility"
+
+[trailers.Directive]
+description = "Forward-looking instructions for future modifiers."
+multivalue = true
+validation = "none"
+
+[trailers.Directive.cli]
+flag = "directive"
+
+[trailers.Tested]
+description = "What was verified and how."
+multivalue = true
+validation = "none"
+
+[trailers.Tested.cli]
+flag = "tested"
+
+[trailers.Not-tested]
+description = "What was not verified and why."
+multivalue = true
+validation = "none"
+
+[trailers.Not-tested.cli]
+flag = "not-tested"
+
+[trailers.Supersedes]
+description = "Lore-id of the atom this decision replaces."
+multivalue = true
+validation = "pattern"
+pattern = "^[0-9a-f]{8}$"
+
+[trailers.Supersedes.cli]
+flag = "supersedes"
+
+[trailers.Depends-on]
+description = "Lore-id of the atom this decision requires."
+multivalue = true
+validation = "pattern"
+pattern = "^[0-9a-f]{8}$"
+
+[trailers.Depends-on.cli]
+flag = "depends-on"
+
+[trailers.Related]
+description = "Lore-id of an atom with a general relationship."
+multivalue = true
+validation = "pattern"
+pattern = "^[0-9a-f]{8}$"
+
+[trailers.Related.cli]
+flag = "related"

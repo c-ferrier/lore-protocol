@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerInitCommand } from '../../../../src/lore/commands/init.js';
 import type { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
 import { LORE_CONFIG_DIR as CONFIG_DIR, LORE_CONFIG_FILENAME as CONFIG_FILENAME, LORE_DEFAULT_ENGINE_CONFIG } from '../../../../src/lore/defaults.js';
+import { MockLogger } from '../../engine/test-utils.js';
 
 vi.mock('node:fs/promises');
 
@@ -20,22 +21,20 @@ describe('registerInitCommand', () => {
     formatConfig: vi.fn(),
   } as any;
 
+  let logger: MockLogger;
+
   const MOCK_ENGINE_DEPS = {
     getFormatter: () => formatter,
     engineDirName: '.atom',
     configFileName: 'config.toml',
     defaultConfig: LORE_DEFAULT_ENGINE_CONFIG,
+    logger: null as any,
   };
-
-  let consoleLogSpy: any;
 
   beforeEach(() => {
     vi.resetAllMocks();
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    consoleLogSpy.mockRestore();
+    logger = new MockLogger();
+    MOCK_ENGINE_DEPS.logger = logger;
   });
 
   it('creates new config files and .gitignore if they do not exist', async () => {
@@ -105,7 +104,7 @@ update_check = true
     await program.parseAsync(['node', 'lore', 'init']);
 
     // Should NOT have warning about missing options
-    expect(consoleLogSpy).not.toHaveBeenCalledWith(expect.stringContaining('SUCCESS: Your configuration is missing new options:'));
+    expect(logger.infoLogs.some(l => l.includes('Your configuration is missing new options:'))).toBe(false);
   });
 
   it('reports missing sections based on the 0.5.0 spec', async () => {
@@ -121,8 +120,8 @@ update_check = true
 
     await program.parseAsync(['node', 'lore', 'init']);
 
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('SUCCESS: Your configuration is missing new options:'));
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('- [trailers] section'));
+    expect(logger.infoLogs.some(l => l.includes('Your configuration is missing new options:'))).toBe(true);
+    expect(logger.infoLogs.some(l => l.includes('- [trailers] section'))).toBe(true);
   });
 
   it('detects missing keys within a section', async () => {
@@ -146,6 +145,6 @@ strict = false
 
     await program.parseAsync(['node', 'lore', 'init']);
 
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('- validation.intent_max_length'));
+    expect(logger.infoLogs.some(l => l.includes('- validation.intent_max_length'))).toBe(true);
   });
 });

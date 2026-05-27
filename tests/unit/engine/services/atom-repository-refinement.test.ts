@@ -38,7 +38,7 @@ describe('AtomRepository Refinement', () => {
     searchFilter = new SearchFilter(protocolRegistry);
     const atomCache = new NullAtomCache();
     const queryCache = new NullQueryCache();
-    repo = new AtomRepository(gitClient, trailerParser, protocol, protocolRegistry, searchFilter, atomCache, queryCache);
+    repo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, atomCache, queryCache);
   });
 
   describe('stripTrailersFromBody (Internal Refinement)', () => {

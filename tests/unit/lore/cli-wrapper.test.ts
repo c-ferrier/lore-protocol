@@ -29,7 +29,9 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
     const { program, sharedDeps } = await buildLoreCli();
 
     expect(program.name()).toBe('lore');
-    expect(sharedDeps.protocol.name).toBe('Lore');
+    const rootProtocol = sharedDeps.protocolRegistry.getRoot();
+    expect(rootProtocol).toBeDefined();
+    expect(rootProtocol?.name).toBe('Lore');
 
     const commandNames = program.commands.map(cmd => cmd.name());
     

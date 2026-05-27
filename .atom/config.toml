@@ -1,0 +1,31 @@
+[validation]
+strict = false
+max_message_lines = 50
+subject_max_length = 72
+
+[stale]
+older_than = "6m"
+drift_threshold = 20
+
+[output]
+default_format = "text"
+
+[follow]
+max_depth = 3
+
+[cli]
+update_check = true
+cache = true
+query_cache = true
+query_cache_prune_threshold = 100
+
+[protocol]
+name = "Lore"
+version = "1.0"
+
+[trailers]
+required = []
+custom = []
+permissive = true
+
+[trailers.definitions]

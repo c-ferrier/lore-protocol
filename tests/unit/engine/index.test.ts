@@ -51,8 +51,10 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     });
 
     expect(program.name()).toBe('test-atom');
-    expect(sharedDeps.protocol.name).toBe('Custom');
-    expect(sharedDeps.protocol.namespace).toBe('custom');
+    const customProtocol = sharedDeps.protocolRegistry.get('custom');
+    expect(customProtocol).toBeDefined();
+    expect(customProtocol?.name).toBe('Custom');
+    expect(customProtocol?.namespace).toBe('custom');
     
     // Verify services are wired correctly
     expect(sharedDeps.atomRepository).toBeDefined();
@@ -62,7 +64,6 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     const helpText = program.helpInformation();
     expect(helpText).not.toContain('Lore');
     expect(helpText).toContain('test-atom');
-    expect(helpText).toContain('Custom'); // Protocol name should be present
   });
 
   it('should support running with zero protocols initially', async () => {

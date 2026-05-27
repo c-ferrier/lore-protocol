@@ -2,7 +2,6 @@ import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { Config } from '../types/config.js';
 import type { Atom, SupersessionStatus } from '../types/domain.js';
 import type { SearchOptions, QueryResult } from '../types/query.js';
 import type { FormattableQueryResult } from '../types/output.js';
@@ -10,9 +9,9 @@ import { mergeOptions } from './helpers/merge-options.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
 import { parsePositiveInt } from './helpers/path-query.js';
 import { ProtocolError } from '../../util/errors.js';
-import type { IProtocol } from '../interfaces/protocol.js';
 import type { SearchFilter } from '../services/search-filter.js';
 import type { IGitClient } from '../interfaces/git-client.js';
+import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
 interface SearchCommandOptions {
   readonly has?: string;
@@ -39,14 +38,12 @@ export function registerSearchCommand(
     supersessionResolver: SupersessionResolver;
     searchFilter: SearchFilter;
     getFormatter: () => IOutputFormatter;
-    config: Config;
-    protocol: IProtocol | undefined;
+    protocolRegistry: ProtocolRegistry;
   },
 ): void {
-  const protocolName = deps.protocol?.name || 'Atom';
   program
     .command('search')
-    .description(`Search across all ${protocolName.toLowerCase()} atoms with filters`)
+    .description('Search across all atoms with filters')
     .option('--has <trailer>', 'Filter atoms that contain this trailer type')
     .option('--author <email>', 'Filter by commit author')
     .option('--scope <name>', 'Filter by conventional commit scope')
@@ -58,7 +55,7 @@ export function registerSearchCommand(
     .option('--max-commits <n>', 'Maximum git commits to scan (supersession may be incomplete)', parsePositiveInt)
     .action(async (_options: SearchCommandOptions, command: Command) => {
       const options = mergeOptions<SearchCommandOptions>(command);
-      const { atomRepository, gitClient, supersessionResolver, searchFilter, getFormatter } = deps;
+      const { atomRepository, gitClient, supersessionResolver, searchFilter, getFormatter, protocolRegistry } = deps;
 
       // Resolve HEAD for caching
       let headHash: string | undefined;
@@ -70,11 +67,14 @@ export function registerSearchCommand(
 
       // Validate 'has' trailer key against protocol
       let authorizedHas: string | null = null;
-      if (options.has && deps.protocol) {
-        authorizedHas = deps.protocol.authorize(options.has);
+      if (options.has) {
+        for (const p of protocolRegistry.getAll()) {
+          authorizedHas = p.authorize(options.has);
+          if (authorizedHas) break;
+        }
         if (!authorizedHas) {
           throw new ProtocolError(
-            `'${options.has}' is not a valid ${protocolName} trailer. In strict mode, only core or explicitly configured trailers can be searched.`,
+            `'${options.has}' is not a valid trailer. In strict mode, only core or explicitly configured trailers can be searched.`,
             1,
           );
         }

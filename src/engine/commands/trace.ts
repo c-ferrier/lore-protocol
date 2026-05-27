@@ -6,6 +6,7 @@ import type { FormattableTraceResult, TraceEdge } from '../types/output.js';
 import { ProtocolError } from '../../util/errors.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IProtocol } from '../interfaces/protocol.js';
+import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
 /**
  * Register the ` trace <id>` command.
@@ -21,24 +22,27 @@ export function registerTraceCommand(
     atomRepository: AtomRepository;
     gitClient: IGitClient;
     getFormatter: () => IOutputFormatter;
-    protocol: IProtocol | undefined;
+    protocolRegistry: ProtocolRegistry;
   },
 ): void {
-  const protocolName = deps.protocol?.name || 'Atom';
   program
     .command('trace <id>')
     .description('Trace the lineage and relationships of a decision')
     .option('--max-depth <n>', 'Maximum BFS traversal depth', (val) => parseInt(val, 10), 10)
     .action(async (id: string, options: { maxDepth: number }) => {
-      const { atomRepository, getFormatter, protocol } = deps;
+      const { atomRepository, getFormatter, protocolRegistry } = deps;
 
-      if (!protocol) {
-          throw new Error('At least one protocol must be registered to run this command.');
+      let activeProtocol: IProtocol | null = null;
+      for (const p of protocolRegistry.getAll()) {
+        if (p.isValidIdentity(id)) {
+          activeProtocol = p;
+          break;
+        }
       }
 
-      if (!protocol.isValidIdentity(id)) {
+      if (!activeProtocol) {
         throw new ProtocolError(
-          `Invalid ${protocol.identityKey} format: "${id}". Must be 8-character hex.`,
+          `Invalid identity format: "${id}". Must match a registered protocol's identity format.`,
           1,
         );
       }
@@ -46,7 +50,7 @@ export function registerTraceCommand(
       const rootAtom = await atomRepository.findById(id);
       if (rootAtom === null) {
         throw new ProtocolError(
-          `${protocol.identityKey} "${id}" not found in commit history.`,
+          `${activeProtocol.identityKey} "${id}" not found in commit history.`,
           1,
         );
       }
@@ -57,8 +61,8 @@ export function registerTraceCommand(
         { atom: rootAtom, depth: 0 },
       ];
 
-      const rootProtocolName = protocol.name.toLowerCase();
-      const getAtomId = (a: Atom) => protocol.getIdentity(a.protocols.get(rootProtocolName)?.trailers);
+      const rootProtocolName = activeProtocol.name.toLowerCase();
+      const getAtomId = (a: Atom) => activeProtocol!.getIdentity(a.protocols.get(rootProtocolName)?.trailers);
 
       const rootId = getAtomId(rootAtom);
       if (!rootId) throw new Error('Root atom has no valid identity for the active protocol.');
@@ -76,14 +80,14 @@ export function registerTraceCommand(
         const currentId = getAtomId(atom);
         if (!currentId) continue;
 
-        const refKeys = protocol.getReferenceKeys();
+        const refKeys = activeProtocol.getReferenceKeys();
         const state = atom.protocols.get(rootProtocolName);
 
         if (state) {
           for (const key of refKeys) {
             const refs = state.trailers[key] || [];
             for (const refId of refs) {
-              if (!protocol.isValidIdentity(refId)) continue;
+              if (!activeProtocol.isValidIdentity(refId)) continue;
 
               const targetAtom = await atomRepository.findById(refId);
               const edge: TraceEdge = {

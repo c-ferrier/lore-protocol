@@ -17,7 +17,6 @@ describe('Git Security (Argument Escaping)', () => {
     repository = new AtomRepository(
       gitClient,
       {} as any,
-      undefined,
       new ProtocolRegistry(),
       { filter: vi.fn((a) => a) } as any,
       { get: vi.fn(), set: vi.fn() } as any,

@@ -37,7 +37,6 @@ describe('AtomRepository Cache Interaction', () => {
     repo = new AtomRepository(
       gitClient,
       trailerParser,
-      protocol,
       protocolRegistry,
       new SearchFilter(protocolRegistry),
       atomCache,

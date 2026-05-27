@@ -68,7 +68,6 @@ describe('AtomRepository Git Integration', () => {
     repo = new AtomRepository(
       gitClient,
       trailerParser,
-      protocol,
       protocolRegistry,
       searchFilter,
       atomCache,

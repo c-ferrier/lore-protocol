@@ -86,10 +86,12 @@ export async function buildLoreCli() {
   };
 
   const { program, getFormatter, sharedDeps, config } = await runCli(options);
+  const { logger } = sharedDeps;
 
   // --- REBRANDING WRAPPER (Commander level) ---
   const commitCmd = program.commands.find(c => c.name() === 'commit');
   if (commitCmd) {
+    commitCmd.description('Create a Lore-enriched commit');
     const subjectOpt = commitCmd.options.find(o => o.long === '--subject');
     if (subjectOpt) (subjectOpt as any).hidden = true;
     commitCmd.option('--intent <text>', 'Intent line (why the change was made)');
@@ -155,13 +157,13 @@ export async function buildLoreCli() {
   }
 
   // Register Lore-specific commands
-  registerInitCommand(program, { 
-    getFormatter, 
+  registerInitCommand(program, {
+    getFormatter,
     engineDirName: options.engineDirName,
     configFileName: options.configFileName,
-    defaultConfig: options.defaultConfig 
+    defaultConfig: options.defaultConfig,
+    logger
   });
-
   registerContextCommand(program, sharedDeps);
   registerConstraintsCommand(program, sharedDeps);
   registerDirectivesCommand(program, sharedDeps);

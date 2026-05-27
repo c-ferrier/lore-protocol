@@ -49,7 +49,6 @@ describe('AtomRepository False Positive Repro', () => {
     repo = new AtomRepository(
       gitClient,
       trailerParser,
-      protocol,
       protocolRegistry,
       searchFilter,
       atomCache,

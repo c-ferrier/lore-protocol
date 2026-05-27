@@ -64,7 +64,6 @@ describe('Rebranding Flow Integration', () => {
     const repo = new AtomRepository(
       mockGit as any,
       new TrailerParser(),
-      fredProtocol,
       registry,
       new SearchFilter(registry),
       new NullAtomCache(),

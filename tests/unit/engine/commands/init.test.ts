@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerInitCommand } from '../../../../src/engine/commands/init.js';
 import type { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
+import { MockLogger } from '../test-utils.js';
 
 vi.mock('node:fs/promises');
 
@@ -19,6 +20,8 @@ describe('Engine registerInitCommand', () => {
     formatConfig: vi.fn(),
   } as any;
 
+  let logger: MockLogger;
+
   const MOCK_DEPS = {
     getFormatter: () => formatter,
     engineDirName: '.atom',
@@ -27,17 +30,13 @@ describe('Engine registerInitCommand', () => {
       cli: { updateCheck: true, cache: true },
       validation: { subjectMaxLength: 72 }
     } as any,
+    logger: null as any,
   };
-
-  let consoleLogSpy: any;
 
   beforeEach(() => {
     vi.resetAllMocks();
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    consoleLogSpy.mockRestore();
+    logger = new MockLogger();
+    MOCK_DEPS.logger = logger;
   });
 
   it('should create .atom directory and default config.toml', async () => {
@@ -56,7 +55,7 @@ describe('Engine registerInitCommand', () => {
         expect.stringContaining('update_check = true'),
         'utf-8'
     );
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Created .atom/config.toml'));
+    expect(logger.infoLogs.some(l => l.includes('Created .atom/config.toml'))).toBe(true);
   });
 
   it('should not overwrite existing config.toml', async () => {
@@ -72,7 +71,7 @@ describe('Engine registerInitCommand', () => {
         expect.anything(),
         expect.anything()
     );
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Config already exists'));
+    expect(logger.infoLogs.some(l => l.includes('Config already exists'))).toBe(true);
   });
 
   it('should update .gitignore if cache pattern is missing', async () => {
@@ -89,6 +88,6 @@ describe('Engine registerInitCommand', () => {
         expect.stringContaining('.atom/cache'),
         'utf-8'
     );
-    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Updated .gitignore'));
+    expect(logger.infoLogs.some(l => l.includes('Updated .gitignore'))).toBe(true);
   });
 });

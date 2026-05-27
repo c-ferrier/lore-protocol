@@ -97,7 +97,7 @@ describe('AtomRepository', () => {
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     searchFilter = new SearchFilter(protocolRegistry);
-    repo = new AtomRepository(gitClient, trailerParser, protocol, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache());
+    repo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache());
   });
 
   describe('findByTarget', () => {
@@ -227,7 +227,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser, protocol, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache(), true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache(), true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
       await scopedRepo.findById('deadbeef');
       expect(gitClient.log).toHaveBeenCalledWith(expect.arrayContaining(['--', '.']));
@@ -478,7 +478,7 @@ describe('AtomRepository', () => {
 
   describe('Scoped Repositories', () => {
     it('should append path scope when isScoped=true in findByCommitHash', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser, protocol, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache(), true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache(), true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByCommitHash('abc123');
@@ -489,7 +489,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true in findByRange', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser, protocol, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache(), true);
+      const scopedRepo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache(), true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByRange('main..HEAD');

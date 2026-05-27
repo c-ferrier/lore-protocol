@@ -24,15 +24,11 @@ export function registerLogCommand(
     gitClient: IGitClient;
     supersessionResolver: SupersessionResolver;
     getFormatter: () => IOutputFormatter;
-    config: Config;
-    protocol: IProtocol | undefined;
   },
 ): void {
-  const protocolName = deps.protocol?.name || 'Atom';
   const cmd = program
     .command('log [paths...]')
-    .description(`${protocolName}-enriched git log`);
-;
+    .description('Decision-enriched git log');
 
   // addPathQueryOptions adds --scope, --follow, --all, --author, --limit, --max-commits, --since, --until
   addPathQueryOptions(cmd);

@@ -2,12 +2,11 @@ import { Command } from 'commander';
 import type { CommitBuilder } from '../services/commit-builder.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { Config, CustomTrailerDefinition } from '../types/config.js';
+import type { CustomTrailerDefinition } from '../types/config.js';
 import { ProtocolError } from '../../util/errors.js';
 import type { CommitInputResolver } from '../services/commit-input-resolver.js';
 import type { HeadIdReader } from '../services/head-id-reader.js';
 import { mergeOptions } from './helpers/merge-options.js';
-import type { IProtocol } from '../interfaces/protocol.js';
 import type { AtomId } from '../types/domain.js';
 import { ProtocolRegistry } from '../services/protocol-registry.js';
 import { TrailerParser } from '../services/trailer-parser.js';
@@ -41,17 +40,14 @@ export function registerCommitCommand(
     commitInputResolver: CommitInputResolver;
     headIdReader: HeadIdReader;
     getFormatter: () => IOutputFormatter;
-    config: Config;
-    protocol: IProtocol | undefined;
     protocolRegistry: ProtocolRegistry;
     trailerParser: TrailerParser;
   },
 ): void {
-  const { protocolRegistry, protocol } = deps;
-  const protocolName = protocol?.name || 'Atom';
+  const { protocolRegistry } = deps;
   const cmd = program
     .command('commit')
-    .description(`Create a ${protocolName}-enriched commit`)
+    .description('Create a decision-enriched commit')
     .option('--subject <text>', 'Primary subject line (why the change was made)')
     .option('--body <text>', 'Body (narrative context)')
     .option('--file <path>', 'Read JSON input from file')

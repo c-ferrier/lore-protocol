@@ -14,6 +14,7 @@ import type { EngineConfig } from '../../engine/types/config.js';
 import { LoreProtocolDefinition } from '../protocol-definition.js';
 import { stringify as stringifyToml, parse as parseToml } from 'smol-toml';
 import { ProtocolError } from '../../util/errors.js';
+import type { ILogger } from '../../engine/interfaces/logger.js';
 
 /**
  * Lore-specific init command.
@@ -30,9 +31,10 @@ export function registerInitCommand(
     engineDirName: string;
     configFileName: string;
     defaultConfig: EngineConfig;
+    logger: ILogger;
   },
 ): void {
-  const { getFormatter, engineDirName } = deps;
+  const { getFormatter, engineDirName, logger } = deps;
 
   program
     .command('init')
@@ -45,21 +47,21 @@ export function registerInitCommand(
       // --- GAP DETECTION & REPORTING ---
       if (await fileExists(lorePath)) {
         const content = await readFile(lorePath, 'utf-8');
-        console.log(formatter.formatSuccess(`Config already exists at ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME}:`));
+        logger.info(formatter.formatSuccess(`Config already exists at ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME}:`));
         
         try {
           const parsed = parseToml(content) as any;
           const { missing, customized } = findConfigDiff(parsed);
 
           if (missing.length > 0) {
-            console.log('\n' + formatter.formatSuccess('Your configuration is missing new options:'));
-            for (const item of missing) console.log(`  - ${item}`);
+            logger.info('\n' + formatter.formatSuccess('Your configuration is missing new options:'));
+            for (const item of missing) logger.info(`  - ${item}`);
 
             if (customized.length === 0) {
-              console.log('\nNotice: You are using default settings. You can safely reset your config to get the latest options.');
-              console.log(`Example: rm ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} && lore init`);
+              logger.info('\nNotice: You are using default settings. You can safely reset your config to get the latest options.');
+              logger.info(`Example: rm ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} && lore init`);
             } else {
-              console.log('\nNotice: You have customized some options. To update, rename your current config and manually merge changes.');
+              logger.info('\nNotice: You have customized some options. To update, rename your current config and manually merge changes.');
             }
           }
         } catch (err) {
@@ -68,7 +70,7 @@ export function registerInitCommand(
 
         // Even if config exists, ensure engine backing is present
         await executeEngineInit(deps);
-        await writeDiscoveryProtocol(engineDirName, formatter);
+        await writeDiscoveryProtocol(engineDirName, formatter, logger);
         return;
       }
 
@@ -77,16 +79,16 @@ export function registerInitCommand(
       await executeEngineInit(deps);
 
       // 2. Write protocol definition for Atom's dynamic discovery
-      await writeDiscoveryProtocol(engineDirName, formatter);
+      await writeDiscoveryProtocol(engineDirName, formatter, logger);
 
       // 3. Legacy Lore Setup (.lore/config.toml) from 0.5.0 template
       await mkdir(loreDir, { recursive: true });
       await writeFile(lorePath, LORE_050_CONFIG_TEMPLATE, 'utf-8');
-      console.log(formatter.formatSuccess(`Created ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} (0.5.0 parity)`));
+      logger.info(formatter.formatSuccess(`Created ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} (0.5.0 parity)`));
     });
 }
 
-async function writeDiscoveryProtocol(engineDirName: string, formatter: IOutputFormatter): Promise<void> {
+async function writeDiscoveryProtocol(engineDirName: string, formatter: IOutputFormatter, logger: ILogger): Promise<void> {
     const protocolsDir = join(process.cwd(), engineDirName, 'protocols');
     const loreProtocolPath = join(protocolsDir, 'lore.toml');
     
@@ -94,7 +96,7 @@ async function writeDiscoveryProtocol(engineDirName: string, formatter: IOutputF
     if (!(await fileExists(loreProtocolPath))) {
         const protocolContent = serializeProtocol(LoreProtocolDefinition);
         await writeFile(loreProtocolPath, protocolContent, 'utf-8');
-        console.log(formatter.formatSuccess(`Created ${engineDirName}/protocols/lore.toml (Discovery)`));
+        logger.info(formatter.formatSuccess(`Created ${engineDirName}/protocols/lore.toml (Discovery)`));
     }
 }
 

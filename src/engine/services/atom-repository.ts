@@ -22,7 +22,6 @@ export class AtomRepository {
   constructor(
     private readonly gitClient: IGitClient,
     private readonly trailerParser: TrailerParser,
-    private readonly protocol: IProtocol | undefined,
     private readonly protocolRegistry: ProtocolRegistry,
     private readonly searchFilter: SearchFilter,
     private readonly atomCache: IAtomCache,

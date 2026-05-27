@@ -1,8 +1,8 @@
 import type { Command } from 'commander';
 import type { IConfigLoader } from '../interfaces/config-loader.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { FormattableConfigResult } from '../types/output.js';
-import type { IProtocol } from '../interfaces/protocol.js';
+import type { FormattableConfigResult, FormattableTrailerDefinition } from '../types/output.js';
+import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
 /**
  * Register the config command.
@@ -13,7 +13,7 @@ export function registerConfigCommand(
   deps: {
     configLoader: IConfigLoader;
     getFormatter: () => IOutputFormatter;
-    protocol: IProtocol | undefined;
+    protocolRegistry: ProtocolRegistry;
   },
 ): void {
   program
@@ -22,17 +22,22 @@ export function registerConfigCommand(
     .option('--core', 'Show only core trailer definitions')
     .option('--custom', 'Show only custom trailer definitions')
     .action(async (options: { core?: boolean; custom?: boolean }) => {
-      const { configLoader, getFormatter, protocol } = deps;
+      const { configLoader, getFormatter, protocolRegistry } = deps;
       const config = await configLoader.loadForPath(process.cwd());
       
       const hasFilters = options.core !== undefined || options.custom !== undefined;
       const showCore = options.core ?? !hasFilters;
       const showCustom = options.custom ?? !hasFilters;
 
+      let allTrailers: Record<string, FormattableTrailerDefinition> = {};
+      for (const p of protocolRegistry.getAll()) {
+        allTrailers = { ...allTrailers, ...p.getFormattableDefinitions() };
+      }
+
       const formattable: FormattableConfigResult = {
         version: config.protocol.version,
         permissive: config.trailers.permissive,
-        trailers: protocol ? protocol.getFormattableDefinitions() : {},
+        trailers: allTrailers,
         filters: {
           showCore,
           showCustom,

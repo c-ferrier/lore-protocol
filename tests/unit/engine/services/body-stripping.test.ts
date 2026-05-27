@@ -27,7 +27,6 @@ describe('AtomRepository Body Stripping', () => {
     repo = new AtomRepository(
       {} as any,
       new TrailerParser(),
-      protocol,
       registry,
       new SearchFilter(registry),
       new NullAtomCache(),

@@ -23,13 +23,11 @@ export function registerValidateCommand(
     validator: Validator;
     gitClient: IGitClient;
     getFormatter: () => IOutputFormatter;
-    protocol: IProtocol | undefined;
   },
 ): void {
-  const protocolName = deps.protocol?.name || 'Atom';
   program
     .command('validate [range]')
-    .description(`Validate commits for ${protocolName} protocol compliance`)
+    .description('Validate commits for protocol compliance')
     .option('--since <ref>', 'Validate all commits since ref (e.g., main)')
     .option('--last <n>', 'Validate the last N commits', parseInt)
     .option('--strict', 'Treat warnings as errors')

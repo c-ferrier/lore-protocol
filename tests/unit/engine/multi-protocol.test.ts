@@ -44,7 +44,6 @@ describe('Multi-Protocol Integration', () => {
     repo = new AtomRepository(
       gitClient,
       new TrailerParser(),
-      mock,
       registry,
       new SearchFilter(registry),
       new NullAtomCache(),

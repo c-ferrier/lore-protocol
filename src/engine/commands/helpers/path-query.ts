@@ -30,7 +30,6 @@ export interface PathQueryDeps {
   readonly pathResolver: PathResolver;
   readonly getFormatter: () => IOutputFormatter;
   readonly config: Config;
-  readonly protocol: IProtocol;
 }
 
 export interface PathQueryCommandOptions {
