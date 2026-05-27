@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import * as rootResolver from '../../../src/engine/services/root-resolver.js';
 import { MOCK_ENGINE_DIR, assertIsolatedEngine } from './test-utils.js';
+import { ENGINE_CONFIG_FILENAME } from '../../../src/util/constants.js';
 
 describe('Engine Assembly (Agnostic Bootstrap)', () => {
   const testDir = join(tmpdir(), `engine-bootstrap-${Date.now()}`);
@@ -43,7 +44,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       binaryName: 'test-atom',
       description: 'Test Engine',
       engineDirName: MOCK_ENGINE_DIR,
-      configFileName: 'config.toml',
+      configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [CUSTOM_PROTOCOL],
       packageJsonPath: pkgPath
@@ -70,7 +71,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       binaryName: 'atom',
       description: 'Agnostic',
       engineDirName: MOCK_ENGINE_DIR,
-      configFileName: 'config.toml',
+      configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [], // Atom starts empty
       packageJsonPath: pkgPath
@@ -90,7 +91,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       binaryName: 'atom',
       description: 'Agnostic',
       engineDirName: MOCK_ENGINE_DIR,
-      configFileName: 'config.toml',
+      configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [],
       packageJsonPath: pkgPath
@@ -110,7 +111,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       binaryName: 'atom',
       description: 'Agnostic',
       engineDirName: MOCK_ENGINE_DIR,
-      configFileName: 'config.toml',
+      configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [],
       packageJsonPath: pkgPath

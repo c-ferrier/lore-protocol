@@ -54,3 +54,6 @@ export const TRAILER_UI_COLORS = [
 export const CACHE_DIR = 'cache';
 export const ATOM_CACHE_DIR = 'atom';
 export const QUERY_CACHE_DIR = 'query';
+
+/** Engine configuration filename */
+export const ENGINE_CONFIG_FILENAME = 'config.toml';

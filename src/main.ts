@@ -1,6 +1,6 @@
 import { runCli, execute } from './engine/index.js';
 import { resolve } from 'node:path';
-import { DEFAULT_CACHE_PRUNE_THRESHOLD } from './util/constants.js';
+import { DEFAULT_CACHE_PRUNE_THRESHOLD, ENGINE_CONFIG_FILENAME } from './util/constants.js';
 import type { EngineConfig } from './engine/types/config.js';
 
 const ATOM_DEFAULT_CONFIG: EngineConfig = {
@@ -24,7 +24,7 @@ async function main() {
     binaryName: 'atom',
     description: 'Agnostic Decision Engine for Git',
     engineDirName: '.atom',
-    configFileName: 'config.toml',
+    configFileName: ENGINE_CONFIG_FILENAME,
     defaultConfig: ATOM_DEFAULT_CONFIG,
     staticProtocols: [], // Atom starts with zero protocols by default
     packageJsonPath: resolve(new URL('../package.json', import.meta.url).pathname),

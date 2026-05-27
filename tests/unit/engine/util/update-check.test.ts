@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vite
 import { runCli } from '../../../../src/engine/index.js';
 import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, MOCK_ENGINE_DIR, assertIsolatedEngine } from '../test-utils.js';
 import * as updateCheck from '../../../../src/util/update-check.js';
+import { ENGINE_CONFIG_FILENAME } from '../../../../src/util/constants.js';
 import { resolve } from 'node:path';
 
 describe('Update Check Integration', () => {
@@ -28,7 +29,7 @@ describe('Update Check Integration', () => {
       binaryName: 'atom',
       description: 'Agnostic',
       engineDirName: MOCK_ENGINE_DIR,
-      configFileName: 'config.toml',
+      configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: {
         ...MOCK_CONFIG,
         cli: { ...MOCK_CONFIG.cli, updateCheck: true }
@@ -47,7 +48,7 @@ describe('Update Check Integration', () => {
       binaryName: 'atom',
       description: 'Agnostic',
       engineDirName: MOCK_ENGINE_DIR,
-      configFileName: 'config.toml',
+      configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: {
         ...MOCK_CONFIG,
         cli: { ...MOCK_CONFIG.cli, updateCheck: false }

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
 import { runCli } from '../../../../src/engine/index.js';
 import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, MOCK_ENGINE_DIR, assertIsolatedEngine } from '../test-utils.js';
+import { ENGINE_CONFIG_FILENAME } from '../../../../src/util/constants.js';
 import { resolve } from 'node:path';
 
 describe('Cache Bypass Integration (--no-cache)', () => {
@@ -24,7 +25,7 @@ describe('Cache Bypass Integration (--no-cache)', () => {
       binaryName: 'atom',
       description: 'Agnostic',
       engineDirName: MOCK_ENGINE_DIR,
-      configFileName: 'config.toml',
+      configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [MOCK_PROTOCOL_DEFINITION],
       packageJsonPath: pkgPath
