@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import { registerDoctorCommand } from '../../../../src/engine/commands/doctor.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, MockLogger } from '../test-utils.js';
 import type { Atom } from '../../../../src/engine/types/domain.js';
 
 function createMockAtomRepository() {
@@ -46,6 +46,7 @@ describe('Doctor Command', () => {
         cacheDir: '/tmp/atom-cache',
         protocolRegistry: new ProtocolRegistry(),
         defaultConfig: MOCK_CONFIG,
+        logger: new MockLogger(),
         ...deps
     });
     try {
@@ -89,12 +90,12 @@ describe('Doctor Command', () => {
 
     atomRepository.findAll.mockResolvedValue([atom]);
 
-    // Capture console.log
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const logger = new MockLogger();
 
     await runDoctor({
       atomRepository,
       configLoader,
+      logger,
       gitClient: {
         isInsideRepo: vi.fn().mockResolvedValue(true),
         getRepoRoot: vi.fn().mockResolvedValue('/repo'),
@@ -117,12 +118,10 @@ describe('Doctor Command', () => {
       })
     });
 
-    const output = logSpy.mock.calls.map(args => args[0]).join('\n');
+    const output = logger.resultLogs.join('\n');
     expect(output).toContain('unhealthy');
     expect(output).toContain('broken reference(s) found');
     expect(output).toContain('Fred-id "deadbeef" referenced by h1 (Depends-on) not found');
-    
-    logSpy.mockRestore();
   });
 
   it('should report duplicate identities for custom protocols', async () => {
@@ -156,11 +155,12 @@ describe('Doctor Command', () => {
     };
 
     atomRepository.findAll.mockResolvedValue([atom1, atom2]);
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const logger = new MockLogger();
 
     await runDoctor({
       atomRepository,
       configLoader,
+      logger,
       gitClient: {
         isInsideRepo: vi.fn().mockResolvedValue(true),
         getRepoRoot: vi.fn().mockResolvedValue('/repo'),
@@ -183,11 +183,9 @@ describe('Doctor Command', () => {
       })
     });
 
-    const output = logSpy.mock.calls.map(args => args[0]).join('\n');
+    const output = logger.resultLogs.join('\n');
     expect(output).toContain('unhealthy');
     expect(output).toContain('duplicate Fred-id(s) found');
     expect(output).toContain('Fred-id "duplicate-123" appears 2 times');
-
-    logSpy.mockRestore();
   });
 });

@@ -9,6 +9,7 @@ import type { PathQueryOptions } from '../types/query.js';
 import type { FormattableStalenessResult, StaleAtomReport } from '../types/output.js';
 import { STALE_SIGNAL } from '../../util/constants.js';
 import { mergeOptions } from './helpers/merge-options.js';
+import type { ILogger } from '../interfaces/logger.js';
 
 interface StaleCommandOptions {
   readonly olderThan?: string;
@@ -29,6 +30,7 @@ export function registerStaleCommand(
     stalenessDetector: StalenessDetector;
     pathResolver: PathResolver;
     getFormatter: () => IOutputFormatter;
+    logger: ILogger;
   },
 ): void {
   program
@@ -93,6 +95,6 @@ export function registerStaleCommand(
       };
 
       const formatter = getFormatter();
-      console.log(formatter.formatStalenessResult(stalenessResult));
-    });
-}
+      deps.logger.result(formatter.formatStalenessResult(stalenessResult));
+      });
+      }

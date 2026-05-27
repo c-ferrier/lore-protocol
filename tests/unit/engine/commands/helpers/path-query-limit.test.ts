@@ -3,7 +3,7 @@ import { executePathQuery } from '../../../../../src/engine/commands/helpers/pat
 import type { PathQueryDeps, PathQueryCommandOptions } from '../../../../../src/engine/commands/helpers/path-query.js';
 import type { Atom, SupersessionStatus } from '../../../../../src/engine/types/domain.js';
 import { Protocol } from '../../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, MockLogger } from '../../test-utils.js';
 
 const MOCK_ID_KEY = "Mock-id";
 
@@ -36,14 +36,14 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
   let mockResolve: ReturnType<typeof vi.fn>;
   let mockFilterActive: ReturnType<typeof vi.fn>;
   let formattedOutput: string;
-  let protocol: Protocol;
+  let logger: MockLogger;
 
   beforeEach(() => {
     mockFindByTarget = vi.fn();
     mockResolve = vi.fn();
     mockFilterActive = vi.fn();
     formattedOutput = '';
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    logger = new MockLogger();
 
     deps = {
       atomRepository: {
@@ -78,7 +78,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
         }),
       }) as any,
       config: MOCK_CONFIG,
-      protocol,
+      logger,
     };
   });
 
@@ -108,24 +108,19 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     const activeAtoms = [atoms[2], atoms[3], atoms[4]];
     mockFilterActive.mockReturnValue(activeAtoms);
 
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
     const options: PathQueryCommandOptions = { limit: 2 };
     await executePathQuery('src/test.ts', options, deps, 'context', 'all');
 
     // The output should have exactly 2 atoms (limit applied after supersession)
-    const output = JSON.parse(consoleSpy.mock.calls[0][0]);
+    const output = JSON.parse(logger.resultLogs[0]);
     expect(output.atoms).toBe(2);
     expect(output.filteredAtoms).toBe(2);
-
-    consoleSpy.mockRestore();
   });
 
   it('should not pass limit to atomRepository (only maxCommits)', async () => {
     mockFindByTarget.mockResolvedValue([]);
     mockResolve.mockReturnValue(new Map());
     mockFilterActive.mockReturnValue([]);
-    vi.spyOn(console, 'log').mockImplementation(() => {});
 
     const options: PathQueryCommandOptions = { limit: 5, maxCommits: 100 };
     await executePathQuery('src/test.ts', options, deps, 'context', 'all');
@@ -135,8 +130,6 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     expect(queryOptions.maxCommits).toBe(100);
     // limit is in the options but should NOT affect git scan (in repository call)
     expect(queryOptions.limit).toBeNull();
-
-    vi.mocked(console.log).mockRestore();
   });
 
   it('should return all atoms when limit is not specified', async () => {
@@ -146,15 +139,11 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     mockResolve.mockReturnValue(new Map());
     mockFilterActive.mockReturnValue(atoms);
 
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
     const options: PathQueryCommandOptions = {};
     await executePathQuery('src/test.ts', options, deps, 'context', 'all');
 
-    const output = JSON.parse(consoleSpy.mock.calls[0][0]);
+    const output = JSON.parse(logger.resultLogs[0]);
     expect(output.atoms).toBe(3);
-
-    consoleSpy.mockRestore();
   });
 
   it('should treat limit 0 as no limit', async () => {
@@ -164,14 +153,10 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     mockResolve.mockReturnValue(new Map());
     mockFilterActive.mockReturnValue(atoms);
 
-    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-
     const options: PathQueryCommandOptions = { limit: 0 };
     await executePathQuery('src/test.ts', options, deps, 'context', 'all');
 
-    const output = JSON.parse(consoleSpy.mock.calls[0][0]);
+    const output = JSON.parse(logger.resultLogs[0]);
     expect(output.atoms).toBe(2);
-
-    consoleSpy.mockRestore();
   });
 });

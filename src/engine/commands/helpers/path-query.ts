@@ -5,11 +5,11 @@ import type { PathResolver } from '../../services/path-resolver.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { Config } from '../../types/config.js';
 import type { Atom, SupersessionStatus } from '../../types/domain.js';
-import type { PathQueryOptions, QueryResult, TargetType, SearchOptions } from '../../types/query.js';
+import type { PathQueryOptions, QueryResult, TargetType } from '../../types/query.js';
 import type { FormattableQueryResult } from '../../types/output.js';
 import { buildQueryMeta } from './build-query-meta.js';
-import type { IProtocol } from '../../interfaces/protocol.js';
 import type { IGitClient } from '../../interfaces/git-client.js';
+import type { ILogger } from '../../interfaces/logger.js';
 
 /** Parse a CLI value as a strict positive integer; rejects non-numeric trailing chars. */
 export function parsePositiveInt(value: string): number {
@@ -30,6 +30,7 @@ export interface PathQueryDeps {
   readonly pathResolver: PathResolver;
   readonly getFormatter: () => IOutputFormatter;
   readonly config: Config;
+  readonly logger: ILogger;
 }
 
 export interface PathQueryCommandOptions {
@@ -57,7 +58,7 @@ export async function executePathQuery(
   commandName: string,
   visibleTrailers: readonly string[] | 'all',
 ): Promise<void> {
-  const { atomRepository, gitClient, supersessionResolver, pathResolver, getFormatter, config } = deps;
+  const { atomRepository, gitClient, supersessionResolver, pathResolver, getFormatter, config, logger } = deps;
 
   const queryOptions: PathQueryOptions = {
     scope: options.scope ?? null,
@@ -143,7 +144,7 @@ export async function executePathQuery(
 
   // Step 6: Format and output
   const formatter = getFormatter();
-  console.log(formatter.formatQueryResult(formattable));
+  logger.result(formatter.formatQueryResult(formattable));
 }
 
 /**

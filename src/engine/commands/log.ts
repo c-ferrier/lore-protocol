@@ -2,15 +2,14 @@ import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { Config } from '../types/config.js';
 import type { Atom, SupersessionStatus } from '../types/domain.js';
 import type { PathQueryOptions, SearchOptions, QueryResult } from '../types/query.js';
 import type { FormattableQueryResult } from '../types/output.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
 import { addPathQueryOptions } from './helpers/path-query.js';
-import type { IProtocol } from '../interfaces/protocol.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import { mergeOptions } from './helpers/merge-options.js';
+import type { ILogger } from '../interfaces/logger.js';
 
 /**
  * Register the log command.
@@ -24,6 +23,7 @@ export function registerLogCommand(
     gitClient: IGitClient;
     supersessionResolver: SupersessionResolver;
     getFormatter: () => IOutputFormatter;
+    logger: ILogger;
   },
 ): void {
   const cmd = program
@@ -35,7 +35,7 @@ export function registerLogCommand(
 
   cmd.action(async (paths: string[] | undefined, _options: any, command: Command) => {
     const options = mergeOptions<PathQueryOptions>(command);
-    const { atomRepository, gitClient, supersessionResolver, getFormatter } = deps;
+    const { atomRepository, gitClient, supersessionResolver, getFormatter, logger } = deps;
 
     // Resolve HEAD for caching
     let headHash: string | undefined;
@@ -100,6 +100,6 @@ export function registerLogCommand(
     };
 
     const formatter = getFormatter();
-    console.log(formatter.formatQueryResult(formattable));
+    logger.result(formatter.formatQueryResult(formattable));
   });
 }

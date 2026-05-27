@@ -6,6 +6,7 @@ import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { FormattableDoctorResult, DoctorCheck } from '../types/output.js';
 import type { IProtocol } from '../interfaces/protocol.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import type { ILogger } from '../interfaces/logger.js';
 import { ENGINE_CONFIG_SCHEMA } from '../types/config.js';
 import { analyzeConfigGaps } from '../util/config-analyzer.js';
 import { parse as parseToml } from 'smol-toml';
@@ -26,13 +27,14 @@ export function registerDoctorCommand(
     getFormatter: () => IOutputFormatter;
     cacheDir: string;
     defaultConfig: any;
+    logger: ILogger;
   },
 ): void {
   program
     .command('doctor')
     .description('Check the health of the decision repository')
     .action(async () => {
-      const { atomRepository, configLoader, gitClient, protocolRegistry, getFormatter, cacheDir, defaultConfig } = deps;
+      const { atomRepository, configLoader, gitClient, protocolRegistry, getFormatter, cacheDir, defaultConfig, logger } = deps;
       const formatter = getFormatter();
       const checks: DoctorCheck[] = [];
 
@@ -78,7 +80,7 @@ export function registerDoctorCommand(
         summary,
       };
 
-      console.log(formatter.formatDoctorResult(doctorResult));
+      logger.result(formatter.formatDoctorResult(doctorResult));
     });
 }
 

@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import { rm } from 'node:fs/promises';
+import type { ILogger } from '../interfaces/logger.js';
 
 /**
  * Register the ` cache` command.
@@ -11,6 +12,7 @@ export function registerCacheCommand(
   deps: {
     getFormatter: () => IOutputFormatter;
     cacheDir: string;
+    logger: ILogger;
   },
 ): void {
   program
@@ -23,10 +25,10 @@ export function registerCacheCommand(
       if (options.clean) {
         try {
           await rm(deps.cacheDir, { recursive: true, force: true });
-          console.log(formatter.formatSuccess('Successfully cleared local atom and query caches.'));
+          deps.logger.info(formatter.formatSuccess('Successfully cleared local atom and query caches.'));
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : String(error);
-          console.error(formatter.formatError(1, [{ severity: 'error', message: `Failed to clear cache: ${message}` }]));
+          deps.logger.error(formatter.formatError(1, [{ severity: 'error', message: `Failed to clear cache: ${message}` }]));
           process.exitCode = 1;
           return;
         }

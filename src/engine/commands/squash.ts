@@ -3,6 +3,7 @@ import type { AtomRepository } from '../services/atom-repository.js';
 import type { SquashMerger } from '../services/squash-merger.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import { ProtocolError } from '../../util/errors.js';
+import type { ILogger } from '../interfaces/logger.js';
 
 interface SquashCommandOptions {
   readonly subject?: string;
@@ -20,6 +21,7 @@ export function registerSquashCommand(
     atomRepository: AtomRepository;
     squashMerger: SquashMerger;
     getFormatter: () => IOutputFormatter;
+    logger: ILogger;
   },
 ): void {
   program
@@ -28,7 +30,7 @@ export function registerSquashCommand(
     .option('--subject <text>', 'Override the subject line of the merged message')
     .option('--body <text>', 'Override the body of the merged message')
     .action(async (range: string, options: SquashCommandOptions) => {
-      const { atomRepository, squashMerger } = deps;
+      const { atomRepository, squashMerger, logger } = deps;
 
       const atoms = await atomRepository.findByRange(range);
 
@@ -42,6 +44,6 @@ export function registerSquashCommand(
       });
 
       // Output to stdout (raw message, not formatted)
-      console.log(message);
+      logger.result(message);
     });
 }

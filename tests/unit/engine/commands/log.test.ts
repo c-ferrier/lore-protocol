@@ -6,7 +6,7 @@ import type { SupersessionResolver } from '../../../../src/engine/services/super
 import type { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import type { Atom } from '../../../../src/engine/types/domain.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, MockLogger } from '../test-utils.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
 const MOCK_ID_KEY = "Mock-id";
@@ -74,7 +74,7 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
     formatError: vi.fn(),
   } as IOutputFormatter;
 
-  const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  const logger = new MockLogger();
 
   const program = new Command();
   program.exitOverride();
@@ -89,11 +89,10 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
     } as any,
     supersessionResolver,
     getFormatter: () => formatter,
-    config: MOCK_CONFIG,
-    protocol,
+    logger,
   });
 
-  return { program, capturedResult, findAll, findByTarget, consoleSpy };
+  return { program, capturedResult, findAll, findByTarget, logger };
 }
 
 describe('registerLogCommand (agnostic path arguments)', () => {

@@ -3,6 +3,7 @@ import type { IConfigLoader } from '../interfaces/config-loader.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { FormattableConfigResult, FormattableTrailerDefinition } from '../types/output.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import type { ILogger } from '../interfaces/logger.js';
 
 /**
  * Register the config command.
@@ -14,6 +15,7 @@ export function registerConfigCommand(
     configLoader: IConfigLoader;
     getFormatter: () => IOutputFormatter;
     protocolRegistry: ProtocolRegistry;
+    logger: ILogger;
   },
 ): void {
   program
@@ -22,7 +24,7 @@ export function registerConfigCommand(
     .option('--core', 'Show only core trailer definitions')
     .option('--custom', 'Show only custom trailer definitions')
     .action(async (options: { core?: boolean; custom?: boolean }) => {
-      const { configLoader, getFormatter, protocolRegistry } = deps;
+      const { configLoader, getFormatter, protocolRegistry, logger } = deps;
       const config = await configLoader.loadForPath(process.cwd());
       
       const hasFilters = options.core !== undefined || options.custom !== undefined;
@@ -45,6 +47,6 @@ export function registerConfigCommand(
       };
 
       const formatter = getFormatter();
-      console.log(formatter.formatConfig(formattable));
+      logger.result(formatter.formatConfig(formattable));
     });
 }
