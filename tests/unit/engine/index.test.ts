@@ -4,6 +4,7 @@ import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import * as rootResolver from '../../../src/engine/services/root-resolver.js';
+import { MOCK_ENGINE_DIR, assertIsolatedEngine } from './test-utils.js';
 
 describe('Engine Assembly (Agnostic Bootstrap)', () => {
   const testDir = join(tmpdir(), `engine-bootstrap-${Date.now()}`);
@@ -28,6 +29,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
   } as any;
 
   beforeAll(() => {
+    assertIsolatedEngine(MOCK_ENGINE_DIR);
     mkdirSync(testDir, { recursive: true });
     writeFileSync(pkgPath, JSON.stringify({ version: '1.0.0' }));
   });
@@ -40,7 +42,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     const { program, sharedDeps } = await runCli({
       binaryName: 'test-atom',
       description: 'Test Engine',
-      engineDirName: '.test-atom',
+      engineDirName: MOCK_ENGINE_DIR,
       configFileName: 'config.toml',
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [CUSTOM_PROTOCOL],
@@ -67,7 +69,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     const { program } = await runCli({
       binaryName: 'atom',
       description: 'Agnostic',
-      engineDirName: '.atom',
+      engineDirName: MOCK_ENGINE_DIR,
       configFileName: 'config.toml',
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [], // Atom starts empty
@@ -87,7 +89,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     const { sharedDeps } = await runCli({
       binaryName: 'atom',
       description: 'Agnostic',
-      engineDirName: '.atom',
+      engineDirName: MOCK_ENGINE_DIR,
       configFileName: 'config.toml',
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [],
@@ -107,7 +109,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     const { sharedDeps } = await runCli({
       binaryName: 'atom',
       description: 'Agnostic',
-      engineDirName: '.atom',
+      engineDirName: MOCK_ENGINE_DIR,
       configFileName: 'config.toml',
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [],

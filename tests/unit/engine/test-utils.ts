@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
 import type { Config } from '../../../src/engine/types/config.js';
 import type { TrailerUiKind, TrailerUiColor } from '../../../src/engine/types/config.js';
@@ -127,6 +128,12 @@ export const STRICT_PROTOCOL_DEFINITION: ProtocolDefinition = {
 /**
  * A generic mock configuration for engine-level unit testing.
  */
+export const MOCK_ENGINE_DIR = '.mock-engine';
+
+export function assertIsolatedEngine(dir: string = MOCK_ENGINE_DIR) {
+  expect(existsSync(dir), `Engine directory ${dir} should not exist in test environment`).toBe(false);
+}
+
 export const MOCK_CONFIG: Config = {
   protocol: {
     version: '1.0',

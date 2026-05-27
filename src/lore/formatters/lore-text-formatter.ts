@@ -121,7 +121,7 @@ export class LoreTextFormatter extends TextFormatter {
           statusLabel = this.c.blue('INFO');
           break;
         default:
-          statusLabel = this.c.dim(check.status.toUpperCase());
+          statusLabel = this.c.dim((check.status as string || 'unknown').toUpperCase());
       }
       
       let name = check.name;

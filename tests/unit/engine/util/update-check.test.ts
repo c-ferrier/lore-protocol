@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
 import { runCli } from '../../../../src/engine/index.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, MOCK_ENGINE_DIR, assertIsolatedEngine } from '../test-utils.js';
 import * as updateCheck from '../../../../src/util/update-check.js';
 import { resolve } from 'node:path';
 
@@ -10,6 +10,10 @@ describe('Update Check Integration', () => {
 
   beforeEach(() => {
     vi.spyOn(updateCheck, 'shouldCheckForUpdate').mockResolvedValue(false);
+  });
+
+  beforeAll(() => {
+    assertIsolatedEngine(MOCK_ENGINE_DIR);
   });
 
   afterEach(() => {
@@ -23,7 +27,7 @@ describe('Update Check Integration', () => {
     await runCli({
       binaryName: 'atom',
       description: 'Agnostic',
-      engineDirName: '.atom',
+      engineDirName: MOCK_ENGINE_DIR,
       configFileName: 'config.toml',
       defaultConfig: {
         ...MOCK_CONFIG,
@@ -42,7 +46,7 @@ describe('Update Check Integration', () => {
     await runCli({
       binaryName: 'atom',
       description: 'Agnostic',
-      engineDirName: '.atom',
+      engineDirName: MOCK_ENGINE_DIR,
       configFileName: 'config.toml',
       defaultConfig: {
         ...MOCK_CONFIG,
