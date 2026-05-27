@@ -13,6 +13,7 @@ import { AtomCache } from './services/atom-cache.js';
 import { QueryCache } from './services/query-cache.js';
 import { IdGenerator } from './services/id-generator.js';
 import { SupersessionResolver } from './services/supersession-resolver.js';
+import { PROTOCOLS_DIR_NAME } from '../util/constants.js';
 import { StalenessDetector } from './services/staleness-detector.js';
 import { CommitBuilder } from './services/commit-builder.js';
 import { SquashMerger } from './services/squash-merger.js';
@@ -87,7 +88,7 @@ export async function runCli(options: EngineOptions) {
   }
 
   // 3. Load Protocols
-  const protocolsDir = join(activeRoot, options.engineDirName, 'protocols');
+  const protocolsDir = join(activeRoot, options.engineDirName, PROTOCOLS_DIR_NAME);
   const dynamicLoader = new DynamicProtocolLoader(protocolsDir);
   const dynamicProtocols = await dynamicLoader.loadAll();
   

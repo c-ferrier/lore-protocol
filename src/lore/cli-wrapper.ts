@@ -2,7 +2,7 @@ import { runCli, execute, type EngineOptions } from '../engine/index.js';
 import { ProtocolRegistry } from '../engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from './protocol-definition.js';
 import { LORE_DEFAULT_CONFIG, LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from './defaults.js';
-import { ENGINE_CONFIG_FILENAME } from '../util/constants.js';
+import { ENGINE_CONFIG_FILENAME, ENGINE_DIR_NAME } from '../util/constants.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerContextCommand } from './commands/context.js';
 import { registerConstraintsCommand } from './commands/constraints.js';
@@ -37,7 +37,7 @@ export async function buildLoreCli() {
   const options: EngineOptions = {
     binaryName: 'lore',
     description: 'Structured decision context in git commits',
-    engineDirName: '.atom',
+    engineDirName: ENGINE_DIR_NAME,
     configFileName: ENGINE_CONFIG_FILENAME,
     defaultConfig: LORE_DEFAULT_CONFIG as unknown as EngineConfig,
     staticProtocols: [LoreProtocolDefinition],

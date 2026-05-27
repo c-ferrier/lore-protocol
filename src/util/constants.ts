@@ -55,5 +55,7 @@ export const CACHE_DIR = 'cache';
 export const ATOM_CACHE_DIR = 'atom';
 export const QUERY_CACHE_DIR = 'query';
 
-/** Engine configuration filename */
+/** Engine configuration component names */
+export const ENGINE_DIR_NAME = '.atom';
+export const PROTOCOLS_DIR_NAME = 'protocols';
 export const ENGINE_CONFIG_FILENAME = 'config.toml';
