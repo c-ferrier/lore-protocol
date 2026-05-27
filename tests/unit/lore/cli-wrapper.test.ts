@@ -57,6 +57,6 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
     // but the most authoritative way is checking the internal wiring if we exposed it.
     // For now, verified via the assembly logic and command existence.
     const { program } = await buildLoreCli();
-    expect(program.description()).toBe('Structured decision context in git commits');
+    expect(program.description()).toBe('CLI tool for the Lore protocol -- structured decision context in git commits');
   });
 });

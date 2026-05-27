@@ -1,19 +1,194 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { buildLoreCli } from '../../../src/lore/cli-wrapper.js';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 
 /**
- * LORE CLI CONTRACT TEST
+ * LORE CLI CONTRACT TEST (Exhaustive)
  * 
  * This test suite defines the "Contract" between our new decoupled architecture
  * and the original Lore 0.5.0 CLI. 
  * 
  * MANDATE: Every command and option present in Lore 0.5.0 must exist in our 
- * wrapper to ensure backward compatibility.
+ * wrapper with EXACT matching descriptions to ensure backward compatibility.
+ * 
+ * SOURCE OF TRUTH: The LORE_050_STATE constant is a snapshot from the system binary.
  */
-describe('Lore CLI 0.5.0 Compatibility Contract', () => {
+const LORE_050_STATE: Record<string, any> = {
+  "init": {
+    "description": "Initialize .lore/ config in repository",
+    "options": []
+  },
+  "context": {
+    "description": "Full lore summary for a code region",
+    "options": [
+      { "flags": "--scope <name>", "description": "Filter by conventional commit scope instead of path" },
+      { "flags": "--follow", "description": "Transitively follow Related/Supersedes/Depends-on links" },
+      { "flags": "--all", "description": "Include superseded entries" },
+      { "flags": "--author <email>", "description": "Filter by commit author" },
+      { "flags": "--limit <n>", "description": "Maximum number of results to display" },
+      { "flags": "--max-commits <n>", "description": "Maximum git commits to scan (supersession may be incomplete)" },
+      { "flags": "--since <ref>", "description": "Only consider commits since ref/date" }
+    ]
+  },
+  "constraints": {
+    "description": "Active constraints for a code region",
+    "options": [
+      { "flags": "--scope <name>", "description": "Filter by conventional commit scope instead of path" },
+      { "flags": "--follow", "description": "Transitively follow Related/Supersedes/Depends-on links" },
+      { "flags": "--all", "description": "Include superseded entries" },
+      { "flags": "--author <email>", "description": "Filter by commit author" },
+      { "flags": "--limit <n>", "description": "Maximum number of results to display" },
+      { "flags": "--max-commits <n>", "description": "Maximum git commits to scan (supersession may be incomplete)" },
+      { "flags": "--since <ref>", "description": "Only consider commits since ref/date" }
+    ]
+  },
+  "rejected": {
+    "description": "Previously rejected alternatives for a code region",
+    "options": [
+      { "flags": "--scope <name>", "description": "Filter by conventional commit scope instead of path" },
+      { "flags": "--follow", "description": "Transitively follow Related/Supersedes/Depends-on links" },
+      { "flags": "--all", "description": "Include superseded entries" },
+      { "flags": "--author <email>", "description": "Filter by commit author" },
+      { "flags": "--limit <n>", "description": "Maximum number of results to display" },
+      { "flags": "--max-commits <n>", "description": "Maximum git commits to scan (supersession may be incomplete)" },
+      { "flags": "--since <ref>", "description": "Only consider commits since ref/date" }
+    ]
+  },
+  "directives": {
+    "description": "Active forward-looking warnings for a code region",
+    "options": [
+      { "flags": "--scope <name>", "description": "Filter by conventional commit scope instead of path" },
+      { "flags": "--follow", "description": "Transitively follow Related/Supersedes/Depends-on links" },
+      { "flags": "--all", "description": "Include superseded entries" },
+      { "flags": "--author <email>", "description": "Filter by commit author" },
+      { "flags": "--limit <n>", "description": "Maximum number of results to display" },
+      { "flags": "--max-commits <n>", "description": "Maximum git commits to scan (supersession may be incomplete)" },
+      { "flags": "--since <ref>", "description": "Only consider commits since ref/date" }
+    ]
+  },
+  "tested": {
+    "description": "Test coverage: what was and was not verified",
+    "options": [
+      { "flags": "--scope <name>", "description": "Filter by conventional commit scope instead of path" },
+      { "flags": "--follow", "description": "Transitively follow Related/Supersedes/Depends-on links" },
+      { "flags": "--all", "description": "Include superseded entries" },
+      { "flags": "--author <email>", "description": "Filter by commit author" },
+      { "flags": "--limit <n>", "description": "Maximum number of results to display" },
+      { "flags": "--max-commits <n>", "description": "Maximum git commits to scan (supersession may be incomplete)" },
+      { "flags": "--since <ref>", "description": "Only consider commits since ref/date" }
+    ]
+  },
+  "coverage": {
+    "description": "Test coverage map (alias for tested)",
+    "options": [
+      { "flags": "--scope <name>", "description": "Filter by conventional commit scope instead of path" },
+      { "flags": "--follow", "description": "Transitively follow Related/Supersedes/Depends-on links" },
+      { "flags": "--all", "description": "Include superseded entries" },
+      { "flags": "--author <email>", "description": "Filter by commit author" },
+      { "flags": "--limit <n>", "description": "Maximum number of results to display" },
+      { "flags": "--max-commits <n>", "description": "Maximum git commits to scan (supersession may be incomplete)" },
+      { "flags": "--since <ref>", "description": "Only consider commits since ref/date" }
+    ]
+  },
+  "why": {
+    "description": "Decision context for a specific line or line range",
+    "options": []
+  },
+  "search": {
+    "description": "Search across all lore with filters",
+    "options": [
+      { "flags": "--confidence <level>", "description": "Filter by confidence: low, medium, high" },
+      { "flags": "--scope-risk <level>", "description": "Filter by scope-risk: narrow, moderate, wide" },
+      { "flags": "--reversibility <level>", "description": "Filter by reversibility: clean, migration-needed, irreversible" },
+      { "flags": "--has <trailer>", "description": "Filter atoms that contain this trailer type" },
+      { "flags": "--author <email>", "description": "Filter by commit author" },
+      { "flags": "--scope <name>", "description": "Filter by conventional commit scope" },
+      { "flags": "--text <query>", "description": "Full-text search across intent, body, and trailer values" },
+      { "flags": "--since <ref>", "description": "Only consider commits since ref/date" },
+      { "flags": "--until <ref>", "description": "Upper time/revision bound" },
+      { "flags": "--all", "description": "Include superseded entries" },
+      { "flags": "--limit <n>", "description": "Maximum number of results to display" },
+      { "flags": "--max-commits <n>", "description": "Maximum git commits to scan (supersession may be incomplete)" }
+    ]
+  },
+  "log": {
+    "description": "Lore-enriched git log",
+    "options": [
+      { "flags": "--limit <n>", "description": "Maximum number of results to display" },
+      { "flags": "--max-commits <n>", "description": "Maximum git commits to scan (supersession may be incomplete)" },
+      { "flags": "--since <ref>", "description": "Only consider commits since ref/date" }
+    ]
+  },
+  "stale": {
+    "description": "Flag potentially outdated knowledge",
+    "options": [
+      { "flags": "--older-than <duration>", "description": "Time-based staleness threshold (e.g., 6m, 1y)" },
+      { "flags": "--drift <n>", "description": "File drift threshold (commits since atom)" },
+      { "flags": "--low-confidence", "description": "Flag low-confidence atoms" }
+    ]
+  },
+  "trace": {
+    "description": "Follow decision chain from a starting atom",
+    "options": [
+      { "flags": "--max-depth <n>", "description": "Maximum BFS traversal depth (default: 10)" }
+    ]
+  },
+  "commit": {
+    "description": "Create a Lore-enriched commit",
+    "options": [
+      { "flags": "--amend", "description": "Amend the last commit" },
+      { "flags": "--no-edit", "description": "Keep the existing commit message (use with --amend)" },
+      { "flags": "--file <path>", "description": "Read JSON input from file" },
+      { "flags": "-i, --interactive", "description": "Interactive mode (guided prompts)" },
+      { "flags": "--intent <text>", "description": "Intent line (why the change was made)" },
+      { "flags": "--body <text>", "description": "Body (narrative context)" },
+      { "flags": "--constraint <text...>", "description": "Constraint trailer value (repeatable)" },
+      { "flags": "--rejected <text...>", "description": "Rejected trailer value (repeatable)" },
+      { "flags": "--confidence <level>", "description": "Confidence level: low, medium, high" },
+      { "flags": "--scope-risk <level>", "description": "Scope-risk level: narrow, moderate, wide" },
+      { "flags": "--reversibility <level>", "description": "Reversibility level: clean, migration-needed, irreversible" },
+      { "flags": "--directive <text...>", "description": "Directive trailer value (repeatable)" },
+      { "flags": "--tested <text...>", "description": "Tested trailer value (repeatable)" },
+      { "flags": "--not-tested <text...>", "description": "Not-tested trailer value (repeatable)" },
+      { "flags": "--supersedes <id...>", "description": "Supersedes Lore-id (repeatable)" },
+      { "flags": "--depends-on <id...>", "description": "Depends-on Lore-id (repeatable)" },
+      { "flags": "--related <id...>", "description": "Related Lore-id (repeatable)" }
+    ]
+  },
+  "validate": {
+    "description": "Validate commits for Lore protocol compliance",
+    "options": [
+      { "flags": "--since <ref>", "description": "Validate all commits since ref (e.g., main)" },
+      { "flags": "--last <n>", "description": "Validate the last N commits" },
+      { "flags": "--strict", "description": "Treat warnings as errors" }
+    ]
+  },
+  "squash": {
+    "description": "Merge atoms for squash-merge preparation",
+    "options": [
+      { "flags": "--intent <text>", "description": "Override the intent line of the merged message" },
+      { "flags": "--body <text>", "description": "Override the body of the merged message" }
+    ]
+  },
+  "doctor": {
+    "description": "Health check: broken refs, config issues",
+    "options": []
+  },
+  "help": {
+    "description": "CLI tool for the Lore protocol -- structured decision context in git commits",
+    "options": [
+      { "flags": "-V, --version", "description": "output the version number" },
+      { "flags": "--json", "description": "Shorthand for --format json" },
+      { "flags": "--format <type>", "description": "Output format: text or json (default: \"text\")" },
+      { "flags": "--no-color", "description": "Disable colored output" },
+      { "flags": "--no-update-notifier", "description": "Disable update notification" }
+    ]
+  }
+};
+
+describe('Lore CLI 0.5.0 Exhaustive Compatibility Contract', () => {
   const testDir = join(tmpdir(), `lore-contract-test-${Date.now()}`);
   const pkgPath = join(testDir, 'package.json');
 
@@ -33,186 +208,55 @@ describe('Lore CLI 0.5.0 Compatibility Contract', () => {
     vi.unstubAllGlobals();
   });
 
-  it('CONTRACT: must support all 0.5.0 top-level commands and descriptions', async () => {
+  it('CONTRACT: Global options must match exactly', async () => {
     const { program } = await buildLoreCli();
-    expect(program.description()).toBe('Structured decision context in git commits');
+    const globalExpected = LORE_050_STATE['help'].options;
     
-    const commandNames = program.commands.map(cmd => cmd.name());
-
-    const expectedCommands: Record<string, string> = {
-      'init': 'Initialize .lore/ config in repository',
-      'context': 'Full lore summary for a code region',
-      'constraints': 'Active constraints for a code region',
-      'rejected': 'Previously rejected alternatives for a code region',
-      'directives': 'Active forward-looking warnings for a code region',
-      'tested': 'Test coverage: what was and was not verified',
-      'coverage': 'Test coverage map (alias for tested)',
-      'why': 'Decision context for a specific line or line range (Lore)',
-      'search': 'Search across all lore with filters',
-      'log': 'Lore-enriched git log',
-      'stale': 'Flag potentially outdated knowledge',
-      'trace': 'Trace the lineage and relationships of a decision',
-      'commit': 'Create a Lore-enriched commit',
-      'validate': 'Validate commits for Lore protocol compliance',
-      'squash': 'Merge atoms for squash-merge preparation',
-      'doctor': 'Check the health of the decision repository'
-    };
-
-    for (const [name, desc] of Object.entries(expectedCommands)) {
-      const cmd = program.commands.find(c => c.name() === name);
-      expect(cmd, `Command ${name} missing`).toBeDefined();
-      expect(cmd?.description(), `Description mismatch for ${name}`).toBe(desc);
+    for (const expected of globalExpected) {
+        const flag = expected.flags.split(', ').pop().split(' ')[0];
+        const opt = program.options.find(o => o.flags.includes(flag));
+        expect(opt, `Global option ${flag} missing`).toBeDefined();
+        expect(opt?.description.trim()).toBe(expected.description.trim());
     }
   });
 
-  it('CONTRACT: commit command must support all 0.5.0 options', async () => {
+  it('CONTRACT: All commands and their options must match 0.5.0 exactly', async () => {
     const { program } = await buildLoreCli();
-    const commitCmd = program.commands.find(c => c.name() === 'commit')!;
-    
-    // Original 0.5.0 options
-    const contractOptions = [
-      'amend', 'no-edit', 'file', 'interactive', 'intent', 'body',
-      'constraint', 'rejected', 'confidence', 'scope-risk', 'reversibility',
-      'directive', 'tested', 'not-tested', 'supersedes', 'depends-on', 'related'
-    ];
 
-    const optionFlags = commitCmd.options.map(o => o.long.replace(/^--/, ''));
-    for (const opt of contractOptions) {
-      expect(optionFlags).toContain(opt);
-    }
-    
-    // Verify short alias for interactive (the only one in 0.5.0)
-    const interactiveOpt = commitCmd.options.find(o => o.long === '--interactive');
-    expect(interactiveOpt?.short).toBe('-i');
+    for (const [cmdName, cmdContract] of Object.entries(LORE_050_STATE)) {
+      if (cmdName === 'help') continue;
 
-    // Verify removal of short aliases for others
-    const intentOpt = commitCmd.options.find(o => o.long === '--intent');
-    expect(intentOpt?.short).toBeUndefined();
+      const cmd = program.commands.find(c => c.name() === cmdName);
+      expect(cmd, `Command ${cmdName} missing`).toBeDefined();
+      
+      expect(cmd?.description().trim(), `Description mismatch for ${cmdName}`).toBe(cmdContract.description);
 
-    const bodyOpt = commitCmd.options.find(o => o.long === '--body');
-    expect(bodyOpt?.short).toBeUndefined();
+      const contractOpts = cmdContract.options;
+      const visibleOpts = cmd?.options.filter(o => !(o as any).hidden);
 
-    const fileOpt = commitCmd.options.find(o => o.long === '--file');
-    expect(fileOpt?.short).toBeUndefined();
-  });
+      // 1. Check all required options exist and match
+      for (const expectedOpt of contractOpts) {
+        const flag = expectedOpt.flags.split(', ').pop().split(' ')[0];
+        const opt = visibleOpts?.find(o => o.flags.includes(flag));
+        
+        expect(opt, `Option ${flag} missing or hidden in command ${cmdName}`).toBeDefined();
+        expect(opt?.description.trim(), `Option description mismatch for ${cmdName} ${flag}`).toBe(expectedOpt.description);
 
-  it('CONTRACT: commit options must have 0.5.0 matching descriptions', async () => {
-    const { program } = await buildLoreCli();
-    const commitCmd = program.commands.find(c => c.name() === 'commit')!;
+        const sysShort = expectedOpt.flags.startsWith('-') && expectedOpt.flags.includes(',') 
+          ? expectedOpt.flags.split(',')[0] 
+          : null;
+        if (sysShort) {
+            expect(opt?.short, `Short alias mismatch for ${cmdName} ${flag}`).toBe(sysShort);
+        }
+      }
 
-    const descriptions: Record<string, string> = {
-      'intent': 'Intent line (why the change was made)',
-      'body': 'Body (narrative context)',
-      'file': 'Read JSON input from file',
-      'interactive': 'Interactive mode (guided prompts)'
-    };
-
-    for (const [opt, desc] of Object.entries(descriptions)) {
-      const option = commitCmd.options.find(o => o.long === `--${opt}`);
-      expect(option?.description).toBe(desc);
-    }
-  });
-
-  it('CONTRACT: global options must not have -C or -V aliases', async () => {
-    const { program } = await buildLoreCli();
-    
-    const contextOpt = program.options.find(o => o.long === '--context');
-    expect(contextOpt?.short).toBeUndefined();
-
-    const versionOpt = program.options.find(o => o.long === '--version');
-    expect(versionOpt?.short).toBeUndefined();
-  });
-
-  it('CONTRACT: log command must support all 0.5.0 options', async () => {
-    const { program } = await buildLoreCli();
-    const logCmd = program.commands.find(c => c.name() === 'log')!;
-    
-    const contractOptions = ['limit', 'max-commits', 'since'];
-    const optionFlags = logCmd.options.map(o => o.long.replace(/^--/, ''));
-    
-    for (const opt of contractOptions) {
-      expect(optionFlags).toContain(opt);
-    }
-  });
-
-  it('ADDITIVE: log command should have new engine-powered filters', async () => {
-    const { program } = await buildLoreCli();
-    const logCmd = program.commands.find(c => c.name() === 'log')!;
-    
-    const newOptions = ['scope', 'follow', 'all', 'author', 'until'];
-    const optionFlags = logCmd.options.map(o => o.long.replace(/^--/, ''));
-    
-    for (const opt of newOptions) {
-      expect(optionFlags, 'Engine power is missing from Lore wrapper').toContain(opt);
-    }
-  });
-
-  it('CONTRACT: trace command must support --max-depth', async () => {
-    const { program } = await buildLoreCli();
-    const traceCmd = program.commands.find(c => c.name() === 'trace')!;
-    
-    const optionFlags = traceCmd.options.map(o => o.long.replace(/^--/, ''));
-    expect(optionFlags).toContain('max-depth');
-  });
-
-  it('CONTRACT: search command options and descriptions', async () => {
-    const { program } = await buildLoreCli();
-    const cmd = program.commands.find(c => c.name() === 'search')!;
-    const getOpt = (longFlag: string) => cmd.options.find(o => o.long === longFlag);
-
-    const expected: Record<string, string> = {
-      '--confidence': 'Filter by confidence: low, medium, high',
-      '--scope-risk': 'Filter by scope-risk: narrow, moderate, wide',
-      '--reversibility': 'Filter by reversibility: clean, migration-needed, irreversible',
-      '--has': 'Filter atoms that contain this trailer type',
-      '--author': 'Filter by commit author',
-      '--scope': 'Filter by conventional commit scope',
-      '--text': 'Full-text search across intent, body, and trailer values',
-      '--since': 'Only consider commits since ref/date',
-      '--until': 'Upper time/revision bound',
-      '--all': 'Include superseded entries',
-      '--limit': 'Maximum number of results to display',
-      '--max-commits': 'Maximum git commits to scan (supersession may be incomplete)'
-    };
-
-    for (const [flag, desc] of Object.entries(expected)) {
-      expect(getOpt(flag)?.description).toBe(desc);
-    }
-  });
-
-  it('CONTRACT: validate command options and descriptions', async () => {
-    const { program } = await buildLoreCli();
-    const cmd = program.commands.find(c => c.name() === 'validate')!;
-    const getOpt = (longFlag: string) => cmd.options.find(o => o.long === longFlag);
-
-    expect(getOpt('--since')?.description).toBe('Validate all commits since ref (e.g., main)');
-    expect(getOpt('--last')?.description).toBe('Validate the last N commits');
-    expect(getOpt('--strict')?.description).toBe('Treat warnings as errors');
-  });
-
-  it('CONTRACT: squash command options and descriptions', async () => {
-    const { program } = await buildLoreCli();
-    const cmd = program.commands.find(c => c.name() === 'squash')!;
-    const getOpt = (longFlag: string) => cmd.options.find(o => o.long === longFlag);
-
-    expect(getOpt('--intent')?.description).toBe('Override the intent line of the merged message');
-    expect(getOpt('--body')?.description).toBe('Override the body of the merged message');
-  });
-
-  it('CONTRACT: path-query commands (context, constraints, etc.) options', async () => {
-    const { program } = await buildLoreCli();
-    const commands = ['context', 'constraints', 'rejected', 'directives', 'tested', 'coverage'];
-    const getOpt = (cmd: any, longFlag: string) => cmd.options.find((o: any) => o.long === longFlag);
-
-    for (const name of commands) {
-        const cmd = program.commands.find(c => c.name() === name)!;
-        expect(getOpt(cmd, '--scope')?.description).toBe('Filter by conventional commit scope instead of path');
-        expect(getOpt(cmd, '--follow')?.description).toBe('Transitively follow Related/Supersedes/Depends-on links');
-        expect(getOpt(cmd, '--all')?.description).toBe('Include superseded entries');
-        expect(getOpt(cmd, '--author')?.description).toBe('Filter by commit author');
-        expect(getOpt(cmd, '--limit')?.description).toBe('Maximum number of results to display');
-        expect(getOpt(cmd, '--max-commits')?.description).toBe('Maximum git commits to scan (supersession may be incomplete)');
-        expect(getOpt(cmd, '--since')?.description).toBe('Only consider commits since ref/date');
+      // 2. STRICT: Check for unexpected visible options
+      const contractFlagNames = new Set(contractOpts.map((o: any) => o.flags.split(', ').pop().split(' ')[0]));
+      for (const opt of (visibleOpts || [])) {
+          const flag = opt.flags.split(', ').pop().split(' ')[0];
+          if (flag === '--help') continue;
+          expect(contractFlagNames.has(flag), `Unexpected visible option ${flag} found in command ${cmdName}`).toBe(true);
+      }
     }
   });
 });

@@ -36,7 +36,7 @@ export async function buildLoreCli() {
 
   const options: EngineOptions = {
     binaryName: 'lore',
-    description: 'Structured decision context in git commits',
+    description: 'CLI tool for the Lore protocol -- structured decision context in git commits',
     engineDirName: ENGINE_DIR_NAME,
     configFileName: ENGINE_CONFIG_FILENAME,
     defaultConfig: LORE_DEFAULT_CONFIG as unknown as EngineConfig,
@@ -89,74 +89,8 @@ export async function buildLoreCli() {
   const { logger } = sharedDeps;
 
   // --- REBRANDING WRAPPER (Commander level) ---
-  const commitCmd = program.commands.find(c => c.name() === 'commit');
-  if (commitCmd) {
-    commitCmd.description('Create a Lore-enriched commit');
-    const subjectOpt = commitCmd.options.find(o => o.long === '--subject');
-    if (subjectOpt) (subjectOpt as any).hidden = true;
-    commitCmd.option('--intent <text>', 'Intent line (why the change was made)');
-    commitCmd.hook('preAction', (thisCommand) => {
-        const opts = thisCommand.opts();
-        if (opts.intent) thisCommand.setOptionValue('subject', opts.intent);
-    });
-  }
-
-  const squashCmd = program.commands.find(c => c.name() === 'squash');
-  if (squashCmd) {
-    const subjectOpt = squashCmd.options.find(o => o.long === '--subject');
-    if (subjectOpt) (subjectOpt as any).hidden = true;
-    squashCmd.option('--intent <text>', 'Override the intent line of the merged message');
-    squashCmd.hook('preAction', (thisCommand) => {
-        const opts = thisCommand.opts();
-        if (opts.intent) thisCommand.setOptionValue('subject', opts.intent);
-    });
-  }
-
-  const logCmd = program.commands.find(c => c.name() === 'log');
-  if (logCmd) logCmd.description('Lore-enriched git log');
-
-  const validateCmd = program.commands.find(c => c.name() === 'validate');
-  if (validateCmd) validateCmd.description('Validate commits for Lore protocol compliance');
-
-  const whyCmd = program.commands.find(c => c.name() === 'why');
-  if (whyCmd) whyCmd.description('Decision context for a specific line or line range (Lore)');
-
-  // 0.5.0 Parity: Command Descriptions and Options
-  const searchCmd = program.commands.find(c => c.name() === 'search');
-  if (searchCmd) {
-      searchCmd.description('Search across all lore with filters');
-      const textOpt = searchCmd.options.find(o => o.long === '--text');
-      if (textOpt) (textOpt as any).description = 'Full-text search across intent, body, and trailer values';
-
-      // Re-add Lore semantic filters
-      searchCmd.option('--confidence <level>', 'Filter by confidence: low, medium, high');
-      searchCmd.option('--scope-risk <level>', 'Filter by scope-risk: narrow, moderate, wide');
-      searchCmd.option('--reversibility <level>', 'Filter by reversibility: clean, migration-needed, irreversible');
-
-      searchCmd.hook('preAction', (thisCommand) => {
-          const opts = thisCommand.opts();
-          const filters: Record<string, string> = opts.filters || {};
-          if (opts.confidence) filters['Confidence'] = opts.confidence;
-          if (opts.scopeRisk) filters['Scope-risk'] = opts.scopeRisk;
-          if (opts.reversibility) filters['Reversibility'] = opts.reversibility;
-          thisCommand.setOptionValue('filters', filters);
-      });
-  }
-
-  const staleCmd = program.commands.find(c => c.name() === 'stale');
-  if (staleCmd) {
-      staleCmd.description('Flag potentially outdated knowledge');
-      staleCmd.option('--low-confidence', 'Flag low-confidence atoms');
-      
-      staleCmd.hook('preAction', (thisCommand) => {
-          const opts = thisCommand.opts();
-          const signals: string[] = opts.signals || [];
-          if (opts.lowConfidence) signals.push('low-confidence');
-          thisCommand.setOptionValue('signals', signals);
-      });
-  }
-
-  // Register Lore-specific commands
+  
+  // Register Lore-specific commands FIRST so they can be shimmed in the loop
   registerInitCommand(program, {
     getFormatter,
     engineDirName: options.engineDirName,
@@ -169,6 +103,184 @@ export async function buildLoreCli() {
   registerDirectivesCommand(program, sharedDeps);
   registerTestedCommand(program, sharedDeps);
   registerRejectedCommand(program, sharedDeps);
+
+  // 0.5.0 Shims: Global Descriptions and Hidden Additives
+  const hideGlobal = (f: string) => {
+    const opt = program.options.find(o => o.long === f);
+    if (opt) (opt as any).hidden = true;
+  };
+
+  hideGlobal('--no-cache');
+  hideGlobal('--context');
+  hideGlobal('--format');
+
+  const jsonOpt = program.options.find(o => o.long === '--json');
+  if (jsonOpt) (jsonOpt as any).description = 'Shorthand for --format json';
+
+  const formatOpt = program.options.find(o => o.long === '--format');
+  if (formatOpt) (formatOpt as any).description = 'Output format: text or json (default: "text")';
+
+  const noColorOpt = program.options.find(o => o.long === '--no-color');
+  if (noColorOpt) (noColorOpt as any).description = 'Disable colored output';
+
+  const versionOpt = program.options.find(o => o.long === '--version');
+  if (versionOpt) (versionOpt as any).description = 'output the version number';
+
+  // Add 0.5.0 missing global no-op
+  program.option('--no-update-notifier', 'Disable update notification');
+
+  // 1. Dynamic Prefix Stripping & 0.5.0 Trailer Shims
+  for (const cmd of program.commands) {
+      const name = cmd.name();
+
+      // Hide global engine commands not in 0.5.0
+      if (['cache', 'config'].includes(name)) {
+          (cmd as any)._hidden = true;
+      }
+
+      // Strip [Lore] prefix from any option description
+      for (const opt of cmd.options) {
+          if (opt.description.startsWith('[Lore] ')) {
+              (opt as any).description = opt.description.slice(7);
+          }
+      }
+
+      // Function to hide additive options
+      const hideOpt = (f: string) => {
+          const opt = cmd.options.find(o => o.long === f);
+          if (opt) (opt as any).hidden = true;
+      };
+
+      // Exact 0.5.0 String Parity for Core Trailers (Commit Command)
+      if (name === 'commit') {
+          const shim = (flag: string, desc: string) => {
+              const opt = cmd.options.find(o => o.long === flag);
+              if (opt) (opt as any).description = desc;
+          };
+          shim('--constraint', 'Constraint trailer value (repeatable)');
+          shim('--rejected', 'Rejected trailer value (repeatable)');
+          shim('--confidence', 'Confidence level: low, medium, high');
+          shim('--scope-risk', 'Scope-risk level: narrow, moderate, wide');
+          shim('--reversibility', 'Reversibility level: clean, migration-needed, irreversible');
+          shim('--directive', 'Directive trailer value (repeatable)');
+          shim('--tested', 'Tested trailer value (repeatable)');
+          shim('--not-tested', 'Not-tested trailer value (repeatable)');
+          shim('--supersedes', 'Supersedes Lore-id (repeatable)');
+          shim('--depends-on', 'Depends-on Lore-id (repeatable)');
+          shim('--related', 'Related Lore-id (repeatable)');
+          
+          hideOpt('--until');
+          hideOpt('--trailer');
+          hideOpt('--assisted-by');
+          hideOpt('--co-authored-by');
+
+          // Legacy 0.5.0 branding
+          cmd.description('Create a Lore-enriched commit');
+
+          // Subject/Intent handling
+          const subjectOpt = cmd.options.find(o => o.long === '--subject');
+          if (subjectOpt) {
+              (subjectOpt as any).hidden = true;
+              (subjectOpt as any).description = 'Primary subject line (why the change was made)';
+          }
+          cmd.option('--intent <text>', 'Intent line (why the change was made)');
+          cmd.hook('preAction', (thisCommand) => {
+              const opts = thisCommand.opts();
+              if (opts.intent) thisCommand.setOptionValue('subject', opts.intent);
+          });
+      }
+
+      // Command-level 0.5.0 Shims
+      if (name === 'log') {
+          cmd.description('Lore-enriched git log');
+          hideOpt('--scope');
+          hideOpt('--follow');
+          hideOpt('--all');
+          hideOpt('--author');
+          hideOpt('--until');
+      }
+      if (name === 'validate') {
+          cmd.description('Validate commits for Lore protocol compliance');
+          hideOpt('--until');
+      }
+      if (name === 'why') {
+          cmd.description('Decision context for a specific line or line range');
+          hideOpt('--scope');
+          hideOpt('--follow');
+          hideOpt('--all');
+          hideOpt('--author');
+          hideOpt('--limit');
+          hideOpt('--max-commits');
+          hideOpt('--since');
+          hideOpt('--until');
+      }
+      if (name === 'trace') {
+          cmd.description('Follow decision chain from a starting atom');
+          const maxDepthOpt = cmd.options.find(o => o.long === '--max-depth');
+          if (maxDepthOpt) (maxDepthOpt as any).description = 'Maximum BFS traversal depth (default: 10)';
+          hideOpt('--until');
+      }
+      if (name === 'doctor') {
+          cmd.description('Health check: broken refs, config issues');
+          hideOpt('--until');
+      }
+      if (name === 'search') {
+          cmd.description('Search across all lore with filters');
+          const textOpt = cmd.options.find(o => o.long === '--text');
+          if (textOpt) (textOpt as any).description = 'Full-text search across intent, body, and trailer values';
+          
+          const maxCommitsOpt = cmd.options.find(o => o.long === '--max-commits');
+          if (maxCommitsOpt) (maxCommitsOpt as any).description = 'Maximum git commits to scan (supersession may be incomplete)';
+
+          // Re-add Lore semantic filters
+          cmd.option('--confidence <level>', 'Filter by confidence: low, medium, high');
+          cmd.option('--scope-risk <level>', 'Filter by scope-risk: narrow, moderate, wide');
+          cmd.option('--reversibility <level>', 'Filter by reversibility: clean, migration-needed, irreversible');
+
+          cmd.hook('preAction', (thisCommand) => {
+              const opts = thisCommand.opts();
+              const filters: Record<string, string> = opts.filters || {};
+              if (opts.confidence) filters['Confidence'] = opts.confidence;
+              if (opts.scopeRisk) filters['Scope-risk'] = opts.scopeRisk;
+              if (opts.reversibility) filters['Reversibility'] = opts.reversibility;
+              thisCommand.setOptionValue('filters', filters);
+          });
+      }
+      if (name === 'stale') {
+          cmd.description('Flag potentially outdated knowledge');
+          cmd.option('--low-confidence', 'Flag low-confidence atoms');
+          hideOpt('--until');
+          
+          cmd.hook('preAction', (thisCommand) => {
+              const opts = thisCommand.opts();
+              const signals: string[] = opts.signals || [];
+              if (opts.lowConfidence) signals.push('low-confidence');
+              thisCommand.setOptionValue('signals', signals);
+          });
+      }
+      if (name === 'squash') {
+          cmd.description('Merge atoms for squash-merge preparation');
+          const subjectOpt = cmd.options.find(o => o.long === '--subject');
+          if (subjectOpt) (subjectOpt as any).hidden = true;
+          cmd.option('--intent <text>', 'Override the intent line of the merged message');
+          hideOpt('--until');
+          cmd.hook('preAction', (thisCommand) => {
+              const opts = thisCommand.opts();
+              if (opts.intent) thisCommand.setOptionValue('subject', opts.intent);
+          });
+      }
+
+      // Shared shims across path-query commands
+      const pathQueryCmds = ['context', 'constraints', 'rejected', 'directives', 'tested', 'coverage'];
+      if (pathQueryCmds.includes(name)) {
+          hideOpt('--until');
+          const maxCommitsOpt = cmd.options.find(o => o.long === '--max-commits');
+          if (maxCommitsOpt) (maxCommitsOpt as any).description = 'Maximum git commits to scan (supersession may be incomplete)';
+          
+          if (name === 'rejected') cmd.description('Previously rejected alternatives for a code region');
+          if (name === 'directives') cmd.description('Active forward-looking warnings for a code region');
+      }
+  }
 
   return { program, getFormatter, sharedDeps, config };
 }
