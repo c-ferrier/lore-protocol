@@ -82,13 +82,11 @@ export class TextFormatter implements IOutputFormatter {
       lines.push('');
     }
 
-    lines.push(
-      this.c.dim(
-        `${result.meta.filteredAtoms} of ${result.meta.totalAtoms} atoms shown`,
-      ),
-    );
+    if (result.atoms.length > 0) {
+        lines.push(this.c.dim(`${result.meta.filteredAtoms} of ${result.meta.totalAtoms} atoms shown`));
+    }
 
-    return lines.join('\n');
+    return lines.join('\n').trimEnd();
   }
 
   formatValidationResult(data: FormattableValidationResult): string {
@@ -318,29 +316,47 @@ export class TextFormatter implements IOutputFormatter {
       return visibleTrailers.includes(key);
     };
 
-    // Render ALL protocol interpretations equally
-    for (const [name, state] of atom.protocols.entries()) {
-      const protocolObj = this.protocolRegistry.get(name);
-      const definitions = protocolObj?.getFormattableDefinitions() ?? {};
+    // 1. Iterate by Protocol Registration Order (from Registry)
+    for (const protocol of this.protocolRegistry.getAll()) {
+      const state = atom.protocols.get(protocol.name.toLowerCase());
+      if (!state) continue;
 
-      for (const key of Object.keys(state.trailers)) {
-        // Skip only the ID that is already in the header
-        if (key === state.identityKey && protocolObj?.getIdentity(state.trailers) === headerId) {
+      const definitions = protocol.getFormattableDefinitions();
+      const authorizedKeys = protocol.getAuthorizedKeys();
+      const allStateKeys = new Set(Object.keys(state.trailers));
+
+      // 2. Render Authorized Trailers in Priority Order (Core + Defined Custom)
+      for (const key of authorizedKeys) {
+        if (key === state.identityKey && protocol.getIdentity(state.trailers) === headerId) {
           continue;
         }
-        
         if (!shouldShow(key)) continue;
 
         const values = state.trailers[key];
         if (!values || values.length === 0) continue;
 
         const def = definitions[key];
-        const colorName = def?.ui?.color || (def ? 'cyan' : 'dim');
-        const color = (this.c as any)[colorName] || (def ? this.c.cyan : this.c.dim);
+        const colorName = def?.ui?.color || 'cyan';
+        const color = (this.c as any)[colorName] || this.c.cyan;
 
         for (const v of values) {
-          // Always prefix in text output to avoid confusion in multi-protocol commits
-          lines.push(`${this.c.dim(`[${state.name}]`)} ${color(`${key}:`)} ${v}`);
+          lines.push(`${this.c.dim(`[${protocol.name}]`)} ${color(`${key}:`)} ${v}`);
+        }
+        allStateKeys.delete(key);
+      }
+
+      // 3. Render any remaining custom/permissive trailers
+      for (const key of allStateKeys) {
+        if (key === state.identityKey && protocol.getIdentity(state.trailers) === headerId) {
+          continue;
+        }
+        if (!shouldShow(key)) continue;
+
+        const values = state.trailers[key];
+        if (!values || values.length === 0) continue;
+
+        for (const v of values) {
+          lines.push(`${this.c.dim(`[${protocol.name}]`)} ${this.c.dim(`${key}:`)} ${v}`);
         }
       }
     }

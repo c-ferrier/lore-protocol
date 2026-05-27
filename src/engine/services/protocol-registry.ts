@@ -79,7 +79,7 @@ export class ProtocolRegistry {
     }
     
     // Combine multiple patterns using | and wrap in parentheses for safety
-    const combined = patterns.map((p) => `(${p})`).join('|');
+    const combined = patterns.map(p => `(${p})`).join('|');
     return [`--grep=${combined}`];
   }
 

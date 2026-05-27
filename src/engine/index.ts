@@ -207,8 +207,8 @@ export async function runCli(options: EngineOptions) {
         : new JsonFormatter(protocolRegistry);
     } else {
       cachedFormatter = options.textFormatterFactory
-        ? options.textFormatterFactory(protocolRegistry, { color: !opts.noColor })
-        : new TextFormatter(protocolRegistry, { color: !opts.noColor });
+        ? options.textFormatterFactory(protocolRegistry, { color: opts.color })
+        : new TextFormatter(protocolRegistry, { color: opts.color });
     }
     return cachedFormatter;
   };

@@ -125,11 +125,14 @@ export class GitClient implements IGitClient {
   async getFilesChanged(commitHashes: readonly string[]): Promise<ReadonlyMap<string, readonly string[]>> {
     if (commitHashes.length === 0) return new Map();
 
+    // Use git log --no-walk --stdin for robust batching that correctly handles root commits.
+    // Format: %H (full hash) on its own line, followed by files.
     const stdout = await this.exec([
-      'diff-tree',
-      '--stdin',
+      'log',
       '--name-only',
-      '-r',
+      '--format=%H',
+      '--no-walk',
+      '--stdin',
       '--relative',
     ], commitHashes.join('\n'));
 
@@ -142,14 +145,20 @@ export class GitClient implements IGitClient {
       const trimmed = line.trim();
       if (!trimmed) continue;
 
-      // Git outputs the full hash on its own line when using --stdin.
-      // We whitelist the hash to ensure we don't misidentify a file path
-      // that happens to be 40 or 64 characters long.
+      // Match the full hash line to anchor the following file list
       if (requestedHashes.has(trimmed)) {
         currentHash = trimmed;
-        result.set(currentHash, []);
-      } else if (currentHash) {
-        result.get(currentHash)!.push(trimmed);
+        if (!result.has(currentHash)) {
+          result.set(currentHash, []);
+        }
+        continue;
+      }
+
+      if (currentHash) {
+        const files = result.get(currentHash)!;
+        if (!files.includes(trimmed)) {
+          files.push(trimmed);
+        }
       }
     }
 

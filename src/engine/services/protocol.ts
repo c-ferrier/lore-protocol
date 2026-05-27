@@ -254,7 +254,14 @@ export class Protocol implements IProtocol {
     for (const [key, def] of Object.entries(this.config.trailers.definitions)) {
       const existing = this.definitions.get(key);
       const isCore = existing?.isCore ?? false;
-      this.addDefinition(key, { ...def, key, isCore });
+      
+      // Merge: Config overrides core, but we preserve core metadata if missing in config
+      this.addDefinition(key, { 
+          ...existing, 
+          ...def, 
+          key, 
+          isCore 
+      } as AuthorizedTrailerDefinition);
     }
 
     // 3. Load Simple Custom Trailers (from custom list)

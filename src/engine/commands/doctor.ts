@@ -138,7 +138,7 @@ async function checkConfig(configLoader: IConfigLoader, defaultConfig: any): Pro
   return {
     name: 'Configuration',
     status: details.length > 0 ? 'warning' : 'ok',
-    message: details.length > 0 ? 'Config file found with gaps' : 'Config file found and verified',
+    message: details.length > 0 ? `Config file found with gaps at ${configPath}` : `Found and parsed ${configPath}`,
     details,
   };
 }

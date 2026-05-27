@@ -72,12 +72,13 @@ export function registerLogCommand(
 
     const totalAtoms = atoms.length;
 
-    // Filter active atoms unless --all is specified
+    // Default to showing all atoms (mirroring git log)
+    // Supersession status is still calculated and displayed, but atoms are not hidden.
     let displayAtoms: readonly Atom[];
-    if (options.all) {
-      displayAtoms = atoms;
-    } else {
+    if (options.all === false) {
       displayAtoms = supersessionResolver.filterActive(atoms, globalSupersessionMap);
+    } else {
+      displayAtoms = atoms;
     }
 
     // Apply the display-level limit

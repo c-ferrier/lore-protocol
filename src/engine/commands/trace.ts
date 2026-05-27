@@ -6,6 +6,7 @@ import type { FormattableTraceResult, TraceEdge } from '../types/output.js';
 import { ProtocolError } from '../../util/errors.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IProtocol } from '../interfaces/protocol.js';
+import type { ILogger } from '../interfaces/logger.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
 /**
@@ -23,6 +24,7 @@ export function registerTraceCommand(
     gitClient: IGitClient;
     getFormatter: () => IOutputFormatter;
     protocolRegistry: ProtocolRegistry;
+    logger: ILogger;
   },
 ): void {
   program
@@ -30,7 +32,7 @@ export function registerTraceCommand(
     .description('Trace the lineage and relationships of a decision')
     .option('--max-depth <n>', 'Maximum BFS traversal depth', (val) => parseInt(val, 10), 10)
     .action(async (id: string, options: { maxDepth: number }) => {
-      const { atomRepository, getFormatter, protocolRegistry } = deps;
+      const { atomRepository, getFormatter, protocolRegistry, logger } = deps;
 
       let activeProtocol: IProtocol | null = null;
       for (const p of protocolRegistry.getAll()) {
@@ -117,6 +119,6 @@ export function registerTraceCommand(
       };
 
       const formatter = getFormatter();
-      console.log(formatter.formatTraceResult(traceResult));
+      logger.result(formatter.formatTraceResult(traceResult));
     });
 }
