@@ -333,10 +333,13 @@ export class AtomRepository {
   private async batchFetchFiles(hashes: string[]): Promise<Map<string, readonly string[]>> {
     const result = new Map<string, readonly string[]>();
     
-    // Use Atom Cache for files changed
+    // 1. Parallel Cache Lookup
+    const cacheResults = await Promise.all(hashes.map(h => this.atomCache.get(h)));
+    
     const missingHashes: string[] = [];
-    for (const hash of hashes) {
-      const cached = await this.atomCache.get(hash);
+    for (let i = 0; i < hashes.length; i++) {
+      const hash = hashes[i];
+      const cached = cacheResults[i];
       if (cached) {
         result.set(hash, cached.filesChanged);
       } else {
