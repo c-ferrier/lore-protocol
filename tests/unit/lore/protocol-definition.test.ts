@@ -39,10 +39,28 @@ describe('LoreProtocolDefinition Hooks', () => {
       const statusMap = new Map<string, SupersessionStatus>([
           ['old-id', { superseded: true, supersededBy: 'new-id' }]
       ]);
-      
-      const signals = LoreProtocolDefinition.getStaleSignals!(atom, new Date(), statusMap);
+      const globalStatusMap = new Map([
+          ['lore', statusMap]
+      ]);
+
+      const signals = LoreProtocolDefinition.getStaleSignals!(atom, new Date(), globalStatusMap);
       expect(signals.some(s => s.signal === 'orphaned-dep')).toBe(true);
       expect(signals[0].description).toContain('superseded by new-id');
+    });
+
+    it('should flag "orphaned-dep" when a cross-protocol dependency is superseded', () => {
+      const atom = makeMockAtom({ 'Depends-on': ['sec/cve-123'] });
+      const statusMap = new Map<string, SupersessionStatus>([
+          ['cve-123', { superseded: true, supersededBy: 'sec/cve-456' }]
+      ]);
+      const globalStatusMap = new Map([
+          ['sec', statusMap]
+      ]);
+
+      const signals = LoreProtocolDefinition.getStaleSignals!(atom, new Date(), globalStatusMap);
+      expect(signals.some(s => s.signal === 'orphaned-dep')).toBe(true);
+      expect(signals[0].description).toContain('Dependency "sec/cve-123"');
+      expect(signals[0].description).toContain('superseded by sec/cve-456');
     });
 
     it('should return empty array if no lore interpretation exists', () => {

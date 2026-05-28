@@ -153,11 +153,11 @@ export interface IProtocol {
    * Returns a list of staleness signals identified for an atom.
    * @param atom The atom to analyze.
    * @param now Current date for time-based checks.
-   * @param supersessionMap Global supersession context.
+   * @param globalSupersessionMap Global supersession context (protocolName -> statusMap).
    */
   getStaleSignals(
     atom: Atom,
     now: Date,
-    supersessionMap: Map<string, SupersessionStatus>,
+    globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
   ): StaleReason[];
 }

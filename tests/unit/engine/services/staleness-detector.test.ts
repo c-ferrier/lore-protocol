@@ -58,10 +58,12 @@ function createMockProtocol(): IProtocol {
     getIdentity: vi.fn((trailers) => trailers?.[MOCK_ID_KEY]?.[0] || null),
     
     // Core Engine Logic Test: verify that the detector delegates to this method
-    getStaleSignals: vi.fn((atom: Atom, now: Date, supersessionMap: Map<string, SupersessionStatus>): StaleReason[] => {
+    getStaleSignals: vi.fn((atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[] => {
       const reasons: StaleReason[] = [];
       const state = atom.protocols.get('mock');
       if (!state) return [];
+
+      const supersessionMap = globalSupersessionMap.get('mock') || new Map();
 
       // 1. Simulate 'low-confidence' signal
       if (state.trailers.Confidence?.[0] === 'low') {
@@ -134,8 +136,9 @@ function makeAtom(options: {
   };
 }
 
-function makeSupersessionMap(entries: Array<[string, { superseded: boolean; supersededBy: string | null }]>): Map<string, SupersessionStatus> {
-  return new Map(entries);
+function makeGlobalSupersessionMap(entries: Array<[string, { superseded: boolean; supersededBy: string | null }]>): Map<string, Map<string, SupersessionStatus>> {
+  const statusMap = new Map(entries);
+  return new Map([['mock', statusMap]]);
 }
 
 describe('StalenessDetector', () => {
@@ -162,7 +165,7 @@ describe('StalenessDetector', () => {
         oldDate.setFullYear(oldDate.getFullYear() - 1);
 
         const atom = makeAtom({ date: oldDate });
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(1);
         expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.AGE)).toBe(true);
@@ -174,7 +177,7 @@ describe('StalenessDetector', () => {
         recentDate.setDate(recentDate.getDate() - 1);
 
         const atom = makeAtom({ date: recentDate });
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(0);
       });
@@ -188,7 +191,7 @@ describe('StalenessDetector', () => {
         date.setDate(date.getDate() - 60);
 
         const atom = makeAtom({ date });
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(1);
         expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.AGE && r.description.includes('30d'))).toBe(true);
@@ -203,7 +206,7 @@ describe('StalenessDetector', () => {
         date.setFullYear(date.getFullYear() - 2);
 
         const atom = makeAtom({ date });
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(1);
       });
@@ -217,7 +220,7 @@ describe('StalenessDetector', () => {
         date.setDate(date.getDate() - 21);
 
         const atom = makeAtom({ date });
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(1);
       });
@@ -232,7 +235,7 @@ describe('StalenessDetector', () => {
           filesChanged: ['src/auth.ts'],
         });
 
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(1);
         expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.DRIFT)).toBe(true);
@@ -247,7 +250,7 @@ describe('StalenessDetector', () => {
           filesChanged: ['src/auth.ts'],
         });
 
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(0);
       });
@@ -262,7 +265,7 @@ describe('StalenessDetector', () => {
           filesChanged: ['src/auth.ts', 'src/db.ts'],
         });
 
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(1);
         expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.DRIFT && r.description.includes('1 files'))).toBe(true);
@@ -276,7 +279,7 @@ describe('StalenessDetector', () => {
           filesChanged: ['deleted-file.ts'],
         });
 
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         // Should not crash, and should not add a drift reason for the deleted file
         expect(result).toHaveLength(0);
@@ -292,7 +295,7 @@ describe('StalenessDetector', () => {
           filesChanged: ['src/auth.ts'],
         });
 
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(1);
         expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.DRIFT && r.description.includes('5'))).toBe(true);
@@ -306,7 +309,7 @@ describe('StalenessDetector', () => {
           confidence: 'low',
         });
 
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(1);
         expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.LOW_CONFIDENCE)).toBe(true);
@@ -318,7 +321,7 @@ describe('StalenessDetector', () => {
           confidence: 'medium',
         });
 
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(0);
       });
@@ -329,7 +332,7 @@ describe('StalenessDetector', () => {
           directives: ['Migrate to v2 API [until:2024-06]'],
         });
 
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(1);
         expect(result[0].reasons.some((r) => r.signal === STALE_SIGNAL.EXPIRED_HINT)).toBe(true);
@@ -341,7 +344,7 @@ describe('StalenessDetector', () => {
           directives: ['Keep this module small'],
         });
 
-        const result = await detector.analyze([atom], makeSupersessionMap([]));
+        const result = await detector.analyze([atom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(0);
       });
@@ -352,7 +355,7 @@ describe('StalenessDetector', () => {
           dependsOn: ['bbbb2222'],
         });
 
-        const statusMap = makeSupersessionMap([
+        const statusMap = makeGlobalSupersessionMap([
           ['bbbb2222', { superseded: true, supersededBy: 'cccc3333' }],
         ]);
 
@@ -368,7 +371,7 @@ describe('StalenessDetector', () => {
           dependsOn: ['bbbb2222'],
         });
 
-        const statusMap = makeSupersessionMap([
+        const statusMap = makeGlobalSupersessionMap([
           ['bbbb2222', { superseded: false, supersededBy: null }],
         ]);
 
@@ -393,7 +396,7 @@ describe('StalenessDetector', () => {
           dependsOn: ['bbbb2222'],
         });
 
-        const statusMap = makeSupersessionMap([
+        const statusMap = makeGlobalSupersessionMap([
           ['bbbb2222', { superseded: true, supersededBy: 'cccc3333' }],
         ]);
 
@@ -416,7 +419,7 @@ describe('StalenessDetector', () => {
         const staleAtom = makeAtom({ id: 'aaaa1111', date: oldDate });
         const freshAtom = makeAtom({ id: 'bbbb2222', date: new Date() });
 
-        const result = await detector.analyze([staleAtom, freshAtom], makeSupersessionMap([]));
+        const result = await detector.analyze([staleAtom, freshAtom], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(1);
         const state = result[0].atom.protocols.get('mock');
@@ -424,7 +427,7 @@ describe('StalenessDetector', () => {
       });
 
       it('should handle empty atom list', async () => {
-        const result = await detector.analyze([], makeSupersessionMap([]));
+        const result = await detector.analyze([], makeGlobalSupersessionMap([]));
 
         expect(result).toHaveLength(0);
       });

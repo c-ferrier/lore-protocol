@@ -19,6 +19,6 @@ export interface ProtocolDefinition {
   readonly getStaleSignals?: (
     atom: Atom,
     now: Date,
-    supersessionMap: Map<string, SupersessionStatus>,
+    globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
   ) => StaleReason[];
 }

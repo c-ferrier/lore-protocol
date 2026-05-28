@@ -13,72 +13,116 @@ export class SupersessionResolver {
   constructor(private readonly protocolRegistry: ProtocolRegistry) {}
 
   /**
-   * Resolves supersession for a specific protocol.
+   * Resolves a global supersession map for all registered protocols.
+   * Uses qualified identities (protocol/id) to support cross-protocol chains.
    */
-  resolveForProtocol(atoms: readonly Atom[], protocol: IProtocol): Map<string, SupersessionStatus> {
-    const statusMap = new Map<string, SupersessionStatus>();
-    const protocolName = protocol.name.toLowerCase();
+  resolveAll(atoms: readonly Atom[]): Map<string, Map<string, SupersessionStatus>> {
+    const globalStatusMap = new Map<string, Map<string, SupersessionStatus>>();
+    const atomByQualifiedId = new Map<string, Atom>();
 
-    // 1. Initialize all atoms as not superseded
-    for (const atom of atoms) {
-      const state = atom.protocols.get(protocolName);
-      const id = protocol.getIdentity(state?.trailers);
-      if (id) {
-        statusMap.set(id, {
-          superseded: false,
-          supersededBy: null,
-        });
-      }
-    }
+    // 1. Initialize global status map and ID lookup
+    for (const protocol of this.protocolRegistry.getAll()) {
+      const pName = protocol.name.toLowerCase();
+      const statusMap = new Map<string, SupersessionStatus>();
+      globalStatusMap.set(pName, statusMap);
 
-    // Build a lookup map for quick access
-    const atomById = new Map<string, Atom>();
-    for (const atom of atoms) {
-      const state = atom.protocols.get(protocolName);
-      const id = protocol.getIdentity(state?.trailers);
-      if (id) {
-        atomById.set(id, atom);
-      }
-    }
-
-    // 2. First pass: mark direct supersessions
-    for (const atom of atoms) {
-      const state = atom.protocols.get(protocolName);
-      if (!state) continue;
-      
-      const id = protocol.getIdentity(state.trailers);
-      if (!id) continue;
-
-      for (const supersededId of state.trailers.Supersedes || []) {
-        if (!protocol.isValidIdentity(supersededId)) {
-          continue;
-        }
-
-        if (statusMap.has(supersededId)) {
-          statusMap.set(supersededId, {
-            superseded: true,
-            supersededBy: id,
-          });
+      for (const atom of atoms) {
+        const state = atom.protocols.get(pName);
+        const id = protocol.getIdentity(state?.trailers);
+        if (id) {
+          statusMap.set(id, { superseded: false, supersededBy: null });
+          atomByQualifiedId.set(`${pName}/${id}`, atom);
         }
       }
     }
 
-    // 3. Second pass: resolve transitive chains
-    this.resolveTransitiveChains(atoms, atomById, statusMap, protocol);
+    // 2. Resolve direct and transitive supersessions globally
+    for (const atom of atoms) {
+      for (const [pName, state] of atom.protocols) {
+        const protocol = this.protocolRegistry.get(pName);
+        if (!protocol) continue;
 
-    return statusMap;
+        const id = protocol.getIdentity(state.trailers);
+        if (!id) continue;
+        const qualifiedId = `${pName}/${id}`;
+
+        for (const ref of state.trailers.Supersedes || []) {
+          try {
+            const targetIdentity = this.protocolRegistry.resolveIdentity(ref, pName);
+            const targetPName = targetIdentity.protocol || pName;
+            const targetQualifiedId = `${targetPName}/${targetIdentity.id}`;
+
+            const targetStatusMap = globalStatusMap.get(targetPName);
+            if (targetStatusMap?.has(targetIdentity.id)) {
+              // 3. Mark direct supersession
+              // Format supersededBy: omit prefix if it matches the target protocol
+              const displaySupersededBy = (targetPName === pName) ? id : qualifiedId;
+
+              const status = targetStatusMap.get(targetIdentity.id)!;
+              if (!status.superseded) {
+                targetStatusMap.set(targetIdentity.id, {
+                  superseded: true,
+                  supersededBy: displaySupersededBy,
+                });
+              }
+
+              // Resolve transitive chain for this link
+              this.resolveTransitiveChain(
+                targetQualifiedId,
+                displaySupersededBy,
+                atomByQualifiedId,
+                globalStatusMap
+              );
+            }
+          } catch {
+            // Skip unresolvable references
+          }
+        }
+      }
+    }
+
+    return globalStatusMap;
   }
 
   /**
-   * Resolves a global supersession map for all registered protocols.
-   * Returns a Map of protocolName -> statusMap.
+   * Resolve a transitive supersession chain recursively.
    */
-  resolveAll(atoms: readonly Atom[]): Map<string, Map<string, SupersessionStatus>> {
-    const results = new Map<string, Map<string, SupersessionStatus>>();
-    for (const protocol of this.protocolRegistry.getAll()) {
-        results.set(protocol.name.toLowerCase(), this.resolveForProtocol(atoms, protocol));
+  private resolveTransitiveChain(
+    currentQualifiedId: string,
+    topQualifiedId: string,
+    atomByQualifiedId: Map<string, Atom>,
+    globalStatusMap: Map<string, Map<string, SupersessionStatus>>,
+    visited: Set<string> = new Set()
+  ): void {
+    if (visited.has(currentQualifiedId)) return;
+    visited.add(currentQualifiedId);
+
+    const atom = atomByQualifiedId.get(currentQualifiedId);
+    if (!atom) return;
+
+    for (const [pName, state] of atom.protocols) {
+      for (const ref of state.trailers.Supersedes || []) {
+        try {
+          const targetIdentity = this.protocolRegistry.resolveIdentity(ref, pName);
+          const targetPName = targetIdentity.protocol || pName;
+          const targetQualifiedId = `${targetPName}/${targetIdentity.id}`;
+
+          const targetStatusMap = globalStatusMap.get(targetPName);
+          if (targetStatusMap?.has(targetIdentity.id)) {
+            const status = targetStatusMap.get(targetIdentity.id)!;
+            if (!status.superseded) {
+               targetStatusMap.set(targetIdentity.id, {
+                 superseded: true,
+                 supersededBy: topQualifiedId,
+               });
+            }
+            this.resolveTransitiveChain(targetQualifiedId, topQualifiedId, atomByQualifiedId, globalStatusMap, visited);
+          }
+        } catch {
+          // Skip
+        }
+      }
     }
-    return results;
   }
 
   /**
@@ -109,69 +153,7 @@ export class SupersessionResolver {
         }
       }
 
-      // If it's a protocol atom and superseded in its context, hide it.
-      // If it's not a protocol atom (agnostic mode), always show it.
       return !hasProtocolMatch || !isSupersededInAny;
     });
-  }
-
-  /**
-   * Resolve transitive supersession chains for a specific protocol.
-   */
-  private resolveTransitiveChains(
-    atoms: readonly Atom[],
-    atomById: Map<string, Atom>,
-    statusMap: Map<string, SupersessionStatus>,
-    protocol: IProtocol,
-  ): void {
-    const protocolName = protocol.name.toLowerCase();
-
-    for (const atom of atoms) {
-      const state = atom.protocols.get(protocolName);
-      const id = protocol.getIdentity(state?.trailers);
-      if (!id) continue;
-      
-      const supersedes = state?.trailers.Supersedes || [];
-      if (supersedes.length === 0) {
-        continue;
-      }
-
-      const visited = new Set<string>();
-      visited.add(id);
-
-      const queue: AtomId[] = [...supersedes];
-
-      while (queue.length > 0) {
-        const currentId = queue.shift()!;
-        if (visited.has(currentId)) {
-          continue;
-        }
-        visited.add(currentId);
-
-        if (!protocol.isValidIdentity(currentId)) {
-          continue;
-        }
-
-        if (statusMap.has(currentId)) {
-          const currentStatus = statusMap.get(currentId)!;
-          if (!currentStatus.superseded) {
-            statusMap.set(currentId, {
-              superseded: true,
-              supersededBy: id,
-            });
-          }
-        }
-
-        const supersededAtom = atomById.get(currentId);
-        if (supersededAtom) {
-          const supersededState = supersededAtom.protocols.get(protocolName);
-          for (const nextId of supersededState?.trailers.Supersedes || []) {
-            if (!visited.has(nextId)) {
-              queue.push(nextId);
-            }
-          }
-        }
-      }
-    }
   }
 }

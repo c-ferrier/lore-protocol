@@ -230,7 +230,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
     }
   },
 
-  getStaleSignals(atom: Atom, now: Date, supersessionMap: Map<string, SupersessionStatus>): StaleReason[] {
+  getStaleSignals(atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[] {
     const reasons: StaleReason[] = [];
     const state = atom.protocols.get('lore');
     if (!state) return reasons;
@@ -256,16 +256,37 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
     }
 
     // 3. Orphaned Dependency Signal
+    // Resolves references across protocols by using the global supersession map.
     const refKeys = ['Supersedes', 'Depends-on', 'Related'];
+    const pName = 'lore';
+
     for (const key of refKeys) {
-      const ids = state.trailers[key] || [];
-      for (const id of ids) {
-        const status = supersessionMap.get(id);
-        if (status?.superseded) {
-          reasons.push({
-            signal: STALE_SIGNAL.ORPHANED_DEP,
-            description: `[Lore] Dependency "${id}" (in ${key}) has been superseded by ${status.supersededBy}`,
-          });
+      const refs = state.trailers[key] || [];
+      for (const ref of refs) {
+        try {
+          // Resolve identity (handles prefixes like 'sec/123')
+          // We can't use the registry here easily as this is a static definition, 
+          // but we can assume standard 'protocol/id' format.
+          let targetId = ref;
+          let targetPName = pName;
+
+          if (ref.includes('/')) {
+            const [prefix, suffix] = ref.split('/', 2);
+            targetPName = prefix.toLowerCase();
+            targetId = suffix;
+          }
+
+          const targetStatusMap = globalSupersessionMap.get(targetPName);
+          const status = targetStatusMap?.get(targetId);
+
+          if (status?.superseded) {
+            reasons.push({
+              signal: STALE_SIGNAL.ORPHANED_DEP,
+              description: `[Lore] Dependency "${ref}" (in ${key}) has been superseded by ${status.supersededBy}`,
+            });
+          }
+        } catch {
+          // Skip invalid references
         }
       }
     }

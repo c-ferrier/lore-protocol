@@ -462,10 +462,10 @@ export class Protocol implements IProtocol {
   getStaleSignals(
     atom: Atom,
     now: Date,
-    supersessionMap: Map<string, SupersessionStatus>,
+    globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
   ): StaleReason[] {
     if (this.definition.getStaleSignals) {
-      return this.definition.getStaleSignals(atom, now, supersessionMap);
+      return this.definition.getStaleSignals(atom, now, globalSupersessionMap);
     }
     return [];
   }

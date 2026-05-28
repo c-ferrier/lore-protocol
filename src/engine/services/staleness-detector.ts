@@ -25,7 +25,7 @@ export class StalenessDetector {
    */
   async analyze(
     atoms: readonly Atom[],
-    supersessionMap: Map<string, SupersessionStatus>,
+    globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
   ): Promise<StaleAtomReport[]> {
     const now = new Date();
     const protocols = this.protocolRegistry.getAll();
@@ -39,7 +39,7 @@ export class StalenessDetector {
 
       // 2. Protocol-Specific Signals
       for (const protocol of protocols) {
-          const pReasons = protocol.getStaleSignals(atom, now, supersessionMap);
+          const pReasons = protocol.getStaleSignals(atom, now, globalSupersessionMap);
           reasons.push(...pReasons);
       }
 
