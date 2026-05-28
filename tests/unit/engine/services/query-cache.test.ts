@@ -8,10 +8,11 @@ import type { QueryOptions } from '../../../../src/engine/types/query.js';
 describe('QueryCache', () => {
   let tempDir: string;
   let cache: QueryCache;
+  const F1 = 'mock@1.0';
 
   beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'query-cache-test-'));
-    cache = new QueryCache(tempDir, 100);
+    cache = new QueryCache(tempDir, 100, F1);
   });
 
   afterEach(async () => {
@@ -86,7 +87,7 @@ describe('QueryCache', () => {
   });
 
   it('should prune old entries based on LRU threshold', async () => {
-    const smallCache = new QueryCache(tempDir, 2);
+    const smallCache = new QueryCache(tempDir, 2, F1);
     const options = getMockOptions();
 
     await smallCache.set(H1, ['--1'], options, ['v1']);
@@ -99,5 +100,18 @@ describe('QueryCache', () => {
 
     const files = await readdir(tempDir);
     expect(files.length).toBeLessThanOrEqual(2);
+  });
+
+  it('should invalidate cache if fingerprint changes', async () => {
+    const gitLogArgs = ['--'];
+    const hashes = ['h1'];
+    const options = getMockOptions();
+
+    await cache.set(H1, gitLogArgs, options, hashes);
+    
+    const otherCache = new QueryCache(tempDir, 100, 'fred@1.0;mock@1.0');
+    const retrieved = await otherCache.get(H1, gitLogArgs, options);
+
+    expect(retrieved).toBeNull();
   });
 });

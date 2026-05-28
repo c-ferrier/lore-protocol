@@ -16,6 +16,7 @@ export class QueryCache implements IQueryCache {
   constructor(
     private readonly cacheDir: string,
     private readonly pruneThreshold: number = DEFAULT_CACHE_PRUNE_THRESHOLD,
+    private readonly protocolFingerprint: string = '',
   ) {}
 
   async get(
@@ -73,6 +74,7 @@ export class QueryCache implements IQueryCache {
     const header = {
       head: headHash,
       query: { gitLogArgs, ...options },
+      protocolFingerprint: this.protocolFingerprint,
       createdAt: new Date().toISOString(),
     };
 
@@ -139,13 +141,22 @@ export class QueryCache implements IQueryCache {
   }
 
   private generateQueryHash(gitLogArgs: readonly string[], options: QueryOptions): string {
-    // 1. Normalize path args
-    const normalizedArgs = gitLogArgs.join(' ');
+    // 1. Normalize and sort path args (case-sensitive as Git paths are usually case-sensitive)
+    const normalizedArgs = [...gitLogArgs]
+      .map(a => a.trim())
+      .filter(a => a.length > 0)
+      .sort()
+      .join(' ');
     
-    // 2. Deep normalize options (sort all keys recursively for stable hashing)
+    // 2. Deep normalize options (sort all keys recursively and lowercase them for stable hashing)
     const normalize = (obj: any): any => {
       if (Array.isArray(obj)) {
-        return obj.map(normalize);
+        // Sort arrays of primitives to ensure order-independence for multiple filter values
+        const items = obj.map(normalize);
+        if (items.every(item => typeof item === 'string' || typeof item === 'number')) {
+            return items.sort();
+        }
+        return items;
       }
       if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
         return Object.keys(obj)
@@ -156,7 +167,8 @@ export class QueryCache implements IQueryCache {
             
             const val = obj[key];
             if (val !== null && val !== undefined) {
-              acc[key] = normalize(val);
+              // Lowercase keys to match case-insensitive trailer search behavior
+              acc[key.toLowerCase()] = normalize(val);
             }
             return acc;
           }, {});
@@ -166,9 +178,9 @@ export class QueryCache implements IQueryCache {
 
     const normalizedOptions = JSON.stringify(normalize(options));
 
-    // 3. Hash the combined string
+    // 3. Hash the combined string including the protocol identity fingerprint
     return createHash('sha1')
-      .update(`${normalizedArgs}:${normalizedOptions}`)
+      .update(`${normalizedArgs}:${normalizedOptions}:${this.protocolFingerprint}`)
       .digest('hex');
   }
 }

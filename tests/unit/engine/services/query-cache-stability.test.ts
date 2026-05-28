@@ -15,7 +15,7 @@ describe('QueryCache Stability', () => {
   });
 
   it('should produce the same hash for filters with different key orders', async () => {
-    const cache = new QueryCache(testCacheDir);
+    const cache = new QueryCache(testCacheDir, 100, 'mock@1.0');
     const headHash = 'a'.repeat(40);
     const gitLogArgs = ['GLOBAL'];
     
@@ -41,6 +41,59 @@ describe('QueryCache Stability', () => {
     // Get with options2 (should hit the same cache file)
     const result = await cache.get(headHash, gitLogArgs, options2);
     
+    expect(result).toEqual(hashes);
+  });
+
+  it('should produce different hashes (cache miss) when the fingerprint changes', async () => {
+    const headHash = 'a'.repeat(40);
+    const gitLogArgs = ['GLOBAL'];
+    const options = { text: 'bug' };
+    const hashes = ['h1'];
+
+    // 1. Set with fingerprint V1
+    const cacheV1 = new QueryCache(testCacheDir, 100, 'mock@1.0');
+    await cacheV1.set(headHash, gitLogArgs, options, hashes);
+
+    // 2. Get with fingerprint V2 (should MISS)
+    const cacheV2 = new QueryCache(testCacheDir, 100, 'mock@1.0;fred@1.0');
+    const result = await cacheV2.get(headHash, gitLogArgs, options);
+
+    expect(result).toBeNull();
+  });
+
+  it('should be order-independent for gitLogArgs (paths after --)', async () => {
+    const cache = new QueryCache(testCacheDir, 100, 'mock@1.0');
+    const headHash = 'a'.repeat(40);
+    const options = { all: true };
+    const hashes = ['h1'];
+
+    await cache.set(headHash, ['--', 'src/auth.ts', 'src/main.ts'], options, hashes);
+    const result = await cache.get(headHash, ['--', 'src/main.ts', 'src/auth.ts'], options);
+
+    expect(result).toEqual(hashes);
+  });
+
+  it('should be case-insensitive for filter keys', async () => {
+    const cache = new QueryCache(testCacheDir, 100, 'mock@1.0');
+    const headHash = 'a'.repeat(40);
+    const gitLogArgs = ['GLOBAL'];
+    const hashes = ['h1'];
+
+    await cache.set(headHash, gitLogArgs, { filters: { Confidence: 'high' } }, hashes);
+    const result = await cache.get(headHash, gitLogArgs, { filters: { confidence: 'high' } });
+
+    expect(result).toEqual(hashes);
+  });
+
+  it('should be order-independent for multiple filter values (arrays)', async () => {
+    const cache = new QueryCache(testCacheDir, 100, 'mock@1.0');
+    const headHash = 'a'.repeat(40);
+    const gitLogArgs = ['GLOBAL'];
+    const hashes = ['h1'];
+
+    await cache.set(headHash, gitLogArgs, { filters: { Status: ['open', 'done'] } }, hashes);
+    const result = await cache.get(headHash, gitLogArgs, { filters: { status: ['done', 'open'] } });
+
     expect(result).toEqual(hashes);
   });
 });

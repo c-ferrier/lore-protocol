@@ -56,7 +56,7 @@ export class AtomRepository {
       discoveryArgs.push('--extended-regexp', '--regexp-ignore-case', '--all-match');
     }
 
-    const args = this.buildGitLogArgs([...gitLogArgs, ...discoveryArgs], resolvedOptions);
+    const args = this.buildGitLogArgs([...discoveryArgs, ...gitLogArgs], resolvedOptions);
 
     const rawCommits = await this.gitClient.log(args);
 

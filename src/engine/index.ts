@@ -167,6 +167,7 @@ export async function runCli(options: EngineOptions) {
   const queryCache: IQueryCache = new QueryCache(
     join(activeRoot, options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
     config.cli.queryCachePruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
+    `engine@${packageJson.version};${protocolRegistry.getFingerprint()}`,
   );
 
   const atomRepository = new AtomRepository(
