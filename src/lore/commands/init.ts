@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { 
     LORE_CONFIG_DIR, 
     LORE_CONFIG_FILENAME, 
-    LORE_DEFAULT_ENGINE_CONFIG, 
     LORE_050_CONFIG_TEMPLATE,
     LORE_050_EXPECTED_KEYS
 } from '../defaults.js';
@@ -14,12 +13,13 @@ import type { EngineConfig } from '../../engine/types/config.js';
 import { LoreProtocolDefinition } from '../protocol-definition.js';
 import { stringify as stringifyToml, parse as parseToml } from 'smol-toml';
 import { ProtocolError } from '../../util/errors.js';
-import type { ILogger } from '../../engine/interfaces/logger.js';
+import { type ILogger, LogLevel } from '../../engine/interfaces/logger.js';
+import { InMemoryLogger } from '../../engine/services/in-memory-logger.js';
 
 /**
  * Lore-specific init command.
  * 
- * 1. Delegates core .atom setup to the Engine.
+ * 1. Delegates core .atom setup to the Engine silently.
  * 2. Writes lore.toml to .atom/protocols/ (Dynamic Discovery).
  * 3. Creates legacy .lore/config.toml (0.5.0 parity) from template.
  * 4. Performs gap detection using a specialized 0.5.0 spec.
@@ -35,6 +35,22 @@ export function registerInitCommand(
   },
 ): void {
   const { getFormatter, engineDirName, logger } = deps;
+
+  // Helper to run engine init silently so users don't see .atom paths
+  const runEngineSilent = async () => {
+    const silentLogger = new InMemoryLogger();
+    try {
+      await executeEngineInit({ ...deps, logger: silentLogger });
+    } catch (err) {
+      // If engine init fails, dump the silent logs so we can debug
+      for (const log of silentLogger.logs) {
+        if (log.level === LogLevel.ERROR) logger.error(log.message);
+        else if (log.level === LogLevel.WARN) logger.warn(log.message);
+        else logger.info(log.message);
+      }
+      throw err;
+    }
+  };
 
   program
     .command('init')
@@ -68,15 +84,15 @@ export function registerInitCommand(
           throw new ProtocolError(`Your configuration file is corrupted: ${err instanceof Error ? err.message : String(err)}`, 1);
         }
 
-        // Even if config exists, ensure engine backing is present
-        await executeEngineInit(deps);
+        // Even if config exists, ensure engine backing is present silently
+        await runEngineSilent();
         await writeDiscoveryProtocol(engineDirName, formatter, logger);
         return;
       }
 
       // --- INITIALIZATION ---
-      // 1. Delegate core engine setup
-      await executeEngineInit(deps);
+      // 1. Delegate core engine setup silently
+      await runEngineSilent();
 
       // 2. Write protocol definition for Atom's dynamic discovery
       await writeDiscoveryProtocol(engineDirName, formatter, logger);

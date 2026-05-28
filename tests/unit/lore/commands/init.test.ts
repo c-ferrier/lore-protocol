@@ -4,8 +4,9 @@ import { registerInitCommand } from '../../../../src/lore/commands/init.js';
 import type { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
-import { LORE_CONFIG_DIR as CONFIG_DIR, LORE_CONFIG_FILENAME as CONFIG_FILENAME, LORE_DEFAULT_ENGINE_CONFIG } from '../../../../src/lore/defaults.js';
+import { LORE_CONFIG_DIR as CONFIG_DIR, LORE_CONFIG_FILENAME as CONFIG_FILENAME } from '../../../../src/lore/defaults.js';
 import { MockLogger } from '../../engine/test-utils.js';
+import { DEFAULT_ENGINE_CONFIG } from '../../../../src/engine/defaults.js';
 
 vi.mock('node:fs/promises');
 
@@ -27,7 +28,7 @@ describe('registerInitCommand', () => {
     getFormatter: () => formatter,
     engineDirName: '.atom',
     configFileName: 'config.toml',
-    defaultConfig: LORE_DEFAULT_ENGINE_CONFIG,
+    defaultConfig: DEFAULT_ENGINE_CONFIG,
     logger: null as any,
   };
 

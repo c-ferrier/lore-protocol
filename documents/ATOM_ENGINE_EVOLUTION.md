@@ -125,7 +125,15 @@ If the engine's core is stabilized, these three extreme concepts redefine how a 
     3.  **Local Overrides:** Repository-specific `config.toml` that maps locations, toggles `required` fields, and enforces custom namespaces.
 *   **Value:** Provides "Zero-Configuration" for simple projects while enabling "Progressive Configuration" for complex enterprise federated graphs.
 
-***
+### 6. Protocol-Accessible Domain Caching
+*   **Concept**: Transition the `AtomCache` from a purely structural engine tool (drift detection) to a shared service for Protocol plugins.
+*   **Value**: Allows custom protocols to cache computationally expensive signal data (e.g., results of external API calls or deep graph traversals) within the engine's sharded filesystem cache.
 
-**Instructions for the AI Assistant:**
+### 7. Dependency-Injected Protocol Hooks
+*   **Concept**: Move away from static `ProtocolDefinition` hooks and provide protocols with runtime access to engine services like the `ProtocolRegistry`.
+*   **Value**: Eliminates logic duplication. Protocols can use `protocolRegistry.resolveIdentity()` directly inside their hooks instead of manually parsing URI strings, ensuring perfect alignment with the engine's resolution rules.
+
+---
+
+## 5. PARADIGM-SHIFTING CONCEPTS: The Edge of the Graph
 Please acknowledge receipt of this Architectural Manifesto. Ask the user which of the strategic phases (Semantic Roles, Drift Optimization, Protocol Registry, Federated Graph, Killer Features, Edge Concepts, or Unified Resolution) they would like to begin architecting today, and await their command.

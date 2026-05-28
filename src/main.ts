@@ -1,20 +1,7 @@
 import { runCli, execute } from './engine/index.js';
 import { resolve } from 'node:path';
-import { DEFAULT_CACHE_PRUNE_THRESHOLD, ENGINE_CONFIG_FILENAME, ENGINE_DIR_NAME } from './util/constants.js';
-import type { EngineConfig } from './engine/types/config.js';
-
-const ATOM_DEFAULT_CONFIG: EngineConfig = {
-  validation: { strict: false, maxMessageLines: 50, subjectMaxLength: 72 },
-  stale: { olderThan: '6m', driftThreshold: 20 },
-  output: { defaultFormat: 'text' },
-  follow: { maxDepth: 3 },
-  cli: { 
-    updateCheck: true, 
-    cache: true, 
-    queryCache: true,
-    queryCachePruneThreshold: DEFAULT_CACHE_PRUNE_THRESHOLD,
-  },
-};
+import { ENGINE_CONFIG_FILENAME, ENGINE_DIR_NAME } from './util/constants.js';
+import { DEFAULT_ENGINE_CONFIG } from './engine/defaults.js';
 
 /**
  * Agnostic Atom Engine CLI.
@@ -25,7 +12,7 @@ async function main() {
     description: 'Agnostic Decision Engine for Git',
     engineDirName: ENGINE_DIR_NAME,
     configFileName: ENGINE_CONFIG_FILENAME,
-    defaultConfig: ATOM_DEFAULT_CONFIG,
+    defaultConfig: DEFAULT_ENGINE_CONFIG,
     staticProtocols: [], // Atom starts with zero protocols by default
     packageJsonPath: resolve(new URL('../package.json', import.meta.url).pathname),
   };

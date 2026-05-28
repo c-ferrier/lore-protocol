@@ -1,8 +1,9 @@
 import { runCli, execute, type EngineOptions } from '../engine/index.js';
 import { ProtocolRegistry } from '../engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from './protocol-definition.js';
-import { LORE_DEFAULT_CONFIG, LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from './defaults.js';
+import { LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from './defaults.js';
 import { ENGINE_CONFIG_FILENAME, ENGINE_DIR_NAME, TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../util/constants.js';
+import { DEFAULT_ENGINE_CONFIG } from '../engine/defaults.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerContextCommand } from './commands/context.js';
 import { registerConstraintsCommand } from './commands/constraints.js';
@@ -94,7 +95,7 @@ export async function buildLoreCli() {
     description: 'CLI tool for the Lore protocol -- structured decision context in git commits',
     engineDirName: ENGINE_DIR_NAME,
     configFileName: ENGINE_CONFIG_FILENAME,
-    defaultConfig: LORE_DEFAULT_CONFIG as unknown as EngineConfig,
+    defaultConfig: DEFAULT_ENGINE_CONFIG,
     staticProtocols: [LoreProtocolDefinition],
     packageJsonPath: resolve(new URL('../../package.json', import.meta.url).pathname),
     
