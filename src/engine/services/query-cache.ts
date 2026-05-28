@@ -142,21 +142,29 @@ export class QueryCache implements IQueryCache {
     // 1. Normalize path args
     const normalizedArgs = gitLogArgs.join(' ');
     
-    // 2. Normalize options (sort keys for stable hashing)
-    const sortedOptions = Object.keys(options)
-      .sort()
-      .reduce((acc: any, key) => {
-        // limit and page are display concerns and should not invalidate the cache
-        if (key === 'limit' || key === 'page') return acc;
-        
-        const val = (options as any)[key];
-        if (val !== null && val !== undefined) {
-          acc[key] = val;
-        }
-        return acc;
-      }, {});
-    
-    const normalizedOptions = JSON.stringify(sortedOptions);
+    // 2. Deep normalize options (sort all keys recursively for stable hashing)
+    const normalize = (obj: any): any => {
+      if (Array.isArray(obj)) {
+        return obj.map(normalize);
+      }
+      if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+        return Object.keys(obj)
+          .sort()
+          .reduce((acc: any, key) => {
+            // limit and page are display concerns and should not invalidate the cache
+            if (key === 'limit' || key === 'page') return acc;
+            
+            const val = obj[key];
+            if (val !== null && val !== undefined) {
+              acc[key] = normalize(val);
+            }
+            return acc;
+          }, {});
+      }
+      return obj;
+    };
+
+    const normalizedOptions = JSON.stringify(normalize(options));
 
     // 3. Hash the combined string
     return createHash('sha1')
