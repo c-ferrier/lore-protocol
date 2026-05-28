@@ -25,10 +25,10 @@ export class Validator {
    * Validate a set of raw commits across all registered protocols.
    */
   async validate(rawCommits: readonly RawCommit[]): Promise<CommitValidationResult[]> {
-    const results: CommitValidationResult[] = [];
     const protocols = this.protocolRegistry.getAll();
+    const claimedKeys = this.protocolRegistry.getClaimedKeys();
 
-    for (const raw of rawCommits) {
+    return Promise.all(rawCommits.map(async (raw) => {
       const issues: ValidationIssue[] = [];
       let trailers: Trailers;
 
@@ -40,21 +40,18 @@ export class Validator {
           rule: 'trailer-format',
           message: `Failed to parse trailers: ${err instanceof Error ? err.message : String(err)}`,
         });
-        results.push({
+        return {
           commit: raw.hash,
           id: null,
           valid: false,
           issues,
-        });
-        continue;
+        };
       }
 
       // 1. Structural Hygiene (Generic)
       this.validateHygiene(raw, issues);
 
       // 2. Multi-Protocol Validation
-      const claimedKeys = this.protocolRegistry.getClaimedKeys();
-      
       for (const protocol of protocols) {
         // Validation needs to see everything (even invalid values) to report errors
         const state = protocol.parse(raw.trailers, claimedKeys, true);
@@ -71,15 +68,13 @@ export class Validator {
       const primaryState = primary?.parse(raw.trailers, claimedKeys);
       const displayId = primaryState ? primary.getIdentity(primaryState.trailers) : null;
 
-      results.push({
+      return {
         commit: raw.hash,
         id: displayId,
         valid: issues.filter((i) => i.severity === 'error').length === 0,
         issues,
-      });
-    }
-
-    return results;
+      };
+    }));
   }
 
   /**
@@ -231,21 +226,40 @@ export class Validator {
     issues: ValidationIssue[],
   ): Promise<void> {
     const refKeys = protocol.getReferenceKeys();
-    
+    const idsToCheck: Array<{ key: string; id: string }> = [];
+
     for (const key of refKeys) {
       const ids = trailers[key] || [];
       for (const id of ids) {
-        if (!protocol.isValidIdentity(id)) continue;
-
-        const exists = await this.atomRepository.findById(id);
-        if (!exists) {
-          issues.push({
-            severity: 'warning',
-            rule: 'reference-exists',
-            field: key,
-            message: `[${protocol.name}] Referenced id "${id}" in ${key} was not found in history`,
-          });
+        if (protocol.isValidIdentity(id)) {
+          idsToCheck.push({ key, id });
         }
+      }
+    }
+
+    if (idsToCheck.length === 0) return;
+
+    // Batch lookup all referenced IDs
+    const foundAtoms = await this.atomRepository.findByIds(idsToCheck.map(x => x.id));
+    
+    // Efficiently track which IDs were found
+    const foundIds = new Set<string>();
+    for (const atom of foundAtoms) {
+      for (const state of atom.protocols.values()) {
+        const atomId = state.trailers[state.identityKey]?.[0];
+        if (atomId) foundIds.add(atomId);
+      }
+    }
+
+    // Report missing IDs
+    for (const { key, id } of idsToCheck) {
+      if (!foundIds.has(id)) {
+        issues.push({
+          severity: 'warning',
+          rule: 'reference-exists',
+          field: key,
+          message: `[${protocol.name}] Referenced id "${id}" in ${key} was not found in history`,
+        });
       }
     }
   }

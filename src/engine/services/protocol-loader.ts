@@ -21,12 +21,11 @@ export class DynamicProtocolLoader {
       const files = await readdir(this.protocolsDir);
       const tomlFiles = files.filter(f => extname(f) === '.toml');
       
-      const definitions: ProtocolDefinition[] = [];
-      for (const file of tomlFiles) {
-        const def = await this.loadFromFile(join(this.protocolsDir, file));
-        if (def) definitions.push(def);
-      }
-      return definitions;
+      const results = await Promise.all(
+        tomlFiles.map(file => this.loadFromFile(join(this.protocolsDir, file)))
+      );
+
+      return results.filter((def): def is ProtocolDefinition => def !== null);
     } catch {
       // Directory might not exist, return empty
       return [];

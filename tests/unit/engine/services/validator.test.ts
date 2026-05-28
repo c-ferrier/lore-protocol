@@ -19,6 +19,7 @@ const MOCK_ID_KEY = "Mock-id";
 function createMockAtomRepository(): Partial<AtomRepository> {
   return {
     findById: vi.fn(async () => null),
+    findByIds: vi.fn(async () => []),
   };
 }
 
@@ -379,6 +380,7 @@ describe('Validator', () => {
     });
 
     it('should not warn on valid reference format', async () => {
+      vi.mocked(mockAtomRepo.findByIds!).mockResolvedValue([]);
       const commit = makeCommit({ trailers: 'Ref: aabbccdd\nRelated: 11223344' });
       const results = await validator.validate([commit]);
 
@@ -476,16 +478,23 @@ describe('Validator', () => {
     });
 
     it('should not warn when referenced atom exists', async () => {
-      vi.mocked(mockAtomRepo.findById!).mockResolvedValue({
-        id: 'aabbccdd',
+      vi.mocked(mockAtomRepo.findByIds!).mockResolvedValue([{
         commitHash: 'abc',
         date: new Date(),
         author: 'dev@example.com',
         subject: 'test',
         body: '',
-        protocols: new Map(),
+        protocols: new Map([
+          ['mock', {
+            name: 'Mock',
+            version: '1.0',
+            identityKey: MOCK_ID_KEY,
+            trailers: { [MOCK_ID_KEY]: ['aabbccdd'] },
+            unauthorized: {}
+          }]
+        ]),
         filesChanged: [],
-      } as any);
+      } as any]);
       const commit = makeCommit({ trailers: 'Related: aabbccdd' });
       const results = await validator.validate([commit]);
 

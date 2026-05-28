@@ -148,4 +148,14 @@ export class ProtocolRegistry {
   private getPermissiveProtocolInNamespace(namespace: string): IProtocol | undefined {
     return this.getAll().find((p) => p.permissive && p.namespace.toLowerCase() === namespace.toLowerCase());
   }
+
+  /**
+   * Generates a stable fingerprint of all registered protocols and their versions.
+   * Used to invalidate caches when the protocol registry changes.
+   */
+  getFingerprint(): string {
+    const protocols = this.getAll().map(p => `${p.name}@${p.version}`);
+    protocols.sort();
+    return protocols.join(';');
+  }
 }

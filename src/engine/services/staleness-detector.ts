@@ -31,11 +31,10 @@ export class StalenessDetector {
     atoms: readonly Atom[],
     supersessionMap: Map<string, SupersessionStatus>,
   ): Promise<StaleAtomReport[]> {
-    const reports: StaleAtomReport[] = [];
     const now = new Date();
     const protocols = this.protocolRegistry.getAll();
 
-    for (const atom of atoms) {
+    const results = await Promise.all(atoms.map(async (atom) => {
       const reasons: StaleReason[] = [];
 
       // 1. Structural Signals (Generic Engine Level)
@@ -49,11 +48,12 @@ export class StalenessDetector {
       }
 
       if (reasons.length > 0) {
-        reports.push({ atom, reasons });
+        return { atom, reasons };
       }
-    }
+      return null;
+    }));
 
-    return reports;
+    return results.filter((r): r is StaleAtomReport => r !== null);
   }
 
   /**
@@ -76,18 +76,18 @@ export class StalenessDetector {
    */
   private async checkDrift(atom: Atom, reasons: StaleReason[]): Promise<void> {
     const threshold = this.config.stale.driftThreshold;
-    const driftedFiles: string[] = [];
-
-    for (const file of atom.filesChanged) {
+    
+    const driftResults = await Promise.all(atom.filesChanged.map(async (file) => {
       try {
         const count = await this.gitClient.countCommitsSince(file, atom.commitHash);
-        if (count > threshold) {
-          driftedFiles.push(file);
-        }
+        return count > threshold ? file : null;
       } catch {
         // Skip files that cannot be blamed (e.g. deleted)
+        return null;
       }
-    }
+    }));
+
+    const driftedFiles = driftResults.filter((f): f is string => f !== null);
 
     if (driftedFiles.length > 0) {
       reasons.push({
