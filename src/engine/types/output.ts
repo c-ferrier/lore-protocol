@@ -50,7 +50,7 @@ export interface FormattableTraceResult {
 export interface TraceEdge {
   readonly from: string;
   readonly to: string;
-  readonly relationship: 'Related' | 'Supersedes' | 'Depends-on';
+  readonly relationship: string;
   readonly targetAtom: Atom | null;
 }
 
@@ -77,11 +77,12 @@ export interface DoctorCheck {
 export interface FormattableTrailerDefinition {
   readonly description: string;
   readonly multivalue: boolean;
-  readonly validation: 'values' | 'pattern' | 'none';
+  readonly validation: 'values' | 'pattern' | 'reference' | 'none';
   readonly values?: Record<string, ValueDefinition>;
   readonly pattern?: string;
   readonly required?: boolean;
   readonly isCore: boolean;
+  readonly crossProtocol?: boolean;
   readonly directives: readonly string[];
   readonly ui?: {
     readonly kind?: TrailerUiKind;

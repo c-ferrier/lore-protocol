@@ -210,18 +210,18 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, ['src/auth.ts']]]));
 
-      const result = await repo.findById('deadbeef');
+      const result = await repo.findById({ id: 'deadbeef' });
       expect(result?.protocols.get('mock')?.trailers[MOCK_ID_KEY]?.[0]).toBe('deadbeef');
     });
 
     it(`should return null if no atom matches the ${MOCK_ID_KEY}`, async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
-      const result = await repo.findById('deadbeef');
+      const result = await repo.findById({ id: 'deadbeef' });
       expect(result).toBeNull();
     });
 
     it(`should return null for invalid ${MOCK_ID_KEY} format`, async () => {
-      const result = await repo.findById('not-valid');
+      const result = await repo.findById({ id: 'not-valid' });
       expect(result).toBeNull();
       expect(gitClient.log).not.toHaveBeenCalled();
     });
@@ -229,7 +229,7 @@ describe('AtomRepository', () => {
     it('should append path scope when isScoped=true', async () => {
       const scopedRepo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache(), true);
       vi.mocked(gitClient.log).mockResolvedValue([]);
-      await scopedRepo.findById('deadbeef');
+      await scopedRepo.findById({ id: 'deadbeef' });
       expect(gitClient.log).toHaveBeenCalledWith(expect.arrayContaining(['--', '.']));
     });
   });

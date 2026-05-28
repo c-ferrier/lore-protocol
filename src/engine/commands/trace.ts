@@ -34,28 +34,29 @@ export function registerTraceCommand(
     .action(async (id: string, options: { maxDepth: number }) => {
       const { atomRepository, getFormatter, protocolRegistry, logger } = deps;
 
-      let activeProtocol: IProtocol | null = null;
-      for (const p of protocolRegistry.getAll()) {
-        if (p.isValidIdentity(id)) {
-          activeProtocol = p;
-          break;
-        }
+      // 1. Resolve Initial Identity
+      const identity = protocolRegistry.resolveIdentity(id);
+      const rootAtom = await atomRepository.findById(identity);
+
+      if (rootAtom === null) {
+        throw new ProtocolError(
+          `Atom "${id}" not found in commit history.`,
+          1,
+        );
       }
+
+      // 2. Identify the Active Protocol for the root atom
+      // If the user provided a prefix, we use that. Otherwise we use the root's first claimed protocol.
+      const protocolName = identity.protocol || Array.from(rootAtom.protocols.keys())[0];
+      const activeProtocol = protocolRegistry.get(protocolName);
 
       if (!activeProtocol) {
         throw new ProtocolError(
-          `Invalid identity format: "${id}". Must match a registered protocol's identity format.`,
+          `No active protocol found for atom "${id}".`,
           1,
         );
       }
 
-      const rootAtom = await atomRepository.findById(id);
-      if (rootAtom === null) {
-        throw new ProtocolError(
-          `${activeProtocol.identityKey} "${id}" not found in commit history.`,
-          1,
-        );
-      }
 
       const edges: TraceEdge[] = [];
       const visited = new Set<string>();
@@ -89,24 +90,27 @@ export function registerTraceCommand(
           for (const key of refKeys) {
             const refs = state.trailers[key] || [];
             for (const refId of refs) {
-              if (!activeProtocol.isValidIdentity(refId)) continue;
+              try {
+                const targetIdentity = protocolRegistry.resolveIdentity(refId, protocolName);
+                const targetAtom = await atomRepository.findById(targetIdentity);
+                const edge: TraceEdge = {
+                  from: currentId,
+                  to: refId,
+                  relationship: key,
+                  targetAtom: targetAtom ?? null,
+                };
 
-              const targetAtom = await atomRepository.findById(refId);
-              const edge: TraceEdge = {
-                from: currentId,
-                to: refId,
-                relationship: key as 'Related' | 'Supersedes' | 'Depends-on',
-                targetAtom: targetAtom ?? null,
-              };
+                edges.push(edge);
 
-              edges.push(edge);
-
-              if (targetAtom) {
-                const targetId = getAtomId(targetAtom);
-                if (targetId && !visited.has(targetId)) {
-                  visited.add(targetId);
-                  queue.push({ atom: targetAtom, depth: depth + 1 });
+                if (targetAtom) {
+                  const targetId = getAtomId(targetAtom);
+                  if (targetId && !visited.has(targetId)) {
+                    visited.add(targetId);
+                    queue.push({ atom: targetAtom, depth: depth + 1 });
+                  }
                 }
+              } catch {
+                // Skip invalid/unresolvable references in trace
               }
             }
           }

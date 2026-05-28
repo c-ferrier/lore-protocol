@@ -412,7 +412,7 @@ export class Protocol implements IProtocol {
    */
   getReferenceKeys(): string[] {
     return Array.from(this.definitions.values())
-      .filter((d) => d.ui?.kind === 'reference')
+      .filter((d) => d.validation === 'reference' || d.ui?.kind === 'reference')
       .map((d) => d.key);
   }
 
@@ -448,6 +448,7 @@ export class Protocol implements IProtocol {
         pattern: def.pattern,
         required: def.required,
         isCore: def.isCore,
+        crossProtocol: def.crossProtocol,
         directives: def.directives ?? [],
         ui: def.ui,
       };

@@ -13,7 +13,7 @@ export interface ValueDefinition {
 export interface CustomTrailerDefinition {
   readonly description: string;
   readonly multivalue: boolean;
-  readonly validation: 'values' | 'pattern' | 'none';
+  readonly validation: 'values' | 'pattern' | 'reference' | 'none';
   readonly values?: Record<string, string | ValueDefinition>;
   readonly pattern?: string;
   readonly required?: boolean;
@@ -47,6 +47,11 @@ export interface CustomTrailerDefinition {
    * Strategy for generating new values (primarily used for identity keys).
    */
   readonly generator?: 'hex8' | 'uuid' | 'none';
+  /**
+   * If true (default for references), allows this trailer to link to identities 
+   * in other protocols using the 'protocol/id' syntax.
+   */
+  readonly crossProtocol?: boolean;
 }
 
 /**

@@ -86,6 +86,6 @@ describe('Lore Protocol Validation Contract', () => {
     const invalid = makeCommit('Lore-id: abc12345\nSupersedes: bad-id');
     const results = await validator.validate([invalid]);
 
-    expect(results[0].issues.some(i => i.rule === 'reference-format' && i.field === 'Supersedes')).toBe(true);
+    expect(results[0].issues.some(i => i.rule === 'invalid-reference-format' && i.field === 'Supersedes')).toBe(true);
   });
 });

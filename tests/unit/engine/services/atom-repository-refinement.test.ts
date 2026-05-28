@@ -163,7 +163,7 @@ describe('AtomRepository Refinement', () => {
 
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
 
-      const result = await repo.findById(targetId);
+      const result = await repo.findById({ id: targetId });
 
       expect(result).toBeNull();
     });
@@ -181,7 +181,7 @@ describe('AtomRepository Refinement', () => {
 
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
 
-      const result = await repo.findById(targetId);
+      const result = await repo.findById({ id: targetId });
 
       expect(result).not.toBeNull();
       expect(result!.protocols.get('mock')?.trailers[MOCK_ID_KEY]?.[0]).toBe(targetId);

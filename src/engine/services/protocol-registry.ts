@@ -1,4 +1,6 @@
 import type { IProtocol } from '../interfaces/protocol.js';
+import type { QueryIdentity } from '../types/query.js';
+import { ProtocolError } from '../../util/errors.js';
 
 /**
  * Orchestrates multiple decision protocols.
@@ -139,6 +141,47 @@ export class ProtocolRegistry {
    */
   getRoot(): IProtocol | undefined {
     return this.getAll().find((p) => p.namespace === '');
+  }
+
+  /**
+   * Resolves a raw ID string into a Qualified Identity.
+   * Enforces strict ambiguity rules.
+   * 
+   * @param id The raw ID string (e.g. "123" or "alpha/123")
+   * @param contextProtocol Optional default protocol name if not prefixed
+   */
+  resolveIdentity(id: string, contextProtocol?: string): QueryIdentity {
+    if (id.includes('/')) {
+      const [prefix, suffix] = id.split('/', 2);
+      const protocol = this.get(prefix);
+      if (!protocol) {
+        throw new ProtocolError(`Unknown protocol prefix: "${prefix}" in identity "${id}"`, 1);
+      }
+      return { id: suffix, protocol: protocol.name.toLowerCase() };
+    }
+
+    if (contextProtocol) {
+      const protocol = this.get(contextProtocol);
+      if (protocol) {
+        return { id, protocol: protocol.name.toLowerCase() };
+      }
+    }
+
+    // Ambiguity Detection
+    const candidates = this.getAll().filter(p => p.isValidIdentity(id));
+    if (candidates.length > 1) {
+      const names = candidates.map(p => p.name).join(', ');
+      throw new ProtocolError(
+        `Ambiguous ID "${id}" matches multiple protocols: ${names}. ` +
+        `Please use a prefix (e.g. "${candidates[0].name.toLowerCase()}/${id}") to disambiguate.`,
+        1
+      );
+    }
+
+    return { 
+      id, 
+      protocol: candidates.length === 1 ? candidates[0].name.toLowerCase() : undefined 
+    };
   }
 
   private hasPermissiveProtocolInNamespace(namespace: string): boolean {

@@ -63,7 +63,7 @@ describe('AtomRepository False Positive Repro', () => {
     // We spy on gitClient.log to see the arguments
     const logSpy = vi.spyOn(gitClient, 'log');
     
-    const result = await repo.findById('12345678');
+    const result = await repo.findById({ id: '12345678' });
     
     const callArgs = logSpy.mock.calls[0][0];
     // Check that it uses an anchored grep

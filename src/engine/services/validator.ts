@@ -1,10 +1,12 @@
 import type { TrailerParser } from './trailer-parser.js';
 import type { AtomRepository } from './atom-repository.js';
 import type { EngineConfig } from '../types/config.js';
-import type { RawCommit } from '../interfaces/git-client.js';
+import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
 import type { CommitValidationResult, ValidationIssue } from '../types/output.js';
 import type { Trailers, ProtocolState } from '../types/domain.js';
+import type { QueryIdentity } from '../types/query.js';
 import type { IProtocol } from '../interfaces/protocol.js';
+
 import type { ProtocolRegistry } from './protocol-registry.js';
 
 /**
@@ -226,39 +228,77 @@ export class Validator {
     issues: ValidationIssue[],
   ): Promise<void> {
     const refKeys = protocol.getReferenceKeys();
-    const idsToCheck: Array<{ key: string; id: string }> = [];
+    const identitiesToCheck: Array<{ key: string; identity: QueryIdentity }> = [];
+    const protocolName = protocol.name.toLowerCase();
 
     for (const key of refKeys) {
-      const ids = trailers[key] || [];
-      for (const id of ids) {
-        if (protocol.isValidIdentity(id)) {
-          idsToCheck.push({ key, id });
+      const values = trailers[key] || [];
+      const def = protocol.getDefinition(key);
+
+      for (const val of values) {
+        try {
+          // 1. Registry & Prefix Validation
+          const identity = this.protocolRegistry.resolveIdentity(val, protocolName);
+          
+          // 2. Boundary Enforcement (crossProtocol: false)
+          if (def?.crossProtocol === false && identity.protocol !== protocolName) {
+            issues.push({
+              severity: 'error',
+              rule: 'cross-protocol-prohibited',
+              field: key,
+              message: `[${protocol.name}] Trailer "${key}" does not allow cross-protocol references (got "${identity.protocol}")`,
+            });
+            continue;
+          }
+
+          // 3. Identity Verification (Is it valid for the target protocol?)
+          const targetProtocol = identity.protocol ? this.protocolRegistry.get(identity.protocol) : protocol;
+          if (targetProtocol && !targetProtocol.isValidIdentity(identity.id)) {
+            issues.push({
+              severity: 'error',
+              rule: 'invalid-reference-format',
+              field: key,
+              message: `[${protocol.name}] Reference "${val}" is not a valid identifier for protocol "${targetProtocol.name}"`,
+            });
+            continue;
+          }
+
+          identitiesToCheck.push({ key, identity });
+        } catch (err) {
+          issues.push({
+            severity: 'error',
+            rule: 'unknown-protocol-prefix',
+            field: key,
+            message: `[${protocol.name}] ${err instanceof Error ? err.message : String(err)}`,
+          });
         }
       }
     }
 
-    if (idsToCheck.length === 0) return;
+    if (identitiesToCheck.length === 0) return;
 
-    // Batch lookup all referenced IDs
-    const foundAtoms = await this.atomRepository.findByIds(idsToCheck.map(x => x.id));
+    // Batch lookup all referenced identities
+    const foundAtoms = await this.atomRepository.findByIds(identitiesToCheck.map(x => x.identity));
     
-    // Efficiently track which IDs were found
-    const foundIds = new Set<string>();
+    // Efficiently track which IDs were found (fully qualified)
+    const foundKeys = new Set<string>();
     for (const atom of foundAtoms) {
-      for (const state of atom.protocols.values()) {
-        const atomId = state.trailers[state.identityKey]?.[0];
-        if (atomId) foundIds.add(atomId);
+      for (const [pName, state] of atom.protocols) {
+        const p = this.protocolRegistry.get(pName);
+        const atomId = (state as any).trailers[p?.identityKey || '']?.[0];
+        if (atomId) foundKeys.add(`${pName}/${atomId}`);
       }
     }
 
     // Report missing IDs
-    for (const { key, id } of idsToCheck) {
-      if (!foundIds.has(id)) {
+    for (const { key, identity } of identitiesToCheck) {
+      const lookupKey = `${identity.protocol || protocolName}/${identity.id}`;
+      if (!foundKeys.has(lookupKey)) {
         issues.push({
           severity: 'warning',
           rule: 'reference-exists',
           field: key,
-          message: `[${protocol.name}] Referenced id "${id}" in ${key} was not found in history`,
+          message: `[${protocol.name}] Referenced id "${identity.id}"${identity.protocol ? ` in protocol "${identity.protocol}"` : ''} in ${key} was not found in history`,
         });
       }
     }

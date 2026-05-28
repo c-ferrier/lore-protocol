@@ -10,6 +10,11 @@ export interface QueryTarget {
   readonly lineEnd: number | null;
 }
 
+export interface QueryIdentity {
+  readonly id: string;
+  readonly protocol?: string;
+}
+
 export interface PathQueryOptions {
   readonly scope?: string | null;
   readonly follow?: boolean;

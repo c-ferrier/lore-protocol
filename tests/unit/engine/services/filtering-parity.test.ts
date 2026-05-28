@@ -158,7 +158,7 @@ describe('AtomRepository Filtering Parity', () => {
       // Mock validation to allow special chars for escaping test
       vi.spyOn(protocol, 'isValidIdentity').mockReturnValue(true);
       const targetId = 'abc-123*';
-      await repo.findById(targetId);
+      await repo.findById({ id: targetId });
       
       // Should be at index 1
       const findByIdArgs = vi.mocked(gitClient.log).mock.calls[1][0];

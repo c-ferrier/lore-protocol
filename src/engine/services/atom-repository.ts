@@ -1,5 +1,5 @@
 import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
-import type { PathQueryOptions, SearchOptions } from '../types/query.js';
+import type { PathQueryOptions, SearchOptions, QueryIdentity } from '../types/query.js';
 import type { Atom, AtomId, Trailers, ProtocolState } from '../types/domain.js';
 import type { TrailerParser } from './trailer-parser.js';
 import { GIT_FILES_CHANGED_BATCH_SIZE } from '../../util/constants.js';
@@ -81,15 +81,15 @@ export class AtomRepository {
   async resolveFollowLinks(atoms: readonly Atom[], maxDepth: number): Promise<Atom[]> {
     const result = [...atoms];
     const visited = new Set(atoms.map((a) => a.commitHash));
-    const queue: { ids: string[]; depth: number }[] = [
-      { ids: this.extractReferenceIds(atoms), depth: 1 },
+    const queue: { identities: QueryIdentity[]; depth: number }[] = [
+      { identities: this.extractReferenceIds(atoms), depth: 1 },
     ];
 
     while (queue.length > 0) {
-      const { ids, depth } = queue.shift()!;
-      if (depth > maxDepth || ids.length === 0) continue;
+      const { identities, depth } = queue.shift()!;
+      if (depth > maxDepth || identities.length === 0) continue;
 
-      const linkedAtoms = await this.findByIds(ids);
+      const linkedAtoms = await this.findByIds(identities);
       const newAtoms: Atom[] = [];
 
       for (const atom of linkedAtoms) {
@@ -101,7 +101,7 @@ export class AtomRepository {
       }
 
       if (newAtoms.length > 0) {
-        queue.push({ ids: this.extractReferenceIds(newAtoms), depth: depth + 1 });
+        queue.push({ identities: this.extractReferenceIds(newAtoms), depth: depth + 1 });
       }
     }
 
@@ -111,11 +111,15 @@ export class AtomRepository {
   /**
    * Find a single atom by its identity key.
    */
-  async findById(id: string): Promise<Atom | null> {
+  async findById(identity: QueryIdentity): Promise<Atom | null> {
+    const { id, protocol: protocolName } = identity;
     if (!id) return null;
 
-    // Check all protocols to see if any find this ID valid
-    const matchingProtocols = this.protocolRegistry.getAll().filter(p => p.isValidIdentity(id));
+    // Resolve candidate protocols
+    const matchingProtocols = protocolName 
+      ? [this.protocolRegistry.get(protocolName)!].filter(Boolean)
+      : this.protocolRegistry.getAll().filter(p => p.isValidIdentity(id));
+
     if (matchingProtocols.length === 0) return null;
 
     // Build a combined grep for all candidate protocols
@@ -128,11 +132,12 @@ export class AtomRepository {
     const rawCommits = await this.gitClient.log(args);
     const atoms = await this.parseRawCommits(rawCommits);
     
-    // Verify exact ID match in any of the protocol states
+    // Verify exact ID match in any of the candidate protocol states
     for (const atom of atoms) {
       for (const p of matchingProtocols) {
         const state = atom.protocols.get(p.name.toLowerCase());
-        if (state?.trailers[p.identityKey]?.[0] === id) {
+        const atomId = (state as any)?.trailers[p.identityKey]?.[0];
+        if (atomId === id) {
           return atom;
         }
       }
@@ -156,16 +161,22 @@ export class AtomRepository {
   /**
    * Find atoms by their identity keys.
    */
-  async findByIds(ids: readonly string[]): Promise<Atom[]> {
-    if (ids.length === 0) return [];
+  async findByIds(identities: readonly QueryIdentity[]): Promise<Atom[]> {
+    if (identities.length === 0) return [];
     
-    const validIds = new Set<string>();
     const patterns: string[] = [];
+    const idSet = new Set<string>(); // For verification pass
     
-    for (const id of ids) {
-      for (const p of this.protocolRegistry.getAll()) {
+    for (const { id, protocol: protocolName } of identities) {
+      if (!id) continue;
+      idSet.add(id);
+
+      const candidateProtocols = protocolName
+        ? [this.protocolRegistry.get(protocolName)!].filter(Boolean)
+        : this.protocolRegistry.getAll();
+
+      for (const p of candidateProtocols) {
         if (p.isValidIdentity(id)) {
-          validIds.add(id);
           patterns.push(p.getIdentityPattern(id));
         }
       }
@@ -181,11 +192,21 @@ export class AtomRepository {
     const rawCommits = await this.gitClient.log(args);
     const atoms = await this.parseRawCommits(rawCommits);
 
-    // Verify exact ID matches
+    // Verify exact ID matches against the requested identities
     return atoms.filter(a => {
-      for (const state of a.protocols.values()) {
-        const atomId = (state as any).trailers[state.identityKey]?.[0];
-        if (atomId && validIds.has(atomId)) return true;
+      for (const { id, protocol: protocolName } of identities) {
+        if (protocolName) {
+          const state = a.protocols.get(protocolName);
+          const p = this.protocolRegistry.get(protocolName);
+          const atomId = (state as any)?.trailers[p?.identityKey || '']?.[0];
+          if (atomId === id) return true;
+        } else {
+          for (const [pName, state] of a.protocols) {
+            const p = this.protocolRegistry.get(pName);
+            const atomId = (state as any)?.trailers[p?.identityKey || '']?.[0];
+            if (atomId === id) return true;
+          }
+        }
       }
       return false;
     });
@@ -380,8 +401,9 @@ export class AtomRepository {
     };
   }
 
-  private extractReferenceIds(atoms: readonly Atom[]): string[] {
-    const ids = new Set<string>();
+  private extractReferenceIds(atoms: readonly Atom[]): QueryIdentity[] {
+    const identities: QueryIdentity[] = [];
+    const seen = new Set<string>();
     
     for (const atom of atoms) {
       for (const [pName, state] of atom.protocols) {
@@ -391,14 +413,24 @@ export class AtomRepository {
         const refKeys = protocol.getReferenceKeys();
         for (const key of refKeys) {
           const values = state.trailers[key] || [];
-          for (const id of values) {
-            ids.add(id);
+          for (const val of values) {
+            // Qualify the identity using the registry (implicit context: current protocol)
+            try {
+              const identity = this.protocolRegistry.resolveIdentity(val, pName);
+              const key = `${identity.protocol}/${identity.id}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                identities.push(identity);
+              }
+            } catch {
+              // Skip invalid references during extraction (they will be caught by validator)
+            }
           }
         }
       }
     }
 
-    return Array.from(ids);
+    return identities;
   }
 
   private buildGitLogArgs(baseArgs: readonly string[], options: SearchOptions): string[] {

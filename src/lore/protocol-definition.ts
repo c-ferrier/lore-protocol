@@ -185,8 +185,8 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
     'Supersedes': {
       description: 'Lore-id of the atom this decision replaces.',
       multivalue: true,
-      validation: 'pattern',
-      pattern: '^[0-9a-f]{8}$',
+      validation: 'reference',
+      crossProtocol: true,
       ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       cli: { flag: 'supersedes' },
       prompt: {
@@ -202,8 +202,8 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
     'Depends-on': {
       description: 'Lore-id of the atom this decision requires.',
       multivalue: true,
-      validation: 'pattern',
-      pattern: '^[0-9a-f]{8}$',
+      validation: 'reference',
+      crossProtocol: true,
       ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       cli: { flag: 'depends-on' },
       prompt: {
@@ -218,8 +218,8 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
     'Related': {
       description: 'Lore-id of an atom with a general relationship.',
       multivalue: true,
-      validation: 'pattern',
-      pattern: '^[0-9a-f]{8}$',
+      validation: 'reference',
+      crossProtocol: true,
       ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       cli: { flag: 'related' },
       prompt: {

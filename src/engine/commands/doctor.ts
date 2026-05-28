@@ -63,7 +63,7 @@ export function registerDoctorCommand(
 
           for (const protocol of protocolRegistry.getAll()) {
               checks.push(await checkProtocolIntegrity(atomRepository, protocol, atoms));
-              checks.push(await checkProtocolReferences(atomRepository, protocol, atoms));
+              checks.push(await checkProtocolReferences(atomRepository, protocolRegistry, protocol, atoms));
           }
       }
 
@@ -204,6 +204,7 @@ async function checkProtocolIntegrity(
 
 async function checkProtocolReferences(
   atomRepository: AtomRepository,
+  protocolRegistry: ProtocolRegistry,
   protocol: IProtocol,
   atoms: any[]
 ): Promise<DoctorCheck> {
@@ -218,9 +219,14 @@ async function checkProtocolReferences(
     for (const key of refKeys) {
       const ids = state.trailers[key] || [];
       for (const id of ids) {
-        const target = await atomRepository.findById(id);
-        if (!target) {
-          orphaned.push(`${protocol.identityKey} "${id}" referenced by ${atom.commitHash.slice(0, 8)} (${key}) not found`);
+        try {
+          const identity = protocolRegistry.resolveIdentity(id, protocolName);
+          const target = await atomRepository.findById(identity);
+          if (!target) {
+            orphaned.push(`${protocol.identityKey} "${id}" referenced by ${atom.commitHash.slice(0, 8)} (${key}) not found`);
+          }
+        } catch (err) {
+          orphaned.push(`Invalid reference "${id}" in ${atom.commitHash.slice(0, 8)} (${key}): ${err instanceof Error ? err.message : String(err)}`);
         }
       }
     }
