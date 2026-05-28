@@ -111,11 +111,25 @@ export class CommitInputResolver {
   }
 
   /**
-   * Read raw content from stdin, collecting chunks until EOF.
+   * Read raw content from stdin.
+   * For piped data (non-TTY), use robust synchronous reading to avoid event loop timing issues.
    */
-  private readStdinContent(): Promise<string> {
-    const chunks: Buffer[] = [];
+  private async readStdinContent(): Promise<string> {
+    if (process.stdin.isTTY) {
+        // TTY mode: we shouldn't really be here as mode should be Interactive,
+        // but if we are, we wait for input.
+        process.stdin.resume();
+    } else {
+        // Piped/Heredoc mode: use synchronous slurp for maximum reliability
+        try {
+            const { readFileSync } = await import('node:fs');
+            return readFileSync(0, 'utf-8');
+        } catch {
+            // Fallback to async if sync fails
+        }
+    }
 
+    const chunks: Buffer[] = [];
     return new Promise<string>((resolve, reject) => {
       process.stdin.on('data', (chunk: Buffer) => {
         chunks.push(chunk);
@@ -128,11 +142,6 @@ export class CommitInputResolver {
       process.stdin.on('error', (err) => {
         reject(err);
       });
-
-      // If stdin is a TTY and no data is piped, we need to resume
-      if (process.stdin.isTTY) {
-        process.stdin.resume();
-      }
     });
   }
 }
