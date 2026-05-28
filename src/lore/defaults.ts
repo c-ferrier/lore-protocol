@@ -49,9 +49,3 @@ export const LORE_050_EXPECTED_KEYS: Record<string, string[]> = {
     cli: ['update_check'] // ONLY update_check was in 0.5.0
 };
 
-/** Re-export for compatibility during migration and for test fixtures */
-export const LORE_DEFAULT_CONFIG = {
-    ...DEFAULT_ENGINE_CONFIG,
-    protocol: { name: 'Lore', version: '1.0' },
-    trailers: { required: [], custom: [], definitions: {}, permissive: true }
-} as any;

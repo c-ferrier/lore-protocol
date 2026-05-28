@@ -4,7 +4,7 @@ import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
+import { MOCK_PROTOCOL_CONFIG } from '../engine/test-utils.js';
 
 import type { FormattableQueryResult } from '../../../src/engine/types/output.js';
 import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
@@ -17,7 +17,7 @@ const LORE_ID_KEY = "Lore-id";
 describe('Flat Protocol Boundaries', () => {
   describe('Canonical Ordering', () => {
     it('should always serialize in protocol-defined order regardless of insertion order', () => {
-      const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+      const protocol = new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
       const parser = new TrailerParser();
 
       // Input in "wrong" order
@@ -44,7 +44,7 @@ describe('Flat Protocol Boundaries', () => {
 
   describe('JSON Normalization Matrix', () => {
     it('should correctly coerce core scalars and preserve all other arrays', () => {
-      const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+      const protocol = new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
       const registry = new ProtocolRegistry();
       registry.register(protocol);
       const formatter = new JsonFormatter(registry);
@@ -90,8 +90,8 @@ describe('Flat Protocol Boundaries', () => {
   describe('Strict Mode Boundaries', () => {
     it('should strictly prune unauthorized custom trailers in non-permissive mode', () => {
       const config = {
-        ...LORE_DEFAULT_CONFIG,
-        trailers: { ...LORE_DEFAULT_CONFIG.trailers, permissive: false, custom: ['Authorized'] }
+        ...MOCK_PROTOCOL_CONFIG,
+        trailers: { ...MOCK_PROTOCOL_CONFIG.trailers, permissive: false, custom: ['Authorized'] }
       };
       const protocol = new Protocol(LoreProtocolDefinition, config);
       const parser = new TrailerParser();
@@ -110,7 +110,7 @@ describe('Flat Protocol Boundaries', () => {
 
   describe('Key Case Resilience', () => {
     it('should treat trailers as case-insensitive for core mapping', () => {
-      const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+      const protocol = new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
       const parser = new TrailerParser();
 
       // User provides lowercase 'confidence'

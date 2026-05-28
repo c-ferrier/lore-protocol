@@ -12,7 +12,7 @@ import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
 import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
 import { NullAtomCache } from '../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../src/engine/services/query-cache.js';
-import { LORE_DEFAULT_CONFIG } from '../../src/lore/defaults.js';
+import { MOCK_PROTOCOL_CONFIG } from '../unit/engine/test-utils.js';
 
 describe('AtomRepository Git Integration', () => {
   const testDir = realpathSync(tmpdir()) + '/lore-git-test-' + Math.random().toString(36).slice(2);
@@ -56,7 +56,7 @@ describe('AtomRepository Git Integration', () => {
     run('git commit -m "feat: fake\n\nNot really a Lore-id: 12345678"');
 
     const gitClient = new GitClient(testDir);
-    const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+    const protocol = new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
     const protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     

@@ -7,7 +7,7 @@ import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
-import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
+import { MOCK_CONFIG, MOCK_PROTOCOL_CONFIG } from '../engine/test-utils.js';
 import { Validator } from '../../../src/engine/services/validator.js';
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
 import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
@@ -37,8 +37,8 @@ describe('Rebranding Flow Integration', () => {
     };
 
     const config = {
-      ...LORE_DEFAULT_CONFIG,
-      trailers: { ...LORE_DEFAULT_CONFIG.trailers, permissive: true }
+      ...MOCK_PROTOCOL_CONFIG,
+      trailers: { ...MOCK_PROTOCOL_CONFIG.trailers, permissive: true }
     };
 
     const fredProtocol = new Protocol(fredDef, config);
@@ -123,10 +123,10 @@ describe('Rebranding Flow Integration', () => {
         },
       }
     };
-    const protocol = new Protocol(fredDef, LORE_DEFAULT_CONFIG);
+    const protocol = new Protocol(fredDef, MOCK_PROTOCOL_CONFIG);
     const registry = new ProtocolRegistry();
     registry.register(protocol);
-    const validator = new Validator(new TrailerParser(), {} as any, LORE_DEFAULT_CONFIG, registry);
+    const validator = new Validator(new TrailerParser(), {} as any, MOCK_CONFIG, registry);
 
     // 2. Validate a commit with missing Fred-id
     const commit = {

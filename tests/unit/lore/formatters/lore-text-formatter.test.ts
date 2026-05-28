@@ -3,10 +3,10 @@ import { LoreTextFormatter } from '../../../../src/lore/formatters/lore-text-for
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
-import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
 import { 
   MOCK_PROTOCOL_DEFINITION, 
   MOCK_CONFIG, 
+  MOCK_PROTOCOL_CONFIG,
   makeProtocolConfig 
 } from '../../engine/test-utils.js';
 import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
@@ -49,7 +49,7 @@ describe('LoreTextFormatter (0.5.0 Parity)', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    registry.register(new Protocol(LoreProtocolDefinition, makeProtocolConfig(LORE_DEFAULT_CONFIG)));
+    registry.register(new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG));
     formatter = new LoreTextFormatter(registry, { color: false, subjectLabel: 'Intent' });
   });
 

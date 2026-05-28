@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FlagsInputReader } from '../../../src/engine/services/readers/flags-input-reader.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
-import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
+import { MOCK_PROTOCOL_CONFIG } from '../engine/test-utils.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
@@ -21,9 +21,9 @@ describe('Protocol Architectural Integrity', () => {
   it('should flow custom trailers from CLI flags to JSON output via metadata', async () => {
     // 1. Setup metadata in config
     const config = {
-      ...LORE_DEFAULT_CONFIG,
+      ...MOCK_PROTOCOL_CONFIG,
       trailers: {
-        ...LORE_DEFAULT_CONFIG.trailers,
+        ...MOCK_PROTOCOL_CONFIG.trailers,
         definitions: {
           'Ticket-ID': {
             description: 'Issue tracker reference',
@@ -97,7 +97,7 @@ describe('Protocol Architectural Integrity', () => {
   });
 
   it('should handle a hybrid flow of core and custom trailers simultaneously', async () => {
-    const protocol = new Protocol(LoreProtocolDefinition, { version: '1.0', trailers: LORE_DEFAULT_CONFIG.trailers });
+    const protocol = new Protocol(LoreProtocolDefinition, { version: '1.0', trailers: MOCK_PROTOCOL_CONFIG.trailers });
     const options: CommitCommandOptions = {
       subject: 'feat',
       confidence: 'high',

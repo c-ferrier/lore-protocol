@@ -3,7 +3,7 @@ import { Validator } from '../../../src/engine/services/validator.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { LORE_DEFAULT_CONFIG } from '../../../src/lore/defaults.js';
+import { MOCK_CONFIG, MOCK_PROTOCOL_CONFIG } from '../engine/test-utils.js';
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 
@@ -14,7 +14,7 @@ describe('Lore Protocol Validation Contract', () => {
   let trailerParser: TrailerParser;
 
   beforeEach(() => {
-    protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
     registry = new ProtocolRegistry();
     registry.register(protocol);
     trailerParser = new TrailerParser();
@@ -22,7 +22,7 @@ describe('Lore Protocol Validation Contract', () => {
     validator = new Validator(
       trailerParser,
       { findById: vi.fn().mockResolvedValue(null) } as any,
-      LORE_DEFAULT_CONFIG,
+      MOCK_CONFIG,
       registry
     );
   });

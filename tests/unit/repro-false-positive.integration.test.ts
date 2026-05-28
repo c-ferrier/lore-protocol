@@ -11,7 +11,7 @@ import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
 import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
 import { NullAtomCache } from '../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../src/engine/services/query-cache.js';
-import { LORE_DEFAULT_CONFIG } from '../../src/lore/defaults.js';
+import { MOCK_PROTOCOL_CONFIG } from './engine/test-utils.js';
 
 const IDENTITY_KEY = "Lore-id";
 
@@ -39,7 +39,7 @@ describe('AtomRepository False Positive Repro', () => {
     run(`git commit -m "feat: false positive\n\nMentioning ${IDENTITY_KEY}: 12345678 in the middle of a sentence."`);
 
     gitClient = new GitClient(testDir);
-    const protocol = new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG);
+    const protocol = new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
     const protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     const trailerParser = new TrailerParser();
