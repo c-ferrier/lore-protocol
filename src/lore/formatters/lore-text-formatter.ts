@@ -87,6 +87,14 @@ export class LoreTextFormatter extends TextFormatter {
                   renderedTrailers = true;
               }
           }
+
+          // Render unauthorized/rejected trailers (typos)
+          for (const [key, values] of Object.entries(loreState.unauthorized)) {
+              for (const v of values) {
+                  lines.push(`  ${this.c.yellow('⚠')} ${this.c.bold(`${key}:`)} ${v}`);
+                  renderedTrailers = true;
+              }
+          }
       } else if (loreState) {
           // Fallback if protocol def is somehow missing from registry
           for (const [key, values] of Object.entries(loreState.trailers)) {

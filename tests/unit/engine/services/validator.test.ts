@@ -2,36 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Validator } from '../../../../src/engine/services/validator.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
+import { 
+  MOCK_PROTOCOL_DEFINITION, 
+  MOCK_CONFIG, 
+  makeProtocolConfig 
+} from '../test-utils.js';
 
-import type { EngineConfig, ProtocolConfig } from '../../../../src/engine/types/config.js';
+import type { EngineConfig, ProtocolConfig, Config } from '../../../../src/engine/types/config.js';
 import type { RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { Trailers } from '../../../../src/engine/types/domain.js';
 import type { AtomRepository } from '../../../../src/engine/services/atom-repository.js';
 
 const MOCK_ID_KEY = "Mock-id";
-
-function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
-  return {
-    [MOCK_ID_KEY]: overrides[MOCK_ID_KEY] ?? ['a1b2c3d4'],
-    Constraint: overrides.Constraint ?? [],
-    Confidence: overrides.Confidence ?? [],
-    Related: overrides.Related ?? [],
-    Ref: overrides.Ref ?? [],
-    Supersedes: overrides.Supersedes ?? [],
-    'Depends-on': overrides['Depends-on'] ?? [],
-    ...overrides,
-  } as any;
-}
-
-function createMockTrailerParser(resultOverrides: Partial<Trailers> = {}) {
-  return {
-    parse: vi.fn(() => makeTrailers(resultOverrides)),
-    serialize: vi.fn(),
-    containsTrailers: vi.fn(),
-    extractTrailerBlock: vi.fn(),
-  };
-}
 
 function createMockAtomRepository(): Partial<AtomRepository> {
   return {
@@ -52,32 +35,30 @@ function makeCommit(overrides: Partial<RawCommit> = {}): RawCommit {
 
 describe('Validator', () => {
   let validator: Validator;
-  let mockParser: ReturnType<typeof createMockTrailerParser>;
+  let trailerParser: TrailerParser;
   let mockAtomRepo: Partial<AtomRepository>;
   let engineConfig: EngineConfig;
   let protocol: Protocol;
   let protocolRegistry: ProtocolRegistry;
 
   beforeEach(() => {
-    mockParser = createMockTrailerParser();
+    trailerParser = new TrailerParser();
     mockAtomRepo = createMockAtomRepository();
     engineConfig = { ...MOCK_CONFIG };
 
     // Explicitly mark identity as required in the protocol config for this suite
-    const pConfig: ProtocolConfig = {
-        version: '1.0',
+    const pConfig: ProtocolConfig = makeProtocolConfig({
+        ...MOCK_CONFIG,
         trailers: {
-            required: [MOCK_ID_KEY],
-            custom: [],
-            definitions: {},
-            permissive: true
+            ...MOCK_CONFIG.trailers,
+            required: [MOCK_ID_KEY]
         }
-    };
+    });
 
     protocolRegistry = new ProtocolRegistry();
     protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, pConfig);
     protocolRegistry.register(protocol);
-    validator = new Validator(mockParser as any, mockAtomRepo as any, engineConfig, protocolRegistry);
+    validator = new Validator(trailerParser, mockAtomRepo as any, engineConfig, protocolRegistry);
   });
 
   describe('basic validation', () => {
@@ -102,7 +83,7 @@ describe('Validator', () => {
 
   describe('Rule 1: trailer format', () => {
     it('should error when trailers cannot be parsed', async () => {
-      mockParser.parse.mockImplementation(() => {
+      vi.spyOn(trailerParser, 'parse').mockImplementation(() => {
         throw new Error('Parse error');
       });
 
@@ -138,11 +119,7 @@ describe('Validator', () => {
     });
 
     it('should warn when a trailer appears too many times (cardinality hygiene)', async () => {
-      // Threshold is 5
-      const tooManyConstraints = ['c1', 'c2', 'c3', 'c4', 'c5', 'c6'];
-      mockParser.parse.mockReturnValue(makeTrailers({ Constraint: tooManyConstraints }));
-      
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Constraint: 1\nConstraint: 2\nConstraint: 3\nConstraint: 4\nConstraint: 5\nConstraint: 6' });
       const results = await validator.validate([commit]);
 
       const issue = results[0].issues.find((i) => i.rule === 'trailer-count');
@@ -154,9 +131,7 @@ describe('Validator', () => {
 
   describe(`Rule 2: ${MOCK_ID_KEY} present`, () => {
     it(`should error when ${MOCK_ID_KEY} is missing`, async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: [] }));
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Constraint: test' });
       const results = await validator.validate([commit]);
 
       const idIssue = results[0].issues.find((i) => i.rule === 'mock-id-present');
@@ -167,9 +142,7 @@ describe('Validator', () => {
 
   describe(`Rule 3: ${MOCK_ID_KEY} format`, () => {
     it(`should error when ${MOCK_ID_KEY} is not 8-char hex`, async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: ['not-hex!'] }));
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: not-hex!` });
       const results = await validator.validate([commit]);
 
       const formatIssue = results[0].issues.find((i) => i.rule === 'mock-id-format');
@@ -178,9 +151,7 @@ describe('Validator', () => {
     });
 
     it(`should pass for valid 8-char hex ${MOCK_ID_KEY}`, async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: ['abcd1234'] }));
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: abcd1234` });
       const results = await validator.validate([commit]);
 
       const formatIssue = results[0].issues.find((i) => i.rule === 'mock-id-format');
@@ -188,9 +159,7 @@ describe('Validator', () => {
     });
 
     it(`should error for too-short ${MOCK_ID_KEY}`, async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: ['abc123'] }));
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: abc123` });
       const results = await validator.validate([commit]);
 
       const formatIssue = results[0].issues.find((i) => i.rule === 'mock-id-format');
@@ -198,9 +167,7 @@ describe('Validator', () => {
     });
 
     it(`should error for uppercase hex ${MOCK_ID_KEY}`, async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: ['ABCD1234'] }));
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: ABCD1234` });
       const results = await validator.validate([commit]);
 
       const formatIssue = results[0].issues.find((i) => i.rule === 'mock-id-format');
@@ -210,11 +177,7 @@ describe('Validator', () => {
 
   describe('Rule: invalid-cardinality', () => {
     it('should error when a single-value core trailer has multiple values', async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ 
-        'Confidence': ['low', 'high'] 
-      }));
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Confidence: low\nConfidence: high' });
       const results = await validator.validate([commit]);
 
       const cardinalityIssue = results[0].issues.find((i) => i.rule === 'invalid-cardinality');
@@ -234,15 +197,11 @@ describe('Validator', () => {
         }
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, customConfig);
+      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(customConfig));
       customRegistry.register(customProtocol);
-      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, customConfig, customRegistry);
+      const customValidator = new Validator(trailerParser, mockAtomRepo as any, customConfig, customRegistry);
 
-      mockParser.parse.mockReturnValue(makeTrailers({ 
-        'Team': ['Engineering', 'Product'] 
-      } as any));
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Team: Engineering\nTeam: Product' });
       const results = await customValidator.validate([commit]);
 
       const cardinalityIssue = results[0].issues.find((i) => i.rule === 'invalid-cardinality');
@@ -251,11 +210,7 @@ describe('Validator', () => {
     });
 
     it('should pass when an array core trailer has multiple values', async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ 
-        'Constraint': ['C1', 'C2'] 
-      }));
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Constraint: C1\nConstraint: C2' });
       const results = await validator.validate([commit]);
 
       const cardinalityIssue = results[0].issues.find((i) => i.rule === 'invalid-cardinality');
@@ -265,11 +220,7 @@ describe('Validator', () => {
 
   describe('Rule 4: valid enum values', () => {
     it('should error on invalid Confidence', async () => {
-      mockParser.parse.mockReturnValue(
-        makeTrailers({ Confidence: ['super-high'] as any }),
-      );
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Confidence: super-high' });
       const results = await validator.validate([commit]);
 
       const enumIssue = results[0].issues.find(
@@ -280,13 +231,7 @@ describe('Validator', () => {
     });
 
     it('should accept valid enum values', async () => {
-      mockParser.parse.mockReturnValue(
-        makeTrailers({
-          Confidence: ['medium'],
-        }),
-      );
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Confidence: medium' });
       const results = await validator.validate([commit]);
 
       const enumIssues = results[0].issues.filter((i) => i.rule === 'invalid-enum');
@@ -294,13 +239,7 @@ describe('Validator', () => {
     });
 
     it('should not error when enum trailers are empty', async () => {
-      mockParser.parse.mockReturnValue(
-        makeTrailers({
-          Confidence: [],
-        }),
-      );
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Constraint: test' });
       const results = await validator.validate([commit]);
 
       const enumIssues = results[0].issues.filter((i) => i.rule === 'invalid-enum');
@@ -332,9 +271,9 @@ describe('Validator', () => {
         validation: { ...MOCK_CONFIG.validation, subjectMaxLength: 50 },
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, customConfig);
+      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(customConfig));
       customRegistry.register(customProtocol);
-      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, customConfig, customRegistry);
+      const customValidator = new Validator(trailerParser, mockAtomRepo as any, customConfig, customRegistry);
 
       const commit = makeCommit({ subject: 'a'.repeat(51) });
       const results = await customValidator.validate([commit]);
@@ -353,12 +292,11 @@ describe('Validator', () => {
         validation: { ...MOCK_CONFIG.validation, strict: false },
       };
       const requiredRegistry = new ProtocolRegistry();
-      const requiredProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, requiredConfig);
+      const requiredProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(requiredConfig));
       requiredRegistry.register(requiredProtocol);
-      const requiredValidator = new Validator(mockParser as any, mockAtomRepo as any, requiredConfig, requiredRegistry);
-      mockParser.parse.mockReturnValue(makeTrailers({ Confidence: [] }));
-
-      const commit = makeCommit();
+      const requiredValidator = new Validator(trailerParser, mockAtomRepo as any, requiredConfig, requiredRegistry);
+      
+      const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: abc` }); // Missing Confidence and Constraint
       const results = await requiredValidator.validate([commit]);
 
       const requiredIssues = results[0].issues.filter(
@@ -375,12 +313,11 @@ describe('Validator', () => {
         validation: { ...MOCK_CONFIG.validation, strict: true },
       };
       const strictRegistry = new ProtocolRegistry();
-      const strictProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, strictConfig);
+      const strictProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(strictConfig));
       strictRegistry.register(strictProtocol);
-      const strictValidator = new Validator(mockParser as any, mockAtomRepo as any, strictConfig, strictRegistry);
-      mockParser.parse.mockReturnValue(makeTrailers({ Confidence: [] }));
-
-      const commit = makeCommit();
+      const strictValidator = new Validator(trailerParser, mockAtomRepo as any, strictConfig, strictRegistry);
+      
+      const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: abc` }); // Missing Confidence
       const results = await strictValidator.validate([commit]);
 
       const requiredIssues = results[0].issues.filter(
@@ -395,14 +332,11 @@ describe('Validator', () => {
         trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true },
       };
       const requiredRegistry = new ProtocolRegistry();
-      const requiredProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, requiredConfig);
+      const requiredProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(requiredConfig));
       requiredRegistry.register(requiredProtocol);
-      const requiredValidator = new Validator(mockParser as any, mockAtomRepo as any, requiredConfig, requiredRegistry);
-      mockParser.parse.mockReturnValue(
-        makeTrailers({ Confidence: ['medium'] }),
-      );
-
-      const commit = makeCommit();
+      const requiredValidator = new Validator(trailerParser, mockAtomRepo as any, requiredConfig, requiredRegistry);
+      
+      const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: abc\nConfidence: medium` });
       const results = await requiredValidator.validate([commit]);
 
       const requiredIssues = results[0].issues.filter(
@@ -434,14 +368,7 @@ describe('Validator', () => {
 
   describe('Rule 8: reference format', () => {
     it('should warn on invalid reference format', async () => {
-      mockParser.parse.mockReturnValue(
-        makeTrailers({
-          Ref: ['not-hex!'],
-          Related: ['toolong12'],
-        }),
-      );
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Ref: not-hex!\nRelated: toolong12' });
       const results = await validator.validate([commit]);
 
       const refIssues = results[0].issues.filter(
@@ -452,14 +379,7 @@ describe('Validator', () => {
     });
 
     it('should not warn on valid reference format', async () => {
-      mockParser.parse.mockReturnValue(
-        makeTrailers({
-          Ref: ['aabbccdd'],
-          Related: ['11223344'],
-        }),
-      );
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Ref: aabbccdd\nRelated: 11223344' });
       const results = await validator.validate([commit]);
 
       const refIssues = results[0].issues.filter(
@@ -471,13 +391,7 @@ describe('Validator', () => {
 
   describe('Rule 9: trailer count', () => {
     it('should warn when more than 5 of any trailer type', async () => {
-      mockParser.parse.mockReturnValue(
-        makeTrailers({
-          Constraint: ['a', 'b', 'c', 'd', 'e', 'f'],
-        }),
-      );
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Constraint: a\nConstraint: b\nConstraint: c\nConstraint: d\nConstraint: e\nConstraint: f' });
       const results = await validator.validate([commit]);
 
       const countIssue = results[0].issues.find(
@@ -490,13 +404,7 @@ describe('Validator', () => {
     });
 
     it('should not warn when 5 or fewer of each type', async () => {
-      mockParser.parse.mockReturnValue(
-        makeTrailers({
-          Constraint: ['a', 'b', 'c', 'd', 'e'],
-        }),
-      );
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Constraint: a\nConstraint: b\nConstraint: c\nConstraint: d\nConstraint: e' });
       const results = await validator.validate([commit]);
 
       const countIssues = results[0].issues.filter(
@@ -508,9 +416,7 @@ describe('Validator', () => {
 
   describe('overall validity', () => {
     it('should be invalid if any error exists', async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: [] }));
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Constraint: some-value' }); // Missing required ID
       const results = await validator.validate([commit]);
 
       expect(results[0].valid).toBe(false);
@@ -538,15 +444,14 @@ describe('Validator', () => {
     });
 
     it(`should report ${MOCK_ID_KEY} when present`, async () => {
-      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: ['deadbeef'] }));
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: deadbeef` });
       const results = await validator.validate([commit]);
 
       expect(results[0].id).toBe('deadbeef');
     });
 
     it(`should report null ${MOCK_ID_KEY} when parse fails`, async () => {
-      mockParser.parse.mockImplementation(() => {
+      vi.spyOn(trailerParser, 'parse').mockImplementation(() => {
         throw new Error('Parse error');
       });
 
@@ -559,13 +464,7 @@ describe('Validator', () => {
 
   describe('Rule 10: reference existence', () => {
     it('should warn when referenced atom does not exist', async () => {
-      mockParser.parse.mockReturnValue(
-        makeTrailers({
-          Ref: ['aabbccdd'],
-        }),
-      );
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Ref: aabbccdd' });
       const results = await validator.validate([commit]);
 
       const refExistsIssues = results[0].issues.filter(
@@ -587,13 +486,7 @@ describe('Validator', () => {
         protocols: new Map(),
         filesChanged: [],
       } as any);
-      mockParser.parse.mockReturnValue(
-        makeTrailers({
-          Related: ['aabbccdd'],
-        }),
-      );
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Related: aabbccdd' });
       const results = await validator.validate([commit]);
 
       const refExistsIssues = results[0].issues.filter(
@@ -610,19 +503,18 @@ describe('Validator', () => {
         trailers: {
           ...MOCK_CONFIG.trailers,
           definitions: {
-            Department: { description: 'dept', multivalue: false, validation: 'none', required: true },
+            Department: { description: 'dept', multivalue: false, validation: 'none' as const, required: true },
           },
           custom: [],
           permissive: false,
         },
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, configWithDef);
+      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(configWithDef));
       customRegistry.register(customProtocol);
-      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, configWithDef, customRegistry);
-      mockParser.parse.mockReturnValue(makeTrailers({ [MOCK_ID_KEY]: ['abc'] } as any)); // Missing Department
-
-      const commit = makeCommit();
+      const customValidator = new Validator(trailerParser, mockAtomRepo as any, configWithDef, customRegistry);
+      
+      const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: abc` }); // Missing Department
       const results = await customValidator.validate([commit]);
 
       const requiredIssues = results[0].issues.filter((i) => i.rule === 'required-trailer');
@@ -648,13 +540,11 @@ describe('Validator', () => {
         },
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, configWithDef);
+      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(configWithDef));
       customRegistry.register(customProtocol);
-      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, configWithDef, customRegistry);
+      const customValidator = new Validator(trailerParser, mockAtomRepo as any, configWithDef, customRegistry);
 
-      mockParser.parse.mockReturnValue(makeTrailers({ Team: ['Gamma'] } as any));
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Team: Gamma' });
       const results = await customValidator.validate([commit]);
 
       const enumIssues = results[0].issues.filter((i) => i.rule === 'invalid-enum');
@@ -675,18 +565,45 @@ describe('Validator', () => {
         },
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, configWithDef);
+      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(configWithDef));
       customRegistry.register(customProtocol);
-      const customValidator = new Validator(mockParser as any, mockAtomRepo as any, configWithDef, customRegistry);
+      const customValidator = new Validator(trailerParser, mockAtomRepo as any, configWithDef, customRegistry);
 
-      mockParser.parse.mockReturnValue(makeTrailers({ Ticket: ['invalid-123'] } as any));
-
-      const commit = makeCommit();
+      const commit = makeCommit({ trailers: 'Ticket: invalid-123' });
       const results = await customValidator.validate([commit]);
 
       const formatIssues = results[0].issues.filter((i) => i.rule === 'invalid-format');
       expect(formatIssues).toHaveLength(1);
       expect(formatIssues[0].message).toContain('does not match pattern');
     });
+  });
+
+  describe('Namespacing TYPOS', () => {
+      it('should report unauthorized trailers in a namespaced protocol', async () => {
+          const nsRegistry = new ProtocolRegistry();
+          const nsProtocol = new Protocol(
+              { 
+                ...MOCK_PROTOCOL_DEFINITION, 
+                name: 'Project', 
+                namespace: 'Project', 
+                identityKey: 'Id',
+                trailers: {
+                    ...MOCK_PROTOCOL_DEFINITION.trailers,
+                    'Id': MOCK_PROTOCOL_DEFINITION.trailers[MOCK_ID_KEY]
+                }
+              },
+              makeProtocolConfig({ ...MOCK_CONFIG, trailers: { ...MOCK_CONFIG.trailers, permissive: false } })
+          );
+          nsRegistry.register(nsProtocol);
+          const nsValidator = new Validator(trailerParser, mockAtomRepo as any, engineConfig, nsRegistry);
+
+          const commit = makeCommit({ trailers: 'Project: Id: a1b2c3d4\nProject: Tream: backend' });
+          const results = await nsValidator.validate([commit]);
+
+          const issue = results[0].issues.find(i => i.rule === 'unauthorized-trailer');
+          expect(issue).toBeDefined();
+          expect(issue?.message).toContain('Tream');
+          expect(issue?.message).toContain('Project');
+      });
   });
 });

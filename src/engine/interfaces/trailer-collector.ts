@@ -2,6 +2,7 @@ import type { IPrompt } from './prompt.js';
 
 export interface TrailerCollectionResult {
   readonly key: string;
+  readonly namespace: string;
   readonly value: string | string[] | undefined;
 }
 
@@ -17,5 +18,6 @@ export interface TrailerCollectionResult {
  */
 export interface ITrailerCollector {
   readonly key: string;
+  readonly namespace: string;
   collect(prompt: IPrompt): Promise<TrailerCollectionResult>;
 }

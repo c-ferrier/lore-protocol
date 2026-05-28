@@ -27,17 +27,17 @@ describe('JsonInputReader', () => {
 
       expect(result.subject).toBe('fix bug in parser');
       expect(result.body).toBe('Detailed explanation');
-      expect(result.trailers?.Constraint).toEqual(['must preserve backward compat']);
-      expect(result.trailers?.Rejected).toEqual(['approach A | too complex']);
-      expect(result.trailers?.Confidence).toEqual(['medium']);
-      expect(result.trailers?.['Scope-risk']).toEqual(['narrow']);
-      expect(result.trailers?.Reversibility).toEqual(['clean']);
-      expect(result.trailers?.Directive).toEqual(['use new API']);
-      expect(result.trailers?.Tested).toEqual(['unit tests pass']);
-      expect(result.trailers?.['Not-tested']).toEqual(['load testing']);
-      expect(result.trailers?.Supersedes).toEqual(['abcd1234']);
-      expect(result.trailers?.['Depends-on']).toEqual(['dead0000']);
-      expect(result.trailers?.Related).toEqual(['beef1234']);
+      expect(result.trailers[''].Constraint).toEqual(['must preserve backward compat']);
+      expect(result.trailers[''].Rejected).toEqual(['approach A | too complex']);
+      expect(result.trailers[''].Confidence).toEqual(['medium']);
+      expect(result.trailers['']['Scope-risk']).toEqual(['narrow']);
+      expect(result.trailers[''].Reversibility).toEqual(['clean']);
+      expect(result.trailers[''].Directive).toEqual(['use new API']);
+      expect(result.trailers[''].Tested).toEqual(['unit tests pass']);
+      expect(result.trailers['']['Not-tested']).toEqual(['load testing']);
+      expect(result.trailers[''].Supersedes).toEqual(['abcd1234']);
+      expect(result.trailers['']['Depends-on']).toEqual(['dead0000']);
+      expect(result.trailers[''].Related).toEqual(['beef1234']);
     });
 
     it('should parse minimal JSON with only subject', async () => {
@@ -48,7 +48,7 @@ describe('JsonInputReader', () => {
 
       expect(result.subject).toBe('minimal commit');
       expect(result.body).toBeUndefined();
-      expect(result.trailers).toBeUndefined();
+      expect(result.trailers).toEqual({ '': {} });
     });
 
     it('should parse JSON with subject and body but no trailers', async () => {
@@ -59,7 +59,7 @@ describe('JsonInputReader', () => {
 
       expect(result.subject).toBe('with body');
       expect(result.body).toBe('Some body text');
-      expect(result.trailers).toBeUndefined();
+      expect(result.trailers).toEqual({ '': {} });
     });
 
     it('should parse JSON with empty trailers object', async () => {
@@ -69,7 +69,7 @@ describe('JsonInputReader', () => {
       const result = await reader.read();
 
       expect(result.subject).toBe('with empty trailers');
-      expect(result.trailers).toEqual({});
+      expect(result.trailers).toEqual({ '': {} });
     });
 
     it('should default subject to empty string when not a string', async () => {
@@ -103,7 +103,7 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.trailers?.Constraint).toEqual(['valid', 'also valid']);
+      expect(result.trailers[''].Constraint).toEqual(['valid', 'also valid']);
     });
 
     it('should coerce a single string trailer value to an array', async () => {
@@ -118,8 +118,8 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.trailers?.Constraint).toEqual(['single constraint']);
-      expect(result.trailers?.Directive).toEqual(['[until:2026-06] Remove before release']);
+      expect(result.trailers[''].Constraint).toEqual(['single constraint']);
+      expect(result.trailers[''].Directive).toEqual(['[until:2026-06] Remove before release']);
     });
 
     it('should return undefined for non-string non-array trailer values', async () => {
@@ -133,7 +133,7 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.trailers?.Constraint).toBeUndefined();
+      expect(result.trailers[''].Constraint).toBeUndefined();
     });
   });
 
@@ -150,8 +150,8 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.trailers?.['Assisted-by']).toEqual(['Gemini:CLI']);
-      expect(result.trailers?.Confidence).toEqual(['high']);
+      expect(result.trailers['']['Assisted-by']).toEqual(['Gemini:CLI']);
+      expect(result.trailers[''].Confidence).toEqual(['high']);
     });
 
     it('should collect multiple custom trailers', async () => {
@@ -167,9 +167,9 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.trailers?.['Assisted-by']).toEqual(['Gemini:CLI']);
-      expect(result.trailers?.Ticket).toEqual(['PROJ-123', 'PROJ-456']);
-      expect(result.trailers?.Constraint).toEqual(['some constraint']);
+      expect(result.trailers['']['Assisted-by']).toEqual(['Gemini:CLI']);
+      expect(result.trailers[''].Ticket).toEqual(['PROJ-123', 'PROJ-456']);
+      expect(result.trailers[''].Constraint).toEqual(['some constraint']);
     });
 
     it('should skip custom trailers with non-string values', async () => {
@@ -184,8 +184,8 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.trailers?.['Valid-custom']).toEqual(['value']);
-      expect(result.trailers?.['Invalid-custom']).toBeUndefined();
+      expect(result.trailers['']['Valid-custom']).toEqual(['value']);
+      expect(result.trailers['']['Invalid-custom']).toBeUndefined();
     });
   });
 
@@ -203,9 +203,9 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.trailers?.Confidence).toEqual(['high']);
-      expect(result.trailers?.['Scope-risk']).toEqual(['wide']);
-      expect(result.trailers?.Reversibility).toEqual(['irreversible']);
+      expect(result.trailers[''].Confidence).toEqual(['high']);
+      expect(result.trailers['']['Scope-risk']).toEqual(['wide']);
+      expect(result.trailers[''].Reversibility).toEqual(['irreversible']);
     });
 
     it('should return undefined for non-string enum values', async () => {
@@ -221,9 +221,9 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input));
       const result = await reader.read();
 
-      expect(result.trailers?.Confidence).toBeUndefined();
-      expect(result.trailers?.['Scope-risk']).toBeUndefined();
-      expect(result.trailers?.Reversibility).toBeUndefined();
+      expect(result.trailers[''].Confidence).toBeUndefined();
+      expect(result.trailers['']['Scope-risk']).toBeUndefined();
+      expect(result.trailers[''].Reversibility).toBeUndefined();
     });
   });
 

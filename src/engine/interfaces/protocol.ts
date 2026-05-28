@@ -23,7 +23,7 @@ export interface IProtocol {
   /**
    * The namespace this protocol operates in.
    * Empty string "" indicates the Root namespace (e.g., Mock).
-   * Explicitly namespaced trailers use the format: "Namespace/Key: value".
+   * Explicitly namespaced trailers use the format: "Namespace: Key: value".
    */
   readonly namespace: string;
 
@@ -114,10 +114,12 @@ export interface IProtocol {
    * Parse raw trailers into a protocol-specific state.
    * @param rawTrailers Raw trailer text from Git.
    * @param claimedKeys Optional set of keys already claimed by an explicit owner.
+   * @param includeInvalid If true, includes invalid values (enums/patterns) in the trailers map for diagnostics.
    */
   parse(
     rawTrailers: string,
     claimedKeys?: Set<string>,
+    includeInvalid?: boolean,
   ): ProtocolState;
 
   /**

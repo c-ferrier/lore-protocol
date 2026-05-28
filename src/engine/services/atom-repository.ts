@@ -307,14 +307,10 @@ export class AtomRepository {
       
       if (hasProtocols) {
         // Ownership resolution logic:
-        const explicitOwners = new Set<string>();
-        for (const p of activeProtocols) {
-          const pKeys = p.getAllKeys();
-          for (const k of pKeys) explicitOwners.add(k);
-        }
+        const claimedKeys = this.protocolRegistry.getClaimedKeys();
 
         for (const p of activeProtocols) {
-          protocolMap.set(p.name.toLowerCase(), p.parse(raw.trailers, explicitOwners));
+          protocolMap.set(p.name.toLowerCase(), p.parse(raw.trailers, claimedKeys));
         }
       }
 

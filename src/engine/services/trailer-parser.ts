@@ -1,4 +1,4 @@
-const TRAILER_LINE_PATTERN = /^([A-Za-z][A-Za-z0-9-/]*):\s*(.*)$/;
+const TRAILER_LINE_PATTERN = /^([A-Za-z0-9][A-Za-z0-9-]*):\s*(.*)$/;
 const CONTINUATION_LINE_PATTERN = /^[ \t]+(.*)$/;
 
 /**

@@ -6,6 +6,7 @@ import type {
 
 interface MultiValueTrailerConfig {
   readonly key: string;
+  readonly namespace: string;
   readonly confirmMessage: string;
   readonly inputMessage: string;
 }
@@ -21,11 +22,13 @@ interface MultiValueTrailerConfig {
  */
 export class MultiValueTrailerCollector implements ITrailerCollector {
   readonly key: string;
+  readonly namespace: string;
   private readonly confirmMessage: string;
   private readonly inputMessage: string;
 
   constructor(config: MultiValueTrailerConfig) {
     this.key = config.key;
+    this.namespace = config.namespace;
     this.confirmMessage = config.confirmMessage;
     this.inputMessage = config.inputMessage;
   }
@@ -46,6 +49,7 @@ export class MultiValueTrailerCollector implements ITrailerCollector {
 
     return {
       key: this.key,
+      namespace: this.namespace,
       value: values.length > 0 ? values : undefined,
     };
   }

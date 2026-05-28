@@ -1,15 +1,14 @@
 import type { TrailerParser } from './trailer-parser.js';
 import type { IdGenerator } from './id-generator.js';
 import type { EngineConfig } from '../types/config.js';
-import type { Trailers, AtomId } from '../types/domain.js';
+import type { AtomId } from '../types/domain.js';
 import type { CommitInput } from '../types/commit.js';
 import type { ValidationIssue } from '../types/output.js';
-import type { IProtocol } from '../interfaces/protocol.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 
 /**
  * Builds and validates git commit messages enriched with decision context.
- * Supports multiple protocols simultaneously.
+ * Supports multiple protocols simultaneously using Git-native nested namespacing.
  */
 export class CommitBuilder {
   constructor(
@@ -25,15 +24,15 @@ export class CommitBuilder {
    */
   build(input: CommitInput, existingIds?: Record<string, AtomId>): { message: string; protocols: Record<string, any> } {
     const protocols: Record<string, any> = {};
-    const trailers: Record<string, string[]> = {};
-    const allAuthorizedKeys: string[] = [];
-    const claimedKeys = new Set<string>();
+    const serializedTrailers: Record<string, string[]> = {};
+    const displayOrder: string[] = [];
 
     const registeredProtocols = this.protocolRegistry.getAll();
 
     // 1. Process each protocol for identity and authorized keys
     for (const protocol of registeredProtocols) {
       const pName = protocol.name.toLowerCase();
+      const ns = protocol.namespace;
       const id = (existingIds && existingIds[pName]) || this.idGenerator.generate(protocol);
 
       protocols[pName] = {
@@ -42,52 +41,65 @@ export class CommitBuilder {
         version: protocol.version,
       };
 
-      const prefix = protocol.namespace ? `${protocol.namespace}/` : '';
+      // Add identity trailer to the appropriate Git scope
+      if (ns) {
+          const existing = serializedTrailers[ns] || [];
+          existing.push(`${protocol.identityKey}: ${id}`);
+          serializedTrailers[ns] = existing;
+          if (!displayOrder.includes(ns)) displayOrder.push(ns);
+      } else {
+          serializedTrailers[protocol.identityKey] = [id];
+          displayOrder.push(protocol.identityKey);
+      }
 
-      
-      // Add identity trailer
-      const identityKey = `${prefix}${protocol.identityKey}`;
-      trailers[identityKey] = [id];
-      allAuthorizedKeys.push(identityKey);
-      claimedKeys.add(identityKey);
-
-      // Collect other authorized keys
+      // Collect other authorized keys from input
+      const nsInput = input.trailers[ns] || {};
       for (const key of protocol.getAuthorizedKeys()) {
         if (key === protocol.identityKey) continue;
-        const fullKey = `${prefix}${key}`;
         
-        const values = input.trailers ? (input.trailers[fullKey] || input.trailers[key]) : undefined;
+        const values = nsInput[key];
         if (values && values.length > 0) {
-          trailers[fullKey] = [...values];
-          allAuthorizedKeys.push(fullKey);
-          claimedKeys.add(fullKey);
-          claimedKeys.add(key);
+          if (ns) {
+            const existing = serializedTrailers[ns] || [];
+            for (const v of values) {
+              existing.push(`${key}: ${v}`);
+            }
+            serializedTrailers[ns] = existing;
+            if (!displayOrder.includes(ns)) displayOrder.push(ns);
+          } else {
+            serializedTrailers[key] = [...values];
+            displayOrder.push(key);
+          }
         }
       }
     }
 
-    // 2. Permissive protocols claim orphans
-    for (const protocol of registeredProtocols) {
-        if (protocol.permissive && input.trailers) {
-            for (const [key, values] of Object.entries(input.trailers)) {
-                if (claimedKeys.has(key)) continue;
-                
-                const matchesNamespace = protocol.namespace && key.startsWith(`${protocol.namespace}/`);
-                const isRootProtocol = protocol.namespace === '';
+    // 2. Handle Permissive orphans in all scopes
+    for (const [ns, nsMap] of Object.entries(input.trailers)) {
+        const protocol = this.protocolRegistry.getAll().find(p => p.namespace.toLowerCase() === ns.toLowerCase());
+        if (!protocol?.permissive) continue;
 
-                // Greedy match: 
-                // - Namespaced protocols claim orphans in their namespace
-                // - Root protocol claims ALL remaining orphans (namespaced or not) if it's permissive
-                if (matchesNamespace || isRootProtocol) {
-                    trailers[key] = [...values];
-                    allAuthorizedKeys.push(key);
-                    claimedKeys.add(key);
+        const authorized = new Set(protocol.getAuthorizedKeys().map(k => k.toLowerCase()));
+        
+        for (const [key, values] of Object.entries(nsMap)) {
+            const lowerKey = key.toLowerCase();
+            if (authorized.has(lowerKey) || lowerKey === protocol.identityKey.toLowerCase()) continue;
+            
+            if (ns) {
+                const existing = serializedTrailers[ns] || [];
+                for (const v of values) {
+                    existing.push(`${key}: ${v}`);
                 }
+                serializedTrailers[ns] = existing;
+                if (!displayOrder.includes(ns)) displayOrder.push(ns);
+            } else {
+                serializedTrailers[key] = [...values];
+                displayOrder.push(key);
             }
         }
     }
 
-    const trailerBlock = this.trailerParser.serialize(trailers, allAuthorizedKeys);
+    const trailerBlock = this.trailerParser.serialize(serializedTrailers, displayOrder);
 
     let message = input.subject;
     if (input.body && input.body.trim()) {
@@ -120,61 +132,89 @@ export class CommitBuilder {
       });
     }
 
-    for (const protocol of this.protocolRegistry.getAll()) {
-      const prefix = protocol.namespace ? `${protocol.namespace}/` : '';
-      
-      for (const key of protocol.getAuthorizedKeys()) {
-        const def = protocol.getDefinition(key);
-        if (!def) continue;
-
-        const fullKey = `${prefix}${key}`;
-        const values = input.trailers ? (input.trailers[fullKey] || input.trailers[key]) : undefined;
-        if (!values || values.length === 0) continue;
-
-        if (def.validation === 'values' && def.values) {
-          const allowedValues = Object.keys(def.values);
-          for (const v of values) {
-            if (!allowedValues.includes(v)) {
-              issues.push({
-                severity: 'error',
-                rule: 'invalid-enum',
-                field: fullKey,
-                message: `[${protocol.name}] Invalid value for "${key}": "${v}". Expected one of: ${allowedValues.join(', ')}`,
-              });
-            }
-          }
-        } else if (def.validation === 'pattern' && def.pattern) {
-          const regex = new RegExp(def.pattern);
-          for (const v of values) {
-            if (!regex.test(v)) {
-              let rule = 'invalid-format';
-              if (def.ui?.kind === 'reference') {
-                const protocolSlug = protocol.name.toLowerCase().replace(/-/g, '');
-                rule = `invalid-${protocolSlug}-id-ref`;
-              }
-
-              issues.push({
-                severity: 'error',
-                rule,
-                field: fullKey,
-                message: `[${protocol.name}] Value for "${key}" does not match pattern: ${def.pattern}`,
-              });
-            }
-          }
+    // Validate each namespace bucket
+    for (const [ns, nsMap] of Object.entries(input.trailers)) {
+        const protocol = this.protocolRegistry.getAll().find(p => p.namespace.toLowerCase() === ns.toLowerCase());
+        
+        if (!protocol) {
+            // Unrecognized namespace
+            issues.push({
+                severity: 'warning',
+                rule: 'unrecognized-namespace',
+                field: ns,
+                message: `Namespace "${ns}" is not recognized by any registered protocol`,
+            });
+            continue;
         }
-      }
-      
-      for (const key of protocol.getAuthorizedKeys()) {
-        const def = protocol.getDefinition(key);
-        if (def?.required && !this.hasTrailer(input, key, protocol.namespace)) {
-           issues.push({
-            severity: this.config.validation.strict ? 'error' : 'warning',
-            rule: 'required-trailer',
-            field: key,
-            message: `Required trailer "${key}" is missing for protocol ${protocol.name}`,
-          });
+
+        const claimedInNs = new Set<string>();
+
+        // Check authorized keys
+        for (const key of protocol.getAuthorizedKeys()) {
+            const def = protocol.getDefinition(key);
+            const values = nsMap[key];
+            
+            if (def?.required && (!values || values.length === 0)) {
+                issues.push({
+                    severity: this.config.validation.strict ? 'error' : 'warning',
+                    rule: 'required-trailer',
+                    field: ns ? `${ns}:${key}` : key,
+                    message: `[${protocol.name}] Required trailer "${key}" is missing`,
+                });
+            }
+
+            if (!values || values.length === 0) continue;
+            claimedInNs.add(key.toLowerCase());
+
+            if (def?.validation === 'values' && def.values) {
+                const allowed = Object.keys(def.values);
+                for (const v of values) {
+                    if (!allowed.includes(v)) {
+                        issues.push({
+                            severity: 'error',
+                            rule: 'invalid-enum',
+                            field: ns ? `${ns}:${key}` : key,
+                            message: `[${protocol.name}] Invalid value for "${key}": "${v}". Expected one of: ${allowed.join(', ')}`,
+                        });
+                    }
+                }
+            } else if (def?.validation === 'pattern' && def.pattern) {
+                const regex = new RegExp(def.pattern);
+                for (const v of values) {
+                    if (!regex.test(v)) {
+                        issues.push({
+                            severity: 'error',
+                            rule: 'invalid-format',
+                            field: ns ? `${ns}:${key}` : key,
+                            message: `[${protocol.name}] Value for "${key}" does not match pattern: ${def.pattern}`,
+                        });
+                    }
+                }
+            }
+
+            if (!def?.multivalue && values.length > 1) {
+                issues.push({
+                    severity: 'error',
+                    rule: 'invalid-cardinality',
+                    field: ns ? `${ns}:${key}` : key,
+                    message: `[${protocol.name}] Trailer "${key}" allows only one value`,
+                });
+            }
         }
-      }
+
+        // Check for unauthorized keys in this namespace
+        if (!protocol.permissive) {
+            for (const key of Object.keys(nsMap)) {
+                if (!claimedInNs.has(key.toLowerCase()) && key.toLowerCase() !== protocol.identityKey.toLowerCase()) {
+                    issues.push({
+                        severity: 'error',
+                        rule: 'unauthorized-trailer',
+                        field: ns ? `${ns}:${key}` : key,
+                        message: `[${protocol.name}] Trailer "${key}" is not recognized by protocol schema`,
+                    });
+                }
+            }
+        }
     }
 
     const lineCount = this.estimateLineCount(input);
@@ -190,9 +230,12 @@ export class CommitBuilder {
   }
 
   private hasTrailer(input: CommitInput, key: string, namespace: string): boolean {
-    const fullKey = namespace ? `${namespace}/${key}` : key;
-    return !!(input.trailers?.[fullKey] && input.trailers[fullKey].length > 0) || 
-           !!(input.trailers?.[key] && input.trailers[key].length > 0);
+    const nsMap = input.trailers[namespace];
+    if (nsMap && nsMap[key] && nsMap[key].length > 0) return true;
+    
+    // Fallback for root-namespace trailers
+    const rootMap = input.trailers[''];
+    return !!(rootMap && rootMap[key] && rootMap[key].length > 0);
   }
 
   private estimateLineCount(input: CommitInput): number {
@@ -201,15 +244,18 @@ export class CommitBuilder {
       count += 2;
       count += input.body.split('\n').length;
     }
-    if (input.trailers) {
-      count += 2;
-      for (const rawValues of Object.values(input.trailers)) {
-        const values = (rawValues || []) as readonly string[];
-        if (values.length > 0) {
+    
+    for (const nsMap of Object.values(input.trailers)) {
+      for (const values of Object.values(nsMap)) {
+        if (values && values.length > 0) {
           count += values.length;
         }
       }
     }
+    
+    // Add separator space for trailers
+    if (Object.keys(input.trailers).length > 0) count += 2;
+
     return count;
   }
 }

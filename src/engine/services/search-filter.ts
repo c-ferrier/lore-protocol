@@ -77,11 +77,19 @@ export class SearchFilter {
     // 6. Semantic Filtering (delegated to protocols)
     const filters = options.filters || {};
     if (Object.keys(filters).length > 0) {
-      for (const [name, state] of atom.protocols) {
-        const protocol = this.protocolRegistry.get(name);
-        if (protocol && !protocol.matches(state, filters)) {
-          return false;
+      for (const [key, value] of Object.entries(filters)) {
+        let keyMatched = false;
+
+        // Try protocol-aware matching
+        for (const [name, state] of atom.protocols) {
+          const protocol = this.protocolRegistry.get(name);
+          if (protocol && protocol.matches(state, { [key]: value })) {
+            keyMatched = true;
+            break;
+          }
         }
+
+        if (!keyMatched) return false;
       }
     }
 

@@ -67,9 +67,9 @@ describe('InteractiveInputReader', () => {
 
       expect(result.subject).toBe('refactor auth module');
       expect(result.body).toBe('This is the body text.');
-      expect(result.trailers?.Constraint).toEqual(['must be fast']);
-      expect(result.trailers?.Confidence).toEqual(['high']);
-      expect(result.trailers?.Related).toEqual(['beef1234']);
+      expect(result.trailers[''].Constraint).toEqual(['must be fast']);
+      expect(result.trailers[''].Confidence).toEqual(['high']);
+      expect(result.trailers[''].Related).toEqual(['beef1234']);
       expect(prompt.close).toHaveBeenCalled();
     });
   });
@@ -130,7 +130,7 @@ describe('InteractiveInputReader', () => {
       const reader = new InteractiveInputReader(prompt, createTrailerCollectors(new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG)));
       const result = await reader.read();
 
-      expect(result.trailers?.Constraint).toEqual([
+      expect(result.trailers[''].Constraint).toEqual([
         'constraint one',
         'constraint two',
         'constraint three',

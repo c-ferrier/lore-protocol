@@ -6,6 +6,7 @@ import type {
 
 interface EnumChoiceTrailerConfig {
   readonly key: string;
+  readonly namespace: string;
   readonly confirmMessage: string;
   readonly choiceMessage: string;
   readonly values: readonly string[];
@@ -22,12 +23,14 @@ interface EnumChoiceTrailerConfig {
  */
 export class EnumChoiceTrailerCollector implements ITrailerCollector {
   readonly key: string;
+  readonly namespace: string;
   private readonly confirmMessage: string;
   private readonly choiceMessage: string;
   private readonly values: readonly string[];
 
   constructor(config: EnumChoiceTrailerConfig) {
     this.key = config.key;
+    this.namespace = config.namespace;
     this.confirmMessage = config.confirmMessage;
     this.choiceMessage = config.choiceMessage;
     this.values = config.values;
@@ -36,10 +39,10 @@ export class EnumChoiceTrailerCollector implements ITrailerCollector {
   async collect(prompt: IPrompt): Promise<TrailerCollectionResult> {
     const wantsValue = await prompt.askConfirm(this.confirmMessage, false);
     if (!wantsValue) {
-      return { key: this.key, value: undefined };
+      return { key: this.key, namespace: this.namespace, value: undefined };
     }
 
     const chosen = await prompt.askChoice(this.choiceMessage, this.values);
-    return { key: this.key, value: chosen };
+    return { key: this.key, namespace: this.namespace, value: chosen };
   }
 }

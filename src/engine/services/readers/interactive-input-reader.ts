@@ -51,14 +51,17 @@ export class InteractiveInputReader implements ICommitInputReader {
   }
 
   private async collectTrailers(): Promise<CommitInput['trailers']> {
-    const trailers: Record<string, string[]> = {};
+    const trailers: Record<string, Record<string, string[]>> = {};
 
     for (const collector of this.collectors) {
       const result = await collector.collect(this.prompt);
       if (result.value !== undefined) {
         const values = Array.isArray(result.value) ? result.value : [result.value as string];
         if (values.length > 0) {
-          trailers[result.key] = values;
+          const namespace = result.namespace;
+          const nsMap = trailers[namespace] ?? {};
+          nsMap[result.key] = values;
+          trailers[namespace] = nsMap;
         }
       }
     }

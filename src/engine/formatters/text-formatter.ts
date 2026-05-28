@@ -359,6 +359,15 @@ export class TextFormatter implements IOutputFormatter {
           lines.push(`${this.c.dim(`[${protocol.name}]`)} ${this.c.dim(`${key}:`)} ${v}`);
         }
       }
+
+      // 4. Render unauthorized/rejected trailers (typos)
+      if (state.unauthorized) {
+        for (const [key, values] of Object.entries(state.unauthorized)) {
+          for (const v of values) {
+            lines.push(`${this.c.dim(`[${protocol.name}]`)} ${this.c.yellow('\u26A0')} ${this.c.dim(`${key}:`)} ${v}`);
+          }
+        }
+      }
     }
 
     return lines;

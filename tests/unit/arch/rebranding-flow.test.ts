@@ -144,7 +144,7 @@ describe('Rebranding Flow Integration', () => {
     // 3. Verify rule name is rebranded
     const presenceIssue = issues.find(i => i.rule === 'fred-id-present');
     expect(presenceIssue).toBeDefined();
-    expect(presenceIssue?.message).toContain('Fred-id trailer is missing');
+    expect(presenceIssue?.message).toContain('[Fred] Required trailer "Fred-id" is missing');
 
     // 4. Validate invalid format
     const invalidCommit = {
@@ -154,6 +154,6 @@ describe('Rebranding Flow Integration', () => {
     const results2 = await validator.validate([invalidCommit]);
     const formatIssue = results2[0].issues.find(i => i.rule === 'fred-id-format');
     expect(formatIssue).toBeDefined();
-    expect(formatIssue?.message).toContain('Fred-id "not-hex" is not a valid identifier');
+    expect(formatIssue?.message).toContain('[Fred] Fred-id "not-hex" is not a valid identifier');
   });
 });

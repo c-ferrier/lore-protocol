@@ -1,14 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { FlagsInputReader } from '../../../../../src/engine/services/readers/flags-input-reader.js';
 import { Protocol } from '../../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../../test-utils.js';
+import {
+  MOCK_PROTOCOL_DEFINITION,
+  MOCK_CONFIG,
+  makeProtocolConfig,
+} from '../../test-utils.js';
 import type { CommitCommandOptions } from '../../../../../src/engine/services/commit-input-resolver.js';
 
 describe('FlagsInputReader', () => {
   let protocol: Protocol;
+  const protocolConfig = { version: '1.0', trailers: MOCK_CONFIG.trailers };
 
   beforeEach(() => {
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, protocolConfig);
   });
 
   it('should map all CLI options correctly', async () => {
@@ -20,38 +25,41 @@ describe('FlagsInputReader', () => {
       related: ['id3'],
     };
 
-    const reader = new FlagsInputReader(options, protocol);
+    const reader = new FlagsInputReader(options, [protocol]);
     const result = await reader.read();
 
     expect(result.subject).toBe('feat: add auth');
     expect(result.body).toBe('Detailed description');
-    expect(result.trailers?.Constraint).toEqual(['must be fast', 'no breaking changes']);
-    expect(result.trailers?.Confidence).toEqual(['high']);
-    expect(result.trailers?.Related).toEqual(['id3']);
+    const root = result.trailers[''] || {};
+    expect(root.Constraint).toEqual(['must be fast', 'no breaking changes']);
+    expect(root.Confidence).toEqual(['high']);
+    expect(root.Related).toEqual(['id3']);
   });
 
   it('should default subject to empty string when undefined', async () => {
-    const reader = new FlagsInputReader({}, protocol);
+    const reader = new FlagsInputReader({}, [protocol]);
     const result = await reader.read();
     expect(result.subject).toBe('');
   });
 
   it('should leave body undefined when not provided', async () => {
-    const reader = new FlagsInputReader({ subject: 't' }, protocol);
+    const reader = new FlagsInputReader({ subject: 't' }, [protocol]);
     const result = await reader.read();
     expect(result.body).toBeUndefined();
   });
 
   it('should leave array trailers undefined when not provided', async () => {
-    const reader = new FlagsInputReader({ subject: 't' }, protocol);
+    const reader = new FlagsInputReader({ subject: 't' }, [protocol]);
     const result = await reader.read();
-    expect(result.trailers?.Constraint).toBeUndefined();
+    const root = result.trailers[''] || {};
+    expect(root.Constraint).toBeUndefined();
   });
 
   it('should leave enum trailers undefined when not provided', async () => {
-    const reader = new FlagsInputReader({ subject: 't' }, protocol);
+    const reader = new FlagsInputReader({ subject: 't' }, [protocol]);
     const result = await reader.read();
-    expect(result.trailers?.Confidence).toBeUndefined();
+    const root = result.trailers[''] || {};
+    expect(root.Confidence).toBeUndefined();
   });
 
   it('should handle only subject and one trailer', async () => {
@@ -60,12 +68,13 @@ describe('FlagsInputReader', () => {
       confidence: 'low',
     };
 
-    const reader = new FlagsInputReader(options, protocol);
+    const reader = new FlagsInputReader(options, [protocol]);
     const result = await reader.read();
 
     expect(result.subject).toBe('quick fix');
-    expect(result.trailers?.Confidence).toEqual(['low']);
-    expect(result.trailers?.Constraint).toBeUndefined();
+    const root = result.trailers[''] || {};
+    expect(root.Confidence).toEqual(['low']);
+    expect(root.Constraint).toBeUndefined();
   });
 
   it('should parse custom trailers correctly', async () => {
@@ -74,12 +83,13 @@ describe('FlagsInputReader', () => {
       trailer: ['Team=Gamma', 'Ticket:123', 'Foo=Bar=Baz'],
     };
 
-    const reader = new FlagsInputReader(options, protocol);
+    const reader = new FlagsInputReader(options, [protocol]);
     const result = await reader.read();
 
-    expect(result.trailers?.Team).toEqual(['Gamma']);
-    expect(result.trailers?.Ticket).toEqual(['123']);
-    expect(result.trailers?.Foo).toEqual(['Bar=Baz']);
+    const root = result.trailers[''] || {};
+    expect(root.Team).toEqual(['Gamma']);
+    expect(root.Ticket).toEqual(['123']);
+    expect(root.Foo).toEqual(['Bar=Baz']);
   });
 
   it('should allow core trailers in the custom flag during parsing (validation caught later)', async () => {
@@ -88,9 +98,10 @@ describe('FlagsInputReader', () => {
       trailer: ['Confidence=high'],
     };
 
-    const reader = new FlagsInputReader(options, protocol);
+    const reader = new FlagsInputReader(options, [protocol]);
     const result = await reader.read();
-    expect(result.trailers?.Confidence).toEqual(['high']);
+    const root = result.trailers[''] || {};
+    expect(root.Confidence).toEqual(['high']);
   });
 
   it('should map core trailers dynamically using metadata', async () => {
@@ -100,11 +111,12 @@ describe('FlagsInputReader', () => {
       constraint: ['c1'],
     };
 
-    const reader = new FlagsInputReader(options, protocol);
+    const reader = new FlagsInputReader(options, [protocol]);
     const result = await reader.read();
 
-    expect(result.trailers?.Confidence).toEqual(['medium']);
-    expect(result.trailers?.Constraint).toEqual(['c1']);
+    const root = result.trailers[''] || {};
+    expect(root.Confidence).toEqual(['medium']);
+    expect(root.Constraint).toEqual(['c1']);
   });
 
   it('should map auto-generated flags for simple custom trailers', async () => {
@@ -112,18 +124,19 @@ describe('FlagsInputReader', () => {
       ...MOCK_CONFIG,
       trailers: { ...MOCK_CONFIG.trailers, custom: ['Squad', 'Team-Name'] },
     };
-    const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
     const options: any = {
-      subject: 't',
-      squad: ['Alpha'],
-      teamName: ['Omega'],
+      subject: 'simple',
+      squad: 'Alpha',
+      teamName: 'Omega',
     };
 
-    const reader = new FlagsInputReader(options, customProtocol);
+    const reader = new FlagsInputReader(options, [customProtocol]);
     const result = await reader.read();
 
-    expect(result.trailers?.Squad).toEqual(['Alpha']);
-    expect(result.trailers?.['Team-Name']).toEqual(['Omega']);
+    const root = result.trailers[''] || {};
+    expect(root.Squad).toEqual(['Alpha']);
+    expect(root['Team-Name']).toEqual(['Omega']);
   });
 
   it('should prioritize explicit cli flags over automatic ones', async () => {
@@ -141,16 +154,17 @@ describe('FlagsInputReader', () => {
         },
       },
     };
-    const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
     const options: any = {
       subject: 't',
       dept: 'Eng',
     };
 
-    const reader = new FlagsInputReader(options, customProtocol);
+    const reader = new FlagsInputReader(options, [customProtocol]);
     const result = await reader.read();
 
-    expect(result.trailers?.Department).toEqual(['Eng']);
+    const root = result.trailers[''] || {};
+    expect(root.Department).toEqual(['Eng']);
   });
 
   it('should automatically slugify custom trailer keys into CLI flags', async () => {
@@ -166,17 +180,18 @@ describe('FlagsInputReader', () => {
         }
       }
     };
-    const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, customConfig);
+    const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(customConfig));
     
     const options = {
       subject: 'feat',
       regulatoryCompliance: ['GDPR', 'HIPAA'],
     };
 
-    const reader = new FlagsInputReader(options as any, customProtocol);
+    const reader = new FlagsInputReader(options as any, [customProtocol]);
     const result = await reader.read();
 
-    expect(result.trailers?.['Regulatory-Compliance']).toEqual(['GDPR', 'HIPAA']);
+    const root = result.trailers[''] || {};
+    expect(root['Regulatory-Compliance']).toEqual(['GDPR', 'HIPAA']);
   });
 
   it('should preserve existing trailers when adding custom ones', async () => {
@@ -186,10 +201,11 @@ describe('FlagsInputReader', () => {
       trailer: ['Confidence=high', 'Department=Eng'],
     };
 
-    const reader = new FlagsInputReader(options, protocol);
+    const reader = new FlagsInputReader(options, [protocol]);
     const result = await reader.read();
 
-    expect(result.trailers?.Confidence).toEqual(['low', 'high']);
-    expect(result.trailers?.Department).toEqual(['Eng']);
+    const root = result.trailers[''] || {};
+    expect(root.Confidence).toEqual(['low', 'high']);
+    expect(root.Department).toEqual(['Eng']);
   });
 });

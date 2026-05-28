@@ -4,6 +4,11 @@ import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 import { LORE_DEFAULT_CONFIG } from '../../../../src/lore/defaults.js';
+import { 
+  MOCK_PROTOCOL_DEFINITION, 
+  MOCK_CONFIG, 
+  makeProtocolConfig 
+} from '../../engine/test-utils.js';
 import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 import type { FormattableQueryResult } from '../../../../src/engine/types/output.js';
 
@@ -16,7 +21,7 @@ function makeAtom(overrides: Partial<Atom> & { trailers?: Record<string, string[
         [LORE_ID_KEY]: ['a1b2c3d4'],
         Confidence: ['high'],
         'Scope-risk': ['narrow'],
-      } as any;
+      };
 
   return {
     commitHash: overrides.commitHash ?? 'abc1234567890',
@@ -25,7 +30,13 @@ function makeAtom(overrides: Partial<Atom> & { trailers?: Record<string, string[
     subject: overrides.subject ?? 'feat: test subject',
     body: overrides.body ?? '',
     protocols: new Map([
-      ['lore', { name: 'Lore', version: '1.0', identityKey: LORE_ID_KEY, trailers }]
+      ['lore', { 
+          name: 'Lore', 
+          version: '1.0', 
+          identityKey: LORE_ID_KEY, 
+          trailers,
+          unauthorized: {}
+      }]
     ]),
     filesChanged: ['src/f1.ts'],
     ...overrides,
@@ -38,7 +49,7 @@ describe('LoreTextFormatter (0.5.0 Parity)', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    registry.register(new Protocol(LoreProtocolDefinition, LORE_DEFAULT_CONFIG));
+    registry.register(new Protocol(LoreProtocolDefinition, makeProtocolConfig(LORE_DEFAULT_CONFIG)));
     formatter = new LoreTextFormatter(registry, { color: false, subjectLabel: 'Intent' });
   });
 

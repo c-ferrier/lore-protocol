@@ -20,32 +20,45 @@ export class JsonInputReader implements ICommitInputReader {
 
     try {
       const data = JSON.parse(this.json);
+      const trailers: Record<string, Record<string, string[]>> = { '': {} };
       const input: CommitInput = {
         subject: typeof data.intent === 'string' ? data.intent : (typeof data.subject === 'string' ? data.subject : ''),
         body: typeof data.body === 'string' ? data.body : undefined,
+        trailers,
       };
 
       if (data.trailers && typeof data.trailers === 'object' && !Array.isArray(data.trailers)) {
-        const trailers: Record<string, string[]> = {};
         const rawTrailers = data.trailers as Record<string, unknown>;
 
-        for (const key of Object.keys(rawTrailers)) {
-          const val = rawTrailers[key];
-          
-          if (Array.isArray(val)) {
-            const stringValues = val.filter((v) => typeof v === 'string');
-            if (stringValues.length > 0) {
-              trailers[key] = stringValues;
-            }
-          } else if (typeof val === 'string') {
-            const trimmed = val.trim();
-            if (trimmed) {
-              trailers[key] = [trimmed];
-            }
+        for (const [key, val] of Object.entries(rawTrailers)) {
+          // Detect hierarchical JSON: { "Project": { "Team": "..." } }
+          if (val && typeof val === 'object' && !Array.isArray(val)) {
+              const nsMap: Record<string, string[]> = {};
+              for (const [innerKey, innerVal] of Object.entries(val)) {
+                  if (Array.isArray(innerVal)) {
+                      nsMap[innerKey] = innerVal.filter(v => typeof v === 'string') as string[];
+                  } else if (typeof innerVal === 'string') {
+                      nsMap[innerKey] = [innerVal];
+                  }
+              }
+              if (Object.keys(nsMap).length > 0) {
+                  trailers[key] = nsMap;
+              }
+          } else {
+              // Legacy flat JSON: { "Constraint": "..." } -> route to root namespace
+              if (Array.isArray(val)) {
+                const stringValues = val.filter((v) => typeof v === 'string') as string[];
+                if (stringValues.length > 0) {
+                  trailers[''][key] = stringValues;
+                }
+              } else if (typeof val === 'string') {
+                const trimmed = val.trim();
+                if (trimmed) {
+                  trailers[''][key] = [trimmed];
+                }
+              }
           }
         }
-        
-        (input as any).trailers = trailers;
       }
 
       return input;

@@ -120,6 +120,7 @@ function makeAtom(options: {
       Directive: options.directives ?? [],
       'Depends-on': options.dependsOn ?? [],
     },
+    unauthorized: {},
   });
 
   return {

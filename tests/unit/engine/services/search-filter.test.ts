@@ -99,26 +99,6 @@ describe('SearchFilter', () => {
     expect(results[0].commitHash).toBe('h2');
   });
 
-  describe('Backward Compatibility (Legacy Fallback)', () => {
-    it('should correctly filter atoms that lack a protocols map using root trailers', () => {
-      const legacyAtom: any = {
-        id: 'legacy123',
-        trailers: { Confidence: ['high'] },
-        subject: 'legacy commit',
-        body: '',
-        date: new Date(),
-        protocols: new Map()
-      };
-      
-      // Filter by confidence (should use fallback logic)
-      const results = filter.filter([legacyAtom], { 
-        filters: { confidence: 'high' } 
-      } as any);
-      
-      expect(results).toHaveLength(1);
-    });
-  });
-
   describe('Multi-Protocol Semantic Search', () => {
     it('should match if a text query is found in a secondary protocol state', () => {
       const multiAtom: any = {

@@ -102,10 +102,7 @@ export class CommitInputResolver {
       case InputMode.File:
         return new JsonInputReader(await readFile(options.file!, 'utf-8'));
       case InputMode.Flags:
-        // Note: FlagsInputReader currently only supports one protocol.
-        // For now we use the primary protocol (the first one) or 
-        // we can update it to be multi-protocol aware too.
-        return new FlagsInputReader(options, this.protocolRegistry.getAll()[0] as any);
+        return new FlagsInputReader(options, this.protocolRegistry.getAll());
       case InputMode.Stdin: {
         const content = await this.readStdinContent();
         return new JsonInputReader(content);

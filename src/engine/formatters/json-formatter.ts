@@ -265,6 +265,7 @@ export class JsonFormatter implements IOutputFormatter {
       identity_key: state.identityKey,
       version: state.version,
       trailers: this.serializeTrailers(state, visibleTrailers),
+      unauthorized: { ...state.unauthorized },
     };
   }
 

@@ -22,6 +22,7 @@ export class TrailerCollectorRegistry {
   getCollectors(): ITrailerCollector[] {
     const collectors: ITrailerCollector[] = [];
     const authorizedKeys = this.protocol.getAuthorizedKeys();
+    const namespace = this.protocol.namespace;
 
     // Iterate through all authorized keys in protocol-defined order
     for (const key of authorizedKeys) {
@@ -30,7 +31,7 @@ export class TrailerCollectorRegistry {
       const def = this.protocol.getDefinition(key);
       if (!def) continue;
 
-      collectors.push(this.createCollectorFromDefinition(key, def));
+      collectors.push(this.createCollectorFromDefinition(key, def, namespace));
     }
 
     return collectors;
@@ -42,15 +43,18 @@ export class TrailerCollectorRegistry {
   private createCollectorFromDefinition(
     key: string,
     def: CustomTrailerDefinition,
+    namespace: string,
   ): ITrailerCollector {
-    const confirmMessage = `Set ${key}?`;
+    const prefix = namespace ? `[${namespace}] ` : '';
+    const confirmMessage = `${prefix}Set ${key}?`;
 
     // Case 1: Single-value Enum
     if (def.validation === 'values' && def.values && !def.multivalue) {
       return new EnumChoiceTrailerCollector({
         key,
+        namespace,
         confirmMessage,
-        choiceMessage: def.prompt?.choice || `${key}:`,
+        choiceMessage: def.prompt?.choice || `${prefix}${key}:`,
         values: Object.keys(def.values),
       });
     }
@@ -59,8 +63,9 @@ export class TrailerCollectorRegistry {
     // This handles multi-value enums, patterns, and free-text lists.
     return new MultiValueTrailerCollector({
       key,
+      namespace,
       confirmMessage,
-      inputMessage: def.prompt?.input || `${key}:`,
+      inputMessage: def.prompt?.input || `${prefix}${key}:`,
     });
   }
 }

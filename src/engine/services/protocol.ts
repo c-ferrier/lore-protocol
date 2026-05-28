@@ -6,8 +6,6 @@ import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
 
 import { TrailerParser } from './trailer-parser.js';
 import { escapeRegex } from '../../util/regex.js';
-import { parseTriggerHints } from '../../util/trigger-parser.js';
-import { STALE_SIGNAL } from '../../util/constants.js';
 
 /**
  * A generic engine for Decision Protocols.
@@ -51,40 +49,35 @@ export class Protocol implements IProtocol {
 
   /**
    * Returns true if this protocol explicitly defines/owns the given trailer key.
-   * Handles namespace-aware matching.
    */
   owns(key: string): boolean {
-    const { namespace, baseKey } = this.splitKey(key);
+    const lowerKey = key.toLowerCase();
 
-    // 1. If key is namespaced, it only belongs to us if the namespace matches
-    if (namespace) {
-      return (
-        namespace.toLowerCase() === this.namespace.toLowerCase() &&
-        (this.caseMap.has(baseKey.toLowerCase()) || baseKey.toLowerCase() === this.identityKey.toLowerCase())
-      );
-    }
-
-    // 2. If key is NOT namespaced, it only belongs to us if we are in the root namespace
+    // 1. If we are namespaced, we own exactly one Git Key: our namespace name
     if (this.namespace !== '') {
-      return false;
+      return lowerKey === this.namespace.toLowerCase();
     }
 
+    // 2. If we are root, we own the keys defined in our schema
     return (
-      this.caseMap.has(baseKey.toLowerCase()) ||
-      baseKey.toLowerCase() === this.identityKey.toLowerCase()
+      this.caseMap.has(lowerKey) ||
+      lowerKey === this.identityKey.toLowerCase()
     );
   }
 
   /**
    * Returns the raw regex pattern that identifies a commit belonging to this protocol.
-   * e.g., "^atom-id: [0-9a-f]{8}"
+   * Uses Namespace: Key: value for namespaced protocols.
    */
   getDiscoveryPattern(): string {
-    const prefix = this.namespace ? `${this.namespace}/` : '';
+    if (this.namespace !== '') {
+      // Coarse pass: just find the namespace key at start of line
+      return `^${this.namespace}:`;
+    }
+
     const identityDef = this.definition.trailers[this.identityKey];
     const pattern = identityDef?.pattern || '.+';
-
-    return `^${prefix}${this.identityKey}: ${pattern.replace(/^\^|\$$/g, '')}`;
+    return `^${this.identityKey}: ${pattern.replace(/^\^|\$$/g, '')}`;
   }
 
   /**
@@ -92,7 +85,6 @@ export class Protocol implements IProtocol {
    */
   getSearchGrep(filters: Record<string, string | string[]>): string[] {
     const args: string[] = [];
-    const prefix = this.namespace ? `${this.namespace}/` : '';
 
     for (const [key, value] of Object.entries(filters)) {
       const authorizedKey = this.authorize(key);
@@ -100,7 +92,13 @@ export class Protocol implements IProtocol {
 
       const values = Array.isArray(value) ? value : [value];
       for (const val of values) {
-        args.push(`--grep=^${prefix}${authorizedKey}: ${val}`);
+        if (this.namespace !== '') {
+            // Namespaced search: --grep="^Namespace: Key: value"
+            args.push(`--grep=^${this.namespace}: ${authorizedKey}: ${val}`);
+        } else {
+            // Root search: --grep="^Key: value"
+            args.push(`--grep=^${authorizedKey}: ${val}`);
+        }
       }
     }
 
@@ -124,8 +122,9 @@ export class Protocol implements IProtocol {
       const filterValues = Array.isArray(value) ? value : [value];
 
       if (actualValues.length === 0) {
-        if (this.owns(key)) {
-          return false;
+        // If we own the key but it has no values in the state, it's a mismatch
+        if (this.owns(key) || this.authorize(key)) {
+           return false;
         }
         continue;
       }
@@ -142,41 +141,103 @@ export class Protocol implements IProtocol {
 
   /**
    * Parse raw trailers into a protocol-specific state.
+   * Enforces strict hierarchical ownership and permissive rules.
    */
-  parse(rawTrailers: string, claimedKeys?: Set<string>): ProtocolState {
+  parse(rawTrailers: string, claimedKeys?: Set<string>, includeInvalid = false): ProtocolState {
     const rawMap = this.parser.parse(rawTrailers);
     const normalized: Record<string, string[]> = {};
+    const unauthorized: Record<string, string[]> = {};
+    const lowerClaimed = new Set(Array.from(claimedKeys || []).map(k => k.toLowerCase()));
 
     for (const [key, values] of Object.entries(rawMap)) {
-      const { namespace, baseKey } = this.splitKey(key);
+      const lowerKey = key.toLowerCase();
       const isOwner = this.owns(key);
-      const isAlreadyClaimed = claimedKeys?.has(key) ?? false;
+      const isReserved = lowerClaimed.has(lowerKey);
 
-      // Ownership rules:
-      // 1. Explicit owners always get the key.
-      // 2. Permissive protocols get unclaimed keys in their namespace.
-      // 3. We ignore keys that are explicitly owned by another protocol (namespaced differently).
+      // Logic for Namespaced Protocol
+      if (this.namespace !== '') {
+        if (!isOwner) continue;
 
-      if (!isOwner) {
-        if (!this.permissive) continue;
-        if (isAlreadyClaimed) continue;
-        if (namespace.toLowerCase() !== this.namespace.toLowerCase()) continue;
+        // Unpack nested values: "Key: value"
+        for (const nestedRaw of values) {
+          const match = nestedRaw.match(/^([A-Za-z0-9][A-Za-z0-9-]*):\s*(.*)$/);
+          if (!match) {
+            // Not a recognized inner trailer format - goes to unauthorized
+            const existing = unauthorized['invalid-format'] || [];
+            unauthorized['invalid-format'] = [...existing, nestedRaw];
+            continue;
+          }
+
+          const innerKey = match[1];
+          const innerValue = match[2];
+          const authorizedKey = this.authorize(innerKey);
+
+          if (authorizedKey) {
+            const def = this.getDefinition(authorizedKey);
+            let isValueAuthorized = true;
+
+            if (def?.validation === 'values' && def.values) {
+                isValueAuthorized = Object.keys(def.values).includes(innerValue);
+            } else if (def?.validation === 'pattern' && def.pattern) {
+                isValueAuthorized = new RegExp(def.pattern).test(innerValue);
+            }
+
+            if (isValueAuthorized || includeInvalid) {
+                const existing = normalized[authorizedKey] ?? [];
+                existing.push(innerValue);
+                normalized[authorizedKey] = existing;
+            }
+          } else {
+            // Intended for us (namespaced) but not in schema
+            const existing = unauthorized[innerKey] || [];
+            unauthorized[innerKey] = [...existing, innerValue];
+          }
+        }
+        continue;
       }
 
-      const authorizedKey = this.authorize(baseKey);
-      if (!authorizedKey) continue;
+      // Logic for Root Namespace Protocol
+      if (isOwner) {
+        // Authorize the primary key
+        const authorizedKey = this.authorize(key);
+        if (authorizedKey) {
+          const def = this.getDefinition(authorizedKey);
+          const authorizedValues: string[] = [];
 
-      const def = this.getDefinition(authorizedKey);
+          for (const v of values) {
+              let isValueAuthorized = true;
+              if (def?.validation === 'values' && def.values) {
+                  isValueAuthorized = Object.keys(def.values).includes(v);
+              } else if (def?.validation === 'pattern' && def.pattern) {
+                  isValueAuthorized = new RegExp(def.pattern).test(v);
+              }
 
-      for (const value of values) {
-        if (def?.validation === 'values' && def.values) {
-          const validValues = Object.keys(def.values);
-          if (!validValues.includes(value)) continue;
+              if (isValueAuthorized || includeInvalid) {
+                  authorizedValues.push(v);
+              }
+          }
+
+          if (authorizedValues.length > 0) {
+              const existing = normalized[authorizedKey] ?? [];
+              existing.push(...authorizedValues);
+              normalized[authorizedKey] = existing;
+          }
         }
+        continue;
+      }
 
-        const existing = normalized[authorizedKey] ?? [];
-        existing.push(value);
-        normalized[authorizedKey] = existing;
+      // Handle orphans (not claimed by any namespace or root schema)
+      if (!isReserved) {
+        if (this.permissive) {
+          // Accept orphan directly
+          const existing = normalized[key] ?? [];
+          existing.push(...values);
+          normalized[key] = existing;
+        } else {
+          // Flag orphan as unauthorized
+          const existing = unauthorized[key] || [];
+          unauthorized[key] = [...existing, ...values];
+        }
       }
     }
 
@@ -185,26 +246,18 @@ export class Protocol implements IProtocol {
       version: this.version,
       identityKey: this.identityKey,
       trailers: normalized,
+      unauthorized,
     };
-  }
-
-  /**
-   * Helper to split a trailer key into namespace and base key.
-   */
-  private splitKey(key: string): { namespace: string; baseKey: string } {
-    const parts = key.split('/');
-    if (parts.length > 1) {
-      return { namespace: parts[0], baseKey: parts.slice(1).join('/') };
-    }
-    return { namespace: '', baseKey: key };
   }
 
   /**
    * Returns a Git grep pattern for finding a specific atom by its identity.
    */
   getIdentityPattern(id: string): string {
-    const prefix = this.namespace ? `${this.namespace}/` : '';
-    return `^${prefix}${this.identityKey}: ${escapeRegex(id)}`;
+    if (this.namespace !== '') {
+        return `^${this.namespace}: ${this.identityKey}: ${escapeRegex(id)}`;
+    }
+    return `^${this.identityKey}: ${escapeRegex(id)}`;
   }
 
   /**
@@ -232,8 +285,10 @@ export class Protocol implements IProtocol {
    * Check if a commit's raw trailers belong to this protocol.
    */
   claims(rawTrailers: string): boolean {
-    const prefix = this.namespace ? `${this.namespace}/` : '';
-    const pattern = new RegExp(`^${prefix}${this.identityKey}:`, 'i');
+    const pattern = this.namespace !== ''
+        ? new RegExp(`^${this.namespace}:`, 'i')
+        : new RegExp(`^${this.identityKey}:`, 'i');
+    
     return rawTrailers.split('\n').some((line) => pattern.test(line));
   }
 

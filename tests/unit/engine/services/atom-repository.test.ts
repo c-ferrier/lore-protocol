@@ -7,7 +7,7 @@ import { NullAtomCache } from '../../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { PathQueryOptions } from '../../../../src/engine/types/query.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, YAP_PROTOCOL_DEFINITION } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, YAP_PROTOCOL_DEFINITION, makeProtocolConfig } from '../test-utils.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
 
 const MOCK_ID_KEY = "Mock-id";
@@ -93,7 +93,7 @@ describe('AtomRepository', () => {
   beforeEach(() => {
     gitClient = createMockGitClient();
     trailerParser = new TrailerParser();
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig());
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     searchFilter = new SearchFilter(protocolRegistry);
@@ -336,10 +336,10 @@ describe('AtomRepository', () => {
 
   describe('Multi-Protocol Hydration', () => {
     it('should hydrate an atom with multiple protocol states if claimed by multiple protocols', async () => {
-      const yap = new Protocol(YAP_PROTOCOL_DEFINITION, MOCK_CONFIG);
+      const yap = new Protocol(YAP_PROTOCOL_DEFINITION, makeProtocolConfig());
       protocolRegistry.register(yap);
 
-      const trailers = `${MOCK_ID_KEY}: mock1234\nyap/YAP-id: yap5678\nyap/Impact: high`;
+      const trailers = `${MOCK_ID_KEY}: abcd1234\nyap: YAP-id: abcd5678\nyap: Impact: high`;
       const commit: RawCommit = {
         hash: 'multi-hash',
         date: new Date().toISOString(),
@@ -360,10 +360,10 @@ describe('AtomRepository', () => {
       expect(atom.protocols.has('yap')).toBe(true);
 
       const mockState = atom.protocols.get('mock')!;
-      expect(mockState.trailers[MOCK_ID_KEY]).toEqual(['mock1234']);
+      expect(mockState.trailers[MOCK_ID_KEY]).toEqual(['abcd1234']);
 
       const yapState = atom.protocols.get('yap')!;
-      expect(yapState.trailers['YAP-id']).toEqual(['yap5678']);
+      expect(yapState.trailers['YAP-id']).toEqual(['abcd5678']);
       expect(yapState.trailers['Impact']).toEqual(['high']);
     });
 
@@ -373,18 +373,18 @@ describe('AtomRepository', () => {
       vi.spyOn(mockProtocol, 'permissive', 'get').mockReturnValue(true);
 
       // 2. YAP is strict but defines its own ID
-      const yap = new Protocol(YAP_PROTOCOL_DEFINITION, {
+      const yap = new Protocol(YAP_PROTOCOL_DEFINITION, makeProtocolConfig({
         ...MOCK_CONFIG,
         trailers: { ...MOCK_CONFIG.trailers, permissive: false }
-      });
+      }));
       protocolRegistry.register(yap);
 
       // 3. Mock commit: 
       // - Mock-id (Owned by Mock)
-      // - YAP-id (Owned by YAP)
-      // - Impact (Owned by YAP)
+      // - YAP-id (Owned by YAP - via namespace)
+      // - Impact (Owned by YAP - via namespace)
       // - Adhoc (Owned by NEITHER)
-      const trailers = `Mock-id: mock123\nyap/YAP-id: yap123\nyap/Impact: high\nAdhoc: value`;
+      const trailers = `Mock-id: abcd1234\nyap: YAP-id: abcd5678\nyap: Impact: high\nAdhoc: value`;
       const commit: RawCommit = {
         hash: 'implicit-hash',
         date: new Date().toISOString(),
@@ -404,17 +404,17 @@ describe('AtomRepository', () => {
       const mockState = atom.protocols.get('mock')!;
 
       // YAP gets what it defines
-      expect(yapState.trailers['YAP-id']).toEqual(['yap123']);
+      expect(yapState.trailers['YAP-id']).toEqual(['abcd5678']);
       expect(yapState.trailers['Impact']).toEqual(['high']);
       
       // Mock gets what it defines
-      expect(mockState.trailers['Mock-id']).toEqual(['mock123']);
+      expect(mockState.trailers['Mock-id']).toEqual(['abcd1234']);
       
       // Mock is permissive so it gets the orphan
       expect(mockState.trailers['Adhoc']).toEqual(['value']);
       
-      // IMPORTANT: Mock should NOT get YAP-id because YAP defined/owned it!
-      expect(mockState.trailers['yap/YAP-id']).toBeUndefined();
+      // IMPORTANT: Mock should NOT get namespaced trailers!
+      expect(mockState.trailers['yap']).toBeUndefined();
     });
   });
 

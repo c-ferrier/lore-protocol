@@ -1,12 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { 
+  MOCK_PROTOCOL_DEFINITION, 
+  MOCK_CONFIG, 
+  makeProtocolConfig 
+} from '../test-utils.js';
 
 const MOCK_ID_KEY = "Mock-id";
 
 describe('Protocol Service', () => {
   it('should load all core trailers by default', () => {
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig());
     const keys = protocol.getAuthorizedKeys();
 
     expect(keys).toContain('Constraint');
@@ -28,7 +32,7 @@ describe('Protocol Service', () => {
         },
       },
     };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
     
     const def = protocol.getDefinition('Team');
     expect(def).toBeDefined();
@@ -52,7 +56,7 @@ describe('Protocol Service', () => {
         },
       },
     };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
     
     expect(protocol.isCore('Constraint')).toBe(true);
     expect(protocol.getDefinition('Constraint')?.description).toBe('User override');
@@ -63,7 +67,7 @@ describe('Protocol Service', () => {
       ...MOCK_CONFIG,
       trailers: { ...MOCK_CONFIG.trailers, permissive: true },
     };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
     
     expect(protocol.authorize('Random-Key')).toBe('Random-Key');
   });
@@ -78,7 +82,7 @@ describe('Protocol Service', () => {
         custom: []
       },
     };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
     
     expect(protocol.authorize('Random-Key')).toBeNull();
   });
@@ -98,7 +102,7 @@ describe('Protocol Service', () => {
         },
       },
     };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
     const keys = protocol.getAuthorizedKeys();
     
     expect(keys[0]).toBe('Mock-id');
@@ -115,7 +119,7 @@ describe('Protocol Service', () => {
         custom: ['Adhoc'],
       },
     };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
     const keys = protocol.getAuthorizedKeys();
     
     expect(keys[keys.length - 1]).toBe('Adhoc');
@@ -123,7 +127,7 @@ describe('Protocol Service', () => {
 
   describe('Case-Insensitive Normalization', () => {
     it('should normalize core keys regardless of input casing', () => {
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(MOCK_CONFIG));
       
       expect(protocol.authorize('confidence')).toBe('Confidence');
       expect(protocol.authorize('CONFIDENCE')).toBe('Confidence');
@@ -139,7 +143,7 @@ describe('Protocol Service', () => {
           }
         }
       };
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
       
       expect(protocol.authorize('assisted-by')).toBe('Assisted-by');
       expect(protocol.authorize('ASSISTED-BY')).toBe('Assisted-by');
@@ -150,7 +154,7 @@ describe('Protocol Service', () => {
         ...MOCK_CONFIG,
         trailers: { ...MOCK_CONFIG.trailers, permissive: true }
       };
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
       
       // If it's not a core or custom defined key, it keeps its casing
       expect(protocol.authorize('My-New-Trailer')).toBe('My-New-Trailer');
@@ -161,7 +165,7 @@ describe('Protocol Service', () => {
         ...MOCK_CONFIG,
         trailers: { ...MOCK_CONFIG.trailers, permissive: true }
       };
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
       
       expect(protocol.authorize(MOCK_ID_KEY.toLowerCase())).toBe(MOCK_ID_KEY);
     });
@@ -176,7 +180,7 @@ describe('Protocol Service', () => {
           definitions: { Team: { description: 'D', multivalue: false, validation: 'none' as const, required: true } },
         }
       };
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
       expect(protocol.getDefinition('Team')?.required).toBe(true);
     });
 
@@ -189,7 +193,7 @@ describe('Protocol Service', () => {
           custom: ['Team'],
         }
       };
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
       expect(protocol.getDefinition('Team')?.required).toBe(true);
     });
 
@@ -202,7 +206,7 @@ describe('Protocol Service', () => {
           custom: ['Team'],
         }
       };
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
       expect(protocol.getDefinition('Team')?.required).toBe(true);
     });
   });
@@ -223,7 +227,7 @@ describe('Protocol Service', () => {
           }
         }
       };
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
       const def = protocol.getDefinition('Confidence');
       
       expect(def?.description).toBe('Custom confidence');
@@ -233,7 +237,7 @@ describe('Protocol Service', () => {
   });
 
   describe('Discovery & Claims', () => {
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(MOCK_CONFIG));
 
     it('should claim a commit with its identity key', () => {
       expect(protocol.claims(`${MOCK_ID_KEY}: a1b2c3d4`)).toBe(true);
@@ -252,7 +256,7 @@ describe('Protocol Service', () => {
   });
 
   describe('parse', () => {
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(MOCK_CONFIG));
 
     it('should parse and normalize authorized trailers', () => {
       const raw = `${MOCK_ID_KEY}: a1b2c3d4\nconfidence: high`;
@@ -264,15 +268,16 @@ describe('Protocol Service', () => {
       expect(result.trailers.Confidence).toEqual(['high']);
     });
 
-    it('should ignore unauthorized trailers in strict mode', () => {
+    it('should move unauthorized trailers to unauthorized bucket in strict mode', () => {
       const strictConfig = {
         ...MOCK_CONFIG,
         trailers: { ...MOCK_CONFIG.trailers, permissive: false }
       };
-      const strictProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, strictConfig);
+      const strictProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(strictConfig));
       const raw = 'Unknown-Trailer: value';
       const result = strictProtocol.parse(raw);
       expect(result.trailers['Unknown-Trailer']).toBeUndefined();
+      expect(result.unauthorized['Unknown-Trailer']).toEqual(['value']);
     });
 
     it('should validate and filter enum values during parsing', () => {
@@ -292,16 +297,54 @@ describe('Protocol Service', () => {
       const result = protocol.parse(raw);
       expect(result.trailers.Constraint).toEqual(['line1 line2']);
     });
-  });
+    });
 
-  describe('Ownership & Claims', () => {
+    describe('Hierarchical Namespacing', () => {
+      const nsProtocol = new Protocol(
+          { ...MOCK_PROTOCOL_DEFINITION, name: 'Project', namespace: 'Project', identityKey: 'Id', trailers: { 'Id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' }, 'Constraint': { description: 'C', multivalue: true } } },
+          makeProtocolConfig({ ...MOCK_CONFIG, trailers: { ...MOCK_CONFIG.trailers, permissive: false } })
+      );
+
+      it('should own exactly its namespace key', () => {
+          expect(nsProtocol.owns('Project')).toBe(true);
+          expect(nsProtocol.owns('project')).toBe(true);
+          expect(nsProtocol.owns('Id')).toBe(false); // Only owns namespace at top level
+      });
+
+      it('should unpack nested colons during parsing', () => {
+          const raw = 'Project: Id: a1b2c3d4\nProject: Constraint: must-be-fast';
+          const result = nsProtocol.parse(raw);
+
+          expect(result.trailers.Id).toEqual(['a1b2c3d4']);
+          expect(result.trailers.Constraint).toEqual(['must-be-fast']);
+      });
+
+      it('should track typos in namespaced trailers as unauthorized', () => {
+          const raw = 'Project: Tream: backend';
+          const result = nsProtocol.parse(raw);
+
+          expect(result.trailers.Tream).toBeUndefined();
+          expect(result.unauthorized.Tream).toEqual(['backend']);
+      });
+
+      it('should provide namespaced discovery pattern', () => {
+          expect(nsProtocol.getDiscoveryPattern()).toBe('^Project:');
+      });
+
+      it('should provide namespaced search grep', () => {
+          const grep = nsProtocol.getSearchGrep({ 'Constraint': 'fast' });
+          expect(grep).toContain('--grep=^Project: Constraint: fast');
+      });
+    });
+
+    describe('Ownership & Claims', () => {
     it('should own its identity key', () => {
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(MOCK_CONFIG));
       expect(protocol.owns(MOCK_ID_KEY)).toBe(true);
     });
 
     it('should own core trailers', () => {
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(MOCK_CONFIG));
       expect(protocol.owns('Confidence')).toBe(true);
       expect(protocol.owns('Constraint')).toBe(true);
     });
@@ -311,18 +354,18 @@ describe('Protocol Service', () => {
         ...MOCK_CONFIG,
         trailers: { ...MOCK_CONFIG.trailers, custom: ['My-Trailer'] }
       };
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
       expect(protocol.owns('My-Trailer')).toBe(true);
     });
 
     it('should not own unregistered trailers', () => {
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(MOCK_CONFIG));
       expect(protocol.owns('Random-Trailer')).toBe(false);
     });
 
     describe('parse with claim hierarchy', () => {
       it('should ingest owned trailers even if not in unclaimedKeys', () => {
-        const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+        const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(MOCK_CONFIG));
         const raw = 'Confidence: high';
         // Simulation: Another protocol claimed Confidence, but we own it too
         const result = protocol.parse(raw, new Set(['Other-Key']));
@@ -335,7 +378,7 @@ describe('Protocol Service', () => {
           ...MOCK_CONFIG,
           trailers: { ...MOCK_CONFIG.trailers, permissive: true }
         };
-        const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+        const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
         const raw = 'Adhoc: value\nOwned-By-Other: secret';
         
         // Simulation: Owned-By-Other is explicitly claimed by someone else
@@ -351,7 +394,7 @@ describe('Protocol Service', () => {
           ...MOCK_CONFIG,
           trailers: { ...MOCK_CONFIG.trailers, permissive: false }
         };
-        const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+        const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
         const raw = 'Adhoc: value';
         
         const result = protocol.parse(raw, new Set(['Adhoc']));

@@ -1,10 +1,9 @@
 import { existsSync } from 'node:fs';
 import { type ILogger, LogLevel } from '../../../src/engine/interfaces/logger.js';
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
-import type { Config } from '../../../src/engine/types/config.js';
-import type { TrailerUiKind, TrailerUiColor } from '../../../src/engine/types/config.js';
+import type { Config, ProtocolConfig, TrailerUiKind, TrailerUiColor } from '../../../src/engine/types/config.js';
 import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
+import type { Atom, Trailers, HierarchicalTrailers } from '../../../src/engine/types/domain.js';
 
 /**
  * Mock logger for testing.
@@ -47,6 +46,63 @@ export class MockLogger implements ILogger {
   get traceLogs() { return this.logs.filter(l => l.level === LogLevel.TRACE).map(l => l.message); }
   get resultLogs() { return this.logs.filter(l => l.level === 'result').map(l => l.message); }
 }
+
+/**
+ * A generic mock configuration for engine-level unit testing.
+ */
+export const MOCK_ENGINE_DIR = '.mock-engine';
+
+export function assertIsolatedEngine(dir: string = MOCK_ENGINE_DIR) {
+  expect(existsSync(dir), `Engine directory ${dir} should not exist in test environment`).toBe(false);
+}
+
+export const MOCK_CONFIG: Config = {
+  protocol: {
+    version: '1.0',
+  },
+  trailers: {
+    required: [],
+    custom: [],
+    definitions: {},
+    permissive: true,
+  },
+  validation: {
+    strict: false,
+    maxMessageLines: 50,
+    subjectMaxLength: 72,
+  },
+  stale: {
+    olderThan: '6m',
+    driftThreshold: 20,
+  },
+  output: {
+    defaultFormat: 'text',
+  },
+  follow: {
+    maxDepth: 3,
+  },
+  cli: {
+    updateCheck: false,
+    cache: true,
+    queryCache: true,
+    queryCachePruneThreshold: 100,
+  },
+};
+
+/**
+ * Helper to transform a full EngineConfig into a ProtocolConfig.
+ */
+export function makeProtocolConfig(config: Config = MOCK_CONFIG): ProtocolConfig {
+  return {
+    version: config.protocol.version,
+    trailers: config.trailers,
+  };
+}
+
+/**
+ * A standard protocol configuration for unit tests.
+ */
+export const MOCK_PROTOCOL_CONFIG = makeProtocolConfig(MOCK_CONFIG);
 
 /**
  * MOCK: A generic root, permissive protocol (Engine Default).
@@ -169,48 +225,6 @@ export const STRICT_PROTOCOL_DEFINITION: ProtocolDefinition = {
 };
 
 /**
- * A generic mock configuration for engine-level unit testing.
- */
-export const MOCK_ENGINE_DIR = '.mock-engine';
-
-export function assertIsolatedEngine(dir: string = MOCK_ENGINE_DIR) {
-  expect(existsSync(dir), `Engine directory ${dir} should not exist in test environment`).toBe(false);
-}
-
-export const MOCK_CONFIG: Config = {
-  protocol: {
-    version: '1.0',
-  },
-  trailers: {
-    required: [],
-    custom: [],
-    definitions: {},
-    permissive: true,
-  },
-  validation: {
-    strict: false,
-    maxMessageLines: 50,
-    subjectMaxLength: 72,
-  },
-  stale: {
-    olderThan: '6m',
-    driftThreshold: 20,
-  },
-  output: {
-    defaultFormat: 'text',
-  },
-  follow: {
-    maxDepth: 3,
-  },
-  cli: {
-    updateCheck: false,
-    cache: true,
-    queryCache: true,
-    queryCachePruneThreshold: 100,
-  },
-};
-
-/**
  * FACTORY: Create a RawCommit for testing.
  */
 export function makeRawCommit(options: {
@@ -247,7 +261,8 @@ export function makeAtom(overrides: Partial<Atom> = {}): Atom {
         name: 'Mock',
         version: '1.0',
         identityKey: 'Mock-id',
-        trailers: { 'Mock-id': ['a1b2c3d4'] }
+        trailers: { 'Mock-id': ['a1b2c3d4'] },
+        unauthorized: {}
       }]
     ]),
   };
@@ -266,5 +281,15 @@ export function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
     Supersedes: overrides.Supersedes ?? [],
     'Depends-on': overrides['Depends-on'] ?? [],
     ...overrides,
-  } as any;
+  };
+}
+
+/**
+ * FACTORY: Create a HierarchicalTrailers object for testing.
+ */
+export function makeHierarchicalTrailers(overrides: Partial<HierarchicalTrailers> = {}): HierarchicalTrailers {
+    return {
+        '': makeTrailers(overrides[''] ?? {}),
+        ...overrides
+    };
 }

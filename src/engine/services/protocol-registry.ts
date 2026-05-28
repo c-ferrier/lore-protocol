@@ -59,6 +59,26 @@ export class ProtocolRegistry {
   }
 
   /**
+   * Returns a set of all primary keys (namespaces or root authorized keys) 
+   * that are reserved by any registered protocol.
+   */
+  getClaimedKeys(): Set<string> {
+    const claimed = new Set<string>();
+    for (const p of this.getAll()) {
+      if (p.namespace !== '') {
+        // Namespaced protocols claim their namespace key
+        claimed.add(p.namespace.toLowerCase());
+      } else {
+        // Root protocols claim their authorized keys
+        for (const k of p.getAuthorizedKeys()) {
+          claimed.add(k.toLowerCase());
+        }
+      }
+    }
+    return claimed;
+  }
+
+  /**
    * Detect which protocols claim a set of raw trailers.
    */
   detect(rawTrailers: string): IProtocol[] {
@@ -95,7 +115,7 @@ export class ProtocolRegistry {
       for (const p of this.getAll()) {
         const authorizedKey = p.authorize(options.has);
         if (authorizedKey) {
-          const prefix = p.namespace ? `${p.namespace}/` : '';
+          const prefix = p.namespace ? `${p.namespace}: ` : '';
           patterns.push(`(^${prefix}${authorizedKey}: )`);
         }
       }

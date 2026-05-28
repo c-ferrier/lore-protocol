@@ -7,7 +7,11 @@ import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from './test-utils.js';
+import { 
+  MOCK_PROTOCOL_DEFINITION, 
+  MOCK_CONFIG, 
+  makeProtocolConfig 
+} from './test-utils.js';
 
 describe('Multi-Protocol Integration', () => {
   let registry: ProtocolRegistry;
@@ -20,7 +24,7 @@ describe('Multi-Protocol Integration', () => {
     identityKey: 'Fred-id',
     namespace: 'fred',
     trailers: {
-      'Fred-id': { description: 'ID', validation: 'none' as const },
+      'Fred-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[a-z0-9]+$' },
       'Impact': { description: 'Impact', validation: 'none' as const }
     }
   };
@@ -35,8 +39,8 @@ describe('Multi-Protocol Integration', () => {
     } as any;
 
     registry = new ProtocolRegistry();
-    const mock = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
-    const fred = new Protocol(FRED_DEF, MOCK_CONFIG);
+    const mock = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(MOCK_CONFIG));
+    const fred = new Protocol(FRED_DEF, makeProtocolConfig(MOCK_CONFIG));
     
     registry.register(mock);
     registry.register(fred);
@@ -55,13 +59,16 @@ describe('Multi-Protocol Integration', () => {
     await repo.findAll({});
     const args = vi.mocked(gitClient.log).mock.calls[0][0];
     
-    // Pattern for Mock-id and fred/Fred-id
-    expect(args.some(a => a.includes('Mock-id') && a.includes('fred/Fred-id'))).toBe(true);
+    // Aggregate pattern: Mock-id (root) OR fred: (namespaced coarse pass)
+    const combined = args.find(a => a.startsWith('--grep='));
+    expect(combined).toContain('Mock-id');
+    expect(combined).toContain('fred:');
     expect(args).toContain('--extended-regexp');
   });
 
   it('Ownership: should respect namespaced trailers', async () => {
-    const trailers = 'Mock-id: mock123\nfred/Fred-id: fred456\nfred/Impact: high\nAdhoc: value';
+    // New Format: "Namespace: Key: value"
+    const trailers = 'Mock-id: abcd1234\nfred: Fred-id: fred1234\nfred: Impact: high\nAdhoc: value';
     const commit: RawCommit = {
       hash: 'h1',
       date: new Date().toISOString(),
@@ -72,6 +79,7 @@ describe('Multi-Protocol Integration', () => {
     };
 
     vi.mocked(gitClient.log).mockResolvedValue([commit]);
+    vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['h1', []]]));
 
     const [atom] = await repo.findAll();
     
@@ -79,15 +87,16 @@ describe('Multi-Protocol Integration', () => {
     const fredState = atom.protocols.get('fred')!;
 
     // Mock is permissive in root namespace, so it gets Mock-id and Adhoc
-    expect(mockState.trailers['Mock-id']).toEqual(['mock123']);
+    expect(mockState.trailers['Mock-id']).toEqual(['abcd1234']);
     expect(mockState.trailers['Adhoc']).toEqual(['value']);
     
     // Mock should NOT get fred/Impact
-    expect(mockState.trailers['fred/Impact']).toBeUndefined();
+    expect(mockState.trailers['fred']).toBeUndefined();
     expect(mockState.trailers['Impact']).toBeUndefined();
 
     // Fred gets its own namespaced trailer
     expect(fredState.trailers['Impact']).toEqual(['high']);
+    expect(fredState.trailers['Fred-id']).toEqual(['fred1234']);
   });
 
   it('Conflict: should not allow two permissive protocols in the same namespace', () => {
@@ -95,7 +104,7 @@ describe('Multi-Protocol Integration', () => {
       ...FRED_DEF,
       name: 'Another',
       namespace: '' // Root namespace
-    }, MOCK_CONFIG);
+    }, makeProtocolConfig(MOCK_CONFIG));
 
     // Mock is already registered in root namespace and is permissive
     expect(() => registry.register(anotherPermissive)).toThrow(/Only one permissive protocol is allowed per namespace/);

@@ -2,10 +2,16 @@
 export type AtomId = string;
 
 /**
- * The structured trailer collection for a protocol atom.
+ * The structured trailer collection for a single scope/namespace.
  * Strictly flat and uniform: every key maps to a readonly string array.
  */
 export type Trailers = Record<string, readonly string[]>;
+
+/**
+ * A hierarchical collection of trailers grouped by namespace.
+ * Keyed by namespace name (use "" for root namespace).
+ */
+export type HierarchicalTrailers = Record<string, Trailers>;
 
 /**
  * The interpreted state of a protocol within a commit.
@@ -15,6 +21,8 @@ export interface ProtocolState {
   readonly version: string;
   readonly identityKey: string;
   readonly trailers: Trailers;
+  /** Trailers that were associated with this protocol but not authorized by schema */
+  readonly unauthorized: Trailers;
 }
 
 /**
