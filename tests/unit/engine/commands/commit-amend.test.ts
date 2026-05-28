@@ -98,6 +98,7 @@ function createDeps(overrides?: {
 describe('atom commit --amend', () => {
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   it('should skip staged-changes guard when --amend is used', async () => {
