@@ -368,7 +368,7 @@ describe('Validator', () => {
   });
 
   describe('Rule 8: reference format', () => {
-    it('should warn on invalid reference format', async () => {
+    it('should warn on invalid reference format (non-strict)', async () => {
       const commit = makeCommit({ trailers: 'Ref: not-hex!\nRelated: toolong12' });
       const results = await validator.validate([commit]);
 
@@ -377,6 +377,19 @@ describe('Validator', () => {
       );
       expect(refIssues).toHaveLength(2);
       expect(refIssues[0].severity).toBe('warning');
+    });
+
+    it('should error on invalid reference format (strict)', async () => {
+      const strictConfig: Config = { ...MOCK_CONFIG, validation: { ...MOCK_CONFIG.validation, strict: true } };
+      const strictValidator = new Validator(trailerParser, mockAtomRepo as any, strictConfig, protocolRegistry);
+      const commit = makeCommit({ trailers: 'Ref: not-hex!\nRelated: toolong12' });
+      const results = await strictValidator.validate([commit]);
+
+      const refIssues = results[0].issues.filter(
+        (i) => i.rule === 'reference-format',
+      );
+      expect(refIssues).toHaveLength(2);
+      expect(refIssues[0].severity).toBe('error');
     });
 
     it('should not warn on valid reference format', async () => {
@@ -465,7 +478,7 @@ describe('Validator', () => {
   });
 
   describe('Rule 10: reference existence', () => {
-    it('should warn when referenced atom does not exist', async () => {
+    it('should warn when referenced atom does not exist (non-strict)', async () => {
       const commit = makeCommit({ trailers: 'Ref: aabbccdd' });
       const results = await validator.validate([commit]);
 
@@ -474,6 +487,20 @@ describe('Validator', () => {
       );
       expect(refExistsIssues).toHaveLength(1);
       expect(refExistsIssues[0].severity).toBe('warning');
+      expect(refExistsIssues[0].message).toContain('aabbccdd');
+    });
+
+    it('should error when referenced atom does not exist (strict)', async () => {
+      const strictConfig: Config = { ...MOCK_CONFIG, validation: { ...MOCK_CONFIG.validation, strict: true } };
+      const strictValidator = new Validator(trailerParser, mockAtomRepo as any, strictConfig, protocolRegistry);
+      const commit = makeCommit({ trailers: 'Ref: aabbccdd' });
+      const results = await strictValidator.validate([commit]);
+
+      const refExistsIssues = results[0].issues.filter(
+        (i) => i.rule === 'reference-exists',
+      );
+      expect(refExistsIssues).toHaveLength(1);
+      expect(refExistsIssues[0].severity).toBe('error');
       expect(refExistsIssues[0].message).toContain('aabbccdd');
     });
 

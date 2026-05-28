@@ -186,7 +186,7 @@ export class Validator {
               message = `[${protocol.name}] ${protocol.identityKey} "${val}" is not a valid identifier`;
             } else if (def.ui?.kind === 'reference') {
               rule = 'reference-format';
-              severity = 'warning';
+              severity = this.config.validation.strict ? 'error' : 'warning';
               message = `[${protocol.name}] Invalid reference format in ${key}: "${val}".`;
             }
 
@@ -295,7 +295,7 @@ export class Validator {
       const lookupKey = `${identity.protocol || protocolName}/${identity.id}`;
       if (!foundKeys.has(lookupKey)) {
         issues.push({
-          severity: 'warning',
+          severity: this.config.validation.strict ? 'error' : 'warning',
           rule: 'reference-exists',
           field: key,
           message: `[${protocol.name}] Referenced id "${identity.id}"${identity.protocol ? ` in protocol "${identity.protocol}"` : ''} in ${key} was not found in history`,
