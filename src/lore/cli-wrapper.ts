@@ -2,7 +2,7 @@ import { runCli, execute, type EngineOptions } from '../engine/index.js';
 import { ProtocolRegistry } from '../engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from './protocol-definition.js';
 import { LORE_DEFAULT_CONFIG, LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from './defaults.js';
-import { ENGINE_CONFIG_FILENAME, ENGINE_DIR_NAME } from '../util/constants.js';
+import { ENGINE_CONFIG_FILENAME, ENGINE_DIR_NAME, TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../util/constants.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerContextCommand } from './commands/context.js';
 import { registerConstraintsCommand } from './commands/constraints.js';
@@ -11,10 +11,65 @@ import { registerTestedCommand } from './commands/tested.js';
 import { registerRejectedCommand } from './commands/rejected.js';
 import { LoreJsonFormatter } from './formatters/lore-json-formatter.js';
 import { LoreTextFormatter } from './formatters/lore-text-formatter.js';
-import { LoreLegacyLoader } from './services/legacy-loader.js';
+import { LoreLegacyLoader, type Lore050Config } from './services/legacy-loader.js';
 import { resolve, join } from 'node:path';
-import type { EngineConfig, ProtocolConfig } from '../engine/types/config.js';
+import type { EngineConfig, ProtocolConfig, CustomTrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../engine/types/config.js';
 import type { ProtocolDefinition } from '../engine/interfaces/protocol-definition.js';
+
+function resolveValues(valuesRaw: any): Record<string, ValueDefinition> | undefined {
+  if (Array.isArray(valuesRaw)) {
+    const result: Record<string, ValueDefinition> = {};
+    for (const opt of valuesRaw) if (typeof opt === 'string') result[opt] = { description: '' };
+    return result;
+  }
+  if (valuesRaw && typeof valuesRaw === 'object') {
+    const result: Record<string, ValueDefinition> = {};
+    for (const [key, value] of Object.entries(valuesRaw)) {
+      if (typeof value === 'string') result[key] = { description: value };
+      else if (value && typeof value === 'object') {
+        result[key] = { description: typeof (value as any).description === 'string' ? (value as any).description : '' };
+      }
+    }
+    return result;
+  }
+  return undefined;
+}
+
+function resolveDefinitions(rawData: Record<string, any>): Record<string, CustomTrailerDefinition> {
+  const result: Record<string, CustomTrailerDefinition> = {};
+
+  for (const [key, value] of Object.entries(rawData)) {
+    if (!value || typeof value !== 'object') continue;
+    const def = value as any;
+    
+    let validation: 'values' | 'pattern' | 'none' = 'none';
+    if (def.validation === 'values' || def.validation === 'options') {
+      validation = 'values';
+    } else if (def.validation === 'pattern') {
+      validation = 'pattern';
+    }
+
+    const uiRaw = typeof def.ui === 'object' && def.ui !== null ? def.ui : undefined;
+
+    result[key] = {
+      description: typeof def.description === 'string' ? def.description : '',
+      multivalue: typeof def.multivalue === 'boolean' ? def.multivalue : false,
+      validation,
+      values: resolveValues(def.values || def.options),
+      pattern: typeof def.pattern === 'string' ? def.pattern : undefined,
+      required: typeof def.required === 'boolean' ? def.required : false,
+      ui: uiRaw ? {
+        kind: (TRAILER_UI_KINDS as readonly string[]).includes(uiRaw.kind as string) 
+          ? uiRaw.kind as TrailerUiKind 
+          : undefined,
+        color: (TRAILER_UI_COLORS as readonly string[]).includes(uiRaw.color as string) 
+          ? uiRaw.color as TrailerUiColor 
+          : undefined,
+      } : undefined,
+    };
+  }
+  return result;
+}
 
 /**
  * Lore CLI Compatibility Layer.
@@ -50,29 +105,53 @@ export async function buildLoreCli() {
     // Hook: Merge legacy .lore/config.toml settings into engine config
     onConfigLoaded: async (config: EngineConfig): Promise<EngineConfig> => {
         if (!legacyData) return config;
-        const overrides = legacyData.engineOverrides;
+        
+        // Translate Legacy LoreConfig to EngineConfig overrides
+        const validation: any = {};
+        if (legacyData.validation?.strict !== undefined) validation.strict = legacyData.validation.strict;
+        if (legacyData.validation?.max_message_lines !== undefined) validation.maxMessageLines = legacyData.validation.max_message_lines;
+        if (legacyData.validation?.intent_max_length !== undefined) validation.subjectMaxLength = legacyData.validation.intent_max_length;
+        else if (legacyData.validation?.subject_max_length !== undefined) validation.subjectMaxLength = legacyData.validation.subject_max_length;
+
+        const stale: any = {};
+        if (legacyData.stale?.older_than) stale.olderThan = legacyData.stale.older_than;
+        if (legacyData.stale?.drift_threshold) stale.driftThreshold = legacyData.stale.drift_threshold;
+
+        const output: any = {};
+        if (legacyData.output?.default_format) output.defaultFormat = legacyData.output.default_format;
+
+        const cli: any = {};
+        if (legacyData.cli?.update_check !== undefined) cli.updateCheck = legacyData.cli.update_check;
+        if (legacyData.cli?.cache !== undefined) cli.cache = legacyData.cli.cache;
+
         return {
             ...config,
-            validation: { ...config.validation, ...overrides.validation },
-            stale: { ...config.stale, ...overrides.stale },
-            cli: { ...config.cli, ...overrides.cli },
-            output: { ...config.output, ...overrides.output } as any,
-            follow: { ...config.follow, ...overrides.follow } as any,
+            validation: { ...config.validation, ...validation },
+            stale: { ...config.stale, ...stale },
+            cli: { ...config.cli, ...cli },
+            output: { ...config.output, ...output } as any,
         };
     },
 
     // Hook: Provide per-protocol runtime configuration (Legacy Parity)
     getProtocolConfig: (name: string): ProtocolConfig => {
-        if (name === 'Lore' && legacyData?.protocolConfig) {
+        if (name === 'Lore' && legacyData) {
+            let permissive = legacyData.trailers?.permissive !== undefined ? legacyData.trailers.permissive : true;
+            const definitions = resolveDefinitions(legacyData.trailers?.definitions || {});
+            
+            // 0.5.0 Legacy Rule: If ANY custom definitions exist, permissive mode defaults to false 
+            // unless explicitly set to true.
+            if (Object.keys(definitions).length > 0 && legacyData.trailers?.permissive === undefined) {
+                permissive = false;
+            }
+
             return {
-                version: legacyData.protocolConfig.version || '1.0',
+                version: legacyData.protocol?.version || '1.0',
                 trailers: {
-                    required: legacyData.protocolConfig.trailers?.required || [],
-                    custom: legacyData.protocolConfig.trailers?.custom || [],
-                    definitions: legacyData.protocolConfig.trailers?.definitions || {},
-                    permissive: legacyData.protocolConfig.trailers?.permissive !== undefined 
-                        ? legacyData.protocolConfig.trailers.permissive 
-                        : true
+                    required: legacyData.trailers?.required || [],
+                    custom: legacyData.trailers?.custom || [],
+                    definitions,
+                    permissive
                 }
             };
         }
