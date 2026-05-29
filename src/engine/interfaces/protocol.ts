@@ -1,7 +1,6 @@
 import type { ProtocolState, Atom, SupersessionStatus, StaleReason, Trailers } from '../types/domain.js';
 import type { FormattableTrailerDefinition, ValidationIssue } from '../types/output.js';
 import type { TrailerDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
-import type { SearchOptions } from '../types/query.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
 /**
@@ -29,14 +28,14 @@ export interface IProtocol {
    * Explicitly namespaced trailers use the format: "Namespace: Key: value".
    */
   readonly namespace: string;
-/**
- * Links this protocol to a registry for cross-protocol resolution.
- */
-setRegistry(registry: ProtocolRegistry): void;
 
-/**
- * Authorizes a trailer key for use.
-...
+  /**
+   * Links this protocol to a registry for cross-protocol resolution.
+   */
+  setRegistry(registry: ProtocolRegistry): void;
+
+  /**
+   * Authorizes a trailer key for use.
    * Returns the canonical casing of the key if authorized, otherwise null.
    */
   authorize(key: string): string | null;

@@ -22,17 +22,14 @@ describe('Protocol Service', () => {
 
   it('should merge custom definitions into the protocol', () => {
     const config = {
-      ...MOCK_CONFIG,
       strict: false,
       permissive: true,
       trailers: {
-        definitions: {
           Team: {
             description: 'The team responsible',
             multivalue: false,
             validation: 'none' as const,
           },
-        },
       },
     };
     const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
@@ -47,17 +44,14 @@ describe('Protocol Service', () => {
   it('should identify configured custom trailers as non-core even if they are in core-definitions', () => {
     // This tests the case where a user might try to override a core definition
     const config = {
-      ...MOCK_CONFIG,
       strict: false,
       permissive: true,
       trailers: {
-        definitions: {
           Constraint: {
             description: 'User override',
             multivalue: true,
             validation: 'none' as const,
           },
-        },
       },
     };
     const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
@@ -68,10 +62,9 @@ describe('Protocol Service', () => {
 
   it('should authorize any key in permissive mode', () => {
     const config = {
-      ...MOCK_CONFIG,
       strict: false, 
       permissive: true,
-      trailers: { definitions: {} }
+      trailers: {}
     };
     const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
     
@@ -80,12 +73,9 @@ describe('Protocol Service', () => {
 
   it('should not authorize unknown keys in strict mode', () => {
     const config = {
-      ...MOCK_CONFIG,
       strict: true,
       permissive: false,
-      trailers: { 
-        definitions: {},
-      },
+      trailers: {},
     };
     const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
     
@@ -94,18 +84,15 @@ describe('Protocol Service', () => {
 
   it('should sort authorized keys based on prompt order', () => {
     const config = {
-      ...MOCK_CONFIG,
       strict: false,
       permissive: true,
       trailers: {
-        definitions: {
           Urgent: {
             description: 'U',
             multivalue: false,
             validation: 'none' as const,
             prompt: { order: 105 } // Between Constraint (100) and Confidence (120)
           },
-        },
       },
     };
     const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
@@ -122,9 +109,7 @@ describe('Protocol Service', () => {
       strict: false,
       permissive: true,
       trailers: {
-        definitions: {
           Adhoc: { description: 'adhoc', multivalue: false, validation: 'none', isCore: false },
-        }
       }
     });
 
@@ -143,13 +128,10 @@ describe('Protocol Service', () => {
 
     it('should normalize custom definition keys', () => {
       const config = {
-        ...MOCK_CONFIG,
         strict: false,
         permissive: true,
         trailers: {
-          definitions: {
             'Assisted-by': { description: 'A', multivalue: true, validation: 'none' as const }
-          }
         }
       };
       const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
@@ -187,11 +169,10 @@ describe('Protocol Service', () => {
   describe('Required Unification', () => {
     it('should mark a trailer as required if set in definitions', () => {
       const config = {
-        ...MOCK_CONFIG,
         strict: false,
         permissive: true,
         trailers: {
-          definitions: { Team: { description: 'D', multivalue: false, validation: 'none' as const, required: true } },
+          Team: { description: 'D', multivalue: false, validation: 'none' as const, required: true },
         }
       };
       const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
@@ -202,18 +183,15 @@ describe('Protocol Service', () => {
   describe('Custom Overrides', () => {
     it('should allow custom definitions to override core trailer metadata (e.g. color)', () => {
       const config = {
-        ...MOCK_CONFIG,
         strict: false,
         permissive: true,
         trailers: {
-          definitions: {
             Confidence: { 
               description: 'Custom confidence', 
               multivalue: false, 
               validation: 'values' as const, 
               ui: { color: 'magenta' as const } 
             }
-          }
         }
       };
       const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
@@ -405,11 +383,10 @@ describe('Protocol Service', () => {
 
     it('should own configured custom trailers', () => {
       const config = {
-        ...MOCK_CONFIG,
         strict: false,
         permissive: true,
         trailers: { 
-          definitions: { 'My-Trailer': { description: '', multivalue: true, validation: 'none' as const } } 
+          'My-Trailer': { description: '', multivalue: true, validation: 'none' as const } 
         }
       };
       const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
@@ -433,10 +410,9 @@ describe('Protocol Service', () => {
 
       it('should ingest unowned trailers only if permissive AND unclaimed', () => {
         const config = {
-          ...MOCK_CONFIG,
           strict: false,
           permissive: true,
-          trailers: { definitions: {} }
+          trailers: {}
         };
         const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
         const raw = 'Adhoc: value\nOwned-By-Other: secret';
@@ -451,10 +427,9 @@ describe('Protocol Service', () => {
 
     it('should NOT ingest unowned trailers if not permissive', () => {
         const config = {
-          ...MOCK_CONFIG,
           strict: true,
           permissive: false,
-          trailers: { definitions: {} }
+          trailers: {}
         };
         const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
         const raw = 'Adhoc: value';

@@ -303,7 +303,7 @@ export class Protocol implements IProtocol {
     }
 
     // 2. Load Configured Custom Trailers & Overrides (from TOML config)
-    for (const [key, def] of Object.entries(this.config.trailers.definitions)) {
+    for (const [key, def] of Object.entries(this.config.trailers || {})) {
       const canonicalKey = this.authorize(key) || key;
       const existing = this.definitions.get(canonicalKey);
       

@@ -291,9 +291,7 @@ describe('CommitBuilder', () => {
         strict: true,
         permissive: false,
         trailers: {
-          definitions: {
-            Confidence: { description: 'conf', multivalue: false, validation: 'none', required: true }
-          }
+          Confidence: { description: 'conf', multivalue: false, validation: 'none', required: true }
         }
       });
       const strictRegistry = new ProtocolRegistry();
@@ -332,7 +330,7 @@ describe('CommitBuilder', () => {
       requiredRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, { 
           strict: false,
           permissive: true,
-          trailers: { definitions: { Confidence: { description: 'c', multivalue: false, validation: 'none', required: true } } } 
+          trailers: { Confidence: { description: 'c', multivalue: false, validation: 'none', required: true } } 
       }));
 
       const requiredBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, requiredConfig, requiredRegistry);
@@ -350,9 +348,7 @@ describe('CommitBuilder', () => {
         strict: false,
         permissive: true,
         trailers: {
-          definitions: {
-            Team: { description: 'dept', multivalue: false, validation: 'none', required: true },
-          },
+          Team: { description: 'dept', multivalue: false, validation: 'none', required: true },
         }
       });
       const customRegistry = new ProtocolRegistry();
@@ -413,10 +409,10 @@ describe('CommitBuilder', () => {
           name: 'Manual', 
           identityKey: 'Manual-id',
       }, {
-          trailers: { 
-            definitions: {
-              'Manual-id': { description: 'id', multivalue: false, validation: 'none', generator: 'none', required: true }
-            }
+          strict: false,
+          permissive: false,
+          trailers: {
+            'Manual-id': { description: 'id', multivalue: false, validation: 'none', generator: 'none', required: true }
           }
       });
       const registry = new ProtocolRegistry();

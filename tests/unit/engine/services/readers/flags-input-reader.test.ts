@@ -122,10 +122,8 @@ describe('FlagsInputReader', () => {
   it('should map auto-generated flags for simple custom trailers', async () => {
     const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: { 
-        definitions: {
           'Squad': { description: '', multivalue: true, validation: 'none' },
           'Team-Name': { description: '', multivalue: true, validation: 'none' }
-        }
       },
     });
     const options: any = {
@@ -145,14 +143,12 @@ describe('FlagsInputReader', () => {
   it('should prioritize explicit cli flags over automatic ones', async () => {
     const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        definitions: {
           Department: {
             description: 'dept',
             multivalue: false,
             validation: 'none',
             cli: { flag: 'dept' },
           },
-        },
       },
     });
     const options: any = {
@@ -170,12 +166,10 @@ describe('FlagsInputReader', () => {
   it('should automatically slugify custom trailer keys into CLI flags', async () => {
     const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        definitions: {
           'Regulatory-Compliance': {
             description: 'Check for compliance',
             multivalue: true,
           }
-        }
       }
     });
     

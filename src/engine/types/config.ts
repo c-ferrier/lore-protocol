@@ -101,10 +101,8 @@ export const ENGINE_CONFIG_SCHEMA: Record<string, string[]> = {
  * Merges static ProtocolDefinition with user overrides.
  */
 export interface ProtocolConfig {
-  readonly version: string;
-  readonly strict: boolean;
-  readonly permissive: boolean;
-  readonly trailers: {
-    readonly definitions: Record<string, TrailerDefinition>;
-  };
+  readonly version?: string;
+  readonly strict?: boolean;
+  readonly permissive?: boolean;
+  readonly trailers?: Record<string, TrailerDefinition>;
 }

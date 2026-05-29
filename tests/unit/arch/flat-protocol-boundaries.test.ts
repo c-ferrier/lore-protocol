@@ -93,7 +93,7 @@ describe('Flat Protocol Boundaries', () => {
         strict: true,
         permissive: false,
         trailers: { 
-          definitions: { 'Authorized': { description: '', multivalue: true, validation: 'none' } } 
+          'Authorized': { description: '', multivalue: true, validation: 'none' } 
         }
       });
       const parser = new TrailerParser();

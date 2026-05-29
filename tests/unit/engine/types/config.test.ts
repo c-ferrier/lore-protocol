@@ -5,13 +5,12 @@ import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-uti
 describe('Protocol configuration merging', () => {
   it('should identify custom keys in permissive mode', () => {
     const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
-      trailers: {
-        strict: false, permissive: true,
-        definitions: { 
-          Team: { description: 'T', multivalue: false, validation: 'none' as const },
-          Dept: { description: 'D', multivalue: false, validation: 'none' as const } 
-        },
-      }
+      strict: false, 
+      permissive: true,
+      trailers: { 
+        Team: { description: 'T', multivalue: false, validation: 'none' as const },
+        Dept: { description: 'D', multivalue: false, validation: 'none' as const } 
+      },
     });
     const customKeys = protocol.getAuthorizedKeys().filter(k => !protocol.isCore(k));
     expect(customKeys).toContain('Team');

@@ -26,10 +26,8 @@ describe('TrailerCollectorRegistry', () => {
   it('should add custom collectors from definitions', () => {
     const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        definitions: {
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const },
           'Squad': { description: 'Squad name', multivalue: true, validation: 'none' as const }
-        }
       }
     });
     const registry = new TrailerCollectorRegistry(protocol);
@@ -43,14 +41,12 @@ describe('TrailerCollectorRegistry', () => {
   it('should handle multi-value enum collectors', () => {
     const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        definitions: {
           'Features': { 
             description: 'Features', 
             multivalue: true, 
             validation: 'values' as const,
             values: { f1: { description: 'f1' }, f2: { description: 'f2' } }
           },
-        }
       }
     });
     const registry = new TrailerCollectorRegistry(protocol);
@@ -65,10 +61,8 @@ describe('TrailerCollectorRegistry', () => {
   it('should create collectors for simple custom trailers', () => {
     const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        definitions: {
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const },
           'Team': { description: '', multivalue: true, validation: 'none' as const }
-        }
       }
     });
     const registry = new TrailerCollectorRegistry(protocol);
@@ -82,10 +76,8 @@ describe('TrailerCollectorRegistry', () => {
   it('should sort collectors based on metadata order', () => {
     const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        definitions: {
           'First': { description: 'f', multivalue: false, validation: 'none' as const, prompt: { order: 1 } },
           'Last': { description: 'l', multivalue: false, validation: 'none' as const, prompt: { order: 10000 } }
-        }
       }
     });
     const registry = new TrailerCollectorRegistry(protocol);

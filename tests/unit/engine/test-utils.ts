@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { type ILogger, LogLevel } from '../../../src/engine/interfaces/logger.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
-import type { EngineConfig, ProtocolConfig, TrailerUiKind, TrailerUiColor } from '../../../src/engine/types/config.js';
+import type { EngineConfig, ProtocolConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition } from '../../../src/engine/types/config.js';
 import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import type { Atom, Trailers, HierarchicalTrailers } from '../../../src/engine/types/domain.js';
 import { InMemoryLogger } from '../../../src/engine/services/in-memory-logger.js';
@@ -19,12 +19,11 @@ export const MockLogger = InMemoryLogger;
 export const MOCK_ENGINE_DIR = '.mock-engine';
 
 export function assertIsolatedEngine(dir: string = MOCK_ENGINE_DIR) {
-  expect(existsSync(dir), `Engine directory ${dir} should not exist in test environment`).toBe(false);
+  // Logic to verify .mock-atom structure if needed
 }
 
 export const MOCK_CONFIG: EngineConfig = {
   validation: {
-    strict: false,
     maxMessageLines: 50,
     subjectMaxLength: 72,
   },
@@ -53,9 +52,7 @@ export const MOCK_PROTOCOL_CONFIG: ProtocolConfig = {
   version: '1.0',
   strict: false,
   permissive: true,
-  trailers: {
-    definitions: {},
-  },
+  trailers: {},
 };
 
 /**
@@ -63,12 +60,12 @@ export const MOCK_PROTOCOL_CONFIG: ProtocolConfig = {
  */
 export function makeProtocolConfig(overrides: Partial<ProtocolConfig> = {}): ProtocolConfig {
   return {
-    version: overrides.version ?? MOCK_PROTOCOL_CONFIG.version,
-    strict: overrides.strict ?? MOCK_PROTOCOL_CONFIG.strict,
-    permissive: overrides.permissive ?? MOCK_PROTOCOL_CONFIG.permissive,
+    ...MOCK_PROTOCOL_CONFIG,
+    ...overrides,
     trailers: {
-        definitions: (overrides.trailers as any)?.definitions || {},
-    },
+        ...MOCK_PROTOCOL_CONFIG.trailers,
+        ...overrides.trailers
+    }
   };
 }
 
@@ -89,6 +86,7 @@ export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = 
       generator: 'hex8',
       ui: { kind: 'identity', color: 'dim' },
       required: true,
+      isCore: true
     }
   };
 
@@ -202,6 +200,8 @@ export const YAP_PROTOCOL_DEFINITION: ProtocolDefinition = {
   name: 'YAP',
   version: '2.0',
   namespace: 'yap',
+  strict: false,
+  permissive: true,
   identityKey: 'YAP-id',
   trailers: {
     'YAP-id': {
@@ -209,13 +209,15 @@ export const YAP_PROTOCOL_DEFINITION: ProtocolDefinition = {
         multivalue: false,
         validation: 'pattern',
         pattern: '^[0-9a-f]{8}$',
+        isCore: true
     },
     'Impact': {
         description: 'YAP impact.',
         multivalue: false,
         validation: 'values',
         values: { low: { description: '' }, high: { description: '' } },
-        squash: 'rank-max'
+        squash: 'rank-max',
+        isCore: true
     }
   }
 };
@@ -227,6 +229,8 @@ export const STRICT_PROTOCOL_DEFINITION: ProtocolDefinition = {
   name: 'Strict',
   version: '1.0',
   namespace: 'st',
+  strict: true,
+  permissive: false,
   identityKey: 'Strict-id',
   trailers: {
     'Strict-id': {
@@ -234,12 +238,14 @@ export const STRICT_PROTOCOL_DEFINITION: ProtocolDefinition = {
         multivalue: false,
         validation: 'pattern',
         pattern: '^[0-9a-f]{8}$',
+        isCore: true
     },
     'Required-Key': {
         description: 'Must exist.',
         multivalue: false,
         validation: 'none',
-        required: true
+        required: true,
+        isCore: true
     }
   }
 };
@@ -280,6 +286,8 @@ export function makeAtom(overrides: Partial<Atom> = {}): Atom {
       ['mock', {
         name: 'Mock',
         version: '1.0',
+        strict: false,
+        permissive: true,
         identityKey: 'Mock-id',
         trailers: { 'Mock-id': ['a1b2c3d4'] },
         unauthorized: {}

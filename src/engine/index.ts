@@ -163,7 +163,6 @@ export async function runCli(options: EngineOptions) {
     version: '1.0',
     strict: false,
     permissive: true,
-    trailers: { definitions: {} }
   };
 
   for (const def of allProtocols) {

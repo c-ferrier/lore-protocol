@@ -23,14 +23,12 @@ describe('atom commit (dynamic flags)', () => {
   it('should register flags for custom trailers defined in config', async () => {
     const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        definitions: {
           Department: {
             description: 'Dept',
             multivalue: false,
             validation: 'none' as const,
             cli: { flag: 'dept' }
           }
-        }
       }
     });
     const protocolRegistry = new ProtocolRegistry();
@@ -51,13 +49,11 @@ describe('atom commit (dynamic flags)', () => {
   it('should automatically slugify custom trailer keys into flags', async () => {
     const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        definitions: {
           'Assisted-by': {
             description: 'A',
             multivalue: true,
             validation: 'none' as const
           }
-        }
       }
     });
     const protocolRegistry = new ProtocolRegistry();

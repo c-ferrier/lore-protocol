@@ -23,8 +23,6 @@ describe('Protocol Architectural Integrity', () => {
     const config = {
       ...MOCK_PROTOCOL_CONFIG,
       trailers: {
-        ...MOCK_PROTOCOL_CONFIG.trailers,
-        definitions: {
           'Ticket-ID': {
             description: 'Issue tracker reference',
             multivalue: true,
@@ -32,11 +30,10 @@ describe('Protocol Architectural Integrity', () => {
             pattern: '^[A-Z]+-[0-9]+$',
             ui: { kind: 'reference' as any, color: 'dim' as any },
           },
-        },
       },
     };
 
-    const protocol = new Protocol(LoreProtocolDefinition, { version: '1.0', trailers: config.trailers });
+    const protocol = new Protocol(LoreProtocolDefinition, config);
     const registry = new ProtocolRegistry();
     registry.register(protocol);
 
@@ -69,6 +66,8 @@ describe('Protocol Architectural Integrity', () => {
         ['lore', { 
             name: 'Lore', 
             version: '1.0', 
+            strict: false,
+            permissive: true,
             identityKey: LORE_ID_KEY, 
             trailers,
             unauthorized: {}
@@ -97,7 +96,7 @@ describe('Protocol Architectural Integrity', () => {
   });
 
   it('should handle a hybrid flow of core and custom trailers simultaneously', async () => {
-    const protocol = new Protocol(LoreProtocolDefinition, { version: '1.0', trailers: MOCK_PROTOCOL_CONFIG.trailers });
+    const protocol = new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
     const options: CommitCommandOptions = {
       subject: 'feat',
       confidence: 'high',

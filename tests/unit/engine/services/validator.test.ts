@@ -179,26 +179,16 @@ describe('Validator', () => {
     });
 
     it('should error when a single-value custom trailer has multiple values', async () => {
-      const customConfig = {
-        ...MOCK_CONFIG,
-        trailers: {
-          ...MOCK_CONFIG.trailers,
-          definitions: {
-            Team: { description: 'T', multivalue: false, validation: 'none' as const }
-          }
-        }
-      };
       const customRegistry = new ProtocolRegistry();
       const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+        strict: false,
+        permissive: true,
         trailers: {
-          ...MOCK_PROTOCOL_CONFIG.trailers,
-          definitions: {
             Team: { description: 'T', multivalue: false, validation: 'none' as const }
-          }
         }
       });
       customRegistry.register(customProtocol);
-      const customValidator = new Validator(trailerParser, mockAtomRepo as any, customConfig, customRegistry);
+      const customValidator = new Validator(trailerParser, mockAtomRepo as any, MOCK_CONFIG, customRegistry);
 
       const commit = makeCommit({ trailers: 'Team: Engineering\nTeam: Product' });
       const results = await customValidator.validate([commit]);
@@ -284,20 +274,15 @@ describe('Validator', () => {
 
   describe('Rule 6: required trailers', () => {
     it('should warn on missing required trailers (non-strict)', async () => {
-      const eConfig: EngineConfig = {
-        ...MOCK_CONFIG,
-        validation: { ...MOCK_CONFIG.validation, strict: false },
-      };
       const requiredRegistry = new ProtocolRegistry();
       requiredRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+        strict: false,
         trailers: { 
-          definitions: { 
             Confidence: { description: '', multivalue: false, validation: 'none', required: true },
             Constraint: { description: '', multivalue: true, validation: 'none', required: true }
-          }
         }
       }));
-      const requiredValidator = new Validator(trailerParser, mockAtomRepo as any, eConfig, requiredRegistry);
+      const requiredValidator = new Validator(trailerParser, mockAtomRepo as any, MOCK_CONFIG, requiredRegistry);
       
       const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: abc` }); // Missing Confidence and Constraint
       const results = await requiredValidator.validate([commit]);
@@ -314,9 +299,7 @@ describe('Validator', () => {
       strictRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, {
         strict: true,
         trailers: { 
-          definitions: {
             Confidence: { description: '', multivalue: false, validation: 'none', required: true }
-          }
         }
       }));
       const strictValidator = new Validator(trailerParser, mockAtomRepo as any, MOCK_CONFIG, strictRegistry);
@@ -327,6 +310,7 @@ describe('Validator', () => {
       const requiredIssues = results[0].issues.filter(
         (i) => i.rule === 'required-trailer',
       );
+      expect(requiredIssues).toHaveLength(1);
       expect(requiredIssues[0].severity).toBe('error');
     });
 
@@ -334,9 +318,7 @@ describe('Validator', () => {
       const requiredRegistry = new ProtocolRegistry();
       requiredRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, {
         trailers: { 
-          definitions: {
             Confidence: { description: '', multivalue: false, validation: 'none', required: true }
-          }
         }
       }));
       const requiredValidator = new Validator(trailerParser, mockAtomRepo as any, MOCK_CONFIG, requiredRegistry);
@@ -521,6 +503,8 @@ describe('Validator', () => {
           ['mock', {
             name: 'Mock',
             version: '1.0',
+            strict: false,
+            permissive: true,
             identityKey: MOCK_ID_KEY,
             trailers: { [MOCK_ID_KEY]: ['aabbccdd'] },
             unauthorized: {}
@@ -541,13 +525,10 @@ describe('Validator', () => {
   describe('Rule 11: custom trailer definitions', () => {
     it('should error when a trailer marked as required in definitions is missing', async () => {
       const pConfig: Partial<ProtocolConfig> = {
+        strict: false,
+        permissive: false,
         trailers: {
-          definitions: {
             Department: { description: 'dept', multivalue: false, validation: 'none' as const, required: true },
-          },
-          required: ['Department'],
-          custom: [],
-          permissive: false,
         },
       };
       const customRegistry = new ProtocolRegistry();
@@ -564,18 +545,15 @@ describe('Validator', () => {
 
     it('should error on invalid enum value for custom trailer', async () => {
       const pConfig: Partial<ProtocolConfig> = {
+        strict: false,
+        permissive: false,
         trailers: {
-          definitions: {
             Team: {
               description: 'team',
               multivalue: false,
               validation: 'values',
               values: { Alpha: { description: '' }, Beta: { description: '' } },
             },
-          },
-          required: [],
-          custom: [],
-          permissive: false,
         },
       };
       const customRegistry = new ProtocolRegistry();
@@ -592,13 +570,10 @@ describe('Validator', () => {
 
     it('should error on invalid pattern for custom trailer', async () => {
       const pConfig: Partial<ProtocolConfig> = {
+        strict: false,
+        permissive: false,
         trailers: {
-          definitions: {
             Ticket: { description: 'jira', multivalue: false, validation: 'pattern', pattern: '^PROJ-[0-9]+$' },
-          },
-          required: [],
-          custom: [],
-          permissive: false,
         },
       };
       const customRegistry = new ProtocolRegistry();

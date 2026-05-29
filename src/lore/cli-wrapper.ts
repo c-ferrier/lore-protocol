@@ -130,9 +130,7 @@ export async function buildLoreCli() {
                 version: legacyData.protocol?.version || '1.0',
                 strict: false,
                 permissive,
-                trailers: {
-                    definitions
-                }
+                trailers: definitions
             };
         }
         
@@ -141,7 +139,6 @@ export async function buildLoreCli() {
             version: '1.0',
             strict: false,
             permissive: true,
-            trailers: { definitions: {} }
         };
     }
   };
