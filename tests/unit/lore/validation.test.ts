@@ -3,7 +3,7 @@ import { Validator } from '../../../src/engine/services/validator.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { MOCK_CONFIG, MOCK_PROTOCOL_CONFIG } from '../engine/test-utils.js';
+import { MOCK_CONFIG, MOCK_PROTOCOL_CONFIG, makeRawCommit } from '../engine/test-utils.js';
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 
@@ -83,9 +83,9 @@ describe('Lore Protocol Validation Contract', () => {
   });
 
   it('should enforce 8-character hex format for references (Supersedes, Related)', async () => {
-    const invalid = makeCommit('Lore-id: abc12345\nSupersedes: bad-id');
+    const invalid = makeRawCommit({ trailers: `Lore-id: a1b2c3d4\nSupersedes: toolong12` });
     const results = await validator.validate([invalid]);
 
-    expect(results[0].issues.some(i => i.rule === 'invalid-reference-format' && i.field === 'Supersedes')).toBe(true);
+    expect(results[0].issues.some(i => i.rule === 'reference-format' && i.field === 'Supersedes')).toBe(true);
   });
 });

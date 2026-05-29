@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { 
   MOCK_PROTOCOL_DEFINITION, 
   MOCK_CONFIG, 
-  makeProtocolConfig 
+  makeProtocolConfig,
+  makeProtocol
 } from '../test-utils.js';
 
 const MOCK_ID_KEY = "Mock-id";
@@ -389,7 +391,7 @@ describe('Protocol Service', () => {
         expect(result.trailers['Owned-By-Other']).toBeUndefined();
       });
 
-      it('should NOT ingest unowned trailers if not permissive', () => {
+    it('should NOT ingest unowned trailers if not permissive', () => {
         const config = {
           ...MOCK_CONFIG,
           trailers: { ...MOCK_CONFIG.trailers, permissive: false }
@@ -400,6 +402,98 @@ describe('Protocol Service', () => {
         const result = protocol.parse(raw, new Set(['Adhoc']));
         expect(result.trailers['Adhoc']).toBeUndefined();
       });
+    });
+  });
+
+  describe('validateTrailer', () => {
+    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
+
+    it('should validate enum values correctly', () => {
+      expect(protocol.validateTrailer('Confidence', 'high').valid).toBe(true);
+      
+      const result = protocol.validateTrailer('Confidence', 'junk');
+      expect(result.valid).toBe(false);
+      expect(result.rule).toBe('invalid-enum');
+      expect(result.message).toContain('Expected one of: low, medium, high');
+    });
+
+    it('should validate regex patterns correctly', () => {
+      expect(protocol.validateTrailer(MOCK_ID_KEY, 'aabbccdd').valid).toBe(true);
+      
+      const result = protocol.validateTrailer(MOCK_ID_KEY, 'too-long-id');
+      expect(result.valid).toBe(false);
+      expect(result.rule).toBe('mock-id-format');
+    });
+
+    it('should handle unresolvable cross-protocol references without a registry', () => {
+      // No registry linked
+      const result = protocol.validateTrailer('Depends-on', 'fake/123');
+      expect(result.valid).toBe(false);
+      expect(result.rule).toBe('unknown-protocol-prefix');
+      expect(result.message).toContain('Registry not linked');
+    });
+
+    it('should handle unknown protocol prefixes with a linked registry', () => {
+      const registry = new ProtocolRegistry();
+      registry.register(protocol);
+
+      const result = protocol.validateTrailer('Depends-on', 'unknown/123');
+      expect(result.valid).toBe(false);
+      expect(result.rule).toBe('unknown-protocol-prefix');
+      expect(result.message).toContain('Unknown protocol prefix: "unknown"');
+    });
+
+    it('should treat self-prefixed references as local even without a registry', () => {
+      // Mock protocol is named 'Mock'. Reference 'mock/aabbccdd' should be local.
+      const result = protocol.validateTrailer('Depends-on', 'mock/aabbccdd');
+      expect(result.valid).toBe(true);
+    });
+
+    it('should return specific id-format rule when identity key fails pattern', () => {
+      const result = protocol.validateTrailer(MOCK_ID_KEY, 'invalid-id');
+      expect(result.valid).toBe(false);
+      expect(result.rule).toBe('mock-id-format');
+      expect(result.message).toContain('is not a valid identifier');
+    });
+
+    it('should successfully validate a cross-protocol reference when registry is linked', () => {
+      const registry = new ProtocolRegistry();
+      registry.register(protocol);
+      
+      const otherProtocol = makeProtocol({ 
+          name: 'Other', 
+          namespace: 'other',
+          identityKey: 'Other-id',
+          trailers: { 'Other-id': { description: 'id', multivalue: false, validation: 'pattern', pattern: '^[0-9]+$' } }
+      });
+      registry.register(otherProtocol);
+
+      // 'other/123' should be valid because '123' matches 'Other's pattern
+      expect(protocol.validateTrailer('Depends-on', 'other/123').valid).toBe(true);
+
+      // 'other/abc' should be invalid because 'abc' fails 'Other's pattern
+      const result = protocol.validateTrailer('Depends-on', 'other/abc');
+      expect(result.valid).toBe(false);
+      expect(result.rule).toBe('invalid-reference-format');
+      expect(result.message).toContain('is not a valid identifier for protocol "Other"');
+    });
+
+    it('should return valid for unknown trailers in permissive mode', () => {
+      expect(protocol.validateTrailer('Random', 'any-value').valid).toBe(true);
+    });
+
+    it('should enforce boundary rules (crossProtocol: false) autonomously', () => {
+      const restrictedProtocol = makeProtocol({
+          name: 'Strict',
+          trailers: {
+              'Local-Ref': { description: 'L', multivalue: true, validation: 'reference' as const, crossProtocol: false }
+          }
+      });
+
+      // points to 'Other', not 'Strict' -> prohibited
+      const result = restrictedProtocol.validateTrailer('Local-Ref', 'other/123');
+      expect(result.valid).toBe(false);
+      expect(result.rule).toBe('cross-protocol-prohibited');
     });
   });
 });

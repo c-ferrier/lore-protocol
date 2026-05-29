@@ -246,12 +246,12 @@ describe('CommitBuilder', () => {
       const input: CommitInput = {
         subject: 'test',
         trailers: {
-          '': { Related: ['invalid-id'] },
+          '': { Related: ['invalid-id'], [MOCK_ID_KEY]: ['a1b2c3d4'] },
         },
       };
 
       const issues = builder.validate(input);
-      const formatIssue = issues.find(i => i.rule === 'invalid-format');
+      const formatIssue = issues.find(i => i.rule === 'reference-format');
       expect(formatIssue).toBeDefined();
     });
 
@@ -388,6 +388,39 @@ describe('CommitBuilder', () => {
         const unauthorizedIssues = issues.filter(i => i.rule === 'unauthorized-trailer');
         expect(unauthorizedIssues).toHaveLength(1);
         expect(unauthorizedIssues[0].message).toContain('Typo-Key');
+    });
+
+    it('should NOT report missing required identity key if it has a generator', () => {
+      // makeProtocolDefinition adds a hex8 generator by default
+      const protocolWithGen = makeProtocol({ name: 'Gen', required: ['Gen-id'] });
+      const registry = new ProtocolRegistry();
+      registry.register(protocolWithGen);
+
+      const genBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, MOCK_CONFIG, registry);
+      const input: CommitInput = { 
+          subject: 'test', 
+          trailers: { '': { 'Other': ['val'] } } 
+      };
+
+      const issues = genBuilder.validate(input);
+      expect(issues.filter(i => i.rule === 'required-trailer')).toHaveLength(0);
+    });
+
+    it('should report missing required identity key if it has NO generator', () => {
+      const protocolNoGen = makeProtocol({ 
+          name: 'Manual', 
+          trailers: { 'Manual-id': { description: 'id', multivalue: false, validation: 'none', generator: 'none' } } 
+      }, {
+          trailers: { required: ['Manual-id'] }
+      });
+      const registry = new ProtocolRegistry();
+      registry.register(protocolNoGen);
+
+      const manualBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, MOCK_CONFIG, registry);
+      const input: CommitInput = { subject: 'test', trailers: { '': {} } };
+
+      const issues = manualBuilder.validate(input);
+      expect(issues.filter(i => i.rule === 'required-trailer')).toHaveLength(1);
     });
   });
 });

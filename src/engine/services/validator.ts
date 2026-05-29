@@ -162,41 +162,23 @@ export class Validator {
         });
       }
 
-      // Check Values/Pattern
+      // Delegate Value/Pattern/Reference Validation to Protocol
       for (const val of values) {
-        if (def.validation === 'values' && def.values) {
-          const allowed = Object.keys(def.values);
-          if (!allowed.includes(val)) {
-            issues.push({
-              severity: 'error',
-              rule: 'invalid-enum',
-              field: key,
-              message: `[${protocol.name}] Invalid value for "${key}": "${val}". Expected one of: ${allowed.join(', ')}`,
-            });
-          }
-        } else if (def.validation === 'pattern' && def.pattern) {
-          const regex = new RegExp(def.pattern);
-          if (!regex.test(val)) {
-            let rule = 'invalid-format';
-            let message = `[${protocol.name}] Value for "${key}" does not match pattern: ${def.pattern}`;
-            let severity: 'error' | 'warning' = 'error';
+        const result = protocol.validateTrailer(key, val);
+        if (!result.valid) {
+          let severity: 'error' | 'warning' = 'error';
 
-            if (key === protocol.identityKey) {
-              rule = `${protocolSlug}-id-format`;
-              message = `[${protocol.name}] ${protocol.identityKey} "${val}" is not a valid identifier`;
-            } else if (def.ui?.kind === 'reference') {
-              rule = 'reference-format';
-              severity = this.config.validation.strict ? 'error' : 'warning';
-              message = `[${protocol.name}] Invalid reference format in ${key}: "${val}".`;
-            }
-
-            issues.push({
-              severity,
-              rule,
-              field: key,
-              message,
-            });
+          // References are warnings unless strict: true
+          if (result.rule === 'reference-format') {
+             severity = this.config.validation.strict ? 'error' : 'warning';
           }
+
+          issues.push({
+            severity,
+            rule: result.rule || 'invalid-format',
+            field: key,
+            message: result.message || 'Invalid value',
+          });
         }
       }
     }
@@ -233,44 +215,18 @@ export class Validator {
 
     for (const key of refKeys) {
       const values = trailers[key] || [];
-      const def = protocol.getDefinition(key);
 
       for (const val of values) {
         try {
-          // 1. Registry & Prefix Validation
+          // Check if format is valid before checking existence
+          const validResult = protocol.validateTrailer(key, val);
+          if (!validResult.valid) continue;
+
+          // resolveIdentity is safe here because validateTrailer already passed
           const identity = this.protocolRegistry.resolveIdentity(val, protocolName);
-          
-          // 2. Boundary Enforcement (crossProtocol: false)
-          if (def?.crossProtocol === false && identity.protocol !== protocolName) {
-            issues.push({
-              severity: 'error',
-              rule: 'cross-protocol-prohibited',
-              field: key,
-              message: `[${protocol.name}] Trailer "${key}" does not allow cross-protocol references (got "${identity.protocol}")`,
-            });
-            continue;
-          }
-
-          // 3. Identity Verification (Is it valid for the target protocol?)
-          const targetProtocol = identity.protocol ? this.protocolRegistry.get(identity.protocol) : protocol;
-          if (targetProtocol && !targetProtocol.isValidIdentity(identity.id)) {
-            issues.push({
-              severity: 'error',
-              rule: 'invalid-reference-format',
-              field: key,
-              message: `[${protocol.name}] Reference "${val}" is not a valid identifier for protocol "${targetProtocol.name}"`,
-            });
-            continue;
-          }
-
           identitiesToCheck.push({ key, identity });
-        } catch (err) {
-          issues.push({
-            severity: 'error',
-            rule: 'unknown-protocol-prefix',
-            field: key,
-            message: `[${protocol.name}] ${err instanceof Error ? err.message : String(err)}`,
-          });
+        } catch {
+          // Skip if resolution fails (already handled by first pass)
         }
       }
     }

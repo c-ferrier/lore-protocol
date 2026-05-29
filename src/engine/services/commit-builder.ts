@@ -173,41 +173,28 @@ export class CommitBuilder {
             if (!values || values.length === 0) continue;
             claimedInNs.add(key.toLowerCase());
 
-            if (def?.validation === 'values' && def.values) {
-                const allowed = Object.keys(def.values);
-                for (const v of values) {
-                    if (!allowed.includes(v)) {
-                        issues.push({
-                            severity: 'error',
-                            rule: 'invalid-enum',
-                            field: ns ? `${ns}:${key}` : key,
-                            message: `[${protocol.name}] Invalid value for "${key}": "${v}". Expected one of: ${allowed.join(', ')}`,
-                        });
-                    }
-                }
-            } else if (def?.validation === 'pattern' && def.pattern) {
-                const regex = new RegExp(def.pattern);
-                for (const v of values) {
-                    if (!regex.test(v)) {
-                        issues.push({
-                            severity: 'error',
-                            rule: 'invalid-format',
-                            field: ns ? `${ns}:${key}` : key,
-                            message: `[${protocol.name}] Value for "${key}" does not match pattern: ${def.pattern}`,
-                        });
-                    }
-                }
-            }
-
-            if (!def?.multivalue && values.length > 1) {
-                issues.push({
-                    severity: 'error',
-                    rule: 'invalid-cardinality',
-                    field: ns ? `${ns}:${key}` : key,
-                    message: `[${protocol.name}] Trailer "${key}" allows only one value`,
-                });
-            }
+      // Delegate Value/Pattern/Reference Validation to Protocol
+      for (const val of values) {
+        const result = protocol.validateTrailer(key, val);
+        if (!result.valid) {
+          issues.push({
+            severity: 'error', // Commits ALWAYS fail on schema violations
+            rule: result.rule || 'invalid-format',
+            field: ns ? `${ns}:${key}` : key,
+            message: result.message || 'Invalid value',
+          });
         }
+      }
+
+      if (!def?.multivalue && values.length > 1) {
+        issues.push({
+          severity: 'error',
+          rule: 'invalid-cardinality',
+          field: ns ? `${ns}:${key}` : key,
+          message: `[${protocol.name}] Trailer "${key}" allows only one value`,
+        });
+      }
+    }
 
         // Check for unauthorized keys in this namespace
         if (!protocol.permissive) {

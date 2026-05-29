@@ -164,30 +164,26 @@ export const MOCK_PROTOCOL_DEFINITION: ProtocolDefinition = {
     'Related': {
       description: 'Related reference.',
       multivalue: true,
-      validation: 'pattern',
-      pattern: '^[0-9a-f]{8}$',
+      validation: 'reference',
       ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       prompt: { order: 200 }
     },
     'Supersedes': {
         description: 'Supersedes reference.',
         multivalue: true,
-        validation: 'pattern',
-        pattern: '^[0-9a-f]{8}$',
+        validation: 'reference',
         ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
     },
     'Depends-on': {
         description: 'Dependency reference.',
         multivalue: true,
-        validation: 'pattern',
-        pattern: '^[0-9a-f]{8}$',
+        validation: 'reference',
         ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
     },
     'Ref': {
         description: 'Generic reference.',
         multivalue: true,
-        validation: 'pattern',
-        pattern: '^[0-9a-f]{8}$',
+        validation: 'reference',
         ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
     }
   }

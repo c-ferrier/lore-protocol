@@ -9,6 +9,7 @@ import { ProtocolError } from '../../util/errors.js';
  */
 export class ProtocolRegistry {
   private readonly protocols = new Map<string, IProtocol>();
+  private readonly namespaceMap = new Map<string, IProtocol>();
 
   /**
    * Register a protocol with the engine.
@@ -20,13 +21,14 @@ export class ProtocolRegistry {
       throw new Error(
         `Cannot register permissive protocol "${protocol.name}". ` +
           `A permissive protocol ("${existing?.name}") is already registered for namespace "${protocol.namespace || 'root'}". ` +
-          'Only one permissive protocol is allowed per namespace to prevent trailer claiming conflicts.',
+          `Only one permissive protocol is allowed per namespace to prevent trailer claiming conflicts.`,
       );
     }
 
+    protocol.setRegistry(this);
     this.protocols.set(protocol.name.toLowerCase(), protocol);
+    this.namespaceMap.set(protocol.namespace.toLowerCase(), protocol);
   }
-
   /**
    * Find a protocol by name (case-insensitive).
    */

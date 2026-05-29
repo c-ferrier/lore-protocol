@@ -70,7 +70,8 @@ describe('Doctor Command', () => {
       getDefinition: (key: string) => ({ ui: { kind: key === 'Depends-on' ? 'reference' : 'text' } }),
       claims: () => false,
       owns: (key: string) => key.toLowerCase().startsWith('fred/'),
-      authorize: (key: string) => key
+      authorize: (key: string) => key,
+      setRegistry: vi.fn()
     };
     
     const registry = new ProtocolRegistry();
@@ -136,7 +137,8 @@ describe('Doctor Command', () => {
       getReferenceKeys: () => [],
       claims: () => false,
       owns: (key: string) => key === 'Fred-id',
-      authorize: (key: string) => key
+      authorize: (key: string) => key,
+      setRegistry: vi.fn()
     };
 
     const registry = new ProtocolRegistry();

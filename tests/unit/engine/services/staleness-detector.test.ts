@@ -51,6 +51,7 @@ function createMockProtocol(): IProtocol {
     getReferenceKeys: vi.fn(() => ['Supersedes', 'Depends-on']),
     isValidIdentity: vi.fn((id) => /^[a-f0-9]{8}$/.test(id)),
     getIdentity: vi.fn((trailers) => trailers?.[MOCK_ID_KEY]?.[0] || null),
+    setRegistry: vi.fn(),
     
     // Core Engine Logic Test: verify that the detector delegates to this method
     getStaleSignals: vi.fn((atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[] => {

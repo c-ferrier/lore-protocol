@@ -6,6 +6,7 @@ import type { TrailerDefinition } from '../types/config.js';
 import { ProtocolError } from '../../util/errors.js';
 import type { CommitInputResolver } from '../services/commit-input-resolver.js';
 import type { HeadIdReader } from '../services/head-id-reader.js';
+import type { ILogger } from '../interfaces/logger.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import type { AtomId } from '../types/domain.js';
 import { ProtocolRegistry } from '../services/protocol-registry.js';
@@ -42,9 +43,10 @@ export function registerCommitCommand(
     getFormatter: () => IOutputFormatter;
     protocolRegistry: ProtocolRegistry;
     trailerParser: TrailerParser;
+    logger: ILogger;
   },
 ): void {
-  const { protocolRegistry } = deps;
+  const { protocolRegistry, logger } = deps;
   const cmd = program
     .command('commit')
     .description('Create a decision-enriched commit')

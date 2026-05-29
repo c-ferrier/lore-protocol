@@ -3,6 +3,7 @@ import type { ProtocolState, Atom, SupersessionStatus, StaleReason } from '../ty
 import type { FormattableTrailerDefinition } from '../types/output.js';
 import { type IProtocol, type ActiveTrailer } from '../interfaces/protocol.js';
 import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
+import type { ProtocolRegistry } from './protocol-registry.js';
 
 import { TrailerParser } from './trailer-parser.js';
 import { escapeRegex } from '../../util/regex.js';
@@ -19,12 +20,17 @@ export class Protocol implements IProtocol {
   private readonly definitions = new Map<string, ActiveTrailer>();
   private readonly caseMap = new Map<string, string>();
   private readonly parser = new TrailerParser();
+  private registry?: ProtocolRegistry;
 
   constructor(
     private readonly definition: ProtocolDefinition,
     private readonly config: ProtocolConfig,
   ) {
     this.loadDefinitions();
+  }
+
+  setRegistry(registry: ProtocolRegistry): void {
+    this.registry = registry;
   }
 
   get name(): string {
@@ -377,6 +383,114 @@ export class Protocol implements IProtocol {
   getDefinition(key: string): ActiveTrailer | null {
     const canonicalKey = this.caseMap.get(key.toLowerCase());
     return canonicalKey ? this.definitions.get(canonicalKey) || null : null;
+  }
+
+  /**
+   * Validates a single trailer value against the protocol schema.
+   * Handles enums, regex patterns, and cross-protocol reference format checks.
+   */
+  validateTrailer(key: string, value: string): { valid: boolean; message?: string; rule?: string } {
+    const def = this.getDefinition(key);
+    if (!def) {
+      // If not defined and protocol is permissive, it's valid as a generic string
+      return { valid: true };
+    }
+
+    // 1. Enum Validation
+    if (def.validation === 'values' && def.values) {
+      const allowed = Object.keys(def.values);
+      if (!allowed.includes(value)) {
+        return {
+          valid: false,
+          rule: 'invalid-enum',
+          message: `[${this.name}] Invalid value for "${key}": "${value}". Expected one of: ${allowed.join(', ')}`,
+        };
+      }
+    }
+
+    // 2. Pattern Validation
+    if (def.validation === 'pattern' && def.pattern) {
+      const regex = new RegExp(def.pattern);
+      if (!regex.test(value)) {
+        let rule = 'invalid-format';
+        let message = `[${this.name}] Value for "${key}" does not match pattern: ${def.pattern}`;
+        
+        // Identity special case
+        if (key === this.identityKey) {
+            rule = `${this.name.toLowerCase().replace(/-/g, '')}-id-format`;
+            message = `[${this.name}] ${this.identityKey} "${value}" is not a valid identifier`;
+        }
+
+        return { valid: false, rule, message };
+      }
+    }
+
+    // 3. Reference Validation (The "Mask" Check)
+    if (def.validation === 'reference') {
+      let targetPName = this.name.toLowerCase();
+      let targetId = value;
+
+      if (value.includes('/')) {
+        const [prefix, suffix] = value.split('/', 2);
+        targetPName = prefix.toLowerCase();
+        targetId = suffix;
+      }
+
+      const isLocal = targetPName === this.name.toLowerCase();
+
+      // 1. Boundary Enforcement (crossProtocol: false)
+      if (def.crossProtocol === false && !isLocal) {
+        return {
+          valid: false,
+          rule: 'cross-protocol-prohibited',
+          message: `[${this.name}] Trailer "${key}" does not allow cross-protocol references (got "${targetPName}")`,
+        };
+      }
+
+      // 2. Format Validation (Local)
+      // If it's local (either no prefix or matches our own name), we validate it internally
+      if (isLocal) {
+        if (!this.isValidIdentity(targetId)) {
+          return {
+            valid: false,
+            rule: 'reference-format',
+            message: `[${this.name}] Invalid reference format in ${key}: "${value}".`,
+          };
+        }
+        return { valid: true };
+      }
+
+      // 3. Format Validation (Cross-Protocol)
+      // If we got here, it's NOT local. We require a registry to verify the neighbor.
+      if (!this.registry) {
+        return {
+          valid: false,
+          rule: 'unknown-protocol-prefix',
+          message: `[${this.name}] Unknown protocol prefix: "${targetPName}" (Registry not linked)`,
+        };
+      }
+
+      try {
+        const identity = this.registry.resolveIdentity(value, this.name.toLowerCase());
+        const targetProtocol = this.registry.get(identity.protocol || targetPName);
+        
+        if (targetProtocol && !targetProtocol.isValidIdentity(identity.id)) {
+            return {
+                valid: false,
+                rule: 'invalid-reference-format',
+                message: `[${this.name}] Reference "${value}" is not a valid identifier for protocol "${targetProtocol.name}"`,
+            };
+        }
+      } catch (err) {
+        return {
+            valid: false,
+            rule: 'unknown-protocol-prefix',
+            message: `[${this.name}] ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+    }
+
+    return { valid: true };
   }
 
   /**

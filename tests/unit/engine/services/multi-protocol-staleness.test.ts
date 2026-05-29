@@ -31,19 +31,23 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
     // 1. Mock protocol identifies an expired hint
     const mockProtocol: any = {
         name: 'Mock',
+        namespace: '',
         getStaleSignals: vi.fn().mockReturnValue([{ 
             signal: 'expired-hint', 
             description: '[Mock] Hint expired' 
-        }])
+        }]),
+        setRegistry: vi.fn()
     };
 
     // 2. Security protocol identifies low confidence
     const secProtocol: any = {
         name: 'Sec',
+        namespace: 'sec',
         getStaleSignals: vi.fn().mockReturnValue([{ 
             signal: 'low-confidence', 
             description: '[Sec] Vulnerability detected' 
-        }])
+        }]),
+        setRegistry: vi.fn()
     };
 
     registry.register(mockProtocol);

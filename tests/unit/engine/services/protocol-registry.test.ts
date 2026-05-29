@@ -30,6 +30,7 @@ describe('ProtocolRegistry', () => {
     owns: vi.fn(),
     getIdentityPattern: vi.fn().mockReturnValue(`^${name}-id: `),
     getIdentity: vi.fn(),
+    setRegistry: vi.fn(),
   } as unknown as IProtocol);
 
   it('should register and retrieve protocols', () => {

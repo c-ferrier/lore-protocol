@@ -2,6 +2,7 @@ import type { ProtocolState, Atom, SupersessionStatus, StaleReason } from '../ty
 import type { FormattableTrailerDefinition } from '../types/output.js';
 import type { TrailerDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
 import type { SearchOptions } from '../types/query.js';
+import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
 /**
  * Hydrated trailer definition for runtime use in the engine.
@@ -31,9 +32,14 @@ export interface IProtocol {
    * Returns true if the protocol allows ad-hoc (unregistered) trailers.
    */
   readonly permissive: boolean;
+/**
+ * Links this protocol to a registry for cross-protocol resolution.
+ */
+setRegistry(registry: ProtocolRegistry): void;
 
-  /**
-   * Authorizes a trailer key for use.
+/**
+ * Authorizes a trailer key for use.
+...
    * Returns the canonical casing of the key if authorized, otherwise null.
    */
   authorize(key: string): string | null;
@@ -42,6 +48,12 @@ export interface IProtocol {
    * Returns the metadata definition for a key.
    */
   getDefinition(key: string): ActiveTrailer | null;
+
+  /**
+   * Validates a single trailer value against the protocol schema.
+   * Handles enums, regex patterns, and cross-protocol reference format checks.
+   */
+  validateTrailer(key: string, value: string): { valid: boolean; message?: string; rule?: string };
 
   /**
    * Returns all authorized keys (Core + Custom) sorted by prompt priority.

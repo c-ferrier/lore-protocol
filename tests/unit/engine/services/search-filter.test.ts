@@ -137,6 +137,7 @@ describe('SearchFilter', () => {
           return true;
         },
         authorize: (key: string) => key === 'Fred-Level' ? 'Fred-Level' : null,
+        setRegistry: vi.fn(),
       } as any;
       registry.register(fred);
 
