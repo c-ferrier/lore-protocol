@@ -129,9 +129,25 @@ If the engine's core is stabilized, these three extreme concepts redefine how a 
 *   **Concept**: Transition the `AtomCache` from a purely structural engine tool (drift detection) to a shared service for Protocol plugins.
 *   **Value**: Allows custom protocols to cache computationally expensive signal data (e.g., results of external API calls or deep graph traversals) within the engine's sharded filesystem cache.
 
-### 7. Dependency-Injected Protocol Hooks
+### PHASE 7: Dependency-Injected Protocol Hooks
 *   **Concept**: Move away from static `ProtocolDefinition` hooks and provide protocols with runtime access to engine services like the `ProtocolRegistry`.
 *   **Value**: Eliminates logic duplication. Protocols can use `protocolRegistry.resolveIdentity()` directly inside their hooks instead of manually parsing URI strings, ensuring perfect alignment with the engine's resolution rules.
+
+### PHASE 8: The Framework Bootstrapper (Atom-as-a-Library)
+*   **Concept**: Refactor the monolithic `runCli` God-function into a modular `EngineBootstrapper` class.
+*   **Action**: Allow external wrappers (like Lore) to instantiate the engine, register custom commands/formatters, and control the lifecycle programmatically.
+*   **Value**: Enables developers to build their own branded "Industrial Strength" decision tools on top of Atom with minimal code.
+
+### PHASE 9: "Lazy" (Auto-Interactive) Interaction Model
+*   **Concept**: Move from "Binary Enforcement" to "Helpful Guidance" for human users.
+*   **Action**: Implement a `greedy: true` mode in the `CommitInputResolver`. If a user misses a `required: true` trailer in a TTY environment, the engine automatically invokes the `TerminalPrompt` service instead of failing.
+*   **Value**: Provides a professional, frictionless UX for humans while maintaining strict schema validity for machines and AI agents.
+
+### PHASE 10: Declarative Rules Engine (The "Hook Killer")
+*   **Concept**: Eliminate the need for custom TypeScript logic for common protocol behaviors.
+*   **Action**: Add `stale_if` triggers and `semantic_roles` directly to the TOML blueprint. 
+*   **Value**: Makes protocols truly "Zero-Code," allowing anyone to define validation and staleness rules entirely in data.
+
 
 ---
 
