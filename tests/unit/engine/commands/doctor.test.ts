@@ -30,7 +30,7 @@ describe('Doctor Command', () => {
     configLoader = createMockConfigLoader();
     protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, {
         version: '1.0',
-        strict: false, permissive: true, trailers: { definitions: {} }
+        strict: false, permissive: true, trailers: {}
     });
     vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
   });
@@ -65,7 +65,7 @@ describe('Doctor Command', () => {
       namespace: 'Fred',
       version: '1.0',
       isValidIdentity: (id: string) => /^[0-9a-f]{8}$/.test(id),
-      getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
+      getIdentity: (state: any) => state?.trailers['Fred-id']?.[0] || null,
       getReferenceKeys: () => ['Depends-on'],
       getDefinition: (key: string) => ({ ui: { kind: key === 'Depends-on' ? 'reference' : 'text' } }),
       claims: () => false,
@@ -84,7 +84,7 @@ describe('Doctor Command', () => {
       subject: 'subject',
       body: '',
       protocols: new Map([
-        ['fred', { name: 'Fred', identityKey: 'Fred-id', trailers: { 'Fred-id': ['12345678'], 'Depends-on': ['deadbeef'] } as any, version: '1.0' }]
+        ['fred', { trailers: { 'Fred-id': ['12345678'], 'Depends-on': ['deadbeef'] }, unauthorized: {} }]
       ]),
       filesChanged: []
     } as any;
@@ -133,7 +133,7 @@ describe('Doctor Command', () => {
       namespace: '',
       version: '1.0',
       isValidIdentity: (id: string) => true,
-      getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
+      getIdentity: (state: any) => state?.trailers['Fred-id']?.[0] || null,
       getReferenceKeys: () => [],
       claims: () => false,
       owns: (key: string) => key === 'Fred-id',
@@ -147,12 +147,12 @@ describe('Doctor Command', () => {
     // 2. Mock two atoms with the SAME Fred-id
     const atom1: any = {
       protocols: new Map([
-        ['fred', { name: 'Fred', identityKey: 'Fred-id', trailers: { 'Fred-id': ['duplicate-123'] }, version: '1.0' }]
+        ['fred', { trailers: { 'Fred-id': ['duplicate-123'] }, unauthorized: {} }]
       ])
     };
     const atom2: any = {
       protocols: new Map([
-        ['fred', { name: 'Fred', identityKey: 'Fred-id', trailers: { 'Fred-id': ['duplicate-123'] }, version: '1.0' }]
+        ['fred', { trailers: { 'Fred-id': ['duplicate-123'] }, unauthorized: {} }]
       ])
     };
 

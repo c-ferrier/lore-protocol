@@ -68,7 +68,7 @@ export class Validator {
       // Final ID for UI parity (prefer root namespace or first protocol)
       const primary = this.protocolRegistry.getRoot() || protocols[0];
       const primaryState = primary?.parse(raw.trailers, claimedKeys);
-      const displayId = primaryState ? primary.getIdentity(primaryState.trailers) : null;
+      const displayId = primaryState ? primary.getIdentity(primaryState) : null;
 
       return {
         commit: raw.hash,

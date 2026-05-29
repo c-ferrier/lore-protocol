@@ -50,7 +50,7 @@ export class LoreTextFormatter extends TextFormatter {
     for (const atom of result.atoms) {
       const loreState = atom.protocols.get('lore');
       const id = (loreState && loreProtocol) 
-        ? (loreProtocol.getIdentity(loreState.trailers) || atom.commitHash.slice(0, 8))
+        ? (loreProtocol.getIdentity(loreState) || atom.commitHash.slice(0, 8))
         : atom.commitHash.slice(0, 8);
 
       const status = id ? (supersessionMap.get(id) || { superseded: false, supersededBy: null }) : { superseded: false, supersededBy: null };
@@ -136,11 +136,13 @@ export class LoreTextFormatter extends TextFormatter {
 
   override formatStalenessResult(data: FormattableStalenessResult): string {
     const lines: string[] = [];
+    const loreProtocol = this.registry.get('lore');
+
     for (const report of data.atoms) {
       const { atom } = report;
       const loreState = atom.protocols.get('lore');
-      const id = loreState
-          ? (atom.protocols.get('lore')?.trailers['Lore-id']?.[0] || atom.commitHash.slice(0, 8))
+      const id = (loreState && loreProtocol)
+          ? (loreProtocol.getIdentity(loreState) || atom.commitHash.slice(0, 8))
           : atom.commitHash.slice(0, 8);
       
       const dateStr = atom.date.toISOString().slice(0, 10);
@@ -171,13 +173,13 @@ export class LoreTextFormatter extends TextFormatter {
     const renderNode = (node: Atom, depth: number, prefix: string = '') => {
       const loreState = node.protocols.get('lore');
       const id = (loreState) 
-          ? (this.registry.get('lore')?.getIdentity(loreState.trailers) || node.commitHash.slice(0, 8))
+          ? (this.registry.get('lore')?.getIdentity(loreState) || node.commitHash.slice(0, 8))
           : node.commitHash.slice(0, 8);
       
       lines.push(`${prefix}${id} ${node.subject}`);
       
       const nodeHashPrefix = node.commitHash.slice(0, 8);
-      const nodeId = loreState ? this.registry.get('lore')?.getIdentity(loreState.trailers) : null;
+      const nodeId = loreState ? this.registry.get('lore')?.getIdentity(loreState) : null;
 
       const edges = data.edges.filter(e => e.from === nodeId || e.from === nodeHashPrefix);
       for (let i = 0; i < edges.length; i++) {
@@ -189,7 +191,7 @@ export class LoreTextFormatter extends TextFormatter {
           
           const targetLoreState = target.protocols.get('lore');
           const targetId = targetLoreState 
-              ? (this.registry.get('lore')?.getIdentity(targetLoreState.trailers) || target.commitHash.slice(0, 8))
+              ? (this.registry.get('lore')?.getIdentity(targetLoreState) || target.commitHash.slice(0, 8))
               : target.commitHash.slice(0, 8);
           
           lines.push(`${prefix}${connector} [${edge.relationship}] ${targetId} ${target.subject}`);

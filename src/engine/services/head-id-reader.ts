@@ -28,7 +28,8 @@ export class HeadIdReader {
       const results: Record<string, AtomId> = {};
 
       for (const protocol of this.protocolRegistry.getAll()) {
-        const id = protocol.getIdentity(trailers);
+        const state = protocol.normalize(trailers);
+        const id = protocol.getIdentity(state);
         if (id && protocol.isValidIdentity(id)) {
             results[protocol.name.toLowerCase()] = id;
         }

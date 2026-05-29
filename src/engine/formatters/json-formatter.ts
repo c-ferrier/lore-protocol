@@ -35,7 +35,7 @@ export class JsonFormatter implements IOutputFormatter {
 
     const results = result.atoms.map((atom) => {
       const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
-      const primaryId = rootProtocol?.getIdentity(primaryState?.trailers);
+      const primaryId = rootProtocol?.getIdentity(primaryState);
       const supersession = primaryId ? supersessionMap.get(primaryId) : undefined;
 
       return {
@@ -256,7 +256,7 @@ export class JsonFormatter implements IOutputFormatter {
     visibleTrailers: readonly string[] | 'all'
   ): Record<string, any> {
     const protocolObj = this.protocolRegistry.get(protocolName);
-    const id = protocolObj ? protocolObj.getIdentity(state.trailers) : null;
+    const id = protocolObj ? protocolObj.getIdentity(state) : null;
 
     return {
       id,

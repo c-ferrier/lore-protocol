@@ -43,12 +43,12 @@ export class TextFormatter implements IOutputFormatter {
       const rootProtocol = this.protocolRegistry.getRoot();
       const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
       
-      let id = rootProtocol?.getIdentity(primaryState?.trailers);
+      let id = rootProtocol?.getIdentity(primaryState);
       if (!id) {
           // Try to find ANY protocol identity
           for (const [name, state] of atom.protocols) {
               const p = this.protocolRegistry.get(name);
-              id = p?.getIdentity(state.trailers) || undefined;
+              id = p?.getIdentity(state) || undefined;
               if (id) break;
           }
       }
@@ -138,7 +138,7 @@ export class TextFormatter implements IOutputFormatter {
     for (const report of data.atoms) {
       const rootProtocol = this.protocolRegistry.getRoot();
       const state = rootProtocol ? report.atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
-      const id = rootProtocol?.getIdentity(state?.trailers) || 'Unknown';
+      const id = rootProtocol?.getIdentity(state) || 'Unknown';
       
       const dateStr = this.formatDate(report.atom.date);
       lines.push(
@@ -160,7 +160,7 @@ export class TextFormatter implements IOutputFormatter {
 
     const rootProtocol = this.protocolRegistry.getRoot();
     const state = rootProtocol ? data.root.protocols.get(rootProtocol.name.toLowerCase()) : null;
-    const rootId = rootProtocol?.getIdentity(state?.trailers) || 'Unknown';
+    const rootId = rootProtocol?.getIdentity(state) || 'Unknown';
 
     lines.push(
       `${this.c.bold(rootId)} ${this.c.dim(data.root.subject)}`,
@@ -328,7 +328,7 @@ export class TextFormatter implements IOutputFormatter {
 
       // 2. Render Authorized Trailers in Priority Order (Core + Defined Custom)
       for (const key of authorizedKeys) {
-        if (key === identityKey && protocol.getIdentity(state.trailers) === headerId) {
+        if (key === identityKey && protocol.getIdentity(state) === headerId) {
           continue;
         }
         if (!shouldShow(key)) continue;
@@ -348,7 +348,7 @@ export class TextFormatter implements IOutputFormatter {
 
       // 3. Render any remaining custom/permissive trailers
       for (const key of allStateKeys) {
-        if (key === identityKey && protocol.getIdentity(state.trailers) === headerId) {
+        if (key === identityKey && protocol.getIdentity(state) === headerId) {
           continue;
         }
         if (!shouldShow(key)) continue;

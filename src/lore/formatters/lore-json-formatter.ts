@@ -40,7 +40,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
 
     const results = data.result.atoms.map((atom) => {
       const loreState = atom.protocols.get('lore');
-      const loreId = loreState ? loreProtocol?.getIdentity(loreState.trailers) : null;
+      const loreId = loreState ? loreProtocol?.getIdentity(loreState) : null;
       const status = loreId ? (data.supersessionMap.get(loreId) || { superseded: false, supersededBy: null }) : { superseded: false, supersededBy: null };
 
       const trailers: Record<string, any> = {};
@@ -94,7 +94,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
       lore_version: loreProtocol?.version ?? '1.0',
       stale_atoms: data.atoms.map((report) => {
         const loreState = report.atom.protocols.get('lore');
-        const loreId = loreState ? loreProtocol?.getIdentity(loreState.trailers) : null;
+        const loreId = loreState ? loreProtocol?.getIdentity(loreState) : null;
 
         const trailers: Record<string, any> = {};
         if (loreState) {

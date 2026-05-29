@@ -60,7 +60,7 @@ export class SquashMerger {
       trailerLines.push(`${identityKey}: ${newId}`);
 
       const internalIds = new Set(atoms
-        .map((a) => protocol.getIdentity(a.protocols.get(pName)?.trailers))
+        .map((a) => protocol.getIdentity(a.protocols.get(pName)))
         .filter((id): id is string => Boolean(id))
       );
 

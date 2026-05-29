@@ -28,7 +28,7 @@ export class SupersessionResolver {
 
       for (const atom of atoms) {
         const state = atom.protocols.get(pName);
-        const id = protocol.getIdentity(state?.trailers);
+        const id = protocol.getIdentity(state);
         if (id) {
           statusMap.set(id, { superseded: false, supersededBy: null });
           atomByQualifiedId.set(`${pName}/${id}`, atom);
@@ -42,7 +42,7 @@ export class SupersessionResolver {
         const protocol = this.protocolRegistry.get(pName);
         if (!protocol) continue;
 
-        const id = protocol.getIdentity(state.trailers);
+        const id = protocol.getIdentity(state);
         if (!id) continue;
         const qualifiedId = `${pName}/${id}`;
 
@@ -141,7 +141,7 @@ export class SupersessionResolver {
         const protocol = this.protocolRegistry.get(pName);
         if (!protocol) continue;
 
-        const id = protocol.getIdentity(state?.trailers);
+        const id = protocol.getIdentity(state);
 
         if (id) {
           hasProtocolMatch = true;

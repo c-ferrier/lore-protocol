@@ -7,6 +7,7 @@ import type { FormattableDoctorResult, DoctorCheck } from '../types/output.js';
 import type { IProtocol } from '../interfaces/protocol.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
 import type { ILogger } from '../interfaces/logger.js';
+import type { Atom } from '../types/domain.js';
 import { ENGINE_CONFIG_SCHEMA } from '../types/config.js';
 import { analyzeConfigGaps } from '../util/config-analyzer.js';
 import { parse as parseToml } from 'smol-toml';
@@ -143,7 +144,7 @@ async function checkConfig(configLoader: IConfigLoader, defaultConfig: any): Pro
   };
 }
 
-function checkAtoms(atoms: any[]): DoctorCheck {
+function checkAtoms(atoms: Atom[]): DoctorCheck {
   if (atoms.length === 0) {
     return {
       name: 'Decision Atoms',
@@ -163,7 +164,7 @@ function checkAtoms(atoms: any[]): DoctorCheck {
 async function checkProtocolIntegrity(
   atomRepository: AtomRepository,
   protocol: IProtocol,
-  atoms: any[]
+  atoms: Atom[]
 ): Promise<DoctorCheck> {
   const counts = new Map<string, number>();
   const protocolName = protocol.name.toLowerCase();
@@ -172,7 +173,7 @@ async function checkProtocolIntegrity(
     const state = atom.protocols.get(protocolName);
     if (!state) continue;
 
-    const id = protocol.getIdentity(state.trailers);
+    const id = protocol.getIdentity(state);
     if (id) {
       counts.set(id, (counts.get(id) || 0) + 1);
     }
@@ -206,7 +207,7 @@ async function checkProtocolReferences(
   atomRepository: AtomRepository,
   protocolRegistry: ProtocolRegistry,
   protocol: IProtocol,
-  atoms: any[]
+  atoms: Atom[]
 ): Promise<DoctorCheck> {
   const orphaned: string[] = [];
   const refKeys = protocol.getReferenceKeys();
