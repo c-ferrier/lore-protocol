@@ -229,8 +229,6 @@ describe('Protocol Service', () => {
       const raw = `${MOCK_ID_KEY}: a1b2c3d4\nconfidence: high`;
       const result = protocol.parse(raw);
       
-      expect(result.name).toBe('Mock');
-      expect(result.identityKey).toBe(MOCK_ID_KEY);
       expect(result.trailers[MOCK_ID_KEY]).toEqual(['a1b2c3d4']);
       expect(result.trailers.Confidence).toEqual(['high']);
     });
@@ -266,8 +264,6 @@ describe('Protocol Service', () => {
             const state = protocol.normalize(raw);
             expect(state.trailers.Confidence).toEqual(['high']);
             expect(state.unauthorized['Typo-Key']).toEqual(['junk']);
-            expect(state.strict).toBe(true);
-            expect(state.permissive).toBe(false);
         });
 
         it('should handle pre-bucketed namespaced trailers', () => {

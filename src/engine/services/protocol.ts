@@ -125,11 +125,6 @@ export class Protocol implements IProtocol {
    * Application-level check: does this parsed state match the requested filters?
    */
   matches(state: ProtocolState, filters: Record<string, string | string[]>): boolean {
-    // Only match against our own protocol data
-    if (state.name.toLowerCase() !== this.name.toLowerCase()) {
-      return true; // Don't block others
-    }
-
     for (const [key, value] of Object.entries(filters)) {
       const authorizedKey = this.authorize(key);
       if (!authorizedKey) continue;
@@ -234,11 +229,6 @@ export class Protocol implements IProtocol {
     }
 
     return {
-      name: this.name,
-      version: this.version,
-      strict: this.strict,
-      permissive: this.permissive,
-      identityKey: this.identityKey,
       trailers: normalized,
       unauthorized,
     };
@@ -361,8 +351,8 @@ export class Protocol implements IProtocol {
     const issues: ValidationIssue[] = [];
     const authorizedKeys = this.getAuthorizedKeys();
     
-    // Policy comes from the STATE, but can be overridden by explicit options
-    const isStrict = options?.strict !== undefined ? options.strict : state.strict;
+    // Policy comes from the Expert, but can be overridden by explicit options
+    const isStrict = options?.strict !== undefined ? options.strict : this.strict;
     
     const protocolSlug = this.name.toLowerCase().replace(/-/g, '');
     const identityRule = `${protocolSlug}-id-present`;
@@ -425,7 +415,7 @@ export class Protocol implements IProtocol {
     }
 
     // 2. Unauthorized Key Checks (Typos / Schema violations)
-    if (!state.permissive) {
+    if (!this.permissive) {
       for (const [key, values] of Object.entries(state.unauthorized)) {
           issues.push({
             severity: 'error',

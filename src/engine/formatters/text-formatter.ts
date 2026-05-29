@@ -324,10 +324,11 @@ export class TextFormatter implements IOutputFormatter {
       const definitions = protocol.getFormattableDefinitions();
       const authorizedKeys = protocol.getAuthorizedKeys();
       const allStateKeys = new Set(Object.keys(state.trailers));
+      const identityKey = protocol.identityKey;
 
       // 2. Render Authorized Trailers in Priority Order (Core + Defined Custom)
       for (const key of authorizedKeys) {
-        if (key === state.identityKey && protocol.getIdentity(state.trailers) === headerId) {
+        if (key === identityKey && protocol.getIdentity(state.trailers) === headerId) {
           continue;
         }
         if (!shouldShow(key)) continue;
@@ -347,7 +348,7 @@ export class TextFormatter implements IOutputFormatter {
 
       // 3. Render any remaining custom/permissive trailers
       for (const key of allStateKeys) {
-        if (key === state.identityKey && protocol.getIdentity(state.trailers) === headerId) {
+        if (key === identityKey && protocol.getIdentity(state.trailers) === headerId) {
           continue;
         }
         if (!shouldShow(key)) continue;

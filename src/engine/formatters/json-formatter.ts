@@ -10,7 +10,6 @@ import type {
 } from '../types/output.js';
 import type { Atom, ProtocolState } from '../types/domain.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
-import { snakeCase } from '../util/string.js';
 
 /**
  * Strategy implementation for JSON output.
@@ -239,11 +238,10 @@ export class JsonFormatter implements IOutputFormatter {
   ): Record<string, any> {
     const protocols: Record<string, any> = {};
     for (const [name, state] of atom.protocols.entries()) {
-      const protocolObj = this.protocolRegistry.get(name);
       protocols[name] = this.serializeProtocolState(
         state, 
-        visibleTrailers, 
-        protocolObj?.getFormattableDefinitions() ?? {}
+        name,
+        visibleTrailers
       );
     }
     return protocols;
@@ -254,17 +252,17 @@ export class JsonFormatter implements IOutputFormatter {
    */
   private serializeProtocolState(
     state: ProtocolState,
-    visibleTrailers: readonly string[] | 'all',
-    _definitions: Record<string, FormattableTrailerDefinition>
+    protocolName: string,
+    visibleTrailers: readonly string[] | 'all'
   ): Record<string, any> {
-    const protocolObj = this.protocolRegistry.get(state.name.toLowerCase());
-    const id = protocolObj ? protocolObj.getIdentity(state.trailers) : state.trailers[state.identityKey]?.[0] ?? null;
+    const protocolObj = this.protocolRegistry.get(protocolName);
+    const id = protocolObj ? protocolObj.getIdentity(state.trailers) : null;
 
     return {
       id,
-      identity_key: state.identityKey,
-      version: state.version,
-      trailers: this.serializeTrailers(state, visibleTrailers),
+      identity_key: protocolObj?.identityKey ?? null,
+      version: protocolObj?.version ?? '1.0',
+      trailers: this.serializeTrailers(state, protocolName, visibleTrailers),
       unauthorized: { ...state.unauthorized },
     };
   }
@@ -275,11 +273,13 @@ export class JsonFormatter implements IOutputFormatter {
    */
   private serializeTrailers(
     state: ProtocolState,
+    protocolName: string,
     visibleTrailers: readonly string[] | 'all'
   ): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     const trailers = state.trailers;
-    const protocolObj = this.protocolRegistry.get(state.name.toLowerCase());
+    const protocolObj = this.protocolRegistry.get(protocolName);
+    const identityKey = protocolObj?.identityKey;
 
     const shouldShow = (key: string): boolean => {
       if (visibleTrailers === 'all') return true;
@@ -287,7 +287,7 @@ export class JsonFormatter implements IOutputFormatter {
     };
 
     for (const [key, values] of Object.entries(trailers)) {
-      if (key === state.identityKey) continue;
+      if (identityKey && key === identityKey) continue;
       if (!shouldShow(key)) continue;
       if (!values || values.length === 0) continue;
       

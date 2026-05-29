@@ -15,13 +15,11 @@ export type HierarchicalTrailers = Record<string, Trailers>;
 
 /**
  * The interpreted state of a protocol within a commit.
+ * 
+ * DESIGN: This is a pure data payload. It does NOT contain protocol metadata 
+ * (like name or version) as those are owned by the Protocol Expert.
  */
 export interface ProtocolState {
-  readonly name: string;
-  readonly version: string;
-  readonly strict: boolean;
-  readonly permissive: boolean;
-  readonly identityKey: string;
   readonly trailers: Trailers;
   /** Trailers that were associated with this protocol but not authorized by schema */
   readonly unauthorized: Trailers;

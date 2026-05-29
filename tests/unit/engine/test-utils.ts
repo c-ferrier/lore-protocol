@@ -284,11 +284,6 @@ export function makeAtom(overrides: Partial<Atom> = {}): Atom {
     filesChanged: overrides.filesChanged ?? ['src/main.ts'],
     protocols: overrides.protocols ?? new Map([
       ['mock', {
-        name: 'Mock',
-        version: '1.0',
-        strict: false,
-        permissive: true,
-        identityKey: 'Mock-id',
         trailers: { 'Mock-id': ['a1b2c3d4'] },
         unauthorized: {}
       }]
