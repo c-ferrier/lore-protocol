@@ -1,5 +1,5 @@
-import type { ProtocolState, Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
-import type { FormattableTrailerDefinition } from '../types/output.js';
+import type { ProtocolState, Atom, SupersessionStatus, StaleReason, Trailers } from '../types/domain.js';
+import type { FormattableTrailerDefinition, ValidationIssue } from '../types/output.js';
 import type { TrailerDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
 import type { SearchOptions } from '../types/query.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
@@ -48,6 +48,19 @@ setRegistry(registry: ProtocolRegistry): void;
    * Returns the metadata definition for a key.
    */
   getDefinition(key: string): ActiveTrailer | null;
+
+  /**
+   * Normalizes a raw collection of trailers into a structured protocol state.
+   * Categorizes trailers into "authorized" and "unauthorized" buckets.
+   */
+  normalize(trailers: Trailers, claimedKeys?: Set<string>): ProtocolState;
+
+  /**
+   * Validates a parsed protocol state against the protocol schema.
+   * Checks for required fields, cardinality (multivalue), individual value rules,
+   * and unauthorized trailers.
+   */
+  validateState(state: ProtocolState, options?: { strict?: boolean }): ValidationIssue[];
 
   /**
    * Validates a single trailer value against the protocol schema.

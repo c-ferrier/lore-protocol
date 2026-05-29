@@ -375,8 +375,8 @@ describe('CommitBuilder', () => {
     it('should report unauthorized trailers (typos) for non-permissive protocols', () => {
         const strictRegistry = new ProtocolRegistry();
         const strictProtocol = makeProtocol(
-            { ...MOCK_PROTOCOL_DEFINITION, name: 'Project', namespace: 'Project', identityKey: 'Id', trailers: { 'Id': { description: 'ID', multivalue: false } } },
-            { trailers: { ...MOCK_PROTOCOL_CONFIG.trailers, permissive: false } }
+            { name: 'P', namespace: 'P' },
+            { trailers: { permissive: false } }
         );
         strictRegistry.register(strictProtocol);
 
@@ -385,8 +385,8 @@ describe('CommitBuilder', () => {
         const input: CommitInput = {
             subject: 'test',
             trailers: {
-                'Project': { 
-                    'Id': ['a1b2c3d4'],
+                'P': { 
+                    'P-id': ['a1b2c3d4'],
                     'Typo-Key': ['junk'] 
                 }
             },
@@ -394,6 +394,7 @@ describe('CommitBuilder', () => {
 
         const issues = strictBuilder.validate(input);
         const unauthorizedIssues = issues.filter(i => i.rule === 'unauthorized-trailer');
+        
         expect(unauthorizedIssues).toHaveLength(1);
         expect(unauthorizedIssues[0].message).toContain('Typo-Key');
     });
@@ -432,7 +433,8 @@ describe('CommitBuilder', () => {
       const input: CommitInput = { subject: 'test', trailers: { '': {} } };
 
       const issues = manualBuilder.validate(input);
-      expect(issues.filter(i => i.rule === 'required-trailer')).toHaveLength(1);
+      // Identity rule for 'Manual' protocol is 'manual-id-present'
+      expect(issues.filter(i => i.rule === 'manual-id-present')).toHaveLength(1);
     });
   });
 });

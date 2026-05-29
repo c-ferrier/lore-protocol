@@ -1,6 +1,6 @@
 import type { ProtocolConfig, ValueDefinition, TrailerUiKind, TrailerUiColor, TrailerDefinition } from '../types/config.js';
-import type { ProtocolState, Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
-import type { FormattableTrailerDefinition } from '../types/output.js';
+import type { ProtocolState, Atom, SupersessionStatus, StaleReason, Trailers } from '../types/domain.js';
+import type { FormattableTrailerDefinition, ValidationIssue } from '../types/output.js';
 import { type IProtocol, type ActiveTrailer } from '../interfaces/protocol.js';
 import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
@@ -152,24 +152,33 @@ export class Protocol implements IProtocol {
    */
   parse(rawTrailers: string, claimedKeys?: Set<string>, includeInvalid = false): ProtocolState {
     const rawMap = this.parser.parse(rawTrailers);
+    return this.normalize(rawMap, claimedKeys);
+  }
+
+  /**
+   * Normalizes a raw collection of trailers into a structured protocol state.
+   */
+  normalize(rawMap: Trailers, claimedKeys?: Set<string>): ProtocolState {
     const normalized: Record<string, string[]> = {};
     const unauthorized: Record<string, string[]> = {};
     const lowerClaimed = new Set(Array.from(claimedKeys || []).map(k => k.toLowerCase()));
+
+    // 1. Identify context: are we being handed a global map or a pre-bucketed namespace map?
+    const isPreBucketed = this.namespace !== '' && !Object.keys(rawMap).some(k => k.toLowerCase() === this.namespace.toLowerCase());
 
     for (const [key, values] of Object.entries(rawMap)) {
       const lowerKey = key.toLowerCase();
       const isOwner = this.owns(key);
       const isReserved = lowerClaimed.has(lowerKey);
 
-      // Logic for Namespaced Protocol
-      if (this.namespace !== '') {
+      // Logic for Namespaced Protocol (Global Path)
+      if (this.namespace !== '' && !isPreBucketed) {
         if (!isOwner) continue;
 
         // Unpack nested values: "Key: value"
         for (const nestedRaw of values) {
           const match = nestedRaw.match(/^([A-Za-z0-9][A-Za-z0-9-]*):\s*(.*)$/);
           if (!match) {
-            // Not a recognized inner trailer format - goes to unauthorized
             const existing = unauthorized['invalid-format'] || [];
             unauthorized['invalid-format'] = [...existing, nestedRaw];
             continue;
@@ -180,22 +189,10 @@ export class Protocol implements IProtocol {
           const authorizedKey = this.authorize(innerKey);
 
           if (authorizedKey) {
-            const def = this.getDefinition(authorizedKey);
-            let isValueAuthorized = true;
-
-            if (def?.validation === 'values' && def.values) {
-                isValueAuthorized = Object.keys(def.values).includes(innerValue);
-            } else if (def?.validation === 'pattern' && def.pattern) {
-                isValueAuthorized = new RegExp(def.pattern).test(innerValue);
-            }
-
-            if (isValueAuthorized || includeInvalid) {
-                const existing = normalized[authorizedKey] ?? [];
-                existing.push(innerValue);
-                normalized[authorizedKey] = existing;
-            }
+            const existing = normalized[authorizedKey] ?? [];
+            existing.push(innerValue);
+            normalized[authorizedKey] = existing;
           } else {
-            // Intended for us (namespaced) but not in schema
             const existing = unauthorized[innerKey] || [];
             unauthorized[innerKey] = [...existing, innerValue];
           }
@@ -203,45 +200,23 @@ export class Protocol implements IProtocol {
         continue;
       }
 
-      // Logic for Root Namespace Protocol
-      if (isOwner) {
-        // Authorize the primary key
-        const authorizedKey = this.authorize(key);
-        if (authorizedKey) {
-          const def = this.getDefinition(authorizedKey);
-          const authorizedValues: string[] = [];
-
-          for (const v of values) {
-              let isValueAuthorized = true;
-              if (def?.validation === 'values' && def.values) {
-                  isValueAuthorized = Object.keys(def.values).includes(v);
-              } else if (def?.validation === 'pattern' && def.pattern) {
-                  isValueAuthorized = new RegExp(def.pattern).test(v);
-              }
-
-              if (isValueAuthorized || includeInvalid) {
-                  authorizedValues.push(v);
-              }
-          }
-
-          if (authorizedValues.length > 0) {
-              const existing = normalized[authorizedKey] ?? [];
-              existing.push(...authorizedValues);
-              normalized[authorizedKey] = existing;
-          }
-        }
-        continue;
+      // Logic for Root Namespace OR Pre-Bucketed Namespaced Protocol
+      const authorizedKey = this.authorize(key);
+      if (authorizedKey && (isOwner || isPreBucketed)) {
+          const existing = normalized[authorizedKey] ?? [];
+          existing.push(...values);
+          normalized[authorizedKey] = existing;
+          continue;
       }
 
       // Handle orphans (not claimed by any namespace or root schema)
       if (!isReserved) {
         if (this.permissive) {
-          // Accept orphan directly
           const existing = normalized[key] ?? [];
           existing.push(...values);
           normalized[key] = existing;
-        } else {
-          // Flag orphan as unauthorized
+        } else if (isOwner || isPreBucketed || this.namespace === '') {
+          // If it's in our namespace bucket (or we are root) but not authorized, it's a typo
           const existing = unauthorized[key] || [];
           unauthorized[key] = [...existing, ...values];
         }
@@ -365,6 +340,90 @@ export class Protocol implements IProtocol {
   getDefinition(key: string): ActiveTrailer | null {
     const canonicalKey = this.caseMap.get(key.toLowerCase());
     return canonicalKey ? this.definitions.get(canonicalKey) || null : null;
+  }
+
+  /**
+   * Validates a collection of trailers against the protocol schema.
+   */
+  validateState(state: ProtocolState, options?: { strict?: boolean }): ValidationIssue[] {
+    const issues: ValidationIssue[] = [];
+    const authorizedKeys = this.getAuthorizedKeys();
+    const isStrict = options?.strict === true;
+    const trailers = state.trailers;
+    
+    const protocolSlug = this.name.toLowerCase().replace(/-/g, '');
+    const identityRule = `${protocolSlug}-id-present`;
+
+    // Map input trailers to lowercase for case-insensitive lookup
+    const inputMap = new Map<string, { key: string; values: readonly string[] }>();
+    for (const [k, v] of Object.entries(trailers)) {
+        inputMap.set(k.toLowerCase(), { key: k, values: v });
+    }
+
+    // 1. Authorized Key Checks (Required, Cardinality, Values)
+    for (const key of authorizedKeys) {
+      const def = this.getDefinition(key)!;
+      const entry = inputMap.get(key.toLowerCase());
+      const values = entry?.values || [];
+
+      // A. Check Required
+      if (def.required && values.length === 0) {
+        const severity = (isStrict || key === this.identityKey) ? 'error' : 'warning';
+        const rule = key === this.identityKey ? identityRule : 'required-trailer';
+        const message = key === this.identityKey 
+            ? `[${this.name}] ${key} trailer is missing`
+            : `[${this.name}] Required trailer missing: "${key}"`;
+
+        issues.push({
+          severity,
+          rule,
+          field: key,
+          message,
+        });
+        continue;
+      }
+
+      // B. Check Cardinality (Multivalue)
+      if (!def.multivalue && values.length > 1) {
+        issues.push({
+          severity: 'error',
+          rule: 'invalid-cardinality',
+          field: key,
+          message: `[${this.name}] Trailer "${key}" allows only one value (found ${values.length})`,
+        });
+      }
+
+      // C. Check Individual Values
+      for (const value of values) {
+        const result = this.validateTrailer(key, value);
+        if (!result.valid) {
+          let severity: 'error' | 'warning' = 'error';
+          if (result.rule === 'reference-format') {
+             severity = isStrict ? 'error' : 'warning';
+          }
+          issues.push({
+            severity,
+            rule: result.rule || 'invalid-format',
+            field: key,
+            message: result.message || `[${this.name}] Invalid value for "${key}": "${value}"`,
+          });
+        }
+      }
+    }
+
+    // 2. Unauthorized Key Checks (Typos / Schema violations)
+    if (!this.permissive) {
+      for (const [key, values] of Object.entries(state.unauthorized)) {
+          issues.push({
+            severity: 'error',
+            rule: 'unauthorized-trailer',
+            field: key,
+            message: `[${this.name}] Trailer "${key}" is not recognized by protocol schema`,
+          });
+      }
+    }
+
+    return issues;
   }
 
   /**

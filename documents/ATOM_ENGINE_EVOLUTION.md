@@ -31,12 +31,10 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 ## 3. STRATEGIC ROADMAP: Implementation Phases
 
 ### PHASE 1: Decoupling Behavior via "Semantic Roles"
-**Problem:** The engine currently hardcodes specific string names (e.g., `Supersedes`) to trigger internal graph logic.
-**Action:** Transition the `ProtocolDefinition` schema to use a `semanticRole` property.
-*   `role: 'replacement'` (Hides outdated nodes in `SupersessionResolver`).
-*   `role: 'dependency'` (Flags orphaned graphs).
-*   `role: 'expiration-date'` (Triggers validity decay automatically).
-*   *Result:* The engine no longer cares what a trailer is named, only what mathematical role it plays in the graph.
+**Status: COMPLETED**
+*   **Action**: Transitioned schema validation (required, multivalue, unauthorized) and value normalization entirely into the `Protocol` class.
+*   **Result**: The engine no longer hardcodes schema logic; it treats protocols as autonomous domain experts. (Refactored `Validator` and `CommitBuilder` to delegate 100% of schema integrity to the protocol).
+
 
 ### PHASE 2: Optimizing the "Drift" Bottleneck
 **Problem:** A global `lore stale` query runs `git rev-list --count` for every file in every active commit, resulting in catastrophic O(N*M) subprocess overhead on large repositories. There is no cache.

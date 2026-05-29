@@ -256,10 +256,66 @@ describe('Protocol Service', () => {
       expect(result.unauthorized['Unknown-Trailer']).toEqual(['value']);
     });
 
-    it('should validate and filter enum values during parsing', () => {
+    it('should parse all enum values during normalization', () => {
       const raw = 'Confidence: INVALID\nConfidence: low';
       const result = protocol.parse(raw);
-      expect(result.trailers.Confidence).toEqual(['low']);
+      expect(result.trailers.Confidence).toEqual(['INVALID', 'low']);
+    });
+
+    describe('normalize()', () => {
+        it('should categorize a raw map into authorized and unauthorized buckets', () => {
+            // Strict mode to ensure typos go to unauthorized
+            const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+                trailers: { permissive: false }
+            });
+            const raw = {
+                'Confidence': ['high'],
+                'Typo-Key': ['junk']
+            };
+
+            const state = protocol.normalize(raw);
+            expect(state.trailers.Confidence).toEqual(['high']);
+            expect(state.unauthorized['Typo-Key']).toEqual(['junk']);
+        });
+
+        it('should handle pre-bucketed namespaced trailers', () => {
+            const nsProtocol = makeProtocol({
+                name: 'Project',
+                namespace: 'Project',
+                identityKey: 'Id'
+            }, {
+                trailers: { permissive: false }
+            });
+
+            // Pre-bucketed: the map contains INNER keys, not the namespace prefix
+            const raw = {
+                'Id': ['123'],
+                'Typo': ['junk']
+            };
+
+            const state = nsProtocol.normalize(raw);
+            expect(state.trailers['Id']).toEqual(['123']);
+            expect(state.unauthorized['Typo']).toEqual(['junk']);
+        });
+
+        it('should identify global namespaced trailers (un-bucketed)', () => {
+            const nsProtocol = makeProtocol({
+                name: 'Project',
+                namespace: 'Project',
+                identityKey: 'Id'
+            }, {
+                trailers: { permissive: false }
+            });
+
+            // un-bucketed: the map contains the namespace prefix
+            const raw = {
+                'Project': ['Id: 123', 'Typo: junk']
+            };
+
+            const state = nsProtocol.normalize(raw);
+            expect(state.trailers['Id']).toEqual(['123']);
+            expect(state.unauthorized['Typo']).toEqual(['junk']);
+        });
     });
 
     it('should handle multi-value trailers', () => {

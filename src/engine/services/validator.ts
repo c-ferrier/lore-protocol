@@ -117,71 +117,9 @@ export class Validator {
     state: ProtocolState,
     issues: ValidationIssue[],
   ): void {
-    const trailers = state.trailers;
-    const protocolSlug = protocol.name.toLowerCase().replace(/-/g, '');
-    const identityRule = `${protocolSlug}-id-present`;
-
-    // 1. Check for unauthorized trailers (Typos/Schema violations)
-    if (state.unauthorized) {
-        for (const [key, values] of Object.entries(state.unauthorized)) {
-            issues.push({
-                severity: 'error',
-                rule: 'unauthorized-trailer',
-                field: key,
-                message: `[${protocol.name}] Trailer "${key}" is not recognized by protocol schema`,
-            });
-        }
-    }
-
-    // 2. Schema Validation
-    for (const key of protocol.getAuthorizedKeys()) {
-      const def = protocol.getDefinition(key);
-      if (!def) continue;
-
-      const values = trailers[key] || [];
-
-      // Check Required
-      if (def.required && values.length === 0) {
-        issues.push({
-          severity: this.config.validation.strict || key === protocol.identityKey ? 'error' : 'warning',
-          rule: key === protocol.identityKey ? identityRule : 'required-trailer',
-          field: key,
-          message: `[${protocol.name}] Required trailer "${key}" is missing`,
-        });
-      }
-
-      if (values.length === 0) continue;
-
-      // Check Cardinality
-      if (!def.multivalue && values.length > 1) {
-        issues.push({
-          severity: 'error',
-          rule: 'invalid-cardinality',
-          field: key,
-          message: `[${protocol.name}] Trailer "${key}" allows only one value (found ${values.length})`,
-        });
-      }
-
-      // Delegate Value/Pattern/Reference Validation to Protocol
-      for (const val of values) {
-        const result = protocol.validateTrailer(key, val);
-        if (!result.valid) {
-          let severity: 'error' | 'warning' = 'error';
-
-          // References are warnings unless strict: true
-          if (result.rule === 'reference-format') {
-             severity = this.config.validation.strict ? 'error' : 'warning';
-          }
-
-          issues.push({
-            severity,
-            rule: result.rule || 'invalid-format',
-            field: key,
-            message: result.message || 'Invalid value',
-          });
-        }
-      }
-    }
+    issues.push(...protocol.validateState(state, { 
+        strict: this.config.validation.strict 
+    }));
   }
 
   /**

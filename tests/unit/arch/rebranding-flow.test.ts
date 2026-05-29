@@ -144,7 +144,7 @@ describe('Rebranding Flow Integration', () => {
     // 3. Verify rule name is rebranded
     const presenceIssue = issues.find(i => i.rule === 'fred-id-present');
     expect(presenceIssue).toBeDefined();
-    expect(presenceIssue?.message).toContain('[Fred] Required trailer "Fred-id" is missing');
+    expect(presenceIssue?.message).toContain('[Fred] Fred-id trailer is missing');
 
     // 4. Validate invalid format
     const invalidCommit = {

@@ -637,10 +637,13 @@ describe('Validator', () => {
           const commit = makeCommit({ trailers: 'Project: Id: a1b2c3d4\nProject: Tream: backend' });
           const results = await nsValidator.validate([commit]);
 
-          const issue = results[0].issues.find(i => i.rule === 'unauthorized-trailer');
-          expect(issue).toBeDefined();
-          expect(issue?.message).toContain('Tream');
-          expect(issue?.message).toContain('Project');
+          const issues = results[0].issues.filter(i => i.rule === 'unauthorized-trailer');
+          const messages = issues.map(i => i.message).join(' ');
+          
+          expect(issues.length).toBeGreaterThanOrEqual(1);
+          expect(messages).toContain('Tream');
+          expect(messages).toContain('not recognized');
+          expect(messages).toContain('Project');
       });
   });
 });

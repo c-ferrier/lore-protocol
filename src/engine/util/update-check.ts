@@ -35,7 +35,8 @@ export async function checkForUpdates(options: {
 
   // 4. Perform Check (Non-blocking)
   try {
-      updateNotifier({
+      const notifier = (updateNotifier as any).default || updateNotifier;
+      notifier({
           pkg: { name: packageName, version: currentVersion },
           updateCheckInterval: 1000 * 60 * 60 * 24 // 1 day
       });

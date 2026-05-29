@@ -1,7 +1,7 @@
 import type { TrailerParser } from './trailer-parser.js';
 import type { IdGenerator } from './id-generator.js';
 import type { EngineConfig } from '../types/config.js';
-import type { AtomId } from '../types/domain.js';
+import type { AtomId, ProtocolState } from '../types/domain.js';
 import type { CommitInput } from '../types/commit.js';
 import type { ValidationIssue } from '../types/output.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
@@ -116,6 +116,7 @@ export class CommitBuilder {
   validate(input: CommitInput): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
 
+    // 1. Basic Commit Hygiene
     if (!input.subject.trim()) {
       issues.push({
         severity: 'error',
@@ -132,12 +133,11 @@ export class CommitBuilder {
       });
     }
 
-    // Validate each namespace bucket
+    // 2. Protocol-Specific State Validation
     for (const [ns, nsMap] of Object.entries(input.trailers)) {
         const protocol = this.protocolRegistry.getAll().find(p => p.namespace.toLowerCase() === ns.toLowerCase());
         
         if (!protocol) {
-            // Unrecognized namespace
             issues.push({
                 severity: 'warning',
                 rule: 'unrecognized-namespace',
@@ -147,68 +147,32 @@ export class CommitBuilder {
             continue;
         }
 
-        const claimedInNs = new Set<string>();
+        // 1. Normalize: Expert categorizes raw map into domain state (Authorized vs Unauthorized)
+        const state = protocol.normalize(nsMap);
 
-        // Check authorized keys
-        for (const key of protocol.getAuthorizedKeys()) {
-            const def = protocol.getDefinition(key);
-            const values = nsMap[key];
-            
-            const isIdentity = key.toLowerCase() === protocol.identityKey.toLowerCase();
-            const hasGenerator = def?.generator && def.generator !== 'none';
-
-            if (def?.required && (!values || values.length === 0)) {
-                // Special case: identity keys with generators are filled in later by the builder,
-                // so they are not required in the raw input.
-                if (!(isIdentity && hasGenerator)) {
-                    issues.push({
-                        severity: this.config.validation.strict ? 'error' : 'warning',
-                        rule: 'required-trailer',
-                        field: ns ? `${ns}:${key}` : key,
-                        message: `[${protocol.name}] Required trailer "${key}" is missing`,
-                    });
-                }
-            }
-
-            if (!values || values.length === 0) continue;
-            claimedInNs.add(key.toLowerCase());
-
-      // Delegate Value/Pattern/Reference Validation to Protocol
-      for (const val of values) {
-        const result = protocol.validateTrailer(key, val);
-        if (!result.valid) {
-          issues.push({
-            severity: 'error', // Commits ALWAYS fail on schema violations
-            rule: result.rule || 'invalid-format',
-            field: ns ? `${ns}:${key}` : key,
-            message: result.message || 'Invalid value',
-          });
-        }
-      }
-
-      if (!def?.multivalue && values.length > 1) {
-        issues.push({
-          severity: 'error',
-          rule: 'invalid-cardinality',
-          field: ns ? `${ns}:${key}` : key,
-          message: `[${protocol.name}] Trailer "${key}" allows only one value`,
+        // 2. Validate: Expert reviews the structured state
+        const bucketIssues = protocol.validateState(state, { 
+            strict: this.config.validation.strict 
         });
-      }
-    }
 
-        // Check for unauthorized keys in this namespace
-        if (!protocol.permissive) {
-            for (const key of Object.keys(nsMap)) {
-                if (!claimedInNs.has(key.toLowerCase()) && key.toLowerCase() !== protocol.identityKey.toLowerCase()) {
-                    issues.push({
-                        severity: 'error',
-                        rule: 'unauthorized-trailer',
-                        field: ns ? `${ns}:${key}` : key,
-                        message: `[${protocol.name}] Trailer "${key}" is not recognized by protocol schema`,
-                    });
-                }
+        // Post-process: Filter out "missing identity" errors if the protocol provides a generator
+        // (because the builder will generate it automatically in the build() phase).
+        const protocolSlug = protocol.name.toLowerCase().replace(/-/g, '');
+        const identityRule = `${protocolSlug}-id-present`;
+
+        const filteredIssues = bucketIssues.filter(issue => {
+            if (issue.rule === identityRule || (issue.rule === 'required-trailer' && issue.field === protocol.identityKey)) {
+                const def = protocol.getDefinition(protocol.identityKey);
+                if (def?.generator && def.generator !== 'none') return false;
             }
-        }
+            return true;
+        });
+
+        // Add prefix to field names for namespaced protocols
+        issues.push(...filteredIssues.map(issue => ({
+            ...issue,
+            field: ns ? `${ns}:${issue.field}` : issue.field
+        })));
     }
 
     const lineCount = this.estimateLineCount(input);
