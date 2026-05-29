@@ -24,32 +24,78 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
     Prod/Depends-on: lore:a1b2c3d4    <-- Cross-domain edge
     Sec/Status: Pass                  <-- Secondary protocol (Namespaced)
     ```
-*   **Muscle-Memory Defense:** Because root protocols change per-repository, the engine relies on strict repo-scoped `.atom/config.toml` files, aggressive validation rejection of unauthorized root keys, and interactive `atom commit` prompts to prevent developers from accidentally corrupting the graph.
 
 ---
 
-## 3. STRATEGIC ROADMAP: Implementation Phases
+## 3. COMPLETED MILESTONES
 
-### PHASE 1: Decoupling Behavior via "Semantic Roles"
-**Status: COMPLETED**
-*   **Action**: Transitioned schema validation (required, multivalue, unauthorized) and value normalization entirely into the `Protocol` class.
-*   **Result**: The engine no longer hardcodes schema logic; it treats protocols as autonomous domain experts. (Refactored `Validator` and `CommitBuilder` to delegate 100% of schema integrity to the protocol).
+### Phase 1: Semantic Roles & Expertise Delegation
+*   **Action**: Transitioned schema validation and value normalization into the `Protocol` class. Decomposed `Protocol` into specialized capability modules (`Schema`, `Interpreter`, `Validator`, `QueryAdapter`).
+*   **Result**: The engine no longer hardcodes schema logic; it treats protocols as autonomous domain experts. Standardized the interpreted state as a pure data payload.
 
+### Phase 1.5: Decoupled Versioning & Build-time Injection
+*   **Action**: Implemented the "Rich UI vs. Pure NPM" versioning system. Injected build-time constants (`__ATOM_PURE_VERSION__`, etc.) to eliminate runtime filesystem overhead.
+*   **Result**: Optimized update checks and provided transparent version reporting for branded wrappers.
 
-### PHASE 2: Optimizing the "Drift" Bottleneck
+### Phase 1.6: Schema Unification & Mandatory Policy
+*   **Action**: Flattened `ProtocolConfig` and `ProtocolDefinition` into a unified schema. Made `strict/permissive` flags mandatory at the protocol level.
+*   **Result**: Every protocol now explicitly owns its enforcement stance, and configuration merging is architecturally symmetrical.
+
+---
+
+## 4. STRATEGIC ROADMAP: Implementation Phases
+
+### PHASE 2: Drift Bottleneck Optimization
+**Urgency**: High | **Importance**: High | **Difficulty**: Medium
 **Problem:** A global `lore stale` query runs `git rev-list --count` for every file in every active commit, resulting in catastrophic O(N*M) subprocess overhead on large repositories. There is no cache.
 **Action:** Implement the "Bounded Time Window Stream".
 *   Find the timestamp/hash of the oldest active node in the analysis batch.
 *   Execute exactly *one* bounded subprocess: `git log --format=format:%H --name-only <oldestHash>..HEAD`.
 *   Build a localized timeline in memory and calculate file drift counts synchronously, dropping subprocess overhead to O(1).
 
-### PHASE 3: The Hosted Protocol Registry
+### PHASE 8: Framework Bootstrapper (Atom-as-a-Library)
+**Urgency**: High | **Importance**: High | **Difficulty**: Medium
+**Concept:** Refactor the monolithic `runCli` God-function into a modular `EngineBootstrapper` class.
+**Action:** Allow external wrappers (like Lore) to instantiate the engine, register custom commands/formatters, and control the lifecycle programmatically.
+**Value:** Enables developers to build their own branded "Industrial Strength" decision tools on top of Atom with minimal code.
+
+### PHASE 9: "Lazy" (Auto-Interactive) Interaction Model
+**Urgency**: High | **Importance**: Medium | **Difficulty**: Low
+**Concept:** Move from "Binary Enforcement" to "Helpful Guidance" for human users.
+**Action:** Implement a `greedy: true` mode in the `CommitInputResolver`. If a user misses a `required: true` trailer in a TTY environment, the engine automatically invokes the `TerminalPrompt` service instead of failing.
+**Value:** Provides a professional, frictionless UX for humans while maintaining strict schema validity for machines and AI agents.
+
+### PHASE 7.6: Universal TypeScript Conversion
+**Urgency**: Medium | **Importance**: High | **Difficulty**: Low
+**Concept:** Eliminate the last remaining `.js` orphans in the source tree to ensure total type safety and testability.
+**Action:** Convert `rebase-editor.js`, `rewrite-trailers.js`, and `extract-lore-state.cjs` to `.ts`. Add isolated tests for programmatic rebase logic.
+
+### PHASE 3: Hosted Protocol Registry
+**Urgency**: Medium | **Importance**: High | **Difficulty**: Medium
 **Vision:** Create an ecosystem where organizations can download standardized engineering, security, and product workflows just like npm packages (e.g., `@standard/security`).
 **Action:** Implement the "Pure Schema + Local Override" config model.
 *   Treat downloaded protocol schema files as **immutable, pure artifacts**.
 *   Enhance `.atom/config.toml` to act as a **Local Override Layer**. This allows a repository to enable a downloaded protocol, assign it a strict namespace, change its terminal colors, or toggle fields to `required: true` without ever modifying the pure schema file.
 
-### PHASE 4: The Federated Graph (Remote Edge Resolution)
+### PHASE 10: Declarative Rules Engine (The "Hook Killer")
+**Urgency**: Medium | **Importance**: High | **Difficulty**: High
+**Concept:** Eliminate the need for custom TypeScript logic for common protocol behaviors.
+**Action:** Add `stale_if` triggers and `semantic_roles` directly to the TOML blueprint. 
+**Value:** Makes protocols truly "Zero-Code," allowing anyone to define validation and staleness rules entirely in data.
+
+### PHASE 7: Dependency-Injected Protocol Hooks
+**Urgency**: Medium | **Importance**: Medium | **Difficulty**: Medium
+**Concept:** Move away from static `ProtocolDefinition` hooks and provide protocols with runtime access to engine services like the `ProtocolRegistry`.
+**Value:** Eliminates logic duplication. Protocols can use `protocolRegistry.resolveIdentity()` directly inside their hooks instead of manually parsing URI strings, ensuring perfect alignment with the engine's resolution rules.
+
+### PHASE 7.5: Interface Segregation (ISP) Refinement
+**Urgency**: Low | **Importance**: Medium | **Difficulty**: Medium
+**Concept:** De-fatten the `IProtocol` facade and update engine services to depend on specific capability interfaces (`IProtocolValidator`, `IProtocolInterpreter`, etc.).
+**Action**: Audit all engine constructors and signatures to use the most restrictive interface possible.
+**Status**: INVESTIGATED (ISP Audit completed; implementation deferred to multi-repo split).
+
+### PHASE 4: Federated Graph (Remote Edge Resolution)
+**Urgency**: Low | **Importance**: High | **Difficulty**: High
 **Vision:** Enable cross-repository dependency tracing to support enterprise microservice architectures. 
 **Action:** 
 *   Expand the URI value syntax to support remote targets using an `@` origin (e.g., `lore@backend-api:a1b2c3d4`).
@@ -58,8 +104,7 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 
 ---
 
-## 4. BEYOND THE ENGINE: Future Exploitation & Killer Features
-Once the multi-protocol, federated graph database is established, the focus shifts from *building* the graph to *exploiting* it. These are the three target capabilities that unlock enterprise value:
+## 5. BEYOND THE ENGINE: Future Exploitation & Killer Features
 
 ### 1. Predictive Blast Radius (Forward Propagation)
 *   **Concept:** Instead of tracing backward (why does this exist?), the engine traces forward to calculate the impact of changing or deprecating a node.
@@ -84,9 +129,7 @@ Once the multi-protocol, federated graph database is established, the focus shif
 
 ---
 
-## 5. PARADIGM-SHIFTING CONCEPTS: The Edge of the Graph
-
-If the engine's core is stabilized, these three extreme concepts redefine how a Git repository can function as a database.
+## 6. PARADIGM-SHIFTING CONCEPTS: The Edge of the Graph
 
 ### 1. The Time-Travel Diff (`atom diff --semantic`)
 *   **Concept:** Elevate `git diff` from syntax to architecture. Show what *business context* changed between two branches, not just what lines of code changed.
@@ -126,28 +169,3 @@ If the engine's core is stabilized, these three extreme concepts redefine how a 
 ### 6. Protocol-Accessible Domain Caching
 *   **Concept**: Transition the `AtomCache` from a purely structural engine tool (drift detection) to a shared service for Protocol plugins.
 *   **Value**: Allows custom protocols to cache computationally expensive signal data (e.g., results of external API calls or deep graph traversals) within the engine's sharded filesystem cache.
-
-### PHASE 7: Dependency-Injected Protocol Hooks
-*   **Concept**: Move away from static `ProtocolDefinition` hooks and provide protocols with runtime access to engine services like the `ProtocolRegistry`.
-*   **Value**: Eliminates logic duplication. Protocols can use `protocolRegistry.resolveIdentity()` directly inside their hooks instead of manually parsing URI strings, ensuring perfect alignment with the engine's resolution rules.
-
-### PHASE 8: The Framework Bootstrapper (Atom-as-a-Library)
-*   **Concept**: Refactor the monolithic `runCli` God-function into a modular `EngineBootstrapper` class.
-*   **Action**: Allow external wrappers (like Lore) to instantiate the engine, register custom commands/formatters, and control the lifecycle programmatically.
-*   **Value**: Enables developers to build their own branded "Industrial Strength" decision tools on top of Atom with minimal code.
-
-### PHASE 9: "Lazy" (Auto-Interactive) Interaction Model
-*   **Concept**: Move from "Binary Enforcement" to "Helpful Guidance" for human users.
-*   **Action**: Implement a `greedy: true` mode in the `CommitInputResolver`. If a user misses a `required: true` trailer in a TTY environment, the engine automatically invokes the `TerminalPrompt` service instead of failing.
-*   **Value**: Provides a professional, frictionless UX for humans while maintaining strict schema validity for machines and AI agents.
-
-### PHASE 10: Declarative Rules Engine (The "Hook Killer")
-*   **Concept**: Eliminate the need for custom TypeScript logic for common protocol behaviors.
-*   **Action**: Add `stale_if` triggers and `semantic_roles` directly to the TOML blueprint. 
-*   **Value**: Makes protocols truly "Zero-Code," allowing anyone to define validation and staleness rules entirely in data.
-
-
----
-
-## 5. PARADIGM-SHIFTING CONCEPTS: The Edge of the Graph
-Please acknowledge receipt of this Architectural Manifesto. Ask the user which of the strategic phases (Semantic Roles, Drift Optimization, Protocol Registry, Federated Graph, Killer Features, Edge Concepts, or Unified Resolution) they would like to begin architecting today, and await their command.
