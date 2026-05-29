@@ -131,6 +131,7 @@ export const MOCK_PROTOCOL_DEFINITION: ProtocolDefinition = {
       pattern: '^[0-9a-f]{8}$',
       generator: 'hex8',
       required: true,
+      isCore: true,
       ui: { kind: 'identity' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       prompt: { order: 0 }
     },
@@ -138,6 +139,7 @@ export const MOCK_PROTOCOL_DEFINITION: ProtocolDefinition = {
       description: 'Test constraint.',
       multivalue: true,
       validation: 'none',
+      isCore: true,
       ui: { kind: 'decision' as TrailerUiKind, color: 'cyan' as TrailerUiColor },
       prompt: { order: 100 }
     },
@@ -145,6 +147,7 @@ export const MOCK_PROTOCOL_DEFINITION: ProtocolDefinition = {
       description: 'Test confidence.',
       multivalue: false,
       validation: 'values',
+      isCore: true,
       values: {
         low: { description: 'Low' },
         medium: { description: 'Medium' },
@@ -158,6 +161,7 @@ export const MOCK_PROTOCOL_DEFINITION: ProtocolDefinition = {
       description: 'Related reference.',
       multivalue: true,
       validation: 'reference',
+      isCore: true,
       ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       prompt: { order: 200 }
     },
@@ -165,18 +169,21 @@ export const MOCK_PROTOCOL_DEFINITION: ProtocolDefinition = {
         description: 'Supersedes reference.',
         multivalue: true,
         validation: 'reference',
+        isCore: true,
         ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
     },
     'Depends-on': {
         description: 'Dependency reference.',
         multivalue: true,
         validation: 'reference',
+        isCore: true,
         ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
     },
     'Ref': {
         description: 'Generic reference.',
         multivalue: true,
         validation: 'reference',
+        isCore: true,
         ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
     }
   }

@@ -6,6 +6,7 @@ import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 
 import { TrailerParser } from './trailer-parser.js';
+import { ProtocolHydrator } from './protocol-hydrator.js';
 import { escapeRegex } from '../../util/regex.js';
 
 /**
@@ -306,28 +307,32 @@ export class Protocol implements IProtocol {
   }
 
   private loadDefinitions(): void {
-    // 1. Load Protocol-Defined Core Trailers
-    // Default isCore to true for static definitions unless explicitly false
+    // 1. Load Protocol-Defined Trailers (from static definition)
     for (const [key, def] of Object.entries(this.definition.trailers)) {
       this.addDefinition(key, { 
-        ...def, 
-        key, 
-        isCore: def.isCore !== undefined ? def.isCore : true 
+        ...ProtocolHydrator.hydrateTrailer(key, def), 
+        key 
       });
     }
 
-    // 2. Load Configured Custom Trailers & Overrides (definitions)
-    // Default isCore to false for config overrides unless explicitly true
+    // 2. Load Configured Custom Trailers & Overrides (from TOML config)
     for (const [key, def] of Object.entries(this.config.trailers.definitions)) {
       const canonicalKey = this.authorize(key) || key;
       const existing = this.definitions.get(canonicalKey);
-      const isCore = def.isCore !== undefined ? def.isCore : (existing?.isCore ?? false);
       
-      // Merge: Config overrides core, but we preserve core metadata if missing in config
+      const hydrated = ProtocolHydrator.hydrateTrailer(canonicalKey, def);
+      
+      // Strategy: Merge config onto base. 
+      // isCore logic: 
+      // - If config explicitly sets isCore, use it.
+      // - Else, if we are overriding a core trailer, it stays core.
+      // - Else, default to false (handled by hydrator).
+      const isCore = (def.isCore !== undefined) ? hydrated.isCore : (existing?.isCore ?? false);
+
       this.addDefinition(canonicalKey, {
           ...existing,
-          ...def,
-          key: canonicalKey, // Preserve the canonical casing
+          ...hydrated,
+          key: canonicalKey,
           isCore
       });
     }

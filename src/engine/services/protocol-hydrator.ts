@@ -60,7 +60,7 @@ export class ProtocolHydrator {
       values: this.hydrateValues(def.values || def.options),
       pattern: typeof def.pattern === 'string' ? def.pattern : undefined,
       required: typeof def.required === 'boolean' ? def.required : false,
-      isCore: typeof def.isCore === 'boolean' ? def.isCore : undefined,
+      isCore: typeof def.isCore === 'boolean' ? def.isCore : false,
       directives,
       ui,
       cli: def.cli ? {

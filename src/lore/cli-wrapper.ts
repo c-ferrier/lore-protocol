@@ -13,64 +13,10 @@ import { registerRejectedCommand } from './commands/rejected.js';
 import { LoreJsonFormatter } from './formatters/lore-json-formatter.js';
 import { LoreTextFormatter } from './formatters/lore-text-formatter.js';
 import { LoreLegacyLoader, type Lore050Config } from './services/legacy-loader.js';
+import { ProtocolHydrator } from '../engine/services/protocol-hydrator.js';
 import { resolve, join } from 'node:path';
 import type { EngineConfig, ProtocolConfig, TrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../engine/types/config.js';
 import type { ProtocolDefinition } from '../engine/interfaces/protocol-definition.js';
-
-function resolveValues(valuesRaw: any): Record<string, ValueDefinition> | undefined {
-  if (Array.isArray(valuesRaw)) {
-    const result: Record<string, ValueDefinition> = {};
-    for (const opt of valuesRaw) if (typeof opt === 'string') result[opt] = { description: '' };
-    return result;
-  }
-  if (valuesRaw && typeof valuesRaw === 'object') {
-    const result: Record<string, ValueDefinition> = {};
-    for (const [key, value] of Object.entries(valuesRaw)) {
-      if (typeof value === 'string') result[key] = { description: value };
-      else if (value && typeof value === 'object') {
-        result[key] = { description: typeof (value as any).description === 'string' ? (value as any).description : '' };
-      }
-    }
-    return result;
-  }
-  return undefined;
-}
-
-function resolveDefinitions(rawData: Record<string, any>): Record<string, TrailerDefinition> {
-  const result: Record<string, TrailerDefinition> = {};
-
-  for (const [key, value] of Object.entries(rawData)) {
-    if (!value || typeof value !== 'object') continue;
-    const def = value as any;
-    
-    let validation: 'values' | 'pattern' | 'none' = 'none';
-    if (def.validation === 'values' || def.validation === 'options') {
-      validation = 'values';
-    } else if (def.validation === 'pattern') {
-      validation = 'pattern';
-    }
-
-    const uiRaw = typeof def.ui === 'object' && def.ui !== null ? def.ui : undefined;
-
-    result[key] = {
-      description: typeof def.description === 'string' ? def.description : '',
-      multivalue: typeof def.multivalue === 'boolean' ? def.multivalue : false,
-      validation,
-      values: resolveValues(def.values || def.options),
-      pattern: typeof def.pattern === 'string' ? def.pattern : undefined,
-      required: typeof def.required === 'boolean' ? def.required : false,
-      ui: uiRaw ? {
-        kind: (TRAILER_UI_KINDS as readonly string[]).includes(uiRaw.kind as string) 
-          ? uiRaw.kind as TrailerUiKind 
-          : undefined,
-        color: (TRAILER_UI_COLORS as readonly string[]).includes(uiRaw.color as string) 
-          ? uiRaw.color as TrailerUiColor 
-          : undefined,
-      } : undefined,
-    };
-  }
-  return result;
-}
 
 /**
  * Lore CLI Compatibility Layer.
@@ -138,7 +84,14 @@ export async function buildLoreCli() {
     getProtocolConfig: (name: string): ProtocolConfig => {
         if (name === 'Lore' && legacyData) {
             let permissive = legacyData.trailers?.permissive !== undefined ? legacyData.trailers.permissive : true;
-            const definitions = resolveDefinitions(legacyData.trailers?.definitions || {});
+            
+            // Hydrate definitions using the shared Engine hydrator
+            const definitions: Record<string, TrailerDefinition> = {};
+            if (legacyData.trailers?.definitions) {
+                for (const [key, raw] of Object.entries(legacyData.trailers.definitions)) {
+                    definitions[key] = ProtocolHydrator.hydrateTrailer(key, raw);
+                }
+            }
             
             // 0.5.0 Legacy Rule: If ANY custom definitions exist, permissive mode defaults to false 
             // unless explicitly set to true.
@@ -149,11 +102,11 @@ export async function buildLoreCli() {
             // Translate legacy custom arrays into definitions
             for (const key of legacyData.trailers?.custom || []) {
                 if (!definitions[key]) {
-                    definitions[key] = {
+                    definitions[key] = ProtocolHydrator.hydrateTrailer(key, {
                         description: `Custom project trailer: ${key}`,
                         multivalue: true,
                         validation: 'none'
-                    };
+                    });
                 }
             }
 
@@ -162,12 +115,12 @@ export async function buildLoreCli() {
                 if (definitions[key]) {
                     definitions[key] = { ...definitions[key], required: true };
                 } else {
-                    definitions[key] = {
+                    definitions[key] = ProtocolHydrator.hydrateTrailer(key, {
                         description: '',
                         multivalue: true, // safe default
                         validation: 'none',
                         required: true
-                    };
+                    });
                 }
             }
 
