@@ -15,24 +15,28 @@ describe('ID Disambiguation & Qualified Identities', () => {
   let gitClient: IGitClient;
 
   // Protocol A: Root namespace, ID key is 'Alpha-id'
-  const PROTOCOL_A = {
+  const PROTOCOL_A: ProtocolDefinition = {
     name: 'Alpha',
     version: '1.0',
     identityKey: 'Alpha-id',
     namespace: '',
+    strict: false,
+    permissive: false,
     trailers: {
-      'Alpha-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' }
+      'Alpha-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$', isCore: true }
     }
   };
 
   // Protocol B: Root namespace, ID key is 'Beta-id'
-  const PROTOCOL_B = {
+  const PROTOCOL_B: ProtocolDefinition = {
     name: 'Beta',
     version: '1.0',
     identityKey: 'Beta-id',
     namespace: '',
+    strict: false,
+    permissive: false,
     trailers: {
-      'Beta-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' }
+      'Beta-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$', isCore: true }
     }
   };
 
@@ -46,8 +50,8 @@ describe('ID Disambiguation & Qualified Identities', () => {
     } as any;
 
     registry = new ProtocolRegistry();
-    const alpha = new Protocol(PROTOCOL_A, makeProtocolConfig({ ...MOCK_CONFIG, trailers: { ...MOCK_CONFIG.trailers, permissive: false } }));
-    const beta = new Protocol(PROTOCOL_B, makeProtocolConfig({ ...MOCK_CONFIG, trailers: { ...MOCK_CONFIG.trailers, permissive: false } }));
+    const alpha = new Protocol(PROTOCOL_A, makeProtocolConfig({ permissive: false }));
+    const beta = new Protocol(PROTOCOL_B, makeProtocolConfig({ permissive: false }));
     
     registry.register(alpha);
     registry.register(beta);

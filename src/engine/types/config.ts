@@ -64,7 +64,6 @@ export interface TrailerDefinition {
  */
 export interface EngineConfig {
   readonly validation: {
-    readonly strict: boolean;
     readonly maxMessageLines: number;
     readonly subjectMaxLength: number;
   };
@@ -90,7 +89,7 @@ export interface EngineConfig {
  * Formal schema for Engine-level configuration gaps.
  */
 export const ENGINE_CONFIG_SCHEMA: Record<string, string[]> = {
-  validation: ['strict', 'maxMessageLines', 'subjectMaxLength'],
+  validation: ['maxMessageLines', 'subjectMaxLength'],
   stale: ['olderThan', 'driftThreshold'],
   output: ['defaultFormat'],
   follow: ['maxDepth'],
@@ -103,8 +102,9 @@ export const ENGINE_CONFIG_SCHEMA: Record<string, string[]> = {
  */
 export interface ProtocolConfig {
   readonly version: string;
+  readonly strict: boolean;
+  readonly permissive: boolean;
   readonly trailers: {
     readonly definitions: Record<string, TrailerDefinition>;
-    readonly permissive: boolean;
   };
 }

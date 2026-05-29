@@ -161,7 +161,9 @@ export async function runCli(options: EngineOptions) {
   
   const defaultProtocolConfig: ProtocolConfig = {
     version: '1.0',
-    trailers: { definitions: {}, permissive: true }
+    strict: false,
+    permissive: true,
+    trailers: { definitions: {} }
   };
 
   for (const def of allProtocols) {

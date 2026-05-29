@@ -151,9 +151,7 @@ export class CommitBuilder {
         const state = protocol.normalize(nsMap);
 
         // 2. Validate: Expert reviews the structured state
-        const bucketIssues = protocol.validateState(state, { 
-            strict: this.config.validation.strict 
-        });
+        const bucketIssues = protocol.validateState(state);
 
         // Post-process: Filter out "missing identity" errors if the protocol provides a generator
         // (because the builder will generate it automatically in the build() phase).

@@ -26,7 +26,7 @@ describe('Hierarchical Namespacing Logic', () => {
             'Lore-id': MOCK_PROTOCOL_DEFINITION.trailers[MOCK_PROTOCOL_DEFINITION.identityKey]
         }
       },
-      makeProtocolConfig({ ...MOCK_CONFIG, trailers: { ...MOCK_CONFIG.trailers, permissive: false } })
+      makeProtocolConfig({ permissive: false })
     );
 
     // 2. Namespaced Protocol (Strict)
@@ -41,7 +41,7 @@ describe('Hierarchical Namespacing Logic', () => {
             'Team': { description: 'Team', multivalue: false }
         }
       },
-      makeProtocolConfig({ ...MOCK_CONFIG, trailers: { ...MOCK_CONFIG.trailers, permissive: false } })
+      makeProtocolConfig({ permissive: false })
     );
 
     registry.register(rootProtocol);
@@ -84,7 +84,7 @@ describe('Hierarchical Namespacing Logic', () => {
     it('should allow unrecognized trailers in namespace when permissive', () => {
       const permissiveProject = new Protocol(
         projectProtocol['definition'],
-        makeProtocolConfig({ ...MOCK_CONFIG, trailers: { ...MOCK_CONFIG.trailers, permissive: true } })
+        makeProtocolConfig({ strict: false, permissive: true })
       );
       
       const raw = 'Project: Custom: value';
@@ -113,7 +113,7 @@ describe('Hierarchical Namespacing Logic', () => {
     it('root protocol should claim orphans as trailers when permissive', () => {
       const permissiveRoot = new Protocol(
         rootProtocol['definition'],
-        makeProtocolConfig({ ...MOCK_CONFIG, trailers: { ...MOCK_CONFIG.trailers, permissive: true } })
+        makeProtocolConfig({ strict: false, permissive: true })
       );
 
       const raw = 'Unknown: value';

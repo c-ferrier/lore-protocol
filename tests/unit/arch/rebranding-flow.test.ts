@@ -38,7 +38,7 @@ describe('Rebranding Flow Integration', () => {
 
     const config = {
       ...MOCK_PROTOCOL_CONFIG,
-      trailers: { ...MOCK_PROTOCOL_CONFIG.trailers, permissive: true }
+      trailers: { ...MOCK_PROTOCOL_CONFIG.trailers, strict: false, permissive: true }
     };
 
     const fredProtocol = new Protocol(fredDef, config);

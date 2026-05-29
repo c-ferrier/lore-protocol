@@ -14,11 +14,11 @@ describe('CommitBuilder Namespacing', () => {
     const mockProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
     const fredProtocol = makeProtocol(
       { ...MOCK_PROTOCOL_DEFINITION, name: 'Fred', namespace: 'fred', identityKey: 'Fred-id' },
-      { trailers: { permissive: true } }
+      { trailers: { strict: false, permissive: true } }
     );
     const jiraProtocol = makeProtocol(
       { ...MOCK_PROTOCOL_DEFINITION, name: 'Jira', namespace: 'jira', identityKey: 'Issue' },
-      { trailers: { permissive: false } }
+      { permissive: false, trailers: { definitions: {} } }
     );
 
     registry.register(mockProtocol);
@@ -49,7 +49,7 @@ describe('CommitBuilder Namespacing', () => {
     const registry = new ProtocolRegistry();
     const fredProtocol = makeProtocol(
       { name: 'Fred', namespace: 'fred', identityKey: 'Fred-id' },
-      { trailers: { permissive: true } }
+      { trailers: { strict: false, permissive: true } }
     );
     registry.register(fredProtocol);
 

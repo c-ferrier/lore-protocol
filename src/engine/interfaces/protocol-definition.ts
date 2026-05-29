@@ -8,6 +8,8 @@ import type { Atom, StaleReason, SupersessionStatus } from '../types/domain.js';
 export interface ProtocolDefinition {
   readonly name: string;
   readonly version: string;
+  readonly strict: boolean;
+  readonly permissive: boolean;
   /** Empty string "" indicates root namespace */
   readonly namespace: string;
   readonly identityKey: string;

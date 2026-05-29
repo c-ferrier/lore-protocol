@@ -310,19 +310,16 @@ describe('Validator', () => {
     });
 
     it('should error on missing required trailers (strict)', async () => {
-      const eConfig: EngineConfig = {
-        ...MOCK_CONFIG,
-        validation: { ...MOCK_CONFIG.validation, strict: true },
-      };
       const strictRegistry = new ProtocolRegistry();
       strictRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+        strict: true,
         trailers: { 
           definitions: {
             Confidence: { description: '', multivalue: false, validation: 'none', required: true }
           }
         }
       }));
-      const strictValidator = new Validator(trailerParser, mockAtomRepo as any, eConfig, strictRegistry);
+      const strictValidator = new Validator(trailerParser, mockAtomRepo as any, MOCK_CONFIG, strictRegistry);
       
       const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: abc` }); // Missing Confidence
       const results = await strictValidator.validate([commit]);
@@ -387,8 +384,9 @@ describe('Validator', () => {
     });
 
     it('should error on invalid reference format (strict)', async () => {
-      const strictConfig: Config = { ...MOCK_CONFIG, validation: { ...MOCK_CONFIG.validation, strict: true } };
-      const strictValidator = new Validator(trailerParser, mockAtomRepo as any, strictConfig, protocolRegistry);
+      const strictRegistry = new ProtocolRegistry();
+      strictRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, { strict: true }));
+      const strictValidator = new Validator(trailerParser, mockAtomRepo as any, MOCK_CONFIG, strictRegistry);
       const commit = makeCommit({ trailers: 'Ref: not-hex!\nRelated: toolong12' });
       const results = await strictValidator.validate([commit]);
 
@@ -498,8 +496,9 @@ describe('Validator', () => {
     });
 
     it('should error when referenced atom does not exist (strict)', async () => {
-      const strictConfig: EngineConfig = { ...MOCK_CONFIG, validation: { ...MOCK_CONFIG.validation, strict: true } };
-      const strictValidator = new Validator(trailerParser, mockAtomRepo as any, strictConfig, protocolRegistry);
+      const strictRegistry = new ProtocolRegistry();
+      strictRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, { strict: true }));
+      const strictValidator = new Validator(trailerParser, mockAtomRepo as any, MOCK_CONFIG, strictRegistry);
       const commit = makeCommit({ trailers: 'Ref: aabbccdd' });
       const results = await strictValidator.validate([commit]);
 
@@ -629,7 +628,7 @@ describe('Validator', () => {
                     'Id': MOCK_PROTOCOL_DEFINITION.trailers[MOCK_ID_KEY]
                 }
               },
-              { trailers: { required: [], custom: [], definitions: {}, permissive: false } }
+              { strict: true, permissive: false }
           );
           nsRegistry.register(nsProtocol);
           const nsValidator = new Validator(trailerParser, mockAtomRepo as any, engineConfig, nsRegistry);

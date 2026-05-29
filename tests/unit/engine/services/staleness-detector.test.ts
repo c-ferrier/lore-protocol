@@ -45,7 +45,7 @@ function createMockProtocol(): IProtocol {
     version: '1.0',
     namespace: '',
     identityKey: MOCK_ID_KEY,
-    permissive: true,
+    strict: false, permissive: true,
     getAuthorizedKeys: vi.fn(() => []),
     getDefinition: vi.fn(() => undefined),
     getReferenceKeys: vi.fn(() => ['Supersedes', 'Depends-on']),

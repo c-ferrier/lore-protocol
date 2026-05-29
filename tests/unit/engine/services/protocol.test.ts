@@ -23,8 +23,9 @@ describe('Protocol Service', () => {
   it('should merge custom definitions into the protocol', () => {
     const config = {
       ...MOCK_CONFIG,
+      strict: false,
+      permissive: true,
       trailers: {
-        ...MOCK_CONFIG.trailers,
         definitions: {
           Team: {
             description: 'The team responsible',
@@ -47,8 +48,9 @@ describe('Protocol Service', () => {
     // This tests the case where a user might try to override a core definition
     const config = {
       ...MOCK_CONFIG,
+      strict: false,
+      permissive: true,
       trailers: {
-        ...MOCK_CONFIG.trailers,
         definitions: {
           Constraint: {
             description: 'User override',
@@ -67,7 +69,9 @@ describe('Protocol Service', () => {
   it('should authorize any key in permissive mode', () => {
     const config = {
       ...MOCK_CONFIG,
-      trailers: { ...MOCK_CONFIG.trailers, permissive: true },
+      strict: false, 
+      permissive: true,
+      trailers: { definitions: {} }
     };
     const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
     
@@ -77,11 +81,10 @@ describe('Protocol Service', () => {
   it('should not authorize unknown keys in strict mode', () => {
     const config = {
       ...MOCK_CONFIG,
+      strict: true,
+      permissive: false,
       trailers: { 
-        ...MOCK_CONFIG.trailers, 
-        permissive: false,
         definitions: {},
-        custom: []
       },
     };
     const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
@@ -92,8 +95,9 @@ describe('Protocol Service', () => {
   it('should sort authorized keys based on prompt order', () => {
     const config = {
       ...MOCK_CONFIG,
+      strict: false,
+      permissive: true,
       trailers: {
-        ...MOCK_CONFIG.trailers,
         definitions: {
           Urgent: {
             description: 'U',
@@ -115,6 +119,8 @@ describe('Protocol Service', () => {
 
   it('should default custom trailers to the end of the sort order', () => {
     const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+      strict: false,
+      permissive: true,
       trailers: {
         definitions: {
           Adhoc: { description: 'adhoc', multivalue: false, validation: 'none', isCore: false },
@@ -138,8 +144,9 @@ describe('Protocol Service', () => {
     it('should normalize custom definition keys', () => {
       const config = {
         ...MOCK_CONFIG,
+        strict: false,
+        permissive: true,
         trailers: {
-          ...MOCK_CONFIG.trailers,
           definitions: {
             'Assisted-by': { description: 'A', multivalue: true, validation: 'none' as const }
           }
@@ -154,7 +161,9 @@ describe('Protocol Service', () => {
     it('should preserve original casing for ad-hoc trailers in permissive mode', () => {
       const config = {
         ...MOCK_CONFIG,
-        trailers: { ...MOCK_CONFIG.trailers, permissive: true }
+        strict: false, 
+        permissive: true,
+        trailers: { definitions: {} }
       };
       const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
       
@@ -165,7 +174,9 @@ describe('Protocol Service', () => {
     it('should prioritize core casing over ad-hoc casing', () => {
       const config = {
         ...MOCK_CONFIG,
-        trailers: { ...MOCK_CONFIG.trailers, permissive: true }
+        strict: false, 
+        permissive: true,
+        trailers: { definitions: {} }
       };
       const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
       
@@ -177,8 +188,9 @@ describe('Protocol Service', () => {
     it('should mark a trailer as required if set in definitions', () => {
       const config = {
         ...MOCK_CONFIG,
+        strict: false,
+        permissive: true,
         trailers: {
-          ...MOCK_CONFIG.trailers,
           definitions: { Team: { description: 'D', multivalue: false, validation: 'none' as const, required: true } },
         }
       };
@@ -191,8 +203,9 @@ describe('Protocol Service', () => {
     it('should allow custom definitions to override core trailer metadata (e.g. color)', () => {
       const config = {
         ...MOCK_CONFIG,
+        strict: false,
+        permissive: true,
         trailers: {
-          ...MOCK_CONFIG.trailers,
           definitions: {
             Confidence: { 
               description: 'Custom confidence', 
@@ -245,11 +258,10 @@ describe('Protocol Service', () => {
     });
 
     it('should move unauthorized trailers to unauthorized bucket in strict mode', () => {
-      const strictConfig = {
-        ...MOCK_CONFIG,
-        trailers: { ...MOCK_CONFIG.trailers, permissive: false }
-      };
-      const strictProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(strictConfig));
+      const strictProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig({
+        strict: true,
+        permissive: false
+      }));
       const raw = 'Unknown-Trailer: value';
       const result = strictProtocol.parse(raw);
       expect(result.trailers['Unknown-Trailer']).toBeUndefined();
@@ -266,7 +278,7 @@ describe('Protocol Service', () => {
         it('should categorize a raw map into authorized and unauthorized buckets', () => {
             // Strict mode to ensure typos go to unauthorized
             const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
-                trailers: { permissive: false }
+                strict: true, permissive: false
             });
             const raw = {
                 'Confidence': ['high'],
@@ -276,6 +288,8 @@ describe('Protocol Service', () => {
             const state = protocol.normalize(raw);
             expect(state.trailers.Confidence).toEqual(['high']);
             expect(state.unauthorized['Typo-Key']).toEqual(['junk']);
+            expect(state.strict).toBe(true);
+            expect(state.permissive).toBe(false);
         });
 
         it('should handle pre-bucketed namespaced trailers', () => {
@@ -284,7 +298,7 @@ describe('Protocol Service', () => {
                 namespace: 'Project',
                 identityKey: 'Id'
             }, {
-                trailers: { permissive: false }
+                strict: true, permissive: false
             });
 
             // Pre-bucketed: the map contains INNER keys, not the namespace prefix
@@ -304,7 +318,7 @@ describe('Protocol Service', () => {
                 namespace: 'Project',
                 identityKey: 'Id'
             }, {
-                trailers: { permissive: false }
+                strict: true, permissive: false
             });
 
             // un-bucketed: the map contains the namespace prefix
@@ -333,8 +347,16 @@ describe('Protocol Service', () => {
 
     describe('Hierarchical Namespacing', () => {
       const nsProtocol = new Protocol(
-          { ...MOCK_PROTOCOL_DEFINITION, name: 'Project', namespace: 'Project', identityKey: 'Id', trailers: { 'Id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' }, 'Constraint': { description: 'C', multivalue: true } } },
-          makeProtocolConfig({ ...MOCK_CONFIG, trailers: { ...MOCK_CONFIG.trailers, permissive: false } })
+          { 
+              ...MOCK_PROTOCOL_DEFINITION, 
+              name: 'Project', 
+              namespace: 'Project', 
+              identityKey: 'Id', 
+              strict: true,
+              permissive: false,
+              trailers: { 'Id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' }, 'Constraint': { description: 'C', multivalue: true } } 
+          },
+          makeProtocolConfig({ strict: true, permissive: false })
       );
 
       it('should own exactly its namespace key', () => {
@@ -384,8 +406,9 @@ describe('Protocol Service', () => {
     it('should own configured custom trailers', () => {
       const config = {
         ...MOCK_CONFIG,
+        strict: false,
+        permissive: true,
         trailers: { 
-          ...MOCK_CONFIG.trailers, 
           definitions: { 'My-Trailer': { description: '', multivalue: true, validation: 'none' as const } } 
         }
       };
@@ -411,7 +434,9 @@ describe('Protocol Service', () => {
       it('should ingest unowned trailers only if permissive AND unclaimed', () => {
         const config = {
           ...MOCK_CONFIG,
-          trailers: { ...MOCK_CONFIG.trailers, permissive: true }
+          strict: false,
+          permissive: true,
+          trailers: { definitions: {} }
         };
         const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
         const raw = 'Adhoc: value\nOwned-By-Other: secret';
@@ -427,7 +452,9 @@ describe('Protocol Service', () => {
     it('should NOT ingest unowned trailers if not permissive', () => {
         const config = {
           ...MOCK_CONFIG,
-          trailers: { ...MOCK_CONFIG.trailers, permissive: false }
+          strict: true,
+          permissive: false,
+          trailers: { definitions: {} }
         };
         const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
         const raw = 'Adhoc: value';

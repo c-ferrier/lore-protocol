@@ -10,7 +10,7 @@ describe('Layered Configuration Integration', () => {
   
   const DEFAULT_CONFIG = {
     protocol: { name: 'Atom', version: '1.0' },
-    trailers: { permissive: true, definitions: {} },
+    permissive: true, trailers: { definitions: {} },
     cli: { updateCheck: true, queryCache: true }
   } as any;
 

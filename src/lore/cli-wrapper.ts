@@ -128,9 +128,10 @@ export async function buildLoreCli() {
 
             return {
                 version: legacyData.protocol?.version || '1.0',
+                strict: false,
+                permissive,
                 trailers: {
-                    definitions,
-                    permissive
+                    definitions
                 }
             };
         }
@@ -138,7 +139,9 @@ export async function buildLoreCli() {
         // Generic default for other protocols
         return {
             version: '1.0',
-            trailers: { definitions: {}, permissive: true }
+            strict: false,
+            permissive: true,
+            trailers: { definitions: {} }
         };
     }
   };

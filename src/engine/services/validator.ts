@@ -117,9 +117,7 @@ export class Validator {
     state: ProtocolState,
     issues: ValidationIssue[],
   ): void {
-    issues.push(...protocol.validateState(state, { 
-        strict: this.config.validation.strict 
-    }));
+    issues.push(...protocol.validateState(state));
   }
 
   /**
@@ -189,7 +187,7 @@ export class Validator {
       const lookupKey = `${identity.protocol || protocolName}/${identity.id}`;
       if (!foundKeys.has(lookupKey)) {
         issues.push({
-          severity: this.config.validation.strict ? 'error' : 'warning',
+          severity: protocol.strict ? 'error' : 'warning',
           rule: 'reference-exists',
           field: key,
           message: `[${protocol.name}] Referenced id "${identity.id}"${identity.protocol ? ` in protocol "${identity.protocol}"` : ''} in ${key} was not found in history`,

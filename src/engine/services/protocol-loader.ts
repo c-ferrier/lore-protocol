@@ -46,6 +46,8 @@ export class DynamicProtocolLoader {
         version: raw.version || '1.0',
         namespace: raw.namespace !== undefined ? raw.namespace : slug,
         identityKey: raw.identity_key || raw.identityKey || `${raw.name || slug}-id`,
+        strict: raw.strict !== undefined ? raw.strict : false,
+        permissive: raw.permissive !== undefined ? raw.permissive : true,
         trailers: this.hydrateTrailers(raw.trailers || {}),
       };
     } catch {

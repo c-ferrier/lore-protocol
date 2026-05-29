@@ -11,32 +11,36 @@ describe('Cross-Protocol Validation', () => {
   let validator: Validator;
   let gitClient: IGitClient;
 
-  const ALPHA_DEF = {
+  const ALPHA_DEF: ProtocolDefinition = {
     name: 'Alpha',
     version: '1.0',
     identityKey: 'Alpha-id',
     namespace: '',
+    strict: false,
+    permissive: false,
     trailers: {
-      'Alpha-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[0-9]+$' },
-      'Depends-on': { description: 'Dep', validation: 'reference' as const, crossProtocol: true }
+      'Alpha-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[0-9]+$', isCore: true },
+      'Depends-on': { description: 'Dep', validation: 'reference' as const, crossProtocol: true, isCore: true }
     }
   };
 
-  const BETA_DEF = {
+  const BETA_DEF: ProtocolDefinition = {
     name: 'Beta',
     version: '1.0',
     identityKey: 'Beta-id',
     namespace: '',
+    strict: false,
+    permissive: false,
     trailers: {
-      'Beta-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[a-z]+$' },
-      'Internal-link': { description: 'Int', validation: 'reference' as const, crossProtocol: false }
+      'Beta-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[a-z]+$', isCore: true },
+      'Internal-link': { description: 'Int', validation: 'reference' as const, crossProtocol: false, isCore: true }
     }
   };
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    const alpha = new Protocol(ALPHA_DEF, makeProtocolConfig({ ...MOCK_CONFIG, trailers: { ...MOCK_CONFIG.trailers, permissive: false } }));
-    const beta = new Protocol(BETA_DEF, makeProtocolConfig({ ...MOCK_CONFIG, trailers: { ...MOCK_CONFIG.trailers, permissive: false } }));
+    const alpha = new Protocol(ALPHA_DEF, makeProtocolConfig({ permissive: false }));
+    const beta = new Protocol(BETA_DEF, makeProtocolConfig({ permissive: false }));
     registry.register(alpha);
     registry.register(beta);
 

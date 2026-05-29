@@ -36,7 +36,8 @@ const REVERSIBILITY_VALUES = {
 export const LoreProtocolDefinition: ProtocolDefinition = {
   name: 'Lore',
   version: '1.0',
-  namespace: '', // Lore is the root protocol
+  namespace: '', // Lore is the root protocol by default
+  strict: false, permissive: true,
   identityKey: 'Lore-id',
   trailers: {
     'Lore-id': {

@@ -21,7 +21,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
 
   const MOCK_CONFIG = {
     protocol: { name: 'Atom', version: '1.0' },
-    trailers: { required: [], custom: [], definitions: {}, permissive: true },
+    strict: false, permissive: true, trailers: { definitions: {} },
     validation: { strict: false, maxMessageLines: 50, subjectMaxLength: 72 },
     stale: { olderThan: '6m', driftThreshold: 20 },
     output: { defaultFormat: 'text' },

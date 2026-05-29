@@ -5,7 +5,6 @@ import type { EngineConfig } from './types/config.js';
  */
 export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   validation: {
-    strict: false,
     maxMessageLines: 50,
     subjectMaxLength: 72,
   },

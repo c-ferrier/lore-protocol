@@ -21,12 +21,17 @@ export class Protocol implements IProtocol {
   private readonly definitions = new Map<string, ActiveTrailer>();
   private readonly caseMap = new Map<string, string>();
   private readonly parser = new TrailerParser();
+  private readonly _strict: boolean;
+  private readonly _permissive: boolean;
   private registry?: ProtocolRegistry;
 
   constructor(
     private readonly definition: ProtocolDefinition,
     private readonly config: ProtocolConfig,
   ) {
+    // Merge Policy: Config overrides Definition, defaults to Definition's mandatory value
+    this._strict = config.strict !== undefined ? config.strict : definition.strict;
+    this._permissive = config.permissive !== undefined ? config.permissive : definition.permissive;
     this.loadDefinitions();
   }
 
@@ -50,8 +55,12 @@ export class Protocol implements IProtocol {
     return this.definition.namespace;
   }
 
+  get strict(): boolean {
+    return this._strict;
+  }
+
   get permissive(): boolean {
-    return this.config.trailers.permissive;
+    return this._permissive;
   }
 
   /**
@@ -82,7 +91,7 @@ export class Protocol implements IProtocol {
       return `^${this.namespace}:`;
     }
 
-    const identityDef = this.definition.trailers[this.identityKey];
+    const identityDef = this.definitions.get(this.identityKey);
     const pattern = identityDef?.pattern || '.+';
     return `^${this.identityKey}: ${pattern.replace(/^\^|\$$/g, '')}`;
   }
@@ -193,6 +202,7 @@ export class Protocol implements IProtocol {
             existing.push(innerValue);
             normalized[authorizedKey] = existing;
           } else {
+            // Intended for us (namespaced) but not in schema
             const existing = unauthorized[innerKey] || [];
             unauthorized[innerKey] = [...existing, innerValue];
           }
@@ -226,6 +236,8 @@ export class Protocol implements IProtocol {
     return {
       name: this.name,
       version: this.version,
+      strict: this.strict,
+      permissive: this.permissive,
       identityKey: this.identityKey,
       trailers: normalized,
       unauthorized,
@@ -246,7 +258,7 @@ export class Protocol implements IProtocol {
    * Check if an ID is valid according to this protocol's rules.
    */
   isValidIdentity(id: string): boolean {
-    const identityDef = this.definition.trailers[this.identityKey];
+    const identityDef = this.getDefinition(this.identityKey);
     if (identityDef?.validation === 'pattern' && identityDef.pattern) {
       return new RegExp(identityDef.pattern).test(id);
     }
@@ -348,15 +360,16 @@ export class Protocol implements IProtocol {
   validateState(state: ProtocolState, options?: { strict?: boolean }): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
     const authorizedKeys = this.getAuthorizedKeys();
-    const isStrict = options?.strict === true;
-    const trailers = state.trailers;
+    
+    // Policy comes from the STATE, but can be overridden by explicit options
+    const isStrict = options?.strict !== undefined ? options.strict : state.strict;
     
     const protocolSlug = this.name.toLowerCase().replace(/-/g, '');
     const identityRule = `${protocolSlug}-id-present`;
 
     // Map input trailers to lowercase for case-insensitive lookup
     const inputMap = new Map<string, { key: string; values: readonly string[] }>();
-    for (const [k, v] of Object.entries(trailers)) {
+    for (const [k, v] of Object.entries(state.trailers)) {
         inputMap.set(k.toLowerCase(), { key: k, values: v });
     }
 
@@ -412,7 +425,7 @@ export class Protocol implements IProtocol {
     }
 
     // 2. Unauthorized Key Checks (Typos / Schema violations)
-    if (!this.permissive) {
+    if (!state.permissive) {
       for (const [key, values] of Object.entries(state.unauthorized)) {
           issues.push({
             severity: 'error',

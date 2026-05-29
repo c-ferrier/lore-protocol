@@ -51,9 +51,10 @@ export const MOCK_CONFIG: EngineConfig = {
  */
 export const MOCK_PROTOCOL_CONFIG: ProtocolConfig = {
   version: '1.0',
+  strict: false,
+  permissive: true,
   trailers: {
     definitions: {},
-    permissive: true,
   },
 };
 
@@ -63,9 +64,10 @@ export const MOCK_PROTOCOL_CONFIG: ProtocolConfig = {
 export function makeProtocolConfig(overrides: Partial<ProtocolConfig> = {}): ProtocolConfig {
   return {
     version: overrides.version ?? MOCK_PROTOCOL_CONFIG.version,
+    strict: overrides.strict ?? MOCK_PROTOCOL_CONFIG.strict,
+    permissive: overrides.permissive ?? MOCK_PROTOCOL_CONFIG.permissive,
     trailers: {
-        ...MOCK_PROTOCOL_CONFIG.trailers,
-        ...(overrides.trailers || {}),
+        definitions: (overrides.trailers as any)?.definitions || {},
     },
   };
 }
@@ -94,6 +96,8 @@ export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = 
     name,
     version: overrides.version ?? '1.0',
     namespace: overrides.namespace ?? '',
+    strict: overrides.strict ?? false,
+    permissive: overrides.permissive ?? true,
     identityKey,
     trailers: {
       ...defaultTrailers,
@@ -122,6 +126,8 @@ export const MOCK_PROTOCOL_DEFINITION: ProtocolDefinition = {
   name: 'Mock',
   version: '1.0',
   namespace: '', // Root namespace
+  strict: false,
+  permissive: true,
   identityKey: 'Mock-id',
   trailers: {
     'Mock-id': {

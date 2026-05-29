@@ -6,7 +6,7 @@ describe('Protocol configuration merging', () => {
   it('should identify custom keys in permissive mode', () => {
     const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        permissive: true,
+        strict: false, permissive: true,
         definitions: { 
           Team: { description: 'T', multivalue: false, validation: 'none' as const },
           Dept: { description: 'D', multivalue: false, validation: 'none' as const } 

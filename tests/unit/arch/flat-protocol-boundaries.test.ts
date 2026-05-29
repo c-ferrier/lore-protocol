@@ -90,8 +90,9 @@ describe('Flat Protocol Boundaries', () => {
   describe('Strict Mode Boundaries', () => {
     it('should strictly prune unauthorized custom trailers in non-permissive mode', () => {
       const protocol = makeProtocol(LoreProtocolDefinition, {
+        strict: true,
+        permissive: false,
         trailers: { 
-          permissive: false, 
           definitions: { 'Authorized': { description: '', multivalue: true, validation: 'none' } } 
         }
       });

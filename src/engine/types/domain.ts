@@ -19,6 +19,8 @@ export type HierarchicalTrailers = Record<string, Trailers>;
 export interface ProtocolState {
   readonly name: string;
   readonly version: string;
+  readonly strict: boolean;
+  readonly permissive: boolean;
   readonly identityKey: string;
   readonly trailers: Trailers;
   /** Trailers that were associated with this protocol but not authorized by schema */

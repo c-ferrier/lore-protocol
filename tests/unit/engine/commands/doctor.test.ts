@@ -30,7 +30,7 @@ describe('Doctor Command', () => {
     configLoader = createMockConfigLoader();
     protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, {
         version: '1.0',
-        trailers: { required: [], custom: [], definitions: {}, permissive: true }
+        strict: false, permissive: true, trailers: { definitions: {} }
     });
     vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
   });

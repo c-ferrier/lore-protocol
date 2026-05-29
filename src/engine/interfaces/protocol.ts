@@ -19,6 +19,8 @@ export type ActiveTrailer = TrailerDefinition & {
 export interface IProtocol {
   readonly name: string;
   readonly version: string;
+  readonly strict: boolean;
+  readonly permissive: boolean;
   readonly identityKey: string;
 
   /**
@@ -27,11 +29,6 @@ export interface IProtocol {
    * Explicitly namespaced trailers use the format: "Namespace: Key: value".
    */
   readonly namespace: string;
-
-  /**
-   * Returns true if the protocol allows ad-hoc (unregistered) trailers.
-   */
-  readonly permissive: boolean;
 /**
  * Links this protocol to a registry for cross-protocol resolution.
  */
