@@ -19,6 +19,8 @@ export const STALE_SIGNAL = {
   AGE: 'age' as const,
   DRIFT: 'drift' as const,
   ORPHANED_DEP: 'orphaned-dep' as const,
+  VALUE_MATCH: 'value-match' as const,
+  EXPIRED_HINT: 'expired-hint' as const,
 };
 
 /** Default batch size for parallel git file-change lookups */

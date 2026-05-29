@@ -64,6 +64,13 @@ export class TriggerParser {
       (t) => t.key === key && (value === undefined || t.value === value),
     );
   }
+
+  /**
+   * Returns the text with all trigger blocks removed.
+   */
+  static strip(text: string): string {
+    return text.replace(this.TRIGGER_PATTERN, '').trim();
+  }
 }
 
 /**

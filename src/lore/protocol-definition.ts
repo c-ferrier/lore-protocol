@@ -1,8 +1,5 @@
 import type { ProtocolDefinition } from '../engine/interfaces/protocol-definition.js';
 import type { TrailerUiKind, TrailerUiColor } from '../engine/types/config.js';
-import type { Atom, StaleReason, SupersessionStatus } from '../engine/types/domain.js';
-import { parseTriggerHints } from '../engine/util/trigger-parser.js';
-import { STALE_SIGNAL } from '../engine/util/constants.js';
 import { LORE_STALE_SIGNAL } from './constants.js';
 
 /**
@@ -32,6 +29,9 @@ const REVERSIBILITY_VALUES = {
  * 
  * SOLID: OCP -- the engine is closed to modification but open to extension 
  * via these pluggable definitions.
+ * 
+ * DESIGN: Now utilizes the Declarative Rules Engine (stale_if) to handle 
+ * staleness logic without custom code hooks.
  */
 export const LoreProtocolDefinition: ProtocolDefinition = {
   name: 'Lore',
@@ -104,6 +104,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
         order: 120,
       },
       squash: 'rank-min',
+      stale_if: { kind: 'value-equals', value: 'low', signal: LORE_STALE_SIGNAL.LOW_CONFIDENCE },
       directives: [
         '[on:squash] Take the most conservative value (e.g., low + high = low)'
       ]
@@ -157,6 +158,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
         input: 'Directive:',
         order: 150,
       },
+      stale_if: { kind: 'date-expired', signal: LORE_STALE_SIGNAL.EXPIRED_HINT },
       directives: [
         '[on:commit] Use [until:...] prefix for temporary rules that expire',
         '[on:squash] Carry forward until fulfilled, rejected, or condition met',
@@ -223,6 +225,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
         input: 'Depends-on (8-char hex Lore-id):',
         order: 190,
       },
+      stale_if: { kind: 'reference-superseded' },
       directives: [
         '[on:commit] Run "lore trace <id>" to verify the target exists and is relevant'
       ]
@@ -240,70 +243,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
         input: 'Related (8-char hex Lore-id):',
         order: 200,
       },
+      stale_if: { kind: 'reference-superseded' },
     }
-  },
-
-  getStaleSignals(atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[] {
-    const reasons: StaleReason[] = [];
-    const state = atom.protocols.get('lore');
-    if (!state) return reasons;
-
-    // 1. Low Confidence Signal
-    const confidence = state.trailers.Confidence?.[0];
-    if (confidence === 'low') {
-      reasons.push({
-        signal: LORE_STALE_SIGNAL.LOW_CONFIDENCE,
-        description: '[Lore] Atom is marked as Confidence: low',
-      });
-    }
-
-    // 2. Expired Hints Signal
-    for (const directive of state.trailers.Directive || []) {
-      const hints = parseTriggerHints(directive);
-      if (hints.until && now > hints.until) {
-        reasons.push({
-          signal: LORE_STALE_SIGNAL.EXPIRED_HINT,
-          description: `[Lore] Directive "${directive}" has expired`,
-        });
-      }
-    }
-
-    // 3. Orphaned Dependency Signal
-    // Resolves references across protocols by using the global supersession map.
-    const refKeys = ['Supersedes', 'Depends-on', 'Related'];
-    const pName = 'lore';
-
-    for (const key of refKeys) {
-      const refs = state.trailers[key] || [];
-      for (const ref of refs) {
-        try {
-          // Resolve identity (handles prefixes like 'sec/123')
-          // We can't use the registry here easily as this is a static definition, 
-          // but we can assume standard 'protocol/id' format.
-          let targetId = ref;
-          let targetPName = pName;
-
-          if (ref.includes('/')) {
-            const [prefix, suffix] = ref.split('/', 2);
-            targetPName = prefix.toLowerCase();
-            targetId = suffix;
-          }
-
-          const targetStatusMap = globalSupersessionMap.get(targetPName);
-          const status = targetStatusMap?.get(targetId);
-
-          if (status?.superseded) {
-            reasons.push({
-              signal: STALE_SIGNAL.ORPHANED_DEP,
-              description: `[Lore] Dependency "${ref}" (in ${key}) has been superseded by ${status.supersededBy}`,
-            });
-          }
-        } catch {
-          // Skip invalid references
-        }
-      }
-    }
-
-    return reasons;
   },
 };

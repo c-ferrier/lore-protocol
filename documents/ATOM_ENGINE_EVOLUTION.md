@@ -41,6 +41,10 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 *   **Action**: Flattened `ProtocolConfig` and `ProtocolDefinition` into a unified schema. Made `strict/permissive` flags mandatory at the protocol level.
 *   **Result**: Every protocol now explicitly owns its enforcement stance, and configuration merging is architecturally symmetrical.
 
+### Phase 10: Declarative Rules Engine (stale_if)
+*   **Action**: Replaced hardcoded TypeScript staleness hooks with a structured, declarative DSL in the protocol schema. 
+*   **Result**: Protocols like Lore are now 100% declarative. The engine natively evaluates `value-equals`, `date-expired`, and `reference-superseded` triggers. This enables "Zero-Code Protocols."
+
 ---
 
 ## 4. STRATEGIC ROADMAP: Implementation Phases
@@ -76,12 +80,6 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 **Action:** Implement the "Pure Schema + Local Override" config model.
 *   Treat downloaded protocol schema files as **immutable, pure artifacts**.
 *   Enhance `.atom/config.toml` to act as a **Local Override Layer**. This allows a repository to enable a downloaded protocol, assign it a strict namespace, change its terminal colors, or toggle fields to `required: true` without ever modifying the pure schema file.
-
-### PHASE 10: Declarative Rules Engine (The "Hook Killer")
-**Urgency**: Medium | **Importance**: High | **Difficulty**: High
-**Concept:** Eliminate the need for custom TypeScript logic for common protocol behaviors.
-**Action:** Add `stale_if` triggers and `semantic_roles` directly to the TOML blueprint. 
-**Value:** Makes protocols truly "Zero-Code," allowing anyone to define validation and staleness rules entirely in data.
 
 ### PHASE 7: Dependency-Injected Protocol Hooks
 **Urgency**: Medium | **Importance**: Medium | **Difficulty**: Medium

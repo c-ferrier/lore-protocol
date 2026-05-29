@@ -1,25 +1,29 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { LORE_STALE_SIGNAL } from '../../../src/lore/constants.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
+import { MOCK_PROTOCOL_CONFIG } from '../engine/test-utils.js';
 import type { Atom, SupersessionStatus } from '../../../src/engine/types/domain.js';
 
-describe('LoreProtocolDefinition Hooks', () => {
-  describe('getStaleSignals', () => {
-    const makeMockAtom = (loreTrailers: Record<string, string[]>): Atom => ({
-      commitHash: 'h1',
-      date: new Date(),
-      author: 'a',
-      subject: 's',
-      body: '',
-      protocols: new Map([
-        ['lore', { name: 'Lore', version: '1.0', identityKey: 'Lore-id', trailers: loreTrailers }]
-      ]),
-      filesChanged: []
-    });
+describe('LoreProtocolDefinition Declarative Triggers', () => {
+  const protocol = new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
 
+  const makeMockAtom = (loreTrailers: Record<string, string[]>): Atom => ({
+    commitHash: 'h1',
+    date: new Date(),
+    author: 'a',
+    subject: 's',
+    body: '',
+    protocols: new Map([
+      ['lore', { trailers: loreTrailers, unauthorized: {} }]
+    ]),
+    filesChanged: []
+  });
+
+  describe('getStaleSignals', () => {
     it('should flag "low-confidence" signal when Confidence is low', () => {
       const atom = makeMockAtom({ Confidence: ['low'] });
-      const signals = LoreProtocolDefinition.getStaleSignals!(atom, new Date(), new Map());
+      const signals = protocol.getStaleSignals(atom, new Date(), new Map());
       
       expect(signals).toHaveLength(1);
       expect(signals[0].signal).toBe(LORE_STALE_SIGNAL.LOW_CONFIDENCE);
@@ -27,9 +31,10 @@ describe('LoreProtocolDefinition Hooks', () => {
     });
 
     it('should flag "expired-hint" when an [until:date] directive has passed', () => {
-      // Date in the past
+      // Date in the past relative to Feb 2020
       const atom = makeMockAtom({ Directive: ['Cleanup [until:2020-01-01]'] });
-      const signals = LoreProtocolDefinition.getStaleSignals!(atom, new Date(), new Map());
+      const now = new Date(2020, 1, 1); // Feb 1 2020
+      const signals = protocol.getStaleSignals(atom, now, new Map());
       
       expect(signals.some(s => s.signal === LORE_STALE_SIGNAL.EXPIRED_HINT)).toBe(true);
     });
@@ -43,7 +48,7 @@ describe('LoreProtocolDefinition Hooks', () => {
           ['lore', statusMap]
       ]);
 
-      const signals = LoreProtocolDefinition.getStaleSignals!(atom, new Date(), globalStatusMap);
+      const signals = protocol.getStaleSignals(atom, new Date(), globalStatusMap);
       expect(signals.some(s => s.signal === 'orphaned-dep')).toBe(true);
       expect(signals[0].description).toContain('superseded by new-id');
     });
@@ -57,7 +62,7 @@ describe('LoreProtocolDefinition Hooks', () => {
           ['sec', statusMap]
       ]);
 
-      const signals = LoreProtocolDefinition.getStaleSignals!(atom, new Date(), globalStatusMap);
+      const signals = protocol.getStaleSignals(atom, new Date(), globalStatusMap);
       expect(signals.some(s => s.signal === 'orphaned-dep')).toBe(true);
       expect(signals[0].description).toContain('Dependency "sec/cve-123"');
       expect(signals[0].description).toContain('superseded by sec/cve-456');
@@ -65,7 +70,7 @@ describe('LoreProtocolDefinition Hooks', () => {
 
     it('should return empty array if no lore interpretation exists', () => {
       const atom: Atom = { ...makeMockAtom({}), protocols: new Map() };
-      const signals = LoreProtocolDefinition.getStaleSignals!(atom, new Date(), new Map());
+      const signals = protocol.getStaleSignals(atom, new Date(), new Map());
       expect(signals).toHaveLength(0);
     });
   });

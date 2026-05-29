@@ -8,6 +8,14 @@ export interface ValueDefinition {
 }
 
 /**
+ * Declarative trigger that marks an atom as stale.
+ */
+export type StaleIfCondition = 
+  | { kind: 'value-equals'; value: string; signal?: string }
+  | { kind: 'date-expired'; signal?: string }
+  | { kind: 'reference-superseded'; signal?: string };
+
+/**
  * Definition of a single trailer type within a protocol.
  */
 export interface TrailerDefinition {
@@ -56,6 +64,11 @@ export interface TrailerDefinition {
    * in other protocols using the 'protocol/id' syntax.
    */
   readonly crossProtocol?: boolean;
+  /**
+   * Declarative triggers that mark an atom as stale.
+   * e.g. { kind: 'superseded' }, { kind: 'equals', value: 'low' }
+   */
+  readonly stale_if?: StaleIfCondition | readonly StaleIfCondition[];
 }
 
 /**

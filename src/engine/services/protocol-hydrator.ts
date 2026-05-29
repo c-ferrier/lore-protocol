@@ -75,6 +75,7 @@ export class ProtocolHydrator {
       squash: ['union', 'rank-min', 'rank-max'].includes(def.squash) ? def.squash : undefined,
       generator: ['hex8', 'uuid', 'none'].includes(def.generator) ? def.generator : undefined,
       crossProtocol: typeof def.crossProtocol === 'boolean' ? def.crossProtocol : undefined,
+      stale_if: def.stale_if,
     };
   }
 

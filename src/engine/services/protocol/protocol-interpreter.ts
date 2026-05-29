@@ -2,10 +2,15 @@ import type { IProtocolInterpreter } from '../../interfaces/protocol/protocol-in
 import type { ProtocolState, Atom, SupersessionStatus, StaleReason, Trailers } from '../../types/domain.js';
 import type { IProtocol } from '../../interfaces/protocol.js';
 import type { TrailerParser } from '../trailer-parser.js';
+import type { StaleIfCondition } from '../../types/config.js';
+import { TriggerParser, parseTriggerHints } from '../../util/trigger-parser.js';
+import { STALE_SIGNAL } from '../../util/constants.js';
 
 /**
  * Implementation of the Protocol Interpreter capability.
  * Owns parsing, normalization, and identity extraction.
+ * 
+ * Also acts as the Declarative Rules Engine for staleness evaluation.
  */
 export class ProtocolInterpreter implements IProtocolInterpreter {
   constructor(
@@ -22,7 +27,7 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
     const normalized: Record<string, string[]> = {};
     const unauthorized: Record<string, string[]> = {};
     const lowerClaimed = new Set(Array.from(claimedKeys || []).map(k => k.toLowerCase()));
-    const { namespace, name } = this.protocol;
+    const { namespace } = this.protocol;
 
     // 1. Identify context: are we being handed a global map or a pre-bucketed namespace map?
     const isPreBucketed = namespace !== '' && !Object.keys(rawMap).some(k => k.toLowerCase() === namespace.toLowerCase());
@@ -106,18 +111,97 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
     return id.length > 0;
   }
 
+  /**
+   * Evaluates declarative staleness triggers defined in the protocol schema.
+   * Standardizes on structured object DSL to avoid string parsing overhead.
+   */
   getStaleSignals(
     atom: Atom,
     now: Date,
     globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
   ): StaleReason[] {
-    // This hook is typically implemented by the specific protocol definition (e.g. Lore)
-    // Here we can delegate back to the Facade if it has it, or just return empty.
-    // For the Engine's generic Protocol implementation, it might have a hook.
-    // Since we can't easily see the definition here without more refactoring,
-    // we'll assume the Facade will handle this or we'll pass it in.
-    
-    // In our case, Protocol class will delegate this.
-    return [];
+    const reasons: StaleReason[] = [];
+    const state = atom.protocols.get(this.protocol.name.toLowerCase());
+    if (!state) return reasons;
+
+    for (const key of this.protocol.getAuthorizedKeys()) {
+      const def = this.protocol.getDefinition(key);
+      if (!def?.stale_if) continue;
+
+      const conditions = Array.isArray(def.stale_if) ? def.stale_if : [def.stale_if];
+      const values = state.trailers[key] || [];
+
+      for (const value of values) {
+        for (const condition of conditions) {
+          const reason = this.evaluateCondition(condition, state, key, value, now, globalSupersessionMap);
+          if (reason) reasons.push(reason);
+        }
+      }
+    }
+
+    return reasons;
+  }
+
+  private evaluateCondition(
+    condition: StaleIfCondition,
+    state: ProtocolState,
+    key: string,
+    value: string,
+    now: Date,
+    globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>
+  ): StaleReason | null {
+    switch (condition.kind) {
+      case 'value-equals': {
+        const cleanValue = TriggerParser.strip(value);
+        if (cleanValue === condition.value) {
+          return {
+            signal: condition.signal || STALE_SIGNAL.VALUE_MATCH,
+            description: `[${this.protocol.name}] Atom is marked as ${key}: ${condition.value}`
+          };
+        }
+        break;
+      }
+
+      case 'date-expired': {
+        const hints = parseTriggerHints(value);
+        if (hints.until && now > hints.until) {
+          return {
+            signal: condition.signal || STALE_SIGNAL.EXPIRED_HINT,
+            description: `[${this.protocol.name}] ${key} "${value}" has expired`
+          };
+        }
+        break;
+      }
+
+      case 'reference-superseded': {
+        try {
+          const currentId = this.getIdentity(state);
+          let targetId = value;
+          let targetPName = this.protocol.name.toLowerCase();
+
+          if (value.includes('/')) {
+            const [prefix, suffix] = value.split('/', 2);
+            targetPName = prefix.toLowerCase();
+            targetId = suffix;
+          }
+
+          const targetStatusMap = globalSupersessionMap.get(targetPName);
+          const status = targetStatusMap?.get(targetId);
+
+          // Only stale if the target is superseded by SOMEONE ELSE (not us)
+          if (status?.superseded && status.supersededBy !== currentId && status.supersededBy !== `${this.protocol.name.toLowerCase()}/${currentId}`) {
+            return {
+              signal: condition.signal || STALE_SIGNAL.ORPHANED_DEP,
+              description: `[${this.protocol.name}] Dependency "${value}" (in ${key}) has been superseded by ${status.supersededBy}`,
+            };
+          }
+        } catch {
+          // ignore
+        }
+        break;
+      }
+    }
+
+    return null;
   }
 }

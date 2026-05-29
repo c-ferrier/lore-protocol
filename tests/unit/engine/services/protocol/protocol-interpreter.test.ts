@@ -123,4 +123,99 @@ describe('ProtocolInterpreter', () => {
     const state = interpreter.normalize(raw);
     expect(state.trailers.Confidence).toEqual(['high', 'low']);
   });
+
+  describe('getStaleSignals (Declarative Triggers)', () => {
+    it('should evaluate "value-equals" condition', () => {
+      const protocol = createMockProtocol({
+        name: 'Mock',
+        getAuthorizedKeys: () => ['Confidence'],
+        getDefinition: (key: string) => ({
+            key, description: '', multivalue: false,
+            stale_if: { kind: 'value-equals', value: 'low', signal: 'low-conf' }
+        } as any)
+      });
+      const interpreter = new ProtocolInterpreter(protocol, parser);
+
+      const atom: any = {
+        protocols: new Map([['mock', { trailers: { Confidence: ['low'] }, unauthorized: {} }]])
+      };
+
+      const signals = interpreter.getStaleSignals(atom, new Date(), new Map());
+      expect(signals).toHaveLength(1);
+      expect(signals[0].signal).toBe('low-conf');
+      expect(signals[0].description).toContain('marked as Confidence: low');
+    });
+
+    it('should evaluate "date-expired" condition', () => {
+      const protocol = createMockProtocol({
+        name: 'Mock',
+        getAuthorizedKeys: () => ['Directive'],
+        getDefinition: (key: string) => ({
+            key, description: '', multivalue: true,
+            stale_if: { kind: 'date-expired' }
+        } as any)
+      });
+      const interpreter = new ProtocolInterpreter(protocol, parser);
+
+      const later = new Date(2000, 1, 1); // Feb 1 2000
+      const atom: any = {
+        protocols: new Map([['mock', { trailers: { Directive: ['[until:1999-12] test'] }, unauthorized: {} }]])
+      };
+
+      const signals = interpreter.getStaleSignals(atom, later, new Map());
+      expect(signals).toHaveLength(1);
+      expect(signals[0].signal).toBe('expired-hint');
+    });
+
+    it('should evaluate "reference-superseded" condition', () => {
+      const protocol = createMockProtocol({
+        name: 'Mock',
+        identityKey: 'Mock-id',
+        getAuthorizedKeys: () => ['Depends-on'],
+        getDefinition: (key: string) => ({
+            key, description: '', multivalue: true,
+            stale_if: { kind: 'reference-superseded' }
+        } as any)
+      });
+      const interpreter = new ProtocolInterpreter(protocol, parser);
+
+      const globalMap = new Map([
+          ['mock', new Map([['deadbeef', { superseded: true, supersededBy: 'new-id' }]])]
+      ]);
+
+      const atom: any = {
+        protocols: new Map([['mock', { trailers: { 'Mock-id': ['some-other-id'], 'Depends-on': ['deadbeef'] }, unauthorized: {} }]])
+      };
+
+      const signals = interpreter.getStaleSignals(atom, new Date(), globalMap);
+      expect(signals).toHaveLength(1);
+      expect(signals[0].signal).toBe('orphaned-dep');
+      expect(signals[0].description).toContain('superseded by new-id');
+    });
+
+    it('should NOT evaluate "reference-superseded" if the target is superseded by the atom itself', () => {
+      const protocol = createMockProtocol({
+        name: 'Mock',
+        identityKey: 'Mock-id',
+        getAuthorizedKeys: () => ['Supersedes'],
+        getDefinition: (key: string) => ({
+            key, description: '', multivalue: true,
+            stale_if: { kind: 'reference-superseded' }
+        } as any)
+      });
+      const interpreter = new ProtocolInterpreter(protocol, parser);
+
+      const globalMap = new Map([
+          ['mock', new Map([['old-id', { superseded: true, supersededBy: 'active-id' }]])]
+      ]);
+
+      const atom: any = {
+        protocols: new Map([['mock', { trailers: { 'Mock-id': ['active-id'], 'Supersedes': ['old-id'] }, unauthorized: {} }]])
+      };
+
+      const signals = interpreter.getStaleSignals(atom, new Date(), globalMap);
+      // Should be empty because 'active-id' (us) is the one that superseded 'old-id'
+      expect(signals).toHaveLength(0);
+    });
+  });
 });
