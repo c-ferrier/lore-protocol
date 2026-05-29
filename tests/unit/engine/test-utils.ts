@@ -52,8 +52,6 @@ export const MOCK_CONFIG: EngineConfig = {
 export const MOCK_PROTOCOL_CONFIG: ProtocolConfig = {
   version: '1.0',
   trailers: {
-    required: [],
-    custom: [],
     definitions: {},
     permissive: true,
   },
@@ -88,6 +86,7 @@ export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = 
       pattern: '^[0-9a-f]{8}$',
       generator: 'hex8',
       ui: { kind: 'identity', color: 'dim' },
+      required: true,
     }
   };
 
@@ -112,13 +111,7 @@ export function makeProtocol(
     configOverrides: Partial<ProtocolConfig> = {}
 ): Protocol {
     const def = makeProtocolDefinition(defOverrides);
-    const config = makeProtocolConfig({
-        ...configOverrides,
-        trailers: {
-            required: [def.identityKey],
-            ...(configOverrides.trailers || {})
-        }
-    });
+    const config = makeProtocolConfig(configOverrides);
     return new Protocol(def, config);
 }
 
@@ -137,7 +130,7 @@ export const MOCK_PROTOCOL_DEFINITION: ProtocolDefinition = {
       validation: 'pattern',
       pattern: '^[0-9a-f]{8}$',
       generator: 'hex8',
-      required: false,
+      required: true,
       ui: { kind: 'identity' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       prompt: { order: 0 }
     },

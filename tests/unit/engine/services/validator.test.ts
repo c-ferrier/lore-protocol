@@ -290,7 +290,12 @@ describe('Validator', () => {
       };
       const requiredRegistry = new ProtocolRegistry();
       requiredRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, {
-        trailers: { required: ['Confidence', 'Constraint'], custom: [], definitions: {}, permissive: true }
+        trailers: { 
+          definitions: { 
+            Confidence: { description: '', multivalue: false, validation: 'none', required: true },
+            Constraint: { description: '', multivalue: true, validation: 'none', required: true }
+          }
+        }
       }));
       const requiredValidator = new Validator(trailerParser, mockAtomRepo as any, eConfig, requiredRegistry);
       
@@ -311,7 +316,11 @@ describe('Validator', () => {
       };
       const strictRegistry = new ProtocolRegistry();
       strictRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, {
-        trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true }
+        trailers: { 
+          definitions: {
+            Confidence: { description: '', multivalue: false, validation: 'none', required: true }
+          }
+        }
       }));
       const strictValidator = new Validator(trailerParser, mockAtomRepo as any, eConfig, strictRegistry);
       
@@ -327,7 +336,11 @@ describe('Validator', () => {
     it('should not warn when required trailers are present', async () => {
       const requiredRegistry = new ProtocolRegistry();
       requiredRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, {
-        trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true }
+        trailers: { 
+          definitions: {
+            Confidence: { description: '', multivalue: false, validation: 'none', required: true }
+          }
+        }
       }));
       const requiredValidator = new Validator(trailerParser, mockAtomRepo as any, MOCK_CONFIG, requiredRegistry);
       

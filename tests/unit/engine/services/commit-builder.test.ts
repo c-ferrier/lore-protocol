@@ -291,8 +291,16 @@ describe('CommitBuilder', () => {
         ...MOCK_CONFIG,
         validation: { ...MOCK_CONFIG.validation, strict: true },
       };
+      
+      const strictProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+        trailers: {
+          definitions: {
+            Confidence: { description: 'conf', multivalue: false, validation: 'none', required: true }
+          }
+        }
+      });
       const strictRegistry = new ProtocolRegistry();
-      strictRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, { trailers: { ...MOCK_PROTOCOL_CONFIG.trailers, required: ['Confidence'] } }));
+      strictRegistry.register(strictProtocol);
 
       const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, strictConfig, strictRegistry);
       const input: CommitInput = { subject: 'test', trailers: { '': { [MOCK_ID_KEY]: ['a1b2c3d4'] } } };
@@ -409,9 +417,13 @@ describe('CommitBuilder', () => {
     it('should report missing required identity key if it has NO generator', () => {
       const protocolNoGen = makeProtocol({ 
           name: 'Manual', 
-          trailers: { 'Manual-id': { description: 'id', multivalue: false, validation: 'none', generator: 'none' } } 
+          identityKey: 'Manual-id',
       }, {
-          trailers: { required: ['Manual-id'] }
+          trailers: { 
+            definitions: {
+              'Manual-id': { description: 'id', multivalue: false, validation: 'none', generator: 'none', required: true }
+            }
+          }
       });
       const registry = new ProtocolRegistry();
       registry.register(protocolNoGen);
