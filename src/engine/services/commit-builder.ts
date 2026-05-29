@@ -154,13 +154,20 @@ export class CommitBuilder {
             const def = protocol.getDefinition(key);
             const values = nsMap[key];
             
+            const isIdentity = key.toLowerCase() === protocol.identityKey.toLowerCase();
+            const hasGenerator = def?.generator && def.generator !== 'none';
+
             if (def?.required && (!values || values.length === 0)) {
-                issues.push({
-                    severity: this.config.validation.strict ? 'error' : 'warning',
-                    rule: 'required-trailer',
-                    field: ns ? `${ns}:${key}` : key,
-                    message: `[${protocol.name}] Required trailer "${key}" is missing`,
-                });
+                // Special case: identity keys with generators are filled in later by the builder,
+                // so they are not required in the raw input.
+                if (!(isIdentity && hasGenerator)) {
+                    issues.push({
+                        severity: this.config.validation.strict ? 'error' : 'warning',
+                        rule: 'required-trailer',
+                        field: ns ? `${ns}:${key}` : key,
+                        message: `[${protocol.name}] Required trailer "${key}" is missing`,
+                    });
+                }
             }
 
             if (!values || values.length === 0) continue;

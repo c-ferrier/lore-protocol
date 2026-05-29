@@ -136,6 +136,13 @@ if (!options.amend) {
 }
 const input = await commitInputResolver.resolve(options);
 
+// Validate input before building
+const validationIssues = commitBuilder.validate(input);
+const errors = validationIssues.filter(i => i.severity === 'error');
+if (errors.length > 0) {
+    throw new ProtocolError(`Validation failed:\n${errors.map(e => `  - ${e.message}`).join('\n')}`, 1);
+}
+
 let existingIds: Record<string, AtomId> | undefined;
 if (options.amend) {
   existingIds = await headIdReader.readIds();
@@ -143,6 +150,13 @@ if (options.amend) {
 
 const { message, protocols } = commitBuilder.build(input, existingIds);
 const result = await gitClient.commit(message, { amend: options.amend });
+
+// Log warnings if any (non-fatal)
+const warnings = validationIssues.filter(i => i.severity === 'warning');
+if (warnings.length > 0) {
+    const { logger } = deps;
+    for (const w of warnings) logger.warn(w.message);
+}
 
 console.log(formatter.formatSuccess(result.message, { 
   hash: result.hash,

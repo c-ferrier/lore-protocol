@@ -1,7 +1,8 @@
 import type { IPrompt } from '../interfaces/prompt.js';
 import type { ICommitInputReader } from '../interfaces/commit-input-reader.js';
 import type { CommitInput } from '../types/commit.js';
-import { readFile } from 'node:fs/promises';
+import { readFile, readFileSync } from 'node:fs';
+import { promisify } from 'node:util';
 
 import { InteractiveInputReader } from './readers/interactive-input-reader.js';
 import { JsonInputReader } from './readers/json-input-reader.js';
@@ -68,7 +69,7 @@ export class CommitInputResolver {
     }
     
     // Check if the subject line or any trailer flag was provided
-    const baseFlags = ['amend', 'edit', 'subject', 'body', 'file', 'trailer', 'interactive', 'json', 'format', 'color', 'context', 'cache'];
+    const baseFlags = ['amend', 'edit', 'subject', 'body', 'file', 'trailer', 'interactive', 'json', 'format', 'color', 'context', 'cache', 'updateNotifier'];
     const extraKeys = Object.keys(options).filter(k => !baseFlags.includes(k) && options[k] !== undefined);
     const hasFlags = !!options.subject || (options.trailer && options.trailer.length > 0) || extraKeys.length > 0;
 
@@ -100,7 +101,7 @@ export class CommitInputResolver {
         );
       }
       case InputMode.File:
-        return new JsonInputReader(await readFile(options.file!, 'utf-8'));
+        return new JsonInputReader(await promisify(readFile)(options.file!, 'utf-8'));
       case InputMode.Flags:
         return new FlagsInputReader(options, this.protocolRegistry.getAll());
       case InputMode.Stdin: {
@@ -115,18 +116,16 @@ export class CommitInputResolver {
    * For piped data (non-TTY), use robust synchronous reading to avoid event loop timing issues.
    */
   private async readStdinContent(): Promise<string> {
-    if (process.stdin.isTTY) {
-        // TTY mode: we shouldn't really be here as mode should be Interactive,
-        // but if we are, we wait for input.
-        process.stdin.resume();
-    } else {
+    if (!process.stdin.isTTY) {
         // Piped/Heredoc mode: use synchronous slurp for maximum reliability
         try {
-            const { readFileSync } = await import('node:fs');
             return readFileSync(0, 'utf-8');
         } catch {
             // Fallback to async if sync fails
         }
+    } else {
+        // TTY mode: resume so we can read if someone pipes anyway
+        process.stdin.resume();
     }
 
     const chunks: Buffer[] = [];
