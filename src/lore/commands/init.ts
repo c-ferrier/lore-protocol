@@ -5,8 +5,7 @@ import { join } from 'node:path';
 import { 
     LORE_CONFIG_DIR, 
     LORE_CONFIG_FILENAME, 
-    LORE_050_CONFIG_TEMPLATE,
-    LORE_050_EXPECTED_KEYS
+    LORE_CONFIG_TEMPLATE
 } from '../defaults.js';
 import { executeEngineInit } from '../../engine/commands/init.js';
 import type { EngineConfig } from '../../engine/types/config.js';
@@ -97,10 +96,10 @@ export function registerInitCommand(
       // 2. Write protocol definition for Atom's dynamic discovery
       await writeDiscoveryProtocol(engineDirName, formatter, logger);
 
-      // 3. Legacy Lore Setup (.lore/config.toml) from 0.5.0 template
+      // 3. Legacy Lore Setup (.lore/config.toml) from template
       await mkdir(loreDir, { recursive: true });
-      await writeFile(lorePath, LORE_050_CONFIG_TEMPLATE, 'utf-8');
-      logger.info(formatter.formatSuccess(`Created ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} (0.5.0 parity)`));
+      await writeFile(lorePath, LORE_CONFIG_TEMPLATE, 'utf-8');
+      logger.info(formatter.formatSuccess(`Created ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME} (authoritative)`));
     });
 }
 
@@ -132,17 +131,18 @@ function findConfigDiff(parsed: Record<string, unknown>): { missing: string[]; c
   const missing: string[] = [];
   const customized: string[] = [];
 
-  // Parse the template to get default values for customization check
-  const templateDefaults = parseToml(LORE_050_CONFIG_TEMPLATE) as any;
+  // Parse the template to get authoritative sections and default values
+  const templateDefaults = parseToml(LORE_CONFIG_TEMPLATE) as any;
 
-  for (const [section, keys] of Object.entries(LORE_050_EXPECTED_KEYS)) {
+  for (const [section, defaultSection] of Object.entries(templateDefaults)) {
     const userSection = parsed[section] as Record<string, unknown> | undefined;
-    const defaultSection = templateDefaults[section] || {};
 
     if (!userSection || typeof userSection !== 'object') {
       missing.push(`[${section}] section`);
       continue;
     }
+
+    const keys = Object.keys(defaultSection as object);
 
     for (const key of keys) {
       const userValue = (userSection as any)[key];

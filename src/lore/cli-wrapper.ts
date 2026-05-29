@@ -12,11 +12,12 @@ import { registerTestedCommand } from './commands/tested.js';
 import { registerRejectedCommand } from './commands/rejected.js';
 import { LoreJsonFormatter } from './formatters/lore-json-formatter.js';
 import { LoreTextFormatter } from './formatters/lore-text-formatter.js';
-import { LoreLegacyLoader, type Lore050Config } from './services/legacy-loader.js';
+import { LoreConfigLoader } from './services/lore-config-loader.js';
 import { ProtocolHydrator } from '../engine/services/protocol-hydrator.js';
 import { resolve, join } from 'node:path';
 import type { EngineConfig, ProtocolConfig, TrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../engine/types/config.js';
 import type { ProtocolDefinition } from '../engine/interfaces/protocol-definition.js';
+import type { LoreConfig } from './defaults.js';
 
 /**
  * Lore CLI Compatibility Layer.
@@ -33,7 +34,7 @@ export async function runLore() {
  */
 export async function buildLoreCli() {
   // 1. Initialize the Legacy Loader (relative to CWD)
-  const legacyLoader = new LoreLegacyLoader(join(process.cwd(), LORE_CONFIG_DIR, LORE_CONFIG_FILENAME));
+  const legacyLoader = new LoreConfigLoader(join(process.cwd(), LORE_CONFIG_DIR, LORE_CONFIG_FILENAME));
   const legacyData = await legacyLoader.load();
 
   const options: EngineOptions = {
@@ -58,7 +59,6 @@ export async function buildLoreCli() {
         if (legacyData.validation?.strict !== undefined) validation.strict = legacyData.validation.strict;
         if (legacyData.validation?.max_message_lines !== undefined) validation.maxMessageLines = legacyData.validation.max_message_lines;
         if (legacyData.validation?.intent_max_length !== undefined) validation.subjectMaxLength = legacyData.validation.intent_max_length;
-        else if (legacyData.validation?.subject_max_length !== undefined) validation.subjectMaxLength = legacyData.validation.subject_max_length;
 
         const stale: any = {};
         if (legacyData.stale?.older_than) stale.olderThan = legacyData.stale.older_than;
@@ -67,15 +67,18 @@ export async function buildLoreCli() {
         const output: any = {};
         if (legacyData.output?.default_format) output.defaultFormat = legacyData.output.default_format;
 
+        const follow: any = {};
+        if (legacyData.follow?.max_depth !== undefined) follow.maxDepth = legacyData.follow.max_depth;
+
         const cli: any = {};
         if (legacyData.cli?.update_check !== undefined) cli.updateCheck = legacyData.cli.update_check;
-        if (legacyData.cli?.cache !== undefined) cli.cache = legacyData.cli.cache;
 
         return {
             ...config,
             validation: { ...config.validation, ...validation },
             stale: { ...config.stale, ...stale },
             cli: { ...config.cli, ...cli },
+            follow: { ...config.follow, ...follow },
             output: { ...config.output, ...output } as any,
         };
     },
@@ -83,24 +86,16 @@ export async function buildLoreCli() {
     // Hook: Provide per-protocol runtime configuration (Legacy Parity)
     getProtocolConfig: (name: string): ProtocolConfig => {
         if (name === 'Lore' && legacyData) {
-            let permissive = legacyData.trailers?.permissive !== undefined ? legacyData.trailers.permissive : true;
-            
             // Hydrate definitions using the shared Engine hydrator
             const definitions: Record<string, TrailerDefinition> = {};
-            if (legacyData.trailers?.definitions) {
-                for (const [key, raw] of Object.entries(legacyData.trailers.definitions)) {
-                    definitions[key] = ProtocolHydrator.hydrateTrailer(key, raw);
-                }
-            }
             
-            // 0.5.0 Legacy Rule: If ANY custom definitions exist, permissive mode defaults to false 
-            // unless explicitly set to true.
-            if (Object.keys(definitions).length > 0 && legacyData.trailers?.permissive === undefined) {
-                permissive = false;
-            }
+            // Standard Lore trailers from the definition itself
+            const standardTrailers = new Set(Object.keys(LoreProtocolDefinition.trailers));
+            let hasCustomTrailers = false;
 
             // Translate legacy custom arrays into definitions
             for (const key of legacyData.trailers?.custom || []) {
+                if (!standardTrailers.has(key)) hasCustomTrailers = true;
                 if (!definitions[key]) {
                     definitions[key] = ProtocolHydrator.hydrateTrailer(key, {
                         description: `Custom project trailer: ${key}`,
@@ -112,6 +107,7 @@ export async function buildLoreCli() {
 
             // Translate legacy required arrays into definitions
             for (const key of legacyData.trailers?.required || []) {
+                if (!standardTrailers.has(key)) hasCustomTrailers = true;
                 if (definitions[key]) {
                     definitions[key] = { ...definitions[key], required: true };
                 } else {
@@ -123,6 +119,9 @@ export async function buildLoreCli() {
                     });
                 }
             }
+
+            // 0.5.0 Rule: If custom trailers were added, permissive mode was disabled automatically
+            const permissive = !hasCustomTrailers;
 
             return {
                 version: legacyData.protocol?.version || '1.0',

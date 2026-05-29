@@ -5,6 +5,37 @@ export const LORE_CONFIG_DIR = '.lore';
 export const LORE_CONFIG_FILENAME = 'config.toml';
 
 /**
+ * The formal TypeScript structure for a Lore 0.5.0 configuration file.
+ */
+export interface Lore050Config {
+  protocol?: {
+    version?: string;
+  };
+  trailers?: {
+    required?: string[];
+    custom?: string[];
+  };
+  validation?: {
+    strict?: boolean;
+    max_message_lines?: number;
+    intent_max_length?: number;
+  };
+  stale?: {
+    older_than?: string;
+    drift_threshold?: number;
+  };
+  output?: {
+    default_format?: 'text' | 'json';
+  };
+  follow?: {
+    max_depth?: number;
+  };
+  cli?: {
+    update_check?: boolean;
+  };
+}
+
+/**
  * The literal TOML content for a fresh Lore 0.5.0 configuration.
  * This matches the system Lore 0.5.0 exactly.
  */
@@ -35,17 +66,20 @@ update_check = true
 `;
 
 /**
+ * The currently active authoritative template for fresh project initialization.
+ */
+export const LORE_CONFIG_TEMPLATE = LORE_050_CONFIG_TEMPLATE;
+
+/** 
+ * The current authoritative version of the Lore configuration.
+ * Change this alias when moving to a new version (e.g. Lore060Config).
+ */
+export type LoreConfig = Lore050Config;
+
+/**
  * Metadata for the gap detector to avoid false positives 
  * when comparing against old config files.
- * This represents the STRICT 0.5.0 specification.
+ * @deprecated Driven by LORE_050_CONFIG_TEMPLATE at runtime.
  */
-export const LORE_050_EXPECTED_KEYS: Record<string, string[]> = {
-    protocol: ['version'],
-    trailers: ['required', 'custom'],
-    validation: ['strict', 'max_message_lines', 'intent_max_length'],
-    stale: ['older_than', 'drift_threshold'],
-    output: ['default_format'],
-    follow: ['max_depth'],
-    cli: ['update_check'] // ONLY update_check was in 0.5.0
-};
+// Removed LORE_050_EXPECTED_KEYS to avoid duplication with interface and template.
 
