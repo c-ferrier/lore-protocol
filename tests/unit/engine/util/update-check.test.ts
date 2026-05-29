@@ -1,62 +1,79 @@
-import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
-import { runCli } from '../../../../src/engine/index.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, MOCK_ENGINE_DIR, assertIsolatedEngine } from '../test-utils.js';
-import * as updateCheck from '../../../../src/util/update-check.js';
-import { ENGINE_CONFIG_FILENAME } from '../../../../src/util/constants.js';
-import { resolve } from 'node:path';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { checkForUpdates } from '../../../../src/engine/util/update-check.js';
+import updateNotifier from 'simple-update-notifier';
 
-describe('Update Check Integration', () => {
+vi.mock('simple-update-notifier');
+
+describe('Update Check Utility', () => {
+  const originalEnv = process.env;
   const originalArgv = process.argv;
-  const pkgPath = resolve(process.cwd(), 'package.json');
 
   beforeEach(() => {
-    vi.spyOn(updateCheck, 'shouldCheckForUpdate').mockResolvedValue(false);
-  });
-
-  beforeAll(() => {
-    assertIsolatedEngine(MOCK_ENGINE_DIR);
+    vi.resetAllMocks();
+    process.env = { ...originalEnv };
+    process.argv = [...originalArgv];
+    // Ensure TTY for testing
+    vi.stubGlobal('process', { ...process, stderr: { isTTY: true } });
   });
 
   afterEach(() => {
+    process.env = originalEnv;
     process.argv = originalArgv;
-    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
-  it('should call shouldCheckForUpdate during bootstrap if enabled', async () => {
-    process.argv = ['node', 'atom', 'log'];
-    
-    await runCli({
-      binaryName: 'atom',
-      description: 'Agnostic',
-      engineDirName: MOCK_ENGINE_DIR,
-      configFileName: ENGINE_CONFIG_FILENAME,
-      defaultConfig: {
-        ...MOCK_CONFIG,
-        cli: { ...MOCK_CONFIG.cli, updateCheck: true }
-      },
-      staticProtocols: [MOCK_PROTOCOL_DEFINITION],
-      packageJsonPath: pkgPath
+  it('should call updateNotifier if enabled and in a TTY', async () => {
+    await checkForUpdates({
+      packageName: 'test-pkg',
+      currentVersion: '1.0.0',
+      configEnabled: true
     });
 
-    expect(updateCheck.shouldCheckForUpdate).toHaveBeenCalled();
+    expect(updateNotifier).toHaveBeenCalledWith(expect.objectContaining({
+      pkg: { name: 'test-pkg', version: '1.0.0' }
+    }));
   });
 
-  it('should NOT call shouldCheckForUpdate if disabled in config', async () => {
-    process.argv = ['node', 'atom', 'log'];
-    
-    await runCli({
-      binaryName: 'atom',
-      description: 'Agnostic',
-      engineDirName: MOCK_ENGINE_DIR,
-      configFileName: ENGINE_CONFIG_FILENAME,
-      defaultConfig: {
-        ...MOCK_CONFIG,
-        cli: { ...MOCK_CONFIG.cli, updateCheck: false }
-      },
-      staticProtocols: [MOCK_PROTOCOL_DEFINITION],
-      packageJsonPath: pkgPath
+  it('should NOT call updateNotifier if disabled in config', async () => {
+    await checkForUpdates({
+      packageName: 'test-pkg',
+      currentVersion: '1.0.0',
+      configEnabled: false
     });
 
-    expect(updateCheck.shouldCheckForUpdate).not.toHaveBeenCalled();
+    expect(updateNotifier).not.toHaveBeenCalled();
+  });
+
+  it('should NOT call updateNotifier in CI', async () => {
+    process.env.CI = 'true';
+    await checkForUpdates({
+      packageName: 'test-pkg',
+      currentVersion: '1.0.0',
+      configEnabled: true
+    });
+
+    expect(updateNotifier).not.toHaveBeenCalled();
+  });
+
+  it('should NOT call updateNotifier if --no-update-notifier flag is present', async () => {
+    process.argv.push('--no-update-notifier');
+    await checkForUpdates({
+      packageName: 'test-pkg',
+      currentVersion: '1.0.0',
+      configEnabled: true
+    });
+
+    expect(updateNotifier).not.toHaveBeenCalled();
+  });
+
+  it('should NOT call updateNotifier if --json flag is present', async () => {
+    process.argv.push('--json');
+    await checkForUpdates({
+      packageName: 'test-pkg',
+      currentVersion: '1.0.0',
+      configEnabled: true
+    });
+
+    expect(updateNotifier).not.toHaveBeenCalled();
   });
 });

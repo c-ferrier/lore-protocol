@@ -7,7 +7,7 @@ import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { Atom, SupersessionStatus } from '../types/domain.js';
 import type { PathQueryOptions } from '../types/query.js';
 import type { FormattableStalenessResult, StaleAtomReport } from '../types/output.js';
-import { STALE_SIGNAL } from '../../util/constants.js';
+import { STALE_SIGNAL } from '../util/constants.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import type { ILogger } from '../interfaces/logger.js';
 

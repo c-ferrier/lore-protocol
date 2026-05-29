@@ -15,7 +15,7 @@ import { IdGenerator } from './services/id-generator.js';
 import { SupersessionResolver } from './services/supersession-resolver.js';
 import { type ILogger, LogLevel } from './interfaces/logger.js';
 import { TerminalLogger } from './services/terminal-logger.js';
-import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, ATOM_CACHE_DIR, QUERY_CACHE_DIR, PROTOCOLS_DIR_NAME } from '../util/constants.js';
+import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, ATOM_CACHE_DIR, QUERY_CACHE_DIR, PROTOCOLS_DIR_NAME } from './util/constants.js';
 import { ProtocolHydrator } from './services/protocol-hydrator.js';
 import { StalenessDetector } from './services/staleness-detector.js';
 import { CommitBuilder } from './services/commit-builder.js';
@@ -26,8 +26,7 @@ import { CommitInputResolver } from './services/commit-input-resolver.js';
 import { HeadIdReader } from './services/head-id-reader.js';
 import { resolveProtocolRoot } from './services/root-resolver.js';
 import { DynamicProtocolLoader } from './services/protocol-loader.js';
-import { shouldCheckForUpdate } from '../util/update-check.js';
-import { getDisplayVersion } from '../util/version.js';
+import { getEngineVersion } from './util/version.js';
 import {
   registerWhyCommand,
   registerSearchCommand,
@@ -54,12 +53,12 @@ import type { IOutputFormatter } from './interfaces/output-formatter.js';
 
 export interface EngineOptions {
   binaryName: string;
+  version: string;
   description: string;
   engineDirName: string;
   configFileName: string;
   defaultConfig: EngineConfig;
   staticProtocols: ProtocolDefinition[];
-  packageJsonPath: string;
   jsonFormatterFactory?: (registry: ProtocolRegistry) => IOutputFormatter;
   textFormatterFactory?: (registry: ProtocolRegistry, options: { color: boolean }) => IOutputFormatter;
   
@@ -146,12 +145,9 @@ export async function runCli(options: EngineOptions) {
   // Determine if we are running in a scoped context
   const isScoped = !!gitRoot && !!protocolRoot && protocolRoot !== gitRoot;
 
-  // 4. Global Options
-  const packageJson = JSON.parse(readFileSync(options.packageJsonPath, 'utf-8'));
-
   program
     .name(options.binaryName)
-    .version(getDisplayVersion(packageJson.version), '--version')
+    .version(options.version, '--version')
     .description(options.description)
     .option('--json', 'Output results in JSON format')
     .option('--no-cache', 'Bypass local atom cache')
@@ -186,7 +182,7 @@ export async function runCli(options: EngineOptions) {
   const queryCache: IQueryCache = new QueryCache(
     join(activeRoot, options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
     config.cli.queryCachePruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
-    `engine@${packageJson.version};${protocolRegistry.getFingerprint()}`,
+    `engine@${getEngineVersion()};${protocolRegistry.getFingerprint()}`,
   );
 
   const atomRepository = new AtomRepository(
@@ -209,12 +205,7 @@ export async function runCli(options: EngineOptions) {
   const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry);
   const headIdReader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
 
-  // 6. Check for updates
-  if (config.cli.updateCheck && await shouldCheckForUpdate(packageJson.version)) {
-    // Non-blocking update check
-  }
-
-  // 7. Formatter factory
+  // 6. Formatter factory
   let cachedFormatter: IOutputFormatter | null = null;
   const getFormatter = (): IOutputFormatter => {
     if (cachedFormatter !== null) return cachedFormatter;

@@ -3,7 +3,7 @@ import type { CommitBuilder } from '../services/commit-builder.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { TrailerDefinition } from '../types/config.js';
-import { ProtocolError } from '../../util/errors.js';
+import { ProtocolError } from '../util/errors.js';
 import type { CommitInputResolver } from '../services/commit-input-resolver.js';
 import type { HeadIdReader } from '../services/head-id-reader.js';
 import type { ILogger } from '../interfaces/logger.js';
@@ -11,7 +11,7 @@ import { mergeOptions } from './helpers/merge-options.js';
 import type { AtomId } from '../types/domain.js';
 import { ProtocolRegistry } from '../services/protocol-registry.js';
 import { TrailerParser } from '../services/trailer-parser.js';
-import { slugify } from '../../util/string.js';
+import { slugify } from '../util/string.js';
 
 /**
  * CLI Options for the commit command.

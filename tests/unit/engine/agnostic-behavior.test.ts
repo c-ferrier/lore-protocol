@@ -22,12 +22,12 @@ describe('Agnostic Behavior (Zero Protocols)', () => {
     // Standard administrative commands should work in "Atom" mode
     const { program } = await runCli({
       binaryName: 'atom',
+      version: '0.0.0-test',
       description: 'Agnostic',
       engineDirName: '.atom',
       configFileName: 'config.toml',
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [], // NO protocols
-      packageJsonPath: pkgPath
     });
 
     const helpText = program.helpInformation();

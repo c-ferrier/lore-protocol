@@ -11,7 +11,7 @@ import { executeEngineInit } from '../../engine/commands/init.js';
 import type { EngineConfig } from '../../engine/types/config.js';
 import { LoreProtocolDefinition } from '../protocol-definition.js';
 import { stringify as stringifyToml, parse as parseToml } from 'smol-toml';
-import { ProtocolError } from '../../util/errors.js';
+import { ProtocolError } from '../../engine/util/errors.js';
 import { type ILogger, LogLevel } from '../../engine/interfaces/logger.js';
 import { InMemoryLogger } from '../../engine/services/in-memory-logger.js';
 

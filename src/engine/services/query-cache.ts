@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir, readdir, stat, unlink, utimes, rename } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
-import { DEFAULT_CACHE_PRUNE_THRESHOLD } from '../../util/constants.js';
+import { DEFAULT_CACHE_PRUNE_THRESHOLD } from '../util/constants.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import type { QueryOptions } from '../types/query.js';
 

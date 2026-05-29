@@ -10,7 +10,7 @@ import type {
 } from '../types/output.js';
 import type { Atom, ProtocolState } from '../types/domain.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
-import { snakeCase } from '../../util/string.js';
+import { snakeCase } from '../util/string.js';
 
 /**
  * Strategy implementation for JSON output.

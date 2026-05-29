@@ -8,7 +8,7 @@ import type {
     FormattableDoctorResult, 
     FormattableConfigResult 
 } from '../../engine/types/output.js';
-import { snakeCase } from '../../util/string.js';
+import { snakeCase } from '../../engine/util/string.js';
 import type { ProtocolRegistry } from '../../engine/services/protocol-registry.js';
 
 /**

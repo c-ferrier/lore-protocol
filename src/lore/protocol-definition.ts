@@ -1,8 +1,8 @@
 import type { ProtocolDefinition } from '../engine/interfaces/protocol-definition.js';
 import type { TrailerUiKind, TrailerUiColor } from '../engine/types/config.js';
 import type { Atom, StaleReason, SupersessionStatus } from '../engine/types/domain.js';
-import { parseTriggerHints } from '../util/trigger-parser.js';
-import { STALE_SIGNAL } from '../util/constants.js';
+import { parseTriggerHints } from '../engine/util/trigger-parser.js';
+import { STALE_SIGNAL } from '../engine/util/constants.js';
 import { LORE_STALE_SIGNAL } from './constants.js';
 
 /**

@@ -2,7 +2,7 @@ import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { SquashMerger } from '../services/squash-merger.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import { ProtocolError } from '../../util/errors.js';
+import { ProtocolError } from '../util/errors.js';
 import type { ILogger } from '../interfaces/logger.js';
 
 interface SquashCommandOptions {

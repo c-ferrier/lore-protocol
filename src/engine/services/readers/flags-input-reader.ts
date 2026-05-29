@@ -2,7 +2,7 @@ import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js
 import type { CommitInput } from '../../types/commit.js';
 import type { CommitCommandOptions } from '../commit-input-resolver.js';
 import type { IProtocol } from '../../interfaces/protocol.js';
-import { slugify, camelCase } from '../../../util/string.js';
+import { slugify, camelCase } from '../../util/string.js';
 
 /**
  * Reads commit input from CLI flag values.

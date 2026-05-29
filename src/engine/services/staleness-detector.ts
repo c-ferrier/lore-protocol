@@ -1,7 +1,7 @@
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { EngineConfig } from '../types/config.js';
 import type { Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
-import { STALE_SIGNAL } from '../../util/constants.js';
+import { STALE_SIGNAL } from '../util/constants.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 import type { StaleAtomReport } from '../types/output.js';
 

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import * as rootResolver from '../../../src/engine/services/root-resolver.js';
 import { MOCK_ENGINE_DIR, assertIsolatedEngine } from './test-utils.js';
-import { ENGINE_CONFIG_FILENAME } from '../../../src/util/constants.js';
+import { ENGINE_CONFIG_FILENAME } from '../../../src/engine/util/constants.js';
 
 describe('Engine Assembly (Agnostic Bootstrap)', () => {
   const testDir = join(tmpdir(), `engine-bootstrap-${Date.now()}`);
@@ -42,12 +42,12 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
   it('should bootstrap the engine with a custom protocol and no Lore mentions', async () => {
     const { program, sharedDeps } = await runCli({
       binaryName: 'test-atom',
+      version: '0.0.0-test',
       description: 'Test Engine',
       engineDirName: MOCK_ENGINE_DIR,
       configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [CUSTOM_PROTOCOL],
-      packageJsonPath: pkgPath
     });
 
     expect(program.name()).toBe('test-atom');
@@ -69,13 +69,12 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
   it('should support running with zero protocols initially', async () => {
     // This tests the "atom" CLI scenario
     const { program } = await runCli({
-      binaryName: 'atom',
+      binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
       engineDirName: MOCK_ENGINE_DIR,
       configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [], // Atom starts empty
-      packageJsonPath: pkgPath
     });
 
     expect(program).toBeDefined();
@@ -89,13 +88,12 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     });
 
     const { sharedDeps } = await runCli({
-      binaryName: 'atom',
+      binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
       engineDirName: MOCK_ENGINE_DIR,
       configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [],
-      packageJsonPath: pkgPath
     });
 
     expect((sharedDeps.atomRepository as any).isScoped).toBe(true);
@@ -109,13 +107,12 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     });
 
     const { sharedDeps } = await runCli({
-      binaryName: 'atom',
+      binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
       engineDirName: MOCK_ENGINE_DIR,
       configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: MOCK_CONFIG,
       staticProtocols: [],
-      packageJsonPath: pkgPath
     });
 
     expect((sharedDeps.atomRepository as any).isScoped).toBe(false);

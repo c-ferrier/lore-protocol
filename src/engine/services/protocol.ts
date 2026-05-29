@@ -7,7 +7,7 @@ import type { ProtocolRegistry } from './protocol-registry.js';
 
 import { TrailerParser } from './trailer-parser.js';
 import { ProtocolHydrator } from './protocol-hydrator.js';
-import { escapeRegex } from '../../util/regex.js';
+import { escapeRegex } from '../util/regex.js';
 
 /**
  * A generic engine for Decision Protocols.

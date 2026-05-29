@@ -1,6 +1,6 @@
 import type { IProtocol } from '../interfaces/protocol.js';
 import type { QueryIdentity } from '../types/query.js';
-import { ProtocolError } from '../../util/errors.js';
+import { ProtocolError } from '../util/errors.js';
 
 /**
  * Orchestrates multiple decision protocols.

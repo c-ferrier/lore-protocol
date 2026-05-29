@@ -8,7 +8,7 @@ import type { FormattableQueryResult } from '../types/output.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
 import { parsePositiveInt } from './helpers/path-query.js';
-import { ProtocolError } from '../../util/errors.js';
+import { ProtocolError } from '../util/errors.js';
 import type { SearchFilter } from '../services/search-filter.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';

@@ -1,5 +1,5 @@
 import type { TrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
-import { TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../../util/constants.js';
+import { TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../util/constants.js';
 
 /**
  * Utility to hydrate raw objects into formal TrailerDefinitions.

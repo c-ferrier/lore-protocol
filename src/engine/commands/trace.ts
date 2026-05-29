@@ -3,7 +3,7 @@ import type { AtomRepository } from '../services/atom-repository.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { Atom, AtomId } from '../types/domain.js';
 import type { FormattableTraceResult, TraceEdge } from '../types/output.js';
-import { ProtocolError } from '../../util/errors.js';
+import { ProtocolError } from '../util/errors.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IProtocol } from '../interfaces/protocol.js';
 import type { ILogger } from '../interfaces/logger.js';

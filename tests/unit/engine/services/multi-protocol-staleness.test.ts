@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StalenessDetector } from '../../../../src/engine/services/staleness-detector.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { STALE_SIGNAL } from '../../../../src/util/constants.js';
+import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
 import type { Atom } from '../../../../src/engine/types/domain.js';
 import { MOCK_CONFIG } from '../test-utils.js';
 

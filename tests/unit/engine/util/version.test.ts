@@ -1,38 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { getEngineVersion } from '../../../../src/engine/util/version.js';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const projectRoot = resolve(__dirname, '..', '..', '..', '..');
-
-const require = createRequire(import.meta.url);
-const { version } = require('../../../../package.json') as { version: string };
-
-describe('--version flag', () => {
-  it('should report a version that starts with the package.json version', () => {
-    const output = execFileSync(process.execPath, ['dist/main.js', '--version'], {
-      cwd: projectRoot,
-      encoding: 'utf-8',
-    }).trim();
-
-    expect(output.startsWith(version)).toBe(true);
+describe('Version Utilities', () => {
+  it('should return a default version in development mode', () => {
+    const version = getEngineVersion();
+    // Since __ATOM_VERSION__ is not defined during unit tests (Vitest doesn't run through tsup),
+    // it should fall back to the default.
+    expect(version).toBe('0.0.0-dev');
   });
 
-  it('should include build metadata if built in development mode', () => {
-    // Note: This test assumes the binary was built with development defaults
-    // If it was built with NODE_ENV=production, this will be skipped or updated
-    const output = execFileSync(process.execPath, ['dist/main.js', '--version'], {
-      cwd: projectRoot,
-      encoding: 'utf-8',
-    }).trim();
-
-    if (output.length > version.length) {
-        expect(output).toContain('-');
-        // Format: version-owner.branch.date.hash
-        const suffix = output.slice(version.length + 1);
-        expect(suffix.split('.').length).toBeGreaterThanOrEqual(3);
-    }
+  it('should allow providing a custom fallback', () => {
+    const version = getEngineVersion('1.2.3');
+    expect(version).toBe('1.2.3');
   });
 });

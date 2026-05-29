@@ -2,7 +2,7 @@ import { runCli, execute, type EngineOptions } from '../engine/index.js';
 import { ProtocolRegistry } from '../engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from './protocol-definition.js';
 import { LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from './defaults.js';
-import { ENGINE_CONFIG_FILENAME, ENGINE_DIR_NAME, TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../util/constants.js';
+import { ENGINE_CONFIG_FILENAME, ENGINE_DIR_NAME, TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../engine/util/constants.js';
 import { DEFAULT_ENGINE_CONFIG } from '../engine/defaults.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerContextCommand } from './commands/context.js';
@@ -14,6 +14,9 @@ import { LoreJsonFormatter } from './formatters/lore-json-formatter.js';
 import { LoreTextFormatter } from './formatters/lore-text-formatter.js';
 import { LoreConfigLoader } from './services/lore-config-loader.js';
 import { ProtocolHydrator } from '../engine/services/protocol-hydrator.js';
+import { getLoreVersion, getLorePackageName, getLorePublishedVersion } from './util/version.js';
+import { getEngineVersion, getEnginePackageName, getEnginePublishedVersion } from '../engine/util/version.js';
+import { checkForUpdates } from '../engine/util/update-check.js';
 import { resolve, join } from 'node:path';
 import type { EngineConfig, ProtocolConfig, TrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../engine/types/config.js';
 import type { ProtocolDefinition } from '../engine/interfaces/protocol-definition.js';
@@ -39,12 +42,12 @@ export async function buildLoreCli() {
 
   const options: EngineOptions = {
     binaryName: 'lore',
+    version: `${getLoreVersion()} (${getEnginePackageName()}: ${getEngineVersion()})`,
     description: 'CLI tool for the Lore protocol -- structured decision context in git commits',
     engineDirName: ENGINE_DIR_NAME,
     configFileName: ENGINE_CONFIG_FILENAME,
     defaultConfig: DEFAULT_ENGINE_CONFIG,
     staticProtocols: [LoreProtocolDefinition],
-    packageJsonPath: resolve(new URL('../../package.json', import.meta.url).pathname),
     
     // Inject Legacy Parity Formatters
     jsonFormatterFactory: (registry: ProtocolRegistry) => new LoreJsonFormatter(registry),
@@ -142,6 +145,21 @@ export async function buildLoreCli() {
 
   const { program, getFormatter, sharedDeps, config } = await runCli(options);
   const { logger } = sharedDeps;
+
+  // Non-blocking update checks for both the wrapper and the library
+  if (config.cli.updateCheck) {
+    void checkForUpdates({
+        packageName: getLorePackageName(),
+        currentVersion: getLorePublishedVersion(),
+        configEnabled: true
+    });
+    
+    void checkForUpdates({
+        packageName: getEnginePackageName(),
+        currentVersion: getEnginePublishedVersion(),
+        configEnabled: true
+    });
+  }
 
   // --- REBRANDING WRAPPER (Commander level) ---
   

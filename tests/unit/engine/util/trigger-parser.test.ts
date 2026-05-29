@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TriggerParser, parseTriggerHints } from '../../../../src/util/trigger-parser.js';
+import { TriggerParser, parseTriggerHints } from '../../../../src/engine/util/trigger-parser.js';
 
 describe('TriggerParser', () => {
   describe('parse', () => {

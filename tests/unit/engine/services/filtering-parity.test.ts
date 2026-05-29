@@ -7,7 +7,7 @@ import { NullAtomCache } from '../../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { escapeRegex } from '../../../../src/util/regex.js';
+import { escapeRegex } from '../../../../src/engine/util/regex.js';
 import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
 
 const MOCK_ID_KEY = "Mock-id";

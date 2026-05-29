@@ -3,7 +3,7 @@ import { StalenessDetector } from '../../../../src/engine/services/staleness-det
 import type { IGitClient } from '../../../../src/engine/interfaces/git-client.js';
 import type { EngineConfig, SupersessionStatus } from '../../../../src/engine/types/config.js';
 import type { Atom, StaleReason } from '../../../../src/engine/types/domain.js';
-import { STALE_SIGNAL } from '../../../../src/util/constants.js';
+import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import type { IProtocol } from '../../../../src/engine/interfaces/protocol.js';
 import { MOCK_CONFIG, makeProtocol } from '../test-utils.js';

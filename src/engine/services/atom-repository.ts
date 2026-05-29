@@ -2,13 +2,13 @@ import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
 import type { PathQueryOptions, SearchOptions, QueryIdentity } from '../types/query.js';
 import type { Atom, AtomId, Trailers, ProtocolState } from '../types/domain.js';
 import type { TrailerParser } from './trailer-parser.js';
-import { GIT_FILES_CHANGED_BATCH_SIZE } from '../../util/constants.js';
+import { GIT_FILES_CHANGED_BATCH_SIZE } from '../util/constants.js';
 import type { IProtocol } from '../interfaces/protocol.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 import type { SearchFilter } from './search-filter.js';
 import type { IAtomCache } from '../interfaces/atom-cache.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
-import { escapeRegex } from '../../util/regex.js';
+import { escapeRegex } from '../util/regex.js';
 
 /**
  * Retrieves Atoms from git history.
