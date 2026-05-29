@@ -121,7 +121,12 @@ describe('FlagsInputReader', () => {
 
   it('should map auto-generated flags for simple custom trailers', async () => {
     const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
-      trailers: { custom: ['Squad', 'Team-Name'] },
+      trailers: { 
+        definitions: {
+          'Squad': { description: '', multivalue: true, validation: 'none' },
+          'Team-Name': { description: '', multivalue: true, validation: 'none' }
+        }
+      },
     });
     const options: any = {
       subject: 'simple',

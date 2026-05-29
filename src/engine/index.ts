@@ -15,7 +15,8 @@ import { IdGenerator } from './services/id-generator.js';
 import { SupersessionResolver } from './services/supersession-resolver.js';
 import { type ILogger, LogLevel } from './interfaces/logger.js';
 import { TerminalLogger } from './services/terminal-logger.js';
-import { PROTOCOLS_DIR_NAME } from '../util/constants.js';
+import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, ATOM_CACHE_DIR, QUERY_CACHE_DIR, PROTOCOLS_DIR_NAME } from '../util/constants.js';
+import { ProtocolHydrator } from './services/protocol-hydrator.js';
 import { StalenessDetector } from './services/staleness-detector.js';
 import { CommitBuilder } from './services/commit-builder.js';
 import { SquashMerger } from './services/squash-merger.js';
@@ -42,7 +43,6 @@ import {
 } from './commands/index.js';
 import { JsonFormatter } from './formatters/json-formatter.js';
 import { TextFormatter } from './formatters/text-formatter.js';
-import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, ATOM_CACHE_DIR, QUERY_CACHE_DIR } from '../util/constants.js';
 
 import type { IGitClient } from './interfaces/git-client.js';
 import type { IProtocol } from './interfaces/protocol.js';
@@ -105,20 +105,39 @@ export async function runCli(options: EngineOptions) {
   }
 
   // 3. Load Protocols
+  // 3. Load Protocols
   const protocolsDir = join(activeRoot, options.engineDirName, PROTOCOLS_DIR_NAME);
   const dynamicLoader = new DynamicProtocolLoader(protocolsDir);
   const dynamicProtocols = await dynamicLoader.loadAll();
-  
-  // Create unique registry map, prioritizing dynamic over static
-  const protocolMap = new Map<string, ProtocolDefinition>();
-  for (const p of options.staticProtocols) {
-      protocolMap.set(p.name.toLowerCase(), p);
-  }
-  for (const p of dynamicProtocols) {
-      protocolMap.set(p.name.toLowerCase(), p);
+
+  let allProtocols: ProtocolDefinition[] = [];
+  const dynamicMap = new Map(dynamicProtocols.map(p => [p.name.toLowerCase(), p]));
+  const staticMap = new Map((options.staticProtocols || []).map(p => [p.name.toLowerCase(), p]));
+  const allNames = new Set([...dynamicMap.keys(), ...staticMap.keys()]);
+
+  for (const name of allNames) {
+      const discovered = dynamicMap.get(name);
+      const staticDef = staticMap.get(name);
+
+      if (discovered && staticDef) {
+          // HYBRID: Schema from Repo + Logic Hooks from Library
+          allProtocols.push({
+              ...discovered,
+              getStaleSignals: staticDef.getStaleSignals
+          });
+      } else if (discovered) {
+          allProtocols.push(discovered);
+      } else if (staticDef) {
+          allProtocols.push(staticDef);
+      }
   }
 
-  let allProtocols = Array.from(protocolMap.values());
+  // Final Pass: Standardize all trailer schemas via Hydrator
+  for (const def of allProtocols) {
+    for (const [key, t] of Object.entries(def.trailers)) {
+        (def.trailers as any)[key] = ProtocolHydrator.hydrateTrailer(key, t);
+    }
+  }
   
   if (options.onProtocolsLoaded) {
     allProtocols = await options.onProtocolsLoaded(allProtocols);
@@ -146,7 +165,7 @@ export async function runCli(options: EngineOptions) {
   
   const defaultProtocolConfig: ProtocolConfig = {
     version: '1.0',
-    trailers: { required: [], custom: [], definitions: {}, permissive: true }
+    trailers: { definitions: {}, permissive: true }
   };
 
   for (const def of allProtocols) {

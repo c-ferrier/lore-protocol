@@ -146,11 +146,34 @@ export async function buildLoreCli() {
                 permissive = false;
             }
 
+            // Translate legacy custom arrays into definitions
+            for (const key of legacyData.trailers?.custom || []) {
+                if (!definitions[key]) {
+                    definitions[key] = {
+                        description: `Custom project trailer: ${key}`,
+                        multivalue: true,
+                        validation: 'none'
+                    };
+                }
+            }
+
+            // Translate legacy required arrays into definitions
+            for (const key of legacyData.trailers?.required || []) {
+                if (definitions[key]) {
+                    definitions[key] = { ...definitions[key], required: true };
+                } else {
+                    definitions[key] = {
+                        description: '',
+                        multivalue: true, // safe default
+                        validation: 'none',
+                        required: true
+                    };
+                }
+            }
+
             return {
                 version: legacyData.protocol?.version || '1.0',
                 trailers: {
-                    required: legacyData.trailers?.required || [],
-                    custom: legacyData.trailers?.custom || [],
                     definitions,
                     permissive
                 }
@@ -160,7 +183,7 @@ export async function buildLoreCli() {
         // Generic default for other protocols
         return {
             version: '1.0',
-            trailers: { required: [], custom: [], definitions: {}, permissive: true }
+            trailers: { definitions: {}, permissive: true }
         };
     }
   };

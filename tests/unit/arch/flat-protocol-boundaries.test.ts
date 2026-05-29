@@ -4,7 +4,7 @@ import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { MOCK_PROTOCOL_CONFIG } from '../engine/test-utils.js';
+import { MOCK_PROTOCOL_CONFIG, makeProtocol } from '../engine/test-utils.js';
 
 import type { FormattableQueryResult } from '../../../src/engine/types/output.js';
 import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
@@ -89,11 +89,12 @@ describe('Flat Protocol Boundaries', () => {
 
   describe('Strict Mode Boundaries', () => {
     it('should strictly prune unauthorized custom trailers in non-permissive mode', () => {
-      const config = {
-        ...MOCK_PROTOCOL_CONFIG,
-        trailers: { ...MOCK_PROTOCOL_CONFIG.trailers, permissive: false, custom: ['Authorized'] }
-      };
-      const protocol = new Protocol(LoreProtocolDefinition, config);
+      const protocol = makeProtocol(LoreProtocolDefinition, {
+        trailers: { 
+          permissive: false, 
+          definitions: { 'Authorized': { description: '', multivalue: true, validation: 'none' } } 
+        }
+      });
       const parser = new TrailerParser();
 
       const raw = `${LORE_ID_KEY}: abc\nAuthorized: yes\nUnauthorized: no`;

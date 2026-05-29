@@ -170,12 +170,11 @@ function serializeProtocol(def: any): string {
         identity_key: def.identityKey,
         trailers: {} as any
     };
+    
+    // Copy all trailers and their metadata
     for (const [key, t] of Object.entries(def.trailers)) {
-        const trailer: any = { ...(t as any) };
-        if (trailer.ui) delete trailer.ui;
-        if (trailer.prompt) delete trailer.prompt;
-        if (trailer.directives) delete trailer.directives;
-        output.trailers[key] = trailer;
+        output.trailers[key] = { ...(t as any) };
     }
+    
     return stringifyToml(output);
 }

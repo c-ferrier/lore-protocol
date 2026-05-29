@@ -31,7 +31,6 @@ export interface TrailerDefinition {
   /** CLI hints for the commit command. */
   readonly cli?: {
     readonly flag?: string;
-    readonly shorthand?: string;
   };
   /** Interactive prompt hints. */
   readonly prompt?: {
@@ -105,8 +104,6 @@ export const ENGINE_CONFIG_SCHEMA: Record<string, string[]> = {
 export interface ProtocolConfig {
   readonly version: string;
   readonly trailers: {
-    readonly required: readonly string[];
-    readonly custom: readonly string[];
     readonly definitions: Record<string, TrailerDefinition>;
     readonly permissive: boolean;
   };

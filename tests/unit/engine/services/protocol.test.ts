@@ -114,14 +114,14 @@ describe('Protocol Service', () => {
   });
 
   it('should default custom trailers to the end of the sort order', () => {
-    const config = {
-      ...MOCK_CONFIG,
+    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        ...MOCK_CONFIG.trailers,
-        custom: ['Adhoc'],
-      },
-    };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
+        definitions: {
+          Adhoc: { description: 'adhoc', multivalue: false, validation: 'none', isCore: false },
+        }
+      }
+    });
+
     const keys = protocol.getAuthorizedKeys();
     
     expect(keys[keys.length - 1]).toBe('Adhoc');
@@ -180,32 +180,6 @@ describe('Protocol Service', () => {
         trailers: {
           ...MOCK_CONFIG.trailers,
           definitions: { Team: { description: 'D', multivalue: false, validation: 'none' as const, required: true } },
-        }
-      };
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
-      expect(protocol.getDefinition('Team')?.required).toBe(true);
-    });
-
-    it('should mark a trailer as required if set in trailers.required list', () => {
-      const config = {
-        ...MOCK_CONFIG,
-        trailers: {
-          ...MOCK_CONFIG.trailers,
-          required: ['Team'],
-          custom: ['Team'],
-        }
-      };
-      const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
-      expect(protocol.getDefinition('Team')?.required).toBe(true);
-    });
-
-    it('should handle case-insensitive required list entries', () => {
-      const config = {
-        ...MOCK_CONFIG,
-        trailers: {
-          ...MOCK_CONFIG.trailers,
-          required: ['team'], // Lowercase entry
-          custom: ['Team'],
         }
       };
       const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
@@ -354,7 +328,10 @@ describe('Protocol Service', () => {
     it('should own configured custom trailers', () => {
       const config = {
         ...MOCK_CONFIG,
-        trailers: { ...MOCK_CONFIG.trailers, custom: ['My-Trailer'] }
+        trailers: { 
+          ...MOCK_CONFIG.trailers, 
+          definitions: { 'My-Trailer': { description: '', multivalue: true, validation: 'none' as const } } 
+        }
       };
       const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
       expect(protocol.owns('My-Trailer')).toBe(true);

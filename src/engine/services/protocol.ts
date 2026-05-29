@@ -316,43 +316,20 @@ export class Protocol implements IProtocol {
       });
     }
 
-    // 2. Load Configured Custom Trailers (definitions)
+    // 2. Load Configured Custom Trailers & Overrides (definitions)
     // Default isCore to false for config overrides unless explicitly true
     for (const [key, def] of Object.entries(this.config.trailers.definitions)) {
-      const existing = this.definitions.get(key);
+      const canonicalKey = this.authorize(key) || key;
+      const existing = this.definitions.get(canonicalKey);
       const isCore = def.isCore !== undefined ? def.isCore : (existing?.isCore ?? false);
       
       // Merge: Config overrides core, but we preserve core metadata if missing in config
-      this.addDefinition(key, {
+      this.addDefinition(canonicalKey, {
           ...existing,
           ...def,
-          key,
+          key: canonicalKey, // Preserve the canonical casing
           isCore
       });
-    }
-
-    // 3. Load Simple Custom Trailers (from custom list)
-    for (const key of this.config.trailers.custom) {
-      if (!this.definitions.has(key)) {
-        this.addDefinition(key, {
-          key,
-          description: `Custom project trailer: ${key}`,
-          multivalue: true,
-          validation: 'none',
-          isCore: false,
-        });
-      }
-    }
-
-    // 4. Apply 'required' status from the required list (unification)
-    for (const key of this.config.trailers.required) {
-      const authorizedKey = this.authorize(key);
-      if (authorizedKey) {
-        const def = this.definitions.get(authorizedKey);
-        if (def) {
-          this.definitions.set(authorizedKey, { ...def, required: true });
-        }
-      }
     }
   }
 

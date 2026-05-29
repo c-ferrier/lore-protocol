@@ -914,7 +914,7 @@ validation = "values"          # Enable enum validation
 values = ["Eng", "Prod"]       # List of valid values
 required = true                # Make this trailer mandatory
 ui = { kind = "risk", color = "cyan" }
-cli = { flag = "dept", shorthand = "d" }
+cli = { flag = "dept" }
 prompt = { confirm = "Set Department?", choice = "Department:" }
 
 [trailers.definitions.Ticket]
@@ -1268,7 +1268,7 @@ Changes to the *global Lore specification* (standard trailers like `Confidence`)
 
 **Everything else is automatic:**
 - **Dynamic Types**: `TrailerKey`, `ArrayTrailerKey`, and `EnumTrailerKey` unions are derived automatically from the metadata. `LoreTrailers` and `CommitInput` reuse these types via a strictly flat Record model.
-- **Dynamic CLI**: The `commit` command automatically registers the flag and shorthand.
+- **Dynamic CLI**: The `commit` command automatically registers the flag.
 - **Dynamic Interactive Mode**: The `InteractiveInputReader` automatically generates prompts.
 - **Dynamic Validation**: The `Validator` automatically enforces the schema (cardinality, enums, patterns).
 - **Dynamic UI**: The `TextFormatter` automatically styles the output based on the `ui` metadata.

@@ -2,8 +2,8 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join, basename, extname } from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
-import type { TrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
-import { TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../../util/constants.js';
+import type { TrailerDefinition } from '../types/config.js';
+import { ProtocolHydrator } from './protocol-hydrator.js';
 
 /**
  * Dynamically loads protocol definitions from .atom/protocols/*.toml
@@ -46,7 +46,7 @@ export class DynamicProtocolLoader {
         version: raw.version || '1.0',
         namespace: raw.namespace !== undefined ? raw.namespace : slug,
         identityKey: raw.identity_key || raw.identityKey || `${raw.name || slug}-id`,
-        trailers: this.resolveDefinitions(raw.trailers || {}),
+        trailers: this.hydrateTrailers(raw.trailers || {}),
       };
     } catch {
       return null;
@@ -54,81 +54,13 @@ export class DynamicProtocolLoader {
   }
 
   /**
-   * Shared logic to parse custom trailer definitions (shared with old config loader logic).
+   * Hydrate trailers using the shared ProtocolHydrator.
    */
-  private resolveDefinitions(rawData: Record<string, any>): Record<string, TrailerDefinition> {
+  private hydrateTrailers(rawData: Record<string, any>): Record<string, TrailerDefinition> {
     const result: Record<string, TrailerDefinition> = {};
-
     for (const [key, value] of Object.entries(rawData)) {
-      if (!value || typeof value !== 'object') continue;
-
-      const def = value as any;
-      
-      let validation: 'values' | 'pattern' | 'none' = 'none';
-      if (def.validation === 'values' || def.validation === 'options') {
-        validation = 'values';
-      } else if (def.validation === 'pattern') {
-        validation = 'pattern';
-      }
-
-      const directives = Array.isArray(def.directives)
-        ? def.directives.filter((d: any): d is string => typeof d === 'string')
-        : undefined;
-
-      const uiRaw = typeof def.ui === 'object' && def.ui !== null ? def.ui : undefined;
-
-      result[key] = {
-        description: typeof def.description === 'string' ? def.description : '',
-        multivalue: typeof def.multivalue === 'boolean' ? def.multivalue : false,
-        validation,
-        values: this.resolveValues(def.values || def.options),
-        pattern: typeof def.pattern === 'string' ? def.pattern : undefined,
-        required: typeof def.required === 'boolean' ? def.required : false,
-        directives,
-        ui: uiRaw ? {
-          kind: (TRAILER_UI_KINDS as readonly string[]).includes(uiRaw.kind as string) 
-            ? uiRaw.kind as TrailerUiKind 
-            : undefined,
-          color: (TRAILER_UI_COLORS as readonly string[]).includes(uiRaw.color as string) 
-            ? uiRaw.color as TrailerUiColor 
-            : undefined,
-        } : undefined,
-        cli: def.cli,
-        prompt: def.prompt,
-        squash: def.squash,
-        generator: def.generator
-      };
+      result[key] = ProtocolHydrator.hydrateTrailer(key, value);
     }
-
     return result;
-  }
-
-  private resolveValues(valuesRaw: any): Record<string, ValueDefinition> | undefined {
-    if (Array.isArray(valuesRaw)) {
-      const result: Record<string, ValueDefinition> = {};
-      for (const opt of valuesRaw) {
-        if (typeof opt === 'string') {
-          result[opt] = { description: '' };
-        }
-      }
-      return result;
-    }
-
-    if (valuesRaw && typeof valuesRaw === 'object') {
-      const result: Record<string, ValueDefinition> = {};
-      for (const [key, value] of Object.entries(valuesRaw)) {
-        if (typeof value === 'string') {
-          result[key] = { description: value };
-        } else if (value && typeof value === 'object') {
-          const optDef = value as any;
-          result[key] = {
-            description: typeof optDef.description === 'string' ? optDef.description : '',
-          };
-        }
-      }
-      return result;
-    }
-
-    return undefined;
   }
 }

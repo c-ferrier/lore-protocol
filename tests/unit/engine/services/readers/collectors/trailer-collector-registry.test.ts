@@ -65,9 +65,9 @@ describe('TrailerCollectorRegistry', () => {
   it('should create collectors for simple custom trailers', () => {
     const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        custom: ['Team'],
         definitions: {
-          'Project': { description: 'Project name', multivalue: false, validation: 'none' as const }
+          'Project': { description: 'Project name', multivalue: false, validation: 'none' as const },
+          'Team': { description: '', multivalue: true, validation: 'none' as const }
         }
       }
     });
