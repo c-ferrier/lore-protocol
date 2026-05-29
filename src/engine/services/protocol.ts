@@ -198,10 +198,6 @@ export class Protocol implements IProtocol {
   }
 
   matches(state: ProtocolState, filters: Record<string, string | string[]>): boolean {
-    // Only match against our own protocol data
-    // (This check remains in Facade or could be moved to Adapter)
-    // For now, let's keep the protocol name check in the Adapter if possible, 
-    // but Adapter doesn't know protocol name easily without passing it.
     return this.queryAdapter.matches(state, filters);
   }
 
