@@ -46,6 +46,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       pattern: '^[0-9a-f]{8}$',
       generator: 'hex8',
       required: true,
+      isCore: true,
       ui: { kind: 'identity' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       prompt: { order: 0 },
       directives: [
@@ -58,6 +59,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       description: 'Rules that shaped this decision and may still be active.',
       multivalue: true,
       validation: 'none',
+      isCore: true,
       ui: { kind: 'decision' as TrailerUiKind, color: 'cyan' as TrailerUiColor },
       cli: { flag: 'constraint' },
       prompt: {
@@ -75,6 +77,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       multivalue: true,
       validation: 'pattern',
       pattern: '^.+ \\| .+$',
+      isCore: true,
       ui: { kind: 'decision' as TrailerUiKind, color: 'magenta' as TrailerUiColor },
       cli: { flag: 'rejected' },
       prompt: {
@@ -91,6 +94,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       multivalue: false,
       validation: 'values',
       values: CONFIDENCE_VALUES,
+      isCore: true,
       ui: { kind: 'risk' as TrailerUiKind, color: 'cyan' as TrailerUiColor },
       cli: { flag: 'confidence' },
       prompt: {
@@ -108,6 +112,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       multivalue: false,
       validation: 'values',
       values: SCOPE_RISK_VALUES,
+      isCore: true,
       ui: { kind: 'risk' as TrailerUiKind, color: 'cyan' as TrailerUiColor },
       cli: { flag: 'scope-risk' },
       prompt: {
@@ -125,6 +130,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       multivalue: false,
       validation: 'values',
       values: REVERSIBILITY_VALUES,
+      isCore: true,
       ui: { kind: 'risk' as TrailerUiKind, color: 'cyan' as TrailerUiColor },
       cli: { flag: 'reversibility' },
       prompt: {
@@ -142,6 +148,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       description: 'Forward-looking instructions for future modifiers.',
       multivalue: true,
       validation: 'none',
+      isCore: true,
       ui: { kind: 'decision' as TrailerUiKind, color: 'yellow' as TrailerUiColor },
       cli: { flag: 'directive' },
       prompt: {
@@ -159,6 +166,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       description: 'What was verified and how.',
       multivalue: true,
       validation: 'none',
+      isCore: true,
       ui: { kind: 'evidence' as TrailerUiKind, color: 'green' as TrailerUiColor },
       cli: { flag: 'tested' },
       prompt: {
@@ -174,6 +182,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       description: 'What was not verified and why.',
       multivalue: true,
       validation: 'none',
+      isCore: true,
       ui: { kind: 'evidence' as TrailerUiKind, color: 'red' as TrailerUiColor },
       cli: { flag: 'not-tested' },
       prompt: {
@@ -187,6 +196,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       multivalue: true,
       validation: 'reference',
       crossProtocol: true,
+      isCore: true,
       ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       cli: { flag: 'supersedes' },
       prompt: {
@@ -204,6 +214,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       multivalue: true,
       validation: 'reference',
       crossProtocol: true,
+      isCore: true,
       ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       cli: { flag: 'depends-on' },
       prompt: {
@@ -220,6 +231,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
       multivalue: true,
       validation: 'reference',
       crossProtocol: true,
+      isCore: true,
       ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       cli: { flag: 'related' },
       prompt: {
