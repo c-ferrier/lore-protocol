@@ -1,4 +1,4 @@
-import type { CustomTrailerDefinition } from '../types/config.js';
+import type { TrailerDefinition } from '../types/config.js';
 import type { Atom, StaleReason, SupersessionStatus } from '../types/domain.js';
 
 /**
@@ -11,7 +11,7 @@ export interface ProtocolDefinition {
   /** Empty string "" indicates root namespace */
   readonly namespace: string;
   readonly identityKey: string;
-  readonly trailers: Record<string, CustomTrailerDefinition>;
+  readonly trailers: Record<string, TrailerDefinition>;
 
   /**
    * Optional hook to identify staleness signals for an atom.

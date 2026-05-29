@@ -10,13 +10,18 @@ export interface ValueDefinition {
 /**
  * Definition of a single trailer type within a protocol.
  */
-export interface CustomTrailerDefinition {
+export interface TrailerDefinition {
   readonly description: string;
   readonly multivalue: boolean;
   readonly validation: 'values' | 'pattern' | 'reference' | 'none';
   readonly values?: Record<string, string | ValueDefinition>;
   readonly pattern?: string;
   readonly required?: boolean;
+  /** 
+   * If true, this trailer is part of the core protocol schema.
+   * If false or undefined, it is a custom trailer defined in config.
+   */
+  readonly isCore?: boolean;
   readonly directives?: readonly string[];
   /** UI hints for the formatter. */
   readonly ui?: {
@@ -102,7 +107,7 @@ export interface ProtocolConfig {
   readonly trailers: {
     readonly required: readonly string[];
     readonly custom: readonly string[];
-    readonly definitions: Record<string, CustomTrailerDefinition>;
+    readonly definitions: Record<string, TrailerDefinition>;
     readonly permissive: boolean;
   };
 }

@@ -1,7 +1,7 @@
-import type { ProtocolConfig, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
+import type { ProtocolConfig, ValueDefinition, TrailerUiKind, TrailerUiColor, TrailerDefinition } from '../types/config.js';
 import type { ProtocolState, Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
 import type { FormattableTrailerDefinition } from '../types/output.js';
-import type { IProtocol, AuthorizedTrailerDefinition } from '../interfaces/protocol.js';
+import { type IProtocol, type ActiveTrailer } from '../interfaces/protocol.js';
 import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
 
 import { TrailerParser } from './trailer-parser.js';
@@ -16,7 +16,7 @@ import { escapeRegex } from '../../util/regex.js';
  * SOLID: OCP -- open to new protocols via pluggable definitions.
  */
 export class Protocol implements IProtocol {
-  private readonly definitions = new Map<string, AuthorizedTrailerDefinition>();
+  private readonly definitions = new Map<string, ActiveTrailer>();
   private readonly caseMap = new Map<string, string>();
   private readonly parser = new TrailerParser();
 
@@ -301,22 +301,28 @@ export class Protocol implements IProtocol {
 
   private loadDefinitions(): void {
     // 1. Load Protocol-Defined Core Trailers
+    // Default isCore to true for static definitions unless explicitly false
     for (const [key, def] of Object.entries(this.definition.trailers)) {
-      this.addDefinition(key, { ...def, key, isCore: true });
+      this.addDefinition(key, { 
+        ...def, 
+        key, 
+        isCore: def.isCore !== undefined ? def.isCore : true 
+      });
     }
 
     // 2. Load Configured Custom Trailers (definitions)
+    // Default isCore to false for config overrides unless explicitly true
     for (const [key, def] of Object.entries(this.config.trailers.definitions)) {
       const existing = this.definitions.get(key);
-      const isCore = existing?.isCore ?? false;
+      const isCore = def.isCore !== undefined ? def.isCore : (existing?.isCore ?? false);
       
       // Merge: Config overrides core, but we preserve core metadata if missing in config
-      this.addDefinition(key, { 
-          ...existing, 
-          ...def, 
-          key, 
-          isCore 
-      } as AuthorizedTrailerDefinition);
+      this.addDefinition(key, {
+          ...existing,
+          ...def,
+          key,
+          isCore
+      });
     }
 
     // 3. Load Simple Custom Trailers (from custom list)
@@ -344,7 +350,7 @@ export class Protocol implements IProtocol {
     }
   }
 
-  private addDefinition(key: string, def: AuthorizedTrailerDefinition): void {
+  private addDefinition(key: string, def: ActiveTrailer): void {
     this.definitions.set(key, def);
     this.caseMap.set(key.toLowerCase(), key);
   }
@@ -368,7 +374,7 @@ export class Protocol implements IProtocol {
   /**
    * Returns the metadata definition for a key.
    */
-  getDefinition(key: string): AuthorizedTrailerDefinition | null {
+  getDefinition(key: string): ActiveTrailer | null {
     const canonicalKey = this.caseMap.get(key.toLowerCase());
     return canonicalKey ? this.definitions.get(canonicalKey) || null : null;
   }
@@ -447,7 +453,7 @@ export class Protocol implements IProtocol {
         values: this.normalizeValues(def.values),
         pattern: def.pattern,
         required: def.required,
-        isCore: def.isCore,
+        isCore: !!def.isCore,
         crossProtocol: def.crossProtocol,
         directives: def.directives ?? [],
         ui: def.ui,

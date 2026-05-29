@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { join, basename, extname } from 'node:path';
 import { parse as parseToml } from 'smol-toml';
 import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
-import type { CustomTrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
+import type { TrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
 import { TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../../util/constants.js';
 
 /**
@@ -56,8 +56,8 @@ export class DynamicProtocolLoader {
   /**
    * Shared logic to parse custom trailer definitions (shared with old config loader logic).
    */
-  private resolveDefinitions(rawData: Record<string, any>): Record<string, CustomTrailerDefinition> {
-    const result: Record<string, CustomTrailerDefinition> = {};
+  private resolveDefinitions(rawData: Record<string, any>): Record<string, TrailerDefinition> {
+    const result: Record<string, TrailerDefinition> = {};
 
     for (const [key, value] of Object.entries(rawData)) {
       if (!value || typeof value !== 'object') continue;

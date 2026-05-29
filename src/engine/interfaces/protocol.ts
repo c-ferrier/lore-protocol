@@ -1,15 +1,15 @@
 import type { ProtocolState, Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
 import type { FormattableTrailerDefinition } from '../types/output.js';
-import type { TrailerUiKind, TrailerUiColor, CustomTrailerDefinition } from '../types/config.js';
+import type { TrailerDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
 import type { SearchOptions } from '../types/query.js';
 
 /**
- * Metadata for a protocol trailer, including its origin (core vs custom).
+ * Hydrated trailer definition for runtime use in the engine.
+ * Combines the base schema with canonical naming context.
  */
-export interface AuthorizedTrailerDefinition extends CustomTrailerDefinition {
+export type ActiveTrailer = TrailerDefinition & {
   readonly key: string;
-  readonly isCore: boolean;
-}
+};
 
 /**
  * Interface for a decision protocol (e.g., Mock, Fred).
@@ -41,7 +41,7 @@ export interface IProtocol {
   /**
    * Returns the metadata definition for a key.
    */
-  getDefinition(key: string): AuthorizedTrailerDefinition | null;
+  getDefinition(key: string): ActiveTrailer | null;
 
   /**
    * Returns all authorized keys (Core + Custom) sorted by prompt priority.

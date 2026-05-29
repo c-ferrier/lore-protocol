@@ -14,7 +14,7 @@ import { LoreJsonFormatter } from './formatters/lore-json-formatter.js';
 import { LoreTextFormatter } from './formatters/lore-text-formatter.js';
 import { LoreLegacyLoader, type Lore050Config } from './services/legacy-loader.js';
 import { resolve, join } from 'node:path';
-import type { EngineConfig, ProtocolConfig, CustomTrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../engine/types/config.js';
+import type { EngineConfig, ProtocolConfig, TrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../engine/types/config.js';
 import type { ProtocolDefinition } from '../engine/interfaces/protocol-definition.js';
 
 function resolveValues(valuesRaw: any): Record<string, ValueDefinition> | undefined {
@@ -36,8 +36,8 @@ function resolveValues(valuesRaw: any): Record<string, ValueDefinition> | undefi
   return undefined;
 }
 
-function resolveDefinitions(rawData: Record<string, any>): Record<string, CustomTrailerDefinition> {
-  const result: Record<string, CustomTrailerDefinition> = {};
+function resolveDefinitions(rawData: Record<string, any>): Record<string, TrailerDefinition> {
+  const result: Record<string, TrailerDefinition> = {};
 
   for (const [key, value] of Object.entries(rawData)) {
     if (!value || typeof value !== 'object') continue;

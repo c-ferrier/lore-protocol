@@ -1,5 +1,5 @@
 import type { ITrailerCollector } from '../../../interfaces/trailer-collector.js';
-import type { CustomTrailerDefinition } from '../../../types/config.js';
+import type { TrailerDefinition } from '../../../types/config.js';
 import { MultiValueTrailerCollector } from './multi-value-trailer-collector.js';
 import { EnumChoiceTrailerCollector } from './enum-choice-trailer-collector.js';
 import { IProtocol } from '../../../interfaces/protocol.js';
@@ -42,7 +42,7 @@ export class TrailerCollectorRegistry {
    */
   private createCollectorFromDefinition(
     key: string,
-    def: CustomTrailerDefinition,
+    def: TrailerDefinition,
     namespace: string,
   ): ITrailerCollector {
     const prefix = namespace ? `[${namespace}] ` : '';

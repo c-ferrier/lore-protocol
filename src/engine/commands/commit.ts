@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import type { CommitBuilder } from '../services/commit-builder.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { CustomTrailerDefinition } from '../types/config.js';
+import type { TrailerDefinition } from '../types/config.js';
 import { ProtocolError } from '../../util/errors.js';
 import type { CommitInputResolver } from '../services/commit-input-resolver.js';
 import type { HeadIdReader } from '../services/head-id-reader.js';
@@ -68,7 +68,7 @@ export function registerCommitCommand(
     for (const key of authorizedKeys) {
       if (key === p.identityKey) continue;
 
-      const def = p.getDefinition(key) as CustomTrailerDefinition;
+      const def = p.getDefinition(key) as TrailerDefinition;
       const flagName = def.cli?.flag || slugify(key);
       
       const fullFlag = isRoot ? flagName : `${prefix}${flagName}`;
@@ -101,7 +101,7 @@ export function registerCommitCommand(
         const protocolFlags = new Set<string>();
         for (const p of protocolRegistry.getAll()) {
             for (const key of p.getAuthorizedKeys()) {
-                const def = p.getDefinition(key) as CustomTrailerDefinition;
+                const def = p.getDefinition(key) as TrailerDefinition;
                 protocolFlags.add(def.cli?.flag || slugify(key));
             }
         }
