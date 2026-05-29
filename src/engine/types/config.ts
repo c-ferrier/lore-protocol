@@ -96,6 +96,12 @@ export interface EngineConfig {
     readonly queryCache: boolean;
     readonly queryCachePruneThreshold: number;
   };
+  /**
+   * Raw protocol overrides indexed by protocol name.
+   * DESIGN: This is a pass-through bucket handled by the EngineConfigLoader 
+   * and later interpreted by the ProtocolLoader.
+   */
+  readonly protocols: Record<string, any>;
 }
 
 /**
@@ -107,6 +113,7 @@ export const ENGINE_CONFIG_SCHEMA: Record<string, string[]> = {
   output: ['defaultFormat'],
   follow: ['maxDepth'],
   cli: ['updateCheck', 'cache', 'queryCache', 'queryCachePruneThreshold'],
+  protocols: [], // Dynamic section
 };
 
 /**

@@ -43,6 +43,7 @@ export const MOCK_CONFIG: EngineConfig = {
     queryCache: true,
     queryCachePruneThreshold: 100,
   },
+  protocols: {},
 };
 
 /**

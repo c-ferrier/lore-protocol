@@ -112,6 +112,13 @@ export class EngineConfigLoader implements IConfigLoader<EngineConfig> {
 
     for (const section of sections) {
       const rawSection = parsed[section];
+
+      // Pass-through Logic: Protocols are dynamic and not checked against defaults
+      if (section === 'protocols') {
+          result[section] = (rawSection && typeof rawSection === 'object') ? rawSection : {};
+          continue;
+      }
+
       if (!rawSection || typeof rawSection !== 'object') {
         result[section] = this.defaultConfig[section];
         continue;

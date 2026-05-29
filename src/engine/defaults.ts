@@ -24,4 +24,5 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
     queryCache: true,
     queryCachePruneThreshold: 100,
   },
+  protocols: {},
 };
