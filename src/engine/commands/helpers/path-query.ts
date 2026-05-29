@@ -3,7 +3,7 @@ import type { AtomRepository } from '../../services/atom-repository.js';
 import type { SupersessionResolver } from '../../services/supersession-resolver.js';
 import type { PathResolver } from '../../services/path-resolver.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { Config } from '../../types/config.js';
+import type { EngineConfig } from '../../types/config.js';
 import type { Atom, SupersessionStatus } from '../../types/domain.js';
 import type { PathQueryOptions, QueryResult, TargetType } from '../../types/query.js';
 import type { FormattableQueryResult } from '../../types/output.js';
@@ -29,7 +29,7 @@ export interface PathQueryDeps {
   readonly supersessionResolver: SupersessionResolver;
   readonly pathResolver: PathResolver;
   readonly getFormatter: () => IOutputFormatter;
-  readonly config: Config;
+  readonly config: EngineConfig;
   readonly logger: ILogger;
 }
 

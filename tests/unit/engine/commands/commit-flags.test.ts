@@ -4,7 +4,7 @@ import { registerCommitCommand } from '../../../../src/engine/commands/commit.js
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
 
 describe('atom commit (dynamic flags)', () => {
   const mockDeps = {
@@ -21,10 +21,8 @@ describe('atom commit (dynamic flags)', () => {
   });
 
   it('should register flags for custom trailers defined in config', async () => {
-    const config = {
-      ...MOCK_CONFIG,
+    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        ...MOCK_CONFIG.trailers,
         definitions: {
           Department: {
             description: 'Dept',
@@ -34,14 +32,13 @@ describe('atom commit (dynamic flags)', () => {
           }
         }
       }
-    };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    });
     const protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
 
     const program = new Command();
     
-    registerCommitCommand(program, { ...mockDeps, config, protocol, protocolRegistry });
+    registerCommitCommand(program, { ...mockDeps, config: MOCK_CONFIG, protocol, protocolRegistry });
     
     const commitCmd = program.commands.find(c => c.name() === 'commit');
     expect(commitCmd).toBeDefined();
@@ -52,10 +49,8 @@ describe('atom commit (dynamic flags)', () => {
   });
 
   it('should automatically slugify custom trailer keys into flags', async () => {
-    const config = {
-      ...MOCK_CONFIG,
+    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        ...MOCK_CONFIG.trailers,
         definitions: {
           'Assisted-by': {
             description: 'A',
@@ -64,14 +59,13 @@ describe('atom commit (dynamic flags)', () => {
           }
         }
       }
-    };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    });
     const protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
 
     const program = new Command();
     
-    registerCommitCommand(program, { ...mockDeps, config, protocol, protocolRegistry });
+    registerCommitCommand(program, { ...mockDeps, config: MOCK_CONFIG, protocol, protocolRegistry });
     
     const commitCmd = program.commands.find(c => c.name() === 'commit');
     const assistedOption = commitCmd?.options.find(o => o.long === '--assisted-by');

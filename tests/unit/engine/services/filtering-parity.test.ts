@@ -8,7 +8,7 @@ import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { escapeRegex } from '../../../../src/util/regex.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
 
 const MOCK_ID_KEY = "Mock-id";
 
@@ -75,7 +75,7 @@ describe('AtomRepository Filtering Parity', () => {
       resolveRef: vi.fn(async () => 'head-hash'),
     } as any;
 
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     trailerParser = new TrailerParser();

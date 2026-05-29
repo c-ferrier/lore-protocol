@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SupersessionResolver } from '../../../../src/engine/services/supersession-resolver.js';
-import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, makeProtocol } from '../test-utils.js';
 import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 
 const MOCK_ID_KEY = "Mock-id";
@@ -41,7 +40,7 @@ describe('SupersessionResolver', () => {
   let registry: ProtocolRegistry;
 
   beforeEach(() => {
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
     registry = new ProtocolRegistry();
     registry.register(protocol);
     resolver = new SupersessionResolver(registry);

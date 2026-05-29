@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StalenessDetector } from '../../../../src/engine/services/staleness-detector.js';
 import type { IGitClient } from '../../../../src/engine/interfaces/git-client.js';
-import type { Config } from '../../../../src/engine/types/config.js';
-import type { Atom, SupersessionStatus, StaleReason } from '../../../../src/engine/types/domain.js';
+import type { EngineConfig, SupersessionStatus } from '../../../../src/engine/types/config.js';
+import type { Atom, StaleReason } from '../../../../src/engine/types/domain.js';
 import { STALE_SIGNAL } from '../../../../src/util/constants.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import type { IProtocol } from '../../../../src/engine/interfaces/protocol.js';
+import { MOCK_CONFIG, makeProtocol } from '../test-utils.js';
 
 const MOCK_ID_KEY = "Mock-id";
 
@@ -24,19 +25,13 @@ function createMockGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
   } as any;
 }
 
-function createDefaultConfig(overrides: Partial<Config['stale']> = {}): Config {
+function createDefaultConfig(overrides: Partial<EngineConfig['stale']> = {}): EngineConfig {
   return {
-    protocol: { version: '1.0' },
-    trailers: { required: [], custom: [], definitions: {}, permissive: true },
-    validation: { strict: false, maxMessageLines: 50, subjectMaxLength: 72 },
+    ...MOCK_CONFIG,
     stale: {
-      olderThan: '6m',
-      driftThreshold: 20,
+      ...MOCK_CONFIG.stale,
       ...overrides,
     },
-    output: { defaultFormat: 'text' },
-    follow: { maxDepth: 3 },
-    cli: { updateCheck: true },
   };
 }
 
@@ -143,7 +138,7 @@ function makeGlobalSupersessionMap(entries: Array<[string, { superseded: boolean
 
 describe('StalenessDetector', () => {
   let gitClient: IGitClient;
-  let config: Config;
+  let config: EngineConfig;
   let protocol: IProtocol;
   let registry: ProtocolRegistry;
   let detector: StalenessDetector;

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TextFormatter } from '../../../../src/engine/formatters/text-formatter.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
 
 import type { Atom, Trailers, SupersessionStatus } from '../../../../src/engine/types/domain.js';
 import type {
@@ -55,7 +55,7 @@ describe('TextFormatter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    protocol = makeProtocol();
     registry.register(protocol);
     formatter = new TextFormatter(registry, { color: false });
   });

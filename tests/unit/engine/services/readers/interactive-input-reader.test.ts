@@ -3,7 +3,7 @@ import { InteractiveInputReader } from '../../../../../src/engine/services/reade
 import { createTrailerCollectors } from '../../../../../src/engine/services/readers/collectors/trailer-collector-registry.js';
 import type { IPrompt } from '../../../../../src/engine/interfaces/prompt.js';
 import { Protocol } from '../../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../../test-utils.js';
 
 /**
  * Creates a mock IPrompt for testing.
@@ -62,7 +62,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG)));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeProtocol(MOCK_PROTOCOL_DEFINITION)));
       const result = await reader.read();
 
       expect(result.subject).toBe('refactor auth module');
@@ -82,7 +82,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG)));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeProtocol(MOCK_PROTOCOL_DEFINITION)));
       const result = await reader.read();
 
       expect(result.subject).toBe('minimal subject');
@@ -127,7 +127,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG)));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeProtocol(MOCK_PROTOCOL_DEFINITION)));
       const result = await reader.read();
 
       expect(result.trailers[''].Constraint).toEqual([

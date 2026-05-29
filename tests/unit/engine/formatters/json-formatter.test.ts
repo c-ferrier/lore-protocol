@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { JsonFormatter } from '../../../../src/engine/formatters/json-formatter.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
 import type {
   FormattableQueryResult,
   FormattableValidationResult,
@@ -55,7 +55,7 @@ describe('JsonFormatter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    protocol = makeProtocol();
     registry.register(protocol);
     formatter = new JsonFormatter(registry);
   });
@@ -132,7 +132,7 @@ describe('JsonFormatter', () => {
       const parsed = JSON.parse(output);
 
       const mock = parsed.results[0].protocols.mock;
-      expect(mock.trailers.Confidence).toBe('high');
+      expect(mock.trailers.Confidence).toEqual(['high']);
       expect(mock.trailers['Depends-on']).toEqual(['aabbccdd']);
     });
   });

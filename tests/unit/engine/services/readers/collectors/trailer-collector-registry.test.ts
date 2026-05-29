@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { TrailerCollectorRegistry } from '../../../../../../src/engine/services/readers/collectors/trailer-collector-registry.js';
 import { Protocol } from '../../../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../../../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../../../test-utils.js';
 
 describe('TrailerCollectorRegistry', () => {
   it('should create default collectors for core trailers', () => {
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
@@ -24,17 +24,14 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should add custom collectors from definitions', () => {
-    const config = {
-      ...MOCK_CONFIG,
+    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        ...MOCK_CONFIG.trailers,
         definitions: {
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const },
           'Squad': { description: 'Squad name', multivalue: true, validation: 'none' as const }
         }
       }
-    };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    });
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
@@ -44,21 +41,18 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should handle multi-value enum collectors', () => {
-    const config = {
-      ...MOCK_CONFIG,
+    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        ...MOCK_CONFIG.trailers,
         definitions: {
           'Features': { 
             description: 'Features', 
             multivalue: true, 
-            validation: 'options' as const,
-            options: { f1: 'f1', f2: 'f2' }
+            validation: 'values' as const,
+            values: { f1: { description: 'f1' }, f2: { description: 'f2' } }
           },
         }
       }
-    };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    });
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     const featureCollector = collectors.find(c => c.key === 'Features');
@@ -69,17 +63,14 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should create collectors for simple custom trailers', () => {
-    const config = {
-      ...MOCK_CONFIG,
+    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        ...MOCK_CONFIG.trailers,
         custom: ['Team'],
         definitions: {
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const }
         }
       }
-    };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    });
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
@@ -89,17 +80,14 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should sort collectors based on metadata order', () => {
-    const config = {
-      ...MOCK_CONFIG,
+    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        ...MOCK_CONFIG.trailers,
         definitions: {
           'First': { description: 'f', multivalue: false, validation: 'none' as const, prompt: { order: 1 } },
           'Last': { description: 'l', multivalue: false, validation: 'none' as const, prompt: { order: 10000 } }
         }
       }
-    };
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, config);
+    });
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     const keys = collectors.map(c => c.key);

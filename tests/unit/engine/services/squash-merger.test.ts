@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SquashMerger } from '../../../../src/engine/services/squash-merger.js';
-import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, YAP_PROTOCOL_DEFINITION } from '../test-utils.js';
+import { Protocol } from '../../../../src/engine/services/protocol.js';
+import { MOCK_PROTOCOL_DEFINITION, YAP_PROTOCOL_DEFINITION, makeProtocol, MOCK_CONFIG } from '../test-utils.js';
 
 import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 
@@ -62,7 +62,7 @@ describe('SquashMerger', () => {
 
   beforeEach(() => {
     mockIdGen = createMockIdGenerator();
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    protocol = makeProtocol();
     registry = new ProtocolRegistry();
     registry.register(protocol);
     merger = new SquashMerger(mockIdGen as any, registry);
@@ -235,7 +235,7 @@ describe('SquashMerger', () => {
 
   describe('squash strategies', () => {
     it('should respect rank-max (Impact: high > low)', () => {
-       const yap = new Protocol(YAP_PROTOCOL_DEFINITION, MOCK_CONFIG);
+       const yap = makeProtocol(YAP_PROTOCOL_DEFINITION);
        registry.register(yap);
        
        const a1 = makeAtom({ id: 'l1', body: '' });
@@ -292,7 +292,7 @@ describe('SquashMerger', () => {
 
   describe('Multi-Protocol Merging', () => {
     it('should synthesize context for multiple registered protocols simultaneously', () => {
-      const yap = new Protocol(YAP_PROTOCOL_DEFINITION, MOCK_CONFIG);
+      const yap = makeProtocol(YAP_PROTOCOL_DEFINITION);
       registry.register(yap);
 
       const mixedAtom = makeAtom({

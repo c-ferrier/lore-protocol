@@ -7,7 +7,7 @@ import { NullAtomCache } from '../../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { PathQueryOptions } from '../../../../src/engine/types/query.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, YAP_PROTOCOL_DEFINITION, makeProtocolConfig } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, YAP_PROTOCOL_DEFINITION, makeProtocolConfig, makeProtocol } from '../test-utils.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
 
 const MOCK_ID_KEY = "Mock-id";
@@ -93,7 +93,7 @@ describe('AtomRepository', () => {
   beforeEach(() => {
     gitClient = createMockGitClient();
     trailerParser = new TrailerParser();
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig());
+    protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     searchFilter = new SearchFilter(protocolRegistry);

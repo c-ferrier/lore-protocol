@@ -9,7 +9,7 @@ import type { HeadIdReader } from '../../../../src/engine/services/head-id-reade
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
 
 const MOCK_ID_KEY = "Mock-id";
 
@@ -78,7 +78,7 @@ function createDeps(overrides?: {
   headIdReader?: HeadIdReader;
   gitClient?: IGitClient;
 }) {
-  const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+  const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
   const protocolRegistry = new ProtocolRegistry();
   protocolRegistry.register(protocol);
 

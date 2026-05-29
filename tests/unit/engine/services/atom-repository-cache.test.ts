@@ -6,7 +6,7 @@ import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { IAtomCache } from '../../../../src/engine/interfaces/atom-cache.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
 const MOCK_ID_KEY = "Mock-id";
@@ -25,7 +25,7 @@ describe('AtomRepository Cache Interaction', () => {
       resolveDate: vi.fn(async (d: string) => new Date(d)),
     } as any;
 
-    const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     trailerParser = new TrailerParser();

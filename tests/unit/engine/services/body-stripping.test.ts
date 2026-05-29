@@ -6,11 +6,11 @@ import { ProtocolRegistry } from '../../../../src/engine/services/protocol-regis
 import { SearchFilter } from '../../../../src/engine/services/search-filter.js';
 import { NullAtomCache } from '../../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
-import { MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_CONFIG, makeProtocol } from '../test-utils.js';
 
 describe('AtomRepository Body Stripping', () => {
   let repo: AtomRepository;
-  const protocol = new Protocol({
+  const protocol = makeProtocol({
     name: 'Test',
     version: '1.0',
     identityKey: 'Id',
@@ -19,7 +19,7 @@ describe('AtomRepository Body Stripping', () => {
       'Id': { description: 'ID', multivalue: false, validation: 'none' as const },
       'Key': { description: 'Key', multivalue: false, validation: 'none' as const }
     }
-  }, MOCK_CONFIG);
+  });
 
   beforeEach(() => {
     const registry = new ProtocolRegistry();

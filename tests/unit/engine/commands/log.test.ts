@@ -6,7 +6,7 @@ import type { SupersessionResolver } from '../../../../src/engine/services/super
 import type { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import type { Atom } from '../../../../src/engine/types/domain.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, MockLogger } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, MockLogger, makeProtocol } from '../test-utils.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
 const MOCK_ID_KEY = "Mock-id";
@@ -78,7 +78,7 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
 
   const program = new Command();
   program.exitOverride();
-  const protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+  const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
   const protocolRegistry = new ProtocolRegistry();
   protocolRegistry.register(protocol);
 

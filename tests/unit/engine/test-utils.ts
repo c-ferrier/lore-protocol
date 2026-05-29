@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
 import { type ILogger, LogLevel } from '../../../src/engine/interfaces/logger.js';
+import { Protocol } from '../../../src/engine/services/protocol.js';
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
-import type { Config, ProtocolConfig, TrailerUiKind, TrailerUiColor } from '../../../src/engine/types/config.js';
+import type { EngineConfig, ProtocolConfig, TrailerUiKind, TrailerUiColor } from '../../../src/engine/types/config.js';
 import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import type { Atom, Trailers, HierarchicalTrailers } from '../../../src/engine/types/domain.js';
 import { InMemoryLogger } from '../../../src/engine/services/in-memory-logger.js';
@@ -21,16 +22,7 @@ export function assertIsolatedEngine(dir: string = MOCK_ENGINE_DIR) {
   expect(existsSync(dir), `Engine directory ${dir} should not exist in test environment`).toBe(false);
 }
 
-export const MOCK_CONFIG: Config = {
-  protocol: {
-    version: '1.0',
-  },
-  trailers: {
-    required: [],
-    custom: [],
-    definitions: {},
-    permissive: true,
-  },
+export const MOCK_CONFIG: EngineConfig = {
   validation: {
     strict: false,
     maxMessageLines: 50,
@@ -55,19 +47,80 @@ export const MOCK_CONFIG: Config = {
 };
 
 /**
- * Helper to transform a full EngineConfig into a ProtocolConfig.
+ * A standard protocol configuration for unit tests.
  */
-export function makeProtocolConfig(config: Config = MOCK_CONFIG): ProtocolConfig {
+export const MOCK_PROTOCOL_CONFIG: ProtocolConfig = {
+  version: '1.0',
+  trailers: {
+    required: [],
+    custom: [],
+    definitions: {},
+    permissive: true,
+  },
+};
+
+/**
+ * Helper to create a ProtocolConfig with deep partial overrides.
+ */
+export function makeProtocolConfig(overrides: Partial<ProtocolConfig> = {}): ProtocolConfig {
   return {
-    version: config.protocol.version,
-    trailers: config.trailers,
+    version: overrides.version ?? MOCK_PROTOCOL_CONFIG.version,
+    trailers: {
+        ...MOCK_PROTOCOL_CONFIG.trailers,
+        ...(overrides.trailers || {}),
+    },
   };
 }
 
 /**
- * A standard protocol configuration for unit tests.
+ * Helper to create a ProtocolDefinition with sensible defaults.
+ * If no trailers are provided, it automatically adds a standard hex8 identity key.
  */
-export const MOCK_PROTOCOL_CONFIG = makeProtocolConfig(MOCK_CONFIG);
+export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = {}): ProtocolDefinition {
+  const name = overrides.name ?? 'Mock';
+  const identityKey = overrides.identityKey ?? `${name}-id`;
+  
+  const defaultTrailers: Record<string, any> = {
+    [identityKey]: {
+      description: 'Identity.',
+      multivalue: false,
+      validation: 'pattern',
+      pattern: '^[0-9a-f]{8}$',
+      generator: 'hex8',
+      ui: { kind: 'identity', color: 'dim' },
+    }
+  };
+
+  return {
+    name,
+    version: overrides.version ?? '1.0',
+    namespace: overrides.namespace ?? '',
+    identityKey,
+    trailers: {
+      ...defaultTrailers,
+      ...overrides.trailers,
+    },
+    ...overrides,
+  } as ProtocolDefinition;
+}
+
+/**
+ * High-level helper to create a fully initialized Protocol instance for tests.
+ */
+export function makeProtocol(
+    defOverrides: Partial<ProtocolDefinition> = {},
+    configOverrides: Partial<ProtocolConfig> = {}
+): Protocol {
+    const def = makeProtocolDefinition(defOverrides);
+    const config = makeProtocolConfig({
+        ...configOverrides,
+        trailers: {
+            required: [def.identityKey],
+            ...(configOverrides.trailers || {})
+        }
+    });
+    return new Protocol(def, config);
+}
 
 /**
  * MOCK: A generic root, permissive protocol (Engine Default).

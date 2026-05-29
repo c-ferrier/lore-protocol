@@ -106,12 +106,3 @@ export interface ProtocolConfig {
     readonly permissive: boolean;
   };
 }
-
-/** Legacy unified config type for backward compatibility during refactor */
-export interface Config extends EngineConfig {
-  readonly protocol: {
-    readonly name: string;
-    readonly version: string;
-  };
-  readonly trailers: ProtocolConfig['trailers'];
-}

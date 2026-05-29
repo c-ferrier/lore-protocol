@@ -5,7 +5,7 @@ import { HeadIdReader } from '../../../../src/engine/services/head-id-reader.js'
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
 import type { IGitClient } from '../../../../src/engine/interfaces/git-client.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
 
 const MOCK_ID_KEY = "Mock-id";
 
@@ -39,7 +39,7 @@ describe('HeadIdReader', () => {
   beforeEach(() => {
     trailerParser = new TrailerParser();
     protocolRegistry = new ProtocolRegistry();
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG);
+    protocol = makeProtocol();
     protocolRegistry.register(protocol);
   });
 

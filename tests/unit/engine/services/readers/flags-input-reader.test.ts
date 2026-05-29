@@ -5,15 +5,15 @@ import {
   MOCK_PROTOCOL_DEFINITION,
   MOCK_CONFIG,
   makeProtocolConfig,
+  makeProtocol
 } from '../../test-utils.js';
 import type { CommitCommandOptions } from '../../../../../src/engine/services/commit-input-resolver.js';
 
 describe('FlagsInputReader', () => {
   let protocol: Protocol;
-  const protocolConfig = { version: '1.0', trailers: MOCK_CONFIG.trailers };
 
   beforeEach(() => {
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, protocolConfig);
+    protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
   });
 
   it('should map all CLI options correctly', async () => {
@@ -120,11 +120,9 @@ describe('FlagsInputReader', () => {
   });
 
   it('should map auto-generated flags for simple custom trailers', async () => {
-    const config = {
-      ...MOCK_CONFIG,
-      trailers: { ...MOCK_CONFIG.trailers, custom: ['Squad', 'Team-Name'] },
-    };
-    const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
+    const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+      trailers: { custom: ['Squad', 'Team-Name'] },
+    });
     const options: any = {
       subject: 'simple',
       squad: 'Alpha',
@@ -140,21 +138,18 @@ describe('FlagsInputReader', () => {
   });
 
   it('should prioritize explicit cli flags over automatic ones', async () => {
-    const config = {
-      ...MOCK_CONFIG,
+    const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        ...MOCK_CONFIG.trailers,
         definitions: {
           Department: {
             description: 'dept',
             multivalue: false,
-            validation: 'none' as const,
+            validation: 'none',
             cli: { flag: 'dept' },
           },
         },
       },
-    };
-    const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(config));
+    });
     const options: any = {
       subject: 't',
       dept: 'Eng',
@@ -168,10 +163,8 @@ describe('FlagsInputReader', () => {
   });
 
   it('should automatically slugify custom trailer keys into CLI flags', async () => {
-    const customConfig = {
-      ...MOCK_CONFIG,
+    const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
       trailers: {
-        ...MOCK_CONFIG.trailers,
         definitions: {
           'Regulatory-Compliance': {
             description: 'Check for compliance',
@@ -179,8 +172,7 @@ describe('FlagsInputReader', () => {
           }
         }
       }
-    };
-    const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(customConfig));
+    });
     
     const options = {
       subject: 'feat',

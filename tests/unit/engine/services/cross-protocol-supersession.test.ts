@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { SupersessionResolver } from '../../../../src/engine/services/supersession-resolver.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
 import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 
 const MOCK_ID_KEY = "Mock-id";
@@ -47,8 +47,8 @@ describe('SupersessionResolver Cross-Protocol', () => {
   beforeEach(() => {
     registry = new ProtocolRegistry();
     // Use different namespaces to avoid root permissive conflict
-    registry.register(new Protocol({ ...MOCK_PROTOCOL_DEFINITION, namespace: 'mock' }, MOCK_CONFIG));
-    registry.register(new Protocol({ ...LORE_DEFINITION, namespace: 'lore' }, MOCK_CONFIG));
+    registry.register(makeProtocol({ ...MOCK_PROTOCOL_DEFINITION, namespace: 'mock' }));
+    registry.register(makeProtocol({ ...LORE_DEFINITION, namespace: 'lore' }));
     resolver = new SupersessionResolver(registry);
   });
 

@@ -1,15 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Validator } from '../../../../src/engine/services/validator.js';
-import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
-import { 
-  MOCK_PROTOCOL_DEFINITION, 
-  MOCK_CONFIG, 
-  makeProtocolConfig 
+import {
+  MOCK_PROTOCOL_DEFINITION,
+  MOCK_CONFIG,
+  makeProtocol,
+  makeProtocolConfig,
+  MOCK_PROTOCOL_CONFIG
 } from '../test-utils.js';
 
-import type { EngineConfig, ProtocolConfig, Config } from '../../../../src/engine/types/config.js';
+import type { EngineConfig, ProtocolConfig } from '../../../../src/engine/types/config.js';
 import type { RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { Trailers } from '../../../../src/engine/types/domain.js';
 import type { AtomRepository } from '../../../../src/engine/services/atom-repository.js';
@@ -39,7 +41,6 @@ describe('Validator', () => {
   let trailerParser: TrailerParser;
   let mockAtomRepo: Partial<AtomRepository>;
   let engineConfig: EngineConfig;
-  let protocol: Protocol;
   let protocolRegistry: ProtocolRegistry;
 
   beforeEach(() => {
@@ -47,18 +48,8 @@ describe('Validator', () => {
     mockAtomRepo = createMockAtomRepository();
     engineConfig = { ...MOCK_CONFIG };
 
-    // Explicitly mark identity as required in the protocol config for this suite
-    const pConfig: ProtocolConfig = makeProtocolConfig({
-        ...MOCK_CONFIG,
-        trailers: {
-            ...MOCK_CONFIG.trailers,
-            required: [MOCK_ID_KEY]
-        }
-    });
-
     protocolRegistry = new ProtocolRegistry();
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION, pConfig);
-    protocolRegistry.register(protocol);
+    protocolRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION));
     validator = new Validator(trailerParser, mockAtomRepo as any, engineConfig, protocolRegistry);
   });
 
@@ -198,7 +189,14 @@ describe('Validator', () => {
         }
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(customConfig));
+      const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+        trailers: {
+          ...MOCK_PROTOCOL_CONFIG.trailers,
+          definitions: {
+            Team: { description: 'T', multivalue: false, validation: 'none' as const }
+          }
+        }
+      });
       customRegistry.register(customProtocol);
       const customValidator = new Validator(trailerParser, mockAtomRepo as any, customConfig, customRegistry);
 
@@ -267,13 +265,12 @@ describe('Validator', () => {
     });
 
     it('should use config value for max length', async () => {
-      const customConfig: Config = {
+      const customConfig: EngineConfig = {
         ...MOCK_CONFIG,
         validation: { ...MOCK_CONFIG.validation, subjectMaxLength: 50 },
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(customConfig));
-      customRegistry.register(customProtocol);
+      customRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION));
       const customValidator = new Validator(trailerParser, mockAtomRepo as any, customConfig, customRegistry);
 
       const commit = makeCommit({ subject: 'a'.repeat(51) });
@@ -287,15 +284,15 @@ describe('Validator', () => {
 
   describe('Rule 6: required trailers', () => {
     it('should warn on missing required trailers (non-strict)', async () => {
-      const requiredConfig: Config = {
+      const eConfig: EngineConfig = {
         ...MOCK_CONFIG,
-        trailers: { required: ['Confidence', 'Constraint'], custom: [], definitions: {}, permissive: true },
         validation: { ...MOCK_CONFIG.validation, strict: false },
       };
       const requiredRegistry = new ProtocolRegistry();
-      const requiredProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(requiredConfig));
-      requiredRegistry.register(requiredProtocol);
-      const requiredValidator = new Validator(trailerParser, mockAtomRepo as any, requiredConfig, requiredRegistry);
+      requiredRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+        trailers: { required: ['Confidence', 'Constraint'], custom: [], definitions: {}, permissive: true }
+      }));
+      const requiredValidator = new Validator(trailerParser, mockAtomRepo as any, eConfig, requiredRegistry);
       
       const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: abc` }); // Missing Confidence and Constraint
       const results = await requiredValidator.validate([commit]);
@@ -308,15 +305,15 @@ describe('Validator', () => {
     });
 
     it('should error on missing required trailers (strict)', async () => {
-      const strictConfig: Config = {
+      const eConfig: EngineConfig = {
         ...MOCK_CONFIG,
-        trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true },
         validation: { ...MOCK_CONFIG.validation, strict: true },
       };
       const strictRegistry = new ProtocolRegistry();
-      const strictProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(strictConfig));
-      strictRegistry.register(strictProtocol);
-      const strictValidator = new Validator(trailerParser, mockAtomRepo as any, strictConfig, strictRegistry);
+      strictRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+        trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true }
+      }));
+      const strictValidator = new Validator(trailerParser, mockAtomRepo as any, eConfig, strictRegistry);
       
       const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: abc` }); // Missing Confidence
       const results = await strictValidator.validate([commit]);
@@ -328,14 +325,11 @@ describe('Validator', () => {
     });
 
     it('should not warn when required trailers are present', async () => {
-      const requiredConfig: Config = {
-        ...MOCK_CONFIG,
-        trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true },
-      };
       const requiredRegistry = new ProtocolRegistry();
-      const requiredProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(requiredConfig));
-      requiredRegistry.register(requiredProtocol);
-      const requiredValidator = new Validator(trailerParser, mockAtomRepo as any, requiredConfig, requiredRegistry);
+      requiredRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+        trailers: { required: ['Confidence'], custom: [], definitions: {}, permissive: true }
+      }));
+      const requiredValidator = new Validator(trailerParser, mockAtomRepo as any, MOCK_CONFIG, requiredRegistry);
       
       const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: abc\nConfidence: medium` });
       const results = await requiredValidator.validate([commit]);
@@ -491,7 +485,7 @@ describe('Validator', () => {
     });
 
     it('should error when referenced atom does not exist (strict)', async () => {
-      const strictConfig: Config = { ...MOCK_CONFIG, validation: { ...MOCK_CONFIG.validation, strict: true } };
+      const strictConfig: EngineConfig = { ...MOCK_CONFIG, validation: { ...MOCK_CONFIG.validation, strict: true } };
       const strictValidator = new Validator(trailerParser, mockAtomRepo as any, strictConfig, protocolRegistry);
       const commit = makeCommit({ trailers: 'Ref: aabbccdd' });
       const results = await strictValidator.validate([commit]);
@@ -534,21 +528,19 @@ describe('Validator', () => {
 
   describe('Rule 11: custom trailer definitions', () => {
     it('should error when a trailer marked as required in definitions is missing', async () => {
-      const configWithDef: Config = {
-        ...MOCK_CONFIG,
+      const pConfig: Partial<ProtocolConfig> = {
         trailers: {
-          ...MOCK_CONFIG.trailers,
           definitions: {
             Department: { description: 'dept', multivalue: false, validation: 'none' as const, required: true },
           },
+          required: ['Department'],
           custom: [],
           permissive: false,
         },
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(configWithDef));
-      customRegistry.register(customProtocol);
-      const customValidator = new Validator(trailerParser, mockAtomRepo as any, configWithDef, customRegistry);
+      customRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, pConfig));
+      const customValidator = new Validator(trailerParser, mockAtomRepo as any, MOCK_CONFIG, customRegistry);
       
       const commit = makeCommit({ trailers: `${MOCK_ID_KEY}: abc` }); // Missing Department
       const results = await customValidator.validate([commit]);
@@ -559,10 +551,8 @@ describe('Validator', () => {
     });
 
     it('should error on invalid enum value for custom trailer', async () => {
-      const configWithDef: Config = {
-        ...MOCK_CONFIG,
+      const pConfig: Partial<ProtocolConfig> = {
         trailers: {
-          ...MOCK_CONFIG.trailers,
           definitions: {
             Team: {
               description: 'team',
@@ -571,14 +561,14 @@ describe('Validator', () => {
               values: { Alpha: { description: '' }, Beta: { description: '' } },
             },
           },
+          required: [],
           custom: [],
           permissive: false,
         },
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(configWithDef));
-      customRegistry.register(customProtocol);
-      const customValidator = new Validator(trailerParser, mockAtomRepo as any, configWithDef, customRegistry);
+      customRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, pConfig));
+      const customValidator = new Validator(trailerParser, mockAtomRepo as any, MOCK_CONFIG, customRegistry);
 
       const commit = makeCommit({ trailers: 'Team: Gamma' });
       const results = await customValidator.validate([commit]);
@@ -589,21 +579,19 @@ describe('Validator', () => {
     });
 
     it('should error on invalid pattern for custom trailer', async () => {
-      const configWithDef: Config = {
-        ...MOCK_CONFIG,
+      const pConfig: Partial<ProtocolConfig> = {
         trailers: {
-          ...MOCK_CONFIG.trailers,
           definitions: {
             Ticket: { description: 'jira', multivalue: false, validation: 'pattern', pattern: '^PROJ-[0-9]+$' },
           },
+          required: [],
           custom: [],
           permissive: false,
         },
       };
       const customRegistry = new ProtocolRegistry();
-      const customProtocol = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(configWithDef));
-      customRegistry.register(customProtocol);
-      const customValidator = new Validator(trailerParser, mockAtomRepo as any, configWithDef, customRegistry);
+      customRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, pConfig));
+      const customValidator = new Validator(trailerParser, mockAtomRepo as any, MOCK_CONFIG, customRegistry);
 
       const commit = makeCommit({ trailers: 'Ticket: invalid-123' });
       const results = await customValidator.validate([commit]);
@@ -617,7 +605,7 @@ describe('Validator', () => {
   describe('Namespacing TYPOS', () => {
       it('should report unauthorized trailers in a namespaced protocol', async () => {
           const nsRegistry = new ProtocolRegistry();
-          const nsProtocol = new Protocol(
+          const nsProtocol = makeProtocol(
               { 
                 ...MOCK_PROTOCOL_DEFINITION, 
                 name: 'Project', 
@@ -628,7 +616,7 @@ describe('Validator', () => {
                     'Id': MOCK_PROTOCOL_DEFINITION.trailers[MOCK_ID_KEY]
                 }
               },
-              makeProtocolConfig({ ...MOCK_CONFIG, trailers: { ...MOCK_CONFIG.trailers, permissive: false } })
+              { trailers: { required: [], custom: [], definitions: {}, permissive: false } }
           );
           nsRegistry.register(nsProtocol);
           const nsValidator = new Validator(trailerParser, mockAtomRepo as any, engineConfig, nsRegistry);
