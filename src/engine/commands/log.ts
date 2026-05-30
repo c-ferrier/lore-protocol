@@ -41,12 +41,9 @@ export function registerLogCommand(
     if (options.scope) {
       atoms = await atomRepository.findByScope(options.scope, options);
       targetDisplay = `scope:${options.scope}`;
-    } else if (paths && paths.length > 0) {
-      atoms = await atomRepository.findAtoms(paths, options);
-      targetDisplay = paths.join(', ');
     } else {
-      atoms = await atomRepository.findAll(options);
-      targetDisplay = 'all';
+      atoms = await atomRepository.find({ target: paths, ...options });
+      targetDisplay = (paths && paths.length > 0) ? paths.join(', ') : 'all';
     }
 
     const totalAtoms = atoms.length;

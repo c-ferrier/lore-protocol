@@ -32,14 +32,14 @@ function makeAtom(id: string, supersedes: string[] = []): Atom {
 
 describe('executePathQuery — --limit as post-supersession result cap', () => {
   let deps: PathQueryDeps;
-  let mockFindByTarget: ReturnType<typeof vi.fn>;
+  let mockFind: ReturnType<typeof vi.fn>;
   let mockResolve: ReturnType<typeof vi.fn>;
   let mockFilterActive: ReturnType<typeof vi.fn>;
   let formattedOutput: string;
   let logger: MockLogger;
 
   beforeEach(() => {
-    mockFindByTarget = vi.fn();
+    mockFind = vi.fn();
     mockResolve = vi.fn();
     mockFilterActive = vi.fn();
     formattedOutput = '';
@@ -47,8 +47,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
 
     deps = {
       atomRepository: {
-        findAtoms: mockFindByTarget,
-        findByTarget: mockFindByTarget,
+        find: mockFind,
         findByScope: vi.fn(),
         resolveFollowLinks: vi.fn(),
       } as any,
@@ -93,7 +92,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
       makeAtom('eeee5555'),
     ];
 
-    mockFindByTarget.mockResolvedValue(atoms);
+    mockFind.mockResolvedValue(atoms);
 
     const supersessionMap = new Map<string, SupersessionStatus>([
       ['aaaa1111', { superseded: true, supersededBy: 'cccc3333' }],
@@ -119,7 +118,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
   });
 
   it('should not pass limit to atomRepository (only maxCommits)', async () => {
-    mockFindByTarget.mockResolvedValue([]);
+    mockFind.mockResolvedValue([]);
     mockResolve.mockReturnValue(new Map());
     mockFilterActive.mockReturnValue([]);
 
@@ -127,7 +126,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     await executePathQuery('src/test.ts', options, deps, 'context', 'all');
 
     // Verify findByTarget received maxCommits in PathQueryOptions
-    const queryOptions = mockFindByTarget.mock.calls[0][1];
+    const queryOptions = mockFind.mock.calls[0][0];
     expect(queryOptions.maxCommits).toBe(100);
     // limit is in the options but should NOT affect git scan (in repository call)
     expect(queryOptions.limit).toBeNull();
@@ -136,7 +135,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
   it('should return all atoms when limit is not specified', async () => {
     const atoms = [makeAtom('aaaa1111'), makeAtom('bbbb2222'), makeAtom('cccc3333')];
 
-    mockFindByTarget.mockResolvedValue(atoms);
+    mockFind.mockResolvedValue(atoms);
     mockResolve.mockReturnValue(new Map());
     mockFilterActive.mockReturnValue(atoms);
 
@@ -150,7 +149,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
   it('should treat limit 0 as no limit', async () => {
     const atoms = [makeAtom('aaaa1111'), makeAtom('bbbb2222')];
 
-    mockFindByTarget.mockResolvedValue(atoms);
+    mockFind.mockResolvedValue(atoms);
     mockResolve.mockReturnValue(new Map());
     mockFilterActive.mockReturnValue(atoms);
 

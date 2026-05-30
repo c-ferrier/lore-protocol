@@ -41,14 +41,11 @@ export function registerStaleCommand(
       const { atomRepository, supersessionResolver, stalenessDetector, getFormatter } = deps;
 
       // 1. Fetch atoms using high-level Repository API
-      // This encapsulates Path resolution and Git-log construction.
       const queryOptions: PathQueryOptions = {
           scope: null, follow: false, all: false, author: null, limit: null, maxCommits: null, since: null, until: null,
       };
       
-      const atoms = target 
-        ? await atomRepository.findAtoms(target, queryOptions)
-        : await atomRepository.findAll();
+      const atoms = await atomRepository.find({ target, ...queryOptions });
 
       // 2. Compute supersession for dependency-orphan detection
       const globalSupersessionMap = supersessionResolver.resolveAll(atoms);

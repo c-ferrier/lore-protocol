@@ -59,7 +59,7 @@ describe('AtomRepository Cache Interaction', () => {
     vi.mocked(atomCache.get).mockResolvedValue({ filesChanged: cachedFiles });
     vi.mocked(gitClient.log).mockResolvedValue([mockCommit]);
 
-    const result = await repo.findAll();
+    const result = await repo.find();
 
     expect(result).toHaveLength(1);
     expect(result[0].filesChanged).toEqual(cachedFiles);
@@ -73,7 +73,7 @@ describe('AtomRepository Cache Interaction', () => {
     vi.mocked(gitClient.log).mockResolvedValue([mockCommit]);
     vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[mockCommit.hash, gitFiles]]));
 
-    const result = await repo.findAll();
+    const result = await repo.find();
 
     expect(result).toHaveLength(1);
     expect(result[0].filesChanged).toEqual(gitFiles);
@@ -97,7 +97,7 @@ describe('AtomRepository Cache Interaction', () => {
     vi.mocked(atomCache.get).mockImplementation(async (h) => h === 'hash1' ? { filesChanged: cachedFiles } : null);
     vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['hash2', gitFiles]]));
 
-    const result = await repo.findAll();
+    const result = await repo.find();
 
     expect(result).toHaveLength(2);
     expect(result[0].filesChanged).toEqual(cachedFiles);

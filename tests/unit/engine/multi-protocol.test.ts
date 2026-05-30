@@ -51,7 +51,7 @@ describe('Multi-Protocol Integration', () => {
   });
 
   it('Discovery: should aggregate discovery patterns from all protocols', async () => {
-    await repo.findAll({});
+    await repo.find();
     const args = vi.mocked(gitClient.log).mock.calls[0][0];
     
     // Aggregate pattern: Mock-id (root) OR fred: (namespaced coarse pass)
@@ -75,7 +75,7 @@ describe('Multi-Protocol Integration', () => {
     vi.mocked(gitClient.log).mockResolvedValue([commit]);
     vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['h1', []]]));
 
-    const [atom] = await repo.findAll();
+    const [atom] = await repo.find();
     
     const mockState = atom.protocols.get('mock')!;
     const fredState = atom.protocols.get('fred')!;

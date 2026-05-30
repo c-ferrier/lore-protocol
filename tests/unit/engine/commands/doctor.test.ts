@@ -8,7 +8,7 @@ import type { Atom } from '../../../../src/engine/types/domain.js';
 
 function createMockAtomRepository() {
   return {
-    findAll: vi.fn(),
+    find: vi.fn(),
     findById: vi.fn(),
   };
 }
@@ -89,7 +89,7 @@ describe('Doctor Command', () => {
       filesChanged: []
     } as any;
 
-    atomRepository.findAll.mockResolvedValue([atom]);
+    atomRepository.find.mockResolvedValue([atom]);
 
     const logger = new MockLogger();
 
@@ -156,7 +156,7 @@ describe('Doctor Command', () => {
       ])
     };
 
-    atomRepository.findAll.mockResolvedValue([atom1, atom2]);
+    atomRepository.find.mockResolvedValue([atom1, atom2]);
     const logger = new MockLogger();
 
     await runDoctor({

@@ -43,17 +43,15 @@ function makeAtom(overrides: Partial<Atom> & { filesChanged: readonly string[] }
 interface Harness {
   program: Command;
   capturedResult: { data: unknown };
-  findAll: ReturnType<typeof vi.fn>;
-  findByTarget: ReturnType<typeof vi.fn>;
-  consoleSpy: ReturnType<typeof vi.spyOn>;
+  find: ReturnType<typeof vi.fn>;
+  findByScope: ReturnType<typeof vi.fn>;
+  logger: ILogger;
 }
 
 function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
-  const findAll = vi.fn().mockResolvedValue(atoms);
-  const findByTarget = vi.fn().mockResolvedValue(filteredAtoms ?? atoms);
-  const findAtoms = vi.fn().mockResolvedValue(filteredAtoms ?? atoms);
+  const find = vi.fn().mockResolvedValue(filteredAtoms ?? atoms);
   const findByScope = vi.fn().mockResolvedValue([]);
-  const atomRepository = { findAll, findByTarget, findAtoms, findByScope } as unknown as AtomRepository;
+  const atomRepository = { find, findByScope } as unknown as AtomRepository;
 
   const supersessionResolver = {
     resolveAll: vi.fn().mockReturnValue(new Map([['mock', new Map()]])),
@@ -86,41 +84,36 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
 
   registerLogCommand(program, {
     atomRepository,
-    gitClient: {
-      resolveRef: vi.fn().mockResolvedValue('head-hash'),
-    } as any,
     supersessionResolver,
     getFormatter: () => formatter,
     logger,
   });
 
-  return { program, capturedResult, findAll, findByTarget, findAtoms, findByScope, logger };
+  return { program, capturedResult, find, findByScope, logger };
 }
 
 describe('registerLogCommand (agnostic path arguments)', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
-
-  it('accepts a positional path and routes through findByTarget', async () => {
-    const matching = makeAtom({
-      id: 'match0001',
-      filesChanged: ['src/main.ts'],
+  it('accepts a positional path and routes through find()', async () => {
+    const matching = makeAtom({ 
+        id: 'match0002', 
+        filesChanged: ['src/main.ts'],
+        subject: 'feat(main): change' 
     });
     const h = buildHarness([matching], [matching]);
 
     await h.program.parseAsync(['node', 'atom', 'log', 'src/main.ts']);
 
-    expect(h.findAtoms).toHaveBeenCalledTimes(1);
-    expect(h.findAtoms).toHaveBeenCalledWith(
-      ['src/main.ts'],
-      expect.any(Object)
+    expect(h.find).toHaveBeenCalledTimes(1);
+    expect(h.find).toHaveBeenCalledWith(
+      expect.objectContaining({ target: ['src/main.ts'] })
     );
-    expect(h.findAll).not.toHaveBeenCalled();
 
     const result = (h.capturedResult.data as { result: { atoms: any[] } }).result;
     expect(result.atoms).toHaveLength(1);
-    expect(result.atoms[0].protocols.get('mock').trailers[MOCK_ID_KEY][0]).toBe('match0001');
+    expect(result.atoms[0].protocols.get('mock').trailers[MOCK_ID_KEY][0]).toBe('match0002');
   });
 
   it('accepts the `--` pass-through and routes identically', async () => {
@@ -132,10 +125,9 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     await h.program.parseAsync(['node', 'atom', 'log', '--', 'src/main.ts']);
 
-    expect(h.findAtoms).toHaveBeenCalledTimes(1);
-    expect(h.findAtoms).toHaveBeenCalledWith(
-      ['src/main.ts'],
-      expect.any(Object)
+    expect(h.find).toHaveBeenCalledTimes(1);
+    expect(h.find).toHaveBeenCalledWith(
+      expect.objectContaining({ target: ['src/main.ts'] })
     );
 
     const result = (h.capturedResult.data as { result: { atoms: any[] } }).result;
@@ -143,15 +135,17 @@ describe('registerLogCommand (agnostic path arguments)', () => {
     expect(result.atoms[0].protocols.get('mock').trailers[MOCK_ID_KEY][0]).toBe('match0002');
   });
 
-  it('uses findAll (not findByTarget) when no path argument is provided', async () => {
+  it('uses global find when no path argument is provided', async () => {
     const a = makeAtom({ id: 'all00001', filesChanged: ['src/a.ts'] });
     const b = makeAtom({ id: 'all00002', filesChanged: ['src/b.ts'] });
     const h = buildHarness([a, b]);
 
     await h.program.parseAsync(['node', 'atom', 'log']);
 
-    expect(h.findAll).toHaveBeenCalledTimes(1);
-    expect(h.findByTarget).not.toHaveBeenCalled();
+    expect(h.find).toHaveBeenCalledTimes(1);
+    expect(h.find).toHaveBeenCalledWith(
+      expect.objectContaining({ target: [] })
+    );
 
     const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(2);

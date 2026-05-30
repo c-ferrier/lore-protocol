@@ -61,10 +61,6 @@ function makeMockCommit(options: {
   };
 }
 
-function makeGitLogArgs(filePath: string = 'src/auth.ts'): readonly string[] {
-  return ['--', filePath];
-}
-
 function makeQueryOptions(overrides: Partial<PathQueryOptions> = {}): PathQueryOptions {
   return {
     scope: null,
@@ -90,15 +86,13 @@ describe('AtomRepository', () => {
     repo = makeAtomRepository({ gitClient, registry: protocolRegistry });
   });
 
-  describe('findByTarget', () => {
+  describe('find', () => {
     it('should return atoms for a file target', async () => {
       const commit = makeMockCommit({ id: 'a1b2c3d4' });
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, ['src/auth.ts']]]));
 
-      const gitLogArgs = makeGitLogArgs();
-      const options = makeQueryOptions();
-      const result = await repo.findByTarget(gitLogArgs, options);
+      const result = await repo.find({ target: 'src/auth.ts' });
 
       expect(result).toHaveLength(1);
       expect(result[0].protocols.get('mock')?.trailers[MOCK_ID_KEY]?.[0]).toBe('a1b2c3d4');
@@ -107,7 +101,7 @@ describe('AtomRepository', () => {
       expect(result[0].filesChanged).toEqual(['src/auth.ts']);
     });
 
-    it('should filter out non-Mock commits', async () => {
+    it('should filter out non-protocol commits', async () => {
       const mockCommit = makeMockCommit({ id: 'a1b2c3d4' });
       const nonMockCommit: RawCommit = {
         hash: 'def456',
@@ -121,7 +115,7 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.log).mockResolvedValue([mockCommit, nonMockCommit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[mockCommit.hash, ['src/auth.ts']]]));
 
-      const result = await repo.findByTarget(makeGitLogArgs(), makeQueryOptions());
+      const result = await repo.find({ target: 'src/auth.ts' });
 
       expect(result).toHaveLength(1);
       expect(result[0].protocols.get('mock')?.trailers[MOCK_ID_KEY]?.[0]).toBe('a1b2c3d4');
@@ -130,7 +124,7 @@ describe('AtomRepository', () => {
     it('should pass author filter to git log args', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
       const options = makeQueryOptions({ author: 'alice@example.com' });
-      await repo.findByTarget(makeGitLogArgs(), options);
+      await repo.find({ target: 'src/auth.ts', ...options });
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
       expect(logArgs).toContain('--author=alice@example\\.com');
     });
@@ -138,7 +132,7 @@ describe('AtomRepository', () => {
     it('should pass since filter to git log args', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
       const options = makeQueryOptions({ since: '2025-01-01' });
-      await repo.findByTarget(makeGitLogArgs(), options);
+      await repo.find({ target: 'src/auth.ts', ...options });
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
       expect(logArgs).toContain('--since=2025-01-01T00:00:00.000Z');
     });
@@ -146,7 +140,7 @@ describe('AtomRepository', () => {
     it('should pass until filter to git log args', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
       const options = makeQueryOptions({ until: '2025-06-01' });
-      await repo.findByTarget(makeGitLogArgs(), options);
+      await repo.find({ target: 'src/auth.ts', ...options });
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
       expect(logArgs).toContain('--until=2025-06-01T00:00:00.000Z');
     });
@@ -154,14 +148,14 @@ describe('AtomRepository', () => {
     it('should pass maxCommits to git log args', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
       const options = makeQueryOptions({ maxCommits: 5 });
-      await repo.findByTarget(makeGitLogArgs(), options);
+      await repo.find({ target: 'src/auth.ts', ...options });
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
       expect(logArgs).toContain('--max-count=5');
     });
 
     it('should return empty array when no commits match', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
-      const result = await repo.findByTarget(makeGitLogArgs(), makeQueryOptions());
+      const result = await repo.find({ target: 'src/auth.ts' });
       expect(result).toEqual([]);
     });
 
@@ -172,7 +166,7 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit1.hash, ['src/auth.ts']], [commit2.hash, ['src/auth.ts']]]));
 
       const options = makeQueryOptions({ author: 'alice' });
-      const result = await repo.findByTarget(makeGitLogArgs(), options);
+      const result = await repo.find({ target: 'src/auth.ts', ...options });
 
       expect(result).toHaveLength(1);
       expect(result[0].author).toBe('alice@example.com');
@@ -188,7 +182,7 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map(commits.map(c => [c.hash, ['src/auth.ts']])));
 
       const options = makeQueryOptions({ limit: 2 });
-      const result = await repo.findByTarget(makeGitLogArgs(), options);
+      const result = await repo.find({ target: 'src/auth.ts', ...options });
 
       expect(result).toHaveLength(3);
     });
@@ -249,7 +243,7 @@ describe('AtomRepository', () => {
     });
   });
 
-  describe('findAll', () => {
+  describe('global find', () => {
     it('should return all Mock atoms', async () => {
       const commits = [
         makeMockCommit({ id: 'aaaa1111' }),
@@ -258,7 +252,7 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.log).mockResolvedValue(commits);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map(commits.map(c => [c.hash, []])));
 
-      const result = await repo.findAll();
+      const result = await repo.find();
       expect(result).toHaveLength(2);
     });
 
@@ -275,40 +269,40 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['aaa', []]]));
 
-      const result = await repo.findAll();
+      const result = await repo.find();
       expect(result[0].body).toBe('');
     });
 
     it('should pass since option to git log', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
-      await repo.findAll({ since: '2025-01-01' });
+      await repo.find({ since: '2025-01-01' });
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
       expect(logArgs).toContain('--since=2025-01-01T00:00:00.000Z');
     });
 
     it('should pass until option to git log', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
-      await repo.findAll({ until: '2025-06-01' });
+      await repo.find({ until: '2025-06-01' });
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
       expect(logArgs).toContain('--until=2025-06-01T00:00:00.000Z');
     });
 
     it('should pass maxCommits option to git log', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
-      await repo.findAll({ maxCommits: 10 });
+      await repo.find({ maxCommits: 10 });
       const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
       expect(logArgs).toContain('--max-count=10');
     });
   });
 
-  describe('findAll with scope', () => {
+  describe('findByScope', () => {
     it('should find atoms matching the scope', async () => {
       const authCommit = makeMockCommit({ subject: 'feat(auth): add login', id: 'aaaa1111' });
       const dbCommit = makeMockCommit({ subject: 'fix(database): fix query', id: 'bbbb2222' });
       vi.mocked(gitClient.log).mockResolvedValue([authCommit, dbCommit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[authCommit.hash, []], [dbCommit.hash, []]]));
 
-      const result = await repo.findAll({ ...makeQueryOptions(), scope: 'auth' });
+      const result = await repo.findByScope('auth', makeQueryOptions());
 
       expect(result).toHaveLength(1);
       expect(result[0].protocols.get('mock')?.trailers[MOCK_ID_KEY]?.[0]).toBe('aaaa1111');
@@ -319,7 +313,7 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, []]]));
 
-      const result = await repo.findAll({ ...makeQueryOptions(), scope: 'auth' });
+      const result = await repo.findByScope('auth', makeQueryOptions());
       expect(result).toHaveLength(1);
     });
   });
@@ -342,7 +336,7 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['multi-hash', []]]));
 
-      const atoms = await repo.findAll();
+      const atoms = await repo.find();
       expect(atoms).toHaveLength(1);
       const atom = atoms[0];
       
@@ -385,7 +379,7 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['implicit-hash', []]]));
 
-      const atoms = await repo.findAll();
+      const atoms = await repo.find();
       const atom = atoms[0];
 
       const yapState = atom.protocols.get('yap')!;
@@ -504,7 +498,7 @@ describe('AtomRepository', () => {
       commits.forEach(c => filesMap.set(c.hash, ['file.ts']));
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(filesMap);
 
-      await repo.findAll();
+      await repo.find();
 
       expect(gitClient.getFilesChanged).toHaveBeenCalledTimes(2);
       expect(vi.mocked(gitClient.getFilesChanged).mock.calls[0][0]).toHaveLength(20);

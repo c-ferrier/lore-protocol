@@ -4,7 +4,6 @@ import type { Atom, AtomId, Trailers, ProtocolState } from '../types/domain.js';
 import type { TrailerParser } from './trailer-parser.js';
 import { GIT_FILES_CHANGED_BATCH_SIZE, GLOBAL_CACHE_KEY } from '../util/constants.js';
 import { ProtocolError } from '../util/errors.js';
-import type { IProtocol } from '../interfaces/protocol.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 import type { SearchFilter } from './search-filter.js';
 import type { PathResolver } from './path-resolver.js';
@@ -15,10 +14,9 @@ import { escapeRegex } from '../util/regex.js';
 /**
  * Retrieves Atoms from git history.
  * The central query engine for all protocol-related git log queries.
- *
- * GRASP: Pure Fabrication -- persistence access abstracted from domain.
- * SOLID: DIP -- depends on IGitClient interface, not child_process.
- * GRASP: Information Expert -- knows how to map git commits to protocol domain models.
+ * 
+ * DESIGN: This class is the "Storage Orchestrator". It hides the complexity 
+ * of Git, caching, and Expert DNA from the commands.
  */
 export class AtomRepository {
   constructor(
@@ -33,61 +31,39 @@ export class AtomRepository {
   ) {}
 
   /**
-   * HIGH-LEVEL: Find atoms Touching a specific target (file or directory).
-   * Encapsulates path resolution and Git log construction.
+   * HIGH-LEVEL: The primary entry point for chronological atom discovery.
+   * Unifies path-scoped, keyword-based, and global history queries.
    */
-  async findAtoms(target: string | string[], options: PathQueryOptions): Promise<Atom[]> {
-      const paths = Array.isArray(target) ? target.join(' ') : target;
-      const parsedTarget = this.pathResolver.parseTarget(paths);
-      const gitLogArgs = this.pathResolver.toGitLogArgs(parsedTarget);
-      
+  async find(options: SearchOptions & { target?: string | string[] } = {}): Promise<Atom[]> {
       const headHash = await this.getHeadHash();
-      return this.findByTarget(gitLogArgs, options, headHash);
+      
+      let gitLogArgs: readonly string[] = [];
+      let isGlobal = true;
+
+      // 1. Resolve path-based arguments if target provided
+      const target = options.target;
+      if (target && (!Array.isArray(target) || target.length > 0)) {
+          const paths = Array.isArray(target) ? target.join(' ') : target;
+          const parsedTarget = this.pathResolver.parseTarget(paths);
+          gitLogArgs = this.pathResolver.toGitLogArgs(parsedTarget);
+          isGlobal = false;
+      }
+
+      return this.internalQuery(gitLogArgs, options, headHash, isGlobal);
   }
 
   /**
-   * HIGH-LEVEL: Search for atoms matching specific text or metadata keys across the whole repository.
+   * BASE: Orchestrates the coarse discovery, fine extraction, and post-filtering passes.
    */
-  async search(options: SearchOptions): Promise<Atom[]> {
-      const headHash = await this.getHeadHash();
-      const resolvedOptions = await this.resolveDateOptions(options);
-
-      const discoveryArgs: string[] = [];
-      
-      if (resolvedOptions.has) {
-          const patterns: string[] = [];
-          for (const p of this.protocolRegistry.getAll()) {
-              const authorizedKey = p.authorize(resolvedOptions.has);
-              if (authorizedKey) {
-                  const prefix = p.namespace ? `${p.namespace}: ` : '';
-                  patterns.push(`(^${prefix}${authorizedKey}: )`);
-              }
-          }
-          if (patterns.length > 0) {
-              discoveryArgs.push(`--grep=${patterns.join('|')}`);
-          }
-      }
-
-      if (resolvedOptions.text) {
-          discoveryArgs.push(`--grep=${resolvedOptions.text}`);
-      }
-      
-      return this.findByTarget(discoveryArgs, resolvedOptions, headHash, true);
-  }
-
-  /**
-   * Find atoms Touching a specific target (file or directory).
-   */
-  async findByTarget(
+  private async internalQuery(
     gitLogArgs: readonly string[],
-    options: PathQueryOptions,
+    options: SearchOptions,
     headHash?: string,
     isGlobal: boolean = false,
   ): Promise<Atom[]> {
-    // 1. Resolve date filters for authoritative pass
-    const resolvedOptions = await this.resolveDateOptions(options as SearchOptions);
+    const resolvedOptions = await this.resolveDateOptions(options);
 
-    // 2. Try Cache First (Fast Path)
+    // 1. Try Cache First (Fast Path)
     const cacheKey = isGlobal ? [GLOBAL_CACHE_KEY] : gitLogArgs;
     if (headHash && resolvedOptions.cache !== false) {
       const cachedHashes = await this.queryCache.get(headHash, cacheKey, resolvedOptions);
@@ -97,20 +73,24 @@ export class AtomRepository {
       }
     }
 
-    // 3. Coarse Discovery Pass
+    // 2. Discovery Pass: Build optimized Git flags
     const discoveryArgs = this.protocolRegistry.getDiscoveryGrep();
     const filterArgs = this.protocolRegistry.getSearchGrep(resolvedOptions);
 
-    const args = this.buildGitLogArgs([...discoveryArgs, ...filterArgs, ...gitLogArgs, ...this.getPathScope()], resolvedOptions);
+    const args = this.buildGitLogArgs(
+        [...discoveryArgs, ...filterArgs, ...gitLogArgs, ...this.getPathScope()], 
+        resolvedOptions
+    );
+
     const rawCommits = await this.gitClient.log(args);
 
-    // 4. Fine Extraction & Parsing Pass
+    // 3. Fine Extraction & Parsing Pass
     let atoms = await this.parseRawCommits(rawCommits);
 
-    // 5. Post-filter (Authoritative pass using resolved dates)
+    // 4. Post-filter (Authoritative pass using resolved dates)
     atoms = this.searchFilter.filter(atoms, resolvedOptions);
 
-    // 6. Update Cache (Background)
+    // 5. Update Cache (Background)
     if (headHash && resolvedOptions.cache !== false) {
       const hashes = atoms.map(a => a.commitHash);
       this.queryCache.set(headHash, cacheKey, resolvedOptions, hashes).catch(() => {});
@@ -155,17 +135,113 @@ export class AtomRepository {
       return atoms;
   }
 
-  async findAll(options: PathQueryOptions = {}, headHash?: string): Promise<Atom[]> {
-      const activeHead = headHash || await this.getHeadHash();
-      return this.findByTarget([], options, activeHead, true);
+  /**
+   * Find a single atom by its identity key.
+   */
+  async findById(identity: QueryIdentity): Promise<Atom | null> {
+    const { id, protocol: protocolName } = identity;
+    if (!id) return null;
+
+    // Resolve candidate protocols
+    const matchingProtocols = protocolName 
+      ? [this.protocolRegistry.get(protocolName)!].filter(Boolean)
+      : this.protocolRegistry.getAll().filter(p => p.isValidIdentity(id));
+
+    if (matchingProtocols.length === 0) return null;
+
+    // Build a combined grep for all candidate protocols
+    const patterns = matchingProtocols.map(p => p.getIdentityPattern(id));
+    const args = [`--grep=${patterns.join('|')}`, '--extended-regexp', ...this.getPathScope()];
+    const rawCommits = await this.gitClient.log(args);
+    const atoms = await this.parseRawCommits(rawCommits);
+    
+    // Verify exact ID match in any of the candidate protocol states
+    for (const atom of atoms) {
+      for (const p of matchingProtocols) {
+        const state = atom.protocols.get(p.name.toLowerCase());
+        const atomId = (state as any)?.trailers[p.identityKey]?.[0];
+        if (atomId === id) {
+          return atom;
+        }
+      }
+    }
+    return null;
   }
 
-  private async getHeadHash(): Promise<string | undefined> {
-    try {
-      return await this.gitClient.resolveRef('HEAD');
-    } catch {
-      return undefined;
+  /**
+   * Find a single atom by its commit hash.
+   */
+  async findByCommitHash(hash: string): Promise<Atom | null> {
+    const args = ['-1', hash, ...this.getPathScope()];
+    const rawCommits = await this.gitClient.log(args);
+    const atoms = await this.parseRawCommits(rawCommits);
+    return atoms[0] || null;
+  }
+
+  /**
+   * Find atoms by their identity keys.
+   */
+  async findByIds(identities: readonly QueryIdentity[]): Promise<Atom[]> {
+    if (identities.length === 0) return [];
+    
+    const patterns: string[] = [];
+    
+    for (const { id, protocol: protocolName } of identities) {
+      if (!id) continue;
+
+      const candidateProtocols = protocolName
+        ? [this.protocolRegistry.get(protocolName)!].filter(Boolean)
+        : this.protocolRegistry.getAll();
+
+      for (const p of candidateProtocols) {
+        if (p.isValidIdentity(id)) {
+          patterns.push(p.getIdentityPattern(id));
+        }
+      }
     }
+    
+    if (patterns.length === 0) return [];
+
+    const args = [`--grep=${patterns.join('|')}`, '--extended-regexp', ...this.getPathScope()];
+    const rawCommits = await this.gitClient.log(args);
+    const atoms = await this.parseRawCommits(rawCommits);
+
+    // Verify exact ID matches against the requested identities
+    return atoms.filter(a => {
+      for (const { id, protocol: protocolName } of identities) {
+        if (protocolName) {
+          const state = a.protocols.get(protocolName);
+          const p = this.protocolRegistry.get(protocolName);
+          const atomId = (state as any)?.trailers[p?.identityKey || '']?.[0];
+          if (atomId === id) return true;
+        } else {
+          for (const [pName, state] of a.protocols) {
+            const p = this.protocolRegistry.get(pName);
+            const atomId = (state as any)?.trailers[p?.identityKey || '']?.[0];
+            if (atomId === id) return true;
+          }
+        }
+      }
+      return false;
+    });
+  }
+
+  /**
+   * Find atoms by a git revision range.
+   */
+  async findByRange(range: string): Promise<Atom[]> {
+    const args = [range, ...this.getPathScope()];
+    const rawCommits = await this.gitClient.log(args);
+    return this.parseRawCommits(rawCommits);
+  }
+
+  /**
+   * Find atoms for a conventional commit scope.
+   */
+  async findByScope(scope: string, options: PathQueryOptions, headHash?: string): Promise<Atom[]> {
+    // Conventional commit scope regex: type(scope): description
+    const grepPattern = `^[a-zA-Z]+\\(${escapeRegex(scope)}\\):`;
+    return this.find({ ...options, scope: grepPattern } as SearchOptions);
   }
 
   /**
@@ -201,129 +277,12 @@ export class AtomRepository {
     return result;
   }
 
-  /**
-   * Find a single atom by its identity key.
-   */
-  async findById(identity: QueryIdentity): Promise<Atom | null> {
-    const { id, protocol: protocolName } = identity;
-    if (!id) return null;
-
-    // Resolve candidate protocols
-    const matchingProtocols = protocolName 
-      ? [this.protocolRegistry.get(protocolName)!].filter(Boolean)
-      : this.protocolRegistry.getAll().filter(p => p.isValidIdentity(id));
-
-    if (matchingProtocols.length === 0) return null;
-
-    // Build a combined grep for all candidate protocols
-    const patterns = matchingProtocols.map(p => p.getIdentityPattern(id));
-    const args = [`--grep=${patterns.join('|')}`, '--extended-regexp'];
-    
-    if (this.isScoped) {
-      args.push('--', '.');
+  private async getHeadHash(): Promise<string | undefined> {
+    try {
+      return await this.gitClient.resolveRef('HEAD');
+    } catch {
+      return undefined;
     }
-    const rawCommits = await this.gitClient.log(args);
-    const atoms = await this.parseRawCommits(rawCommits);
-    
-    // Verify exact ID match in any of the candidate protocol states
-    for (const atom of atoms) {
-      for (const p of matchingProtocols) {
-        const state = atom.protocols.get(p.name.toLowerCase());
-        const atomId = (state as any)?.trailers[p.identityKey]?.[0];
-        if (atomId === id) {
-          return atom;
-        }
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Find a single atom by its commit hash.
-   */
-  async findByCommitHash(hash: string): Promise<Atom | null> {
-    const args = ['-1', hash];
-    if (this.isScoped) {
-      args.push('--', '.');
-    }
-    const rawCommits = await this.gitClient.log(args);
-    const atoms = await this.parseRawCommits(rawCommits);
-    return atoms[0] || null;
-  }
-
-  /**
-   * Find atoms by their identity keys.
-   */
-  async findByIds(identities: readonly QueryIdentity[]): Promise<Atom[]> {
-    if (identities.length === 0) return [];
-    
-    const patterns: string[] = [];
-    const idSet = new Set<string>(); // For verification pass
-    
-    for (const { id, protocol: protocolName } of identities) {
-      if (!id) continue;
-      idSet.add(id);
-
-      const candidateProtocols = protocolName
-        ? [this.protocolRegistry.get(protocolName)!].filter(Boolean)
-        : this.protocolRegistry.getAll();
-
-      for (const p of candidateProtocols) {
-        if (p.isValidIdentity(id)) {
-          patterns.push(p.getIdentityPattern(id));
-        }
-      }
-    }
-    
-    if (patterns.length === 0) return [];
-
-    // Git log doesn't support --grep-stdin, so for large ID sets we use OR'd regex
-    const args = [`--grep=${patterns.join('|')}`, '--extended-regexp'];
-    if (this.isScoped) {
-      args.push('--', '.');
-    }
-    const rawCommits = await this.gitClient.log(args);
-    const atoms = await this.parseRawCommits(rawCommits);
-
-    // Verify exact ID matches against the requested identities
-    return atoms.filter(a => {
-      for (const { id, protocol: protocolName } of identities) {
-        if (protocolName) {
-          const state = a.protocols.get(protocolName);
-          const p = this.protocolRegistry.get(protocolName);
-          const atomId = (state as any)?.trailers[p?.identityKey || '']?.[0];
-          if (atomId === id) return true;
-        } else {
-          for (const [pName, state] of a.protocols) {
-            const p = this.protocolRegistry.get(pName);
-            const atomId = (state as any)?.trailers[p?.identityKey || '']?.[0];
-            if (atomId === id) return true;
-          }
-        }
-      }
-      return false;
-    });
-  }
-
-  /**
-   * Find atoms by a git revision range.
-   */
-  async findByRange(range: string): Promise<Atom[]> {
-    const args = [range];
-    if (this.isScoped) {
-      args.push('--', '.');
-    }
-    const rawCommits = await this.gitClient.log(args);
-    return this.parseRawCommits(rawCommits);
-  }
-
-  /**
-   * Find atoms for a conventional commit scope.
-   */
-  async findByScope(scope: string, options: PathQueryOptions, headHash?: string): Promise<Atom[]> {
-    // Conventional commit scope regex: type(scope): description
-    const grepPattern = `^[a-zA-Z]+\\(${escapeRegex(scope)}\\):`;
-    return this.findAll({ ...options, scope: grepPattern } as SearchOptions, headHash);
   }
 
   /**
@@ -360,7 +319,6 @@ export class AtomRepository {
       const activeProtocols = this.protocolRegistry.detect(raw.trailers);
       
       // If we have protocols registered, we only care about commits they claim.
-      // If NO protocols are registered, we treat EVERY commit as an atom (agnostic mode).
       if (hasProtocols && activeProtocols.length === 0) continue;
 
       const protocolMap = new Map<string, ProtocolState>();
@@ -384,13 +342,21 @@ export class AtomRepository {
     // Final pass: Build Atom objects
     for (const { raw, protocols } of parsedData) {
       const files = fileMap.get(raw.hash) || [];
-      results.push(this.buildAtom(raw, protocols, files));
+      results.push({
+        commitHash: raw.hash,
+        date: new Date(raw.date),
+        author: raw.author,
+        subject: raw.subject,
+        body: this.stripTrailersFromBody(raw.body, raw.trailers),
+        filesChanged: files,
+        protocols,
+      });
     }
 
     return results;
   }
 
-  private async batchFetchFiles(hashes: string[]): Promise<Map<string, readonly string[]>> {
+  private async batchFetchFiles(hashes: readonly string[]): Promise<Map<string, readonly string[]>> {
     const result = new Map<string, readonly string[]>();
     
     // 1. Parallel Cache Lookup
@@ -422,22 +388,6 @@ export class AtomRepository {
     }
 
     return result;
-  }
-
-  private buildAtom(
-    raw: RawCommit,
-    protocols: Map<string, ProtocolState>,
-    filesChanged: readonly string[]
-  ): Atom {
-    return {
-      commitHash: raw.hash,
-      date: new Date(raw.date),
-      author: raw.author,
-      subject: raw.subject,
-      body: this.stripTrailersFromBody(raw.body, raw.trailers),
-      filesChanged,
-      protocols,
-    };
   }
 
   private extractReferenceIds(atoms: readonly Atom[]): QueryIdentity[] {
@@ -472,14 +422,19 @@ export class AtomRepository {
     return identities;
   }
 
+  /**
+   * Internal Git log argument builder.
+   * Standardizes flags across all Repository queries.
+   */
   private buildGitLogArgs(baseArgs: readonly string[], options: SearchOptions): string[] {
     const args: string[] = [];
     
-    // Flags must come BEFORE paths (--)
+    // 1. Author Filter
     if (options.author) {
       args.push(`--author=${escapeRegex(options.author)}`);
     }
 
+    // 2. Date/Ref Range Filters
     if (options.sinceDate) {
       args.push(`--since=${options.sinceDate.toISOString()}`);
     } else if (options.since) {
@@ -492,13 +447,13 @@ export class AtomRepository {
       args.push(`--until=${options.until}`);
     }
 
+    // 3. Limit/Depth Filters
     if (options.maxCommits) {
       args.push(`--max-count=${options.maxCommits}`);
     }
     
+    // 4. Discovery Block (Regex based coarse filtering)
     if (options.scope) {
-      // If the scope already looks like a regex pattern (e.g. from findByScope), use it as is.
-      // Otherwise, assume it's a raw scope name and wrap it in the conventional commit pattern.
       if (options.scope.startsWith('^[a-zA-Z]+\\(')) {
         args.push(`--grep=${options.scope}`);
       } else {
@@ -506,6 +461,21 @@ export class AtomRepository {
       }
     }
     
+    // Push 'has' filter (trailer key search) down to Git Grep
+    if (options.has) {
+        const patterns: string[] = [];
+        for (const p of this.protocolRegistry.getAll()) {
+            const authorizedKey = p.authorize(options.has);
+            if (authorizedKey) {
+                const prefix = p.namespace ? `${p.namespace}: ` : '';
+                patterns.push(`(^${prefix}${authorizedKey}: )`);
+            }
+        }
+        if (patterns.length > 0) {
+            args.push(`--grep=${patterns.join('|')}`);
+        }
+    }
+
     if (options.text) {
       args.push(`--grep=${options.text}`);
     }
@@ -528,16 +498,11 @@ export class AtomRepository {
 
   /**
    * Remove the trailer block from the commit body to avoid redundant display.
-   * Only strips if the trailers are actually at the end of the body.
    */
   private stripTrailersFromBody(body: string, trailersRaw: string): string {
     if (!trailersRaw || !body) return body;
 
-    // Normalize for comparison
-    const normalizedBody = body.trim();
-    
     // Create a flexible regex that handles varying whitespace and indentation
-    // We break the trailers into individual lines and allow for arbitrary whitespace around them.
     const trailerLines = trailersRaw.trim().split('\n').filter(l => l.trim() !== '');
     if (trailerLines.length === 0) return body;
 

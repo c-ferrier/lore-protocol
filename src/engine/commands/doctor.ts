@@ -57,7 +57,7 @@ export function registerDoctorCommand(
       // 4. Multi-Protocol Checks
       const isRepo = await gitClient.isInsideRepo();
       if (isRepo) {
-          const atoms = await atomRepository.findAll({ maxCommits: 500 });
+          const atoms = await atomRepository.find({ maxCommits: 500 });
           
           // a. General Discovery Check
           checks.push(checkAtoms(atoms));

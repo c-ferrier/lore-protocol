@@ -79,7 +79,7 @@ export async function executePathQuery(
     targetDisplay = `scope:${queryOptions.scope}`;
   } else {
     // Encapsulates path resolution
-    atoms = await atomRepository.findAtoms(target, { ...queryOptions, limit: null });
+    atoms = await atomRepository.find({ target, ...queryOptions, limit: null });
     targetType = 'directory'; 
     targetDisplay = target;
   }

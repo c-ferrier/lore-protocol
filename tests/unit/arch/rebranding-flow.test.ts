@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
@@ -66,11 +67,12 @@ describe('Rebranding Flow Integration', () => {
       new TrailerParser(),
       registry,
       new SearchFilter(registry),
+      new PathResolver('/mock', '/mock'),
       new NullAtomCache(),
       new NullQueryCache()
     );
 
-    const atoms = await repo.findAll();
+    const atoms = await repo.find();
     expect(atoms).toHaveLength(1);
     const atom = atoms[0];
 

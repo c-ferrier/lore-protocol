@@ -188,14 +188,19 @@ export function makeAtomRepository(options: {
     searchFilter?: SearchFilter;
 } = {}): AtomRepository {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
+    const gitClient = options.gitClient || { 
+        log: vi.fn(async () => []), 
+        getCommitsByHashes: vi.fn(async () => []), 
+        getFilesChanged: vi.fn(async () => new Map()), 
+        resolveRef: vi.fn(async () => 'head'), 
+        resolveDate: vi.fn(async (d: string) => {
+            const date = new Date(d);
+            return isNaN(date.getTime()) ? null : date;
+        }) 
+    };
+
     return new AtomRepository(
-        options.gitClient || { 
-            log: vi.fn(async () => []), 
-            getCommitsByHashes: vi.fn(async () => []), 
-            getFilesChanged: vi.fn(async () => new Map()), 
-            resolveRef: vi.fn(async () => 'head'), 
-            resolveDate: vi.fn(async (d: string) => new Date(d)) 
-        },
+        gitClient,
         new TrailerParser(),
         registry,
         options.searchFilter || new SearchFilter(registry),

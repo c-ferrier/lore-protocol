@@ -24,7 +24,7 @@ describe('Git Security (Argument Escaping)', () => {
   });
 
   it('should escape regex characters in author filter', async () => {
-    await repository.findAll({ author: 'cole (admin) | rm -rf' });
+    await repository.find({ author: 'cole (admin) | rm -rf' });
     
     const callArgs = gitClient.log.mock.calls[0][0];
     const authorArg = callArgs.find((a: string) => a.startsWith('--author='));

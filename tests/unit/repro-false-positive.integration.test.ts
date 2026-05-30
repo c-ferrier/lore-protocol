@@ -44,7 +44,7 @@ describe('AtomRepository False Positive Repro', () => {
     expect(result).toBeNull();
   });
 
-  it('findAll should use an anchored grep (repro failure)', async () => {
+  it('find (global) should use an anchored grep (repro failure)', async () => {
     const commit: RawCommit = {
       hash: 'h1',
       date: new Date().toISOString(),
@@ -56,7 +56,7 @@ describe('AtomRepository False Positive Repro', () => {
 
     gitClient.log.mockResolvedValue([commit]);
 
-    const results = await repository.findAll();
+    const results = await repository.find();
     expect(results).toHaveLength(0);
   });
 });

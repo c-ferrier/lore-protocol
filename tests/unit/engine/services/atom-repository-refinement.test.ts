@@ -57,7 +57,7 @@ describe('AtomRepository Refinement', () => {
       };
       vi.mocked(gitClient.log).mockResolvedValue([raw]);
 
-      const [atom] = await repo.findAll();
+      const [atom] = await repo.find();
       expect(atom.body).toBe('Main body text.');
     });
 
@@ -73,7 +73,7 @@ describe('AtomRepository Refinement', () => {
       };
       vi.mocked(gitClient.log).mockResolvedValue([raw]);
 
-      const [atom] = await repo.findAll();
+      const [atom] = await repo.find();
       expect(atom.body).toContain('Constraint: must be fast');
       expect(atom.body).not.toContain(`${MOCK_ID_KEY}: 12345678`);
     });
@@ -90,7 +90,7 @@ describe('AtomRepository Refinement', () => {
       };
       vi.mocked(gitClient.log).mockResolvedValue([raw]);
 
-      const [atom] = await repo.findAll();
+      const [atom] = await repo.find();
       expect(atom.body).toBe('');
     });
   });
@@ -140,7 +140,7 @@ describe('AtomRepository Refinement', () => {
         text: null,
       };
 
-      let atoms = await repo.findByTarget(['--', 'file.ts'], options);
+      let atoms = await repo.find(['--', 'file.ts'], options);
       atoms = await repo.resolveFollowLinks(atoms, 1);
 
       expect(atoms).toHaveLength(2);

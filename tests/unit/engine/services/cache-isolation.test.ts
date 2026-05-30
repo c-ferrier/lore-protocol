@@ -15,7 +15,10 @@ describe('AtomRepository Cache Isolation', () => {
       getCommitsByHashes: vi.fn(async () => []),
       getFilesChanged: vi.fn(async () => new Map()),
       resolveRef: vi.fn(async () => 'head-hash'),
-      resolveDate: vi.fn(async (d: string) => new Date(d)),
+      resolveDate: vi.fn(async (d: string) => {
+        const date = new Date(d);
+        return isNaN(date.getTime()) ? null : date;
+      }),
     } as any;
 
     queryCache = {
@@ -29,17 +32,17 @@ describe('AtomRepository Cache Isolation', () => {
     (repo as any).queryCache = queryCache;
   });
 
-  it(`should use "${GLOBAL_CACHE_KEY}" key for findAll and path array for findAtoms`, async () => {
-    await repo.findAll();
+  it(`should use "${GLOBAL_CACHE_KEY}" key for global find and path array for targeted find`, async () => {
+    await repo.find();
     expect(queryCache.get).toHaveBeenCalledWith('head-hash', [GLOBAL_CACHE_KEY], expect.any(Object));
 
-    await repo.findAtoms(['src/main.ts'], {});
-    // PathResolver translates ['src/main.ts'] into ['--', 'src/main.ts']
+    await repo.find({ target: 'src/main.ts' });
+    // PathResolver translates 'src/main.ts' into ['--', 'src/main.ts']
     expect(queryCache.get).toHaveBeenCalledWith('head-hash', ['--', 'src/main.ts'], expect.any(Object));
   });
 
-  it(`search() should also use "${GLOBAL_CACHE_KEY}" key`, async () => {
-    await repo.search({ text: 'query' });
+  it(`search (find with text) should also use "${GLOBAL_CACHE_KEY}" key`, async () => {
+    await repo.find({ text: 'query' });
     expect(queryCache.get).toHaveBeenCalledWith('head-hash', [GLOBAL_CACHE_KEY], expect.any(Object));
   });
 });

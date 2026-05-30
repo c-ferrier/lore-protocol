@@ -48,7 +48,7 @@ export function registerSearchCommand(
     };
 
     // Step 1: Perform High-Level Search (Encapsulated in Repository)
-    const atoms = await atomRepository.search(searchOptions);
+    const atoms = await atomRepository.find(searchOptions);
     const totalAtoms = atoms.length;
 
     // Step 2: Compute supersession
