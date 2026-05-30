@@ -10,15 +10,16 @@ import type { FormattableQueryResult } from '../../types/output.js';
 import { buildQueryMeta } from './build-query-meta.js';
 import type { IGitClient } from '../../interfaces/git-client.js';
 import type { ILogger } from '../../interfaces/logger.js';
+import { ProtocolError } from '../../util/errors.js';
 
 /** Parse a CLI value as a strict positive integer; rejects non-numeric trailing chars. */
 export function parsePositiveInt(value: string): number {
   if (!/^\d+$/.test(value)) {
-    throw new Error(`Expected a positive integer, got "${value}"`);
+    throw new ProtocolError(`Expected a positive integer, got "${value}"`, 1);
   }
   const n = Number(value);
   if (n < 1) {
-    throw new Error(`Expected a positive integer, got "${value}"`);
+    throw new ProtocolError(`Expected a positive integer, got "${value}"`, 1);
   }
   return n;
 }

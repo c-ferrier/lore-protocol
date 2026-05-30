@@ -2,6 +2,8 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import type { AtomId } from '../types/domain.js';
 import type { IProtocol } from '../interfaces/protocol.js';
 
+import { ConfigurationError } from '../util/errors.js';
+
 /**
  * Generates unique identifiers based on the protocol schema.
  *
@@ -23,9 +25,9 @@ export class IdGenerator {
       case 'uuid':
         return randomUUID();
       case 'none':
-        throw new Error(`Protocol "${protocol.name}" does not support automatic identity generation (generator is 'none').`);
+        throw new ConfigurationError(`Protocol "${protocol.name}" does not support automatic identity generation (generator is 'none').`);
       default:
-        throw new Error(`Unknown generator strategy "${strategy}" for protocol "${protocol.name}".`);
+        throw new ConfigurationError(`Unknown generator strategy "${strategy}" for protocol "${protocol.name}".`);
     }
   }
 }

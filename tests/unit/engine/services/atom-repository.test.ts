@@ -1,20 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../../src/engine/services/atom-repository.js';
-import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { SearchFilter } from '../../../../src/engine/services/search-filter.js';
-import { NullAtomCache } from '../../../../src/engine/services/atom-cache.js';
-import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { PathQueryOptions } from '../../../../src/engine/types/query.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, YAP_PROTOCOL_DEFINITION, makeProtocolConfig, makeProtocol } from '../test-utils.js';
-import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
+import { 
+    MOCK_PROTOCOL_DEFINITION, 
+    YAP_PROTOCOL_DEFINITION, 
+    makeProtocol, 
+    makeAtomRepository, 
+    makeProtocolRegistry 
+} from '../test-utils.js';
 
 const MOCK_ID_KEY = "Mock-id";
-
-/**
- * RECONSTRUCTED AGNOSTIC ATOM REPOSITORY TESTS
- */
 
 function createMockGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
   return {
@@ -84,20 +81,13 @@ function makeQueryOptions(overrides: Partial<PathQueryOptions> = {}): PathQueryO
 
 describe('AtomRepository', () => {
   let gitClient: IGitClient;
-  let trailerParser: TrailerParser;
   let repo: AtomRepository;
-  let protocol: Protocol;
   let protocolRegistry: ProtocolRegistry;
-  let searchFilter: SearchFilter;
 
   beforeEach(() => {
     gitClient = createMockGitClient();
-    trailerParser = new TrailerParser();
-    protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
-    protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(protocol);
-    searchFilter = new SearchFilter(protocolRegistry);
-    repo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache());
+    protocolRegistry = makeProtocolRegistry([makeProtocol(MOCK_PROTOCOL_DEFINITION)]);
+    repo = makeAtomRepository({ gitClient, registry: protocolRegistry });
   });
 
   describe('findByTarget', () => {
@@ -227,7 +217,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache(), true);
+      const scopedRepo = makeAtomRepository({ gitClient, registry: protocolRegistry, isScoped: true });
       vi.mocked(gitClient.log).mockResolvedValue([]);
       await scopedRepo.findById({ id: 'deadbeef' });
       expect(gitClient.log).toHaveBeenCalledWith(expect.arrayContaining(['--', '.']));
@@ -336,7 +326,7 @@ describe('AtomRepository', () => {
 
   describe('Multi-Protocol Hydration', () => {
     it('should hydrate an atom with multiple protocol states if claimed by multiple protocols', async () => {
-      const yap = new Protocol(YAP_PROTOCOL_DEFINITION, makeProtocolConfig());
+      const yap = makeProtocol(YAP_PROTOCOL_DEFINITION);
       protocolRegistry.register(yap);
 
       const trailers = `${MOCK_ID_KEY}: abcd1234\nyap: YAP-id: abcd5678\nyap: Impact: high`;
@@ -370,13 +360,11 @@ describe('AtomRepository', () => {
     it('should respect implicit ownership (protocols get what they define, permissive gets orphans)', async () => {
       // 1. Mock is permissive (greedy)
       const mockProtocol = protocolRegistry.get('mock')!;
-      vi.spyOn(mockProtocol, 'permissive', 'get').mockReturnValue(true);
+      // Need to cast to any because permissive is a getter in the real class but can be mocked
+      vi.spyOn(mockProtocol as any, 'permissive', 'get').mockReturnValue(true);
 
       // 2. YAP is strict but defines its own ID
-      const yap = new Protocol(YAP_PROTOCOL_DEFINITION, makeProtocolConfig({
-        ...MOCK_CONFIG,
-        trailers: { ...MOCK_CONFIG.trailers, permissive: false }
-      }));
+      const yap = makeProtocol(YAP_PROTOCOL_DEFINITION, { permissive: false });
       protocolRegistry.register(yap);
 
       // 3. Mock commit: 
@@ -478,7 +466,7 @@ describe('AtomRepository', () => {
 
   describe('Scoped Repositories', () => {
     it('should append path scope when isScoped=true in findByCommitHash', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache(), true);
+      const scopedRepo = makeAtomRepository({ gitClient, registry: protocolRegistry, isScoped: true });
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByCommitHash('abc123');
@@ -489,7 +477,7 @@ describe('AtomRepository', () => {
     });
 
     it('should append path scope when isScoped=true in findByRange', async () => {
-      const scopedRepo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, new NullAtomCache(), new NullQueryCache(), true);
+      const scopedRepo = makeAtomRepository({ gitClient, registry: protocolRegistry, isScoped: true });
       vi.mocked(gitClient.log).mockResolvedValue([]);
 
       await scopedRepo.findByRange('main..HEAD');

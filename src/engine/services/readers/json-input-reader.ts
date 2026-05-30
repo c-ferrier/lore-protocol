@@ -1,5 +1,6 @@
 import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js';
 import type { CommitInput } from '../../types/commit.js';
+import { ProtocolError } from '../../util/errors.js';
 
 /**
  * Reads commit input by parsing a JSON string.
@@ -15,7 +16,7 @@ export class JsonInputReader implements ICommitInputReader {
 
   async read(): Promise<CommitInput> {
     if (!this.json || !this.json.trim()) {
-      throw new Error('Empty JSON input');
+      throw new ProtocolError('Empty JSON input', 1);
     }
 
     try {
@@ -63,8 +64,9 @@ export class JsonInputReader implements ICommitInputReader {
 
       return input;
     } catch (err) {
+      if (err instanceof ProtocolError) throw err;
       if (err instanceof Error) {
-        throw new Error(`Failed to parse JSON input: ${err.message}`);
+        throw new ProtocolError(`Failed to parse JSON input: ${err.message}`, 1);
       }
       throw err;
     }

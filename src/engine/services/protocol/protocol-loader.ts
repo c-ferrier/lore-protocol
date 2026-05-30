@@ -4,6 +4,7 @@ import type { EngineConfig } from '../../types/config.js';
 import { ProtocolHydrator } from '../protocol-hydrator.js';
 import { DynamicProtocolLoader } from '../protocol-loader.js';
 import { PROTOCOLS_DIR_NAME } from '../../util/constants.js';
+import { ConfigurationError } from '../../util/errors.js';
 
 /**
  * High-level orchestrator for loading and merging protocol definitions.
@@ -45,7 +46,17 @@ export class ProtocolLoader {
     staticDefs: ProtocolDefinition[]
   ): ProtocolDefinition[] {
     const results: ProtocolDefinition[] = [];
-    const dynamicMap = new Map(dynamic.map(p => [p.name.toLowerCase(), p]));
+    
+    // 1. Build a map of dynamic protocols, checking for internal collisions
+    const dynamicMap = new Map<string, ProtocolDefinition>();
+    for (const d of dynamic) {
+        const name = d.name.toLowerCase();
+        if (dynamicMap.has(name)) {
+            throw new ConfigurationError(`Duplicate protocol definition for "${d.name}". Ensure only one blueprint exists for each protocol name.`);
+        }
+        dynamicMap.set(name, d);
+    }
+
     const staticMap = new Map(staticDefs.map(p => [p.name.toLowerCase(), p]));
     const allNames = new Set([...dynamicMap.keys(), ...staticMap.keys()]);
 

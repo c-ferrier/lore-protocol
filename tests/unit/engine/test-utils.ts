@@ -1,12 +1,20 @@
 import { existsSync } from 'node:fs';
+import { vi } from 'vitest';
 import { type ILogger, LogLevel } from '../../../src/engine/interfaces/logger.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { ProtocolLoader } from '../../../src/engine/services/protocol/protocol-loader.js';
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { SearchFilter } from '../../../src/engine/services/search-filter.js';
+import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
+import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
+import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
+import { InMemoryLogger } from '../../../src/engine/services/in-memory-logger.js';
+
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
 import type { EngineConfig, ProtocolConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition } from '../../../src/engine/types/config.js';
 import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import type { Atom, Trailers, HierarchicalTrailers } from '../../../src/engine/types/domain.js';
-import { InMemoryLogger } from '../../../src/engine/services/in-memory-logger.js';
 
 /**
  * Mock logger for testing.
@@ -155,6 +163,43 @@ export function makeProtocol(
     })[0];
 
     return new Protocol(finalized);
+}
+
+/**
+ * Factory: Create a ProtocolRegistry pre-populated with protocols.
+ */
+export function makeProtocolRegistry(protocols: Protocol[] = []): ProtocolRegistry {
+    const registry = new ProtocolRegistry();
+    for (const p of protocols) {
+        registry.register(p);
+    }
+    return registry;
+}
+
+/**
+ * Factory: Create a fully functional AtomRepository with reasonable defaults.
+ */
+export function makeAtomRepository(options: {
+    gitClient?: any;
+    registry?: ProtocolRegistry;
+    isScoped?: boolean;
+} = {}): AtomRepository {
+    const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
+    return new AtomRepository(
+        options.gitClient || { 
+            log: vi.fn(async () => []), 
+            getCommitsByHashes: vi.fn(async () => []), 
+            getFilesChanged: vi.fn(async () => new Map()), 
+            resolveRef: vi.fn(async () => 'head'), 
+            resolveDate: vi.fn(async (d: string) => new Date(d)) 
+        },
+        new TrailerParser(),
+        registry,
+        new SearchFilter(registry),
+        new NullAtomCache(),
+        new NullQueryCache(),
+        options.isScoped ?? false
+    );
 }
 
 /**

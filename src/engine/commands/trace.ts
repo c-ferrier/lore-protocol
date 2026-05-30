@@ -68,7 +68,7 @@ export function registerTraceCommand(
       const getAtomId = (a: Atom) => activeProtocol!.getIdentity(a.protocols.get(rootProtocolName));
 
       const rootId = getAtomId(rootAtom);
-      if (!rootId) throw new Error('Root atom has no valid identity for the active protocol.');
+      if (!rootId) throw new ProtocolError('Root atom has no valid identity for the active protocol.', 1);
 
       visited.add(rootId);
 

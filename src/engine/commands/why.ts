@@ -39,7 +39,7 @@ export function registerWhyCommand(
     const { atomRepository, gitClient, pathResolver, getFormatter, protocolRegistry } = deps;
     
     if (protocolRegistry.getAll().length === 0) {
-        throw new Error('At least one protocol must be registered to run this command.');
+        throw new ProtocolError('At least one protocol must be registered to run this command.', 1);
     }
 
     const options = mergeOptions<PathQueryCommandOptions>(command);

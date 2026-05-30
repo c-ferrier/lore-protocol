@@ -1,7 +1,8 @@
 import type { IdGenerator } from './id-generator.js';
 import type { Atom, AtomId } from '../types/domain.js';
 import type { IProtocol } from '../interfaces/protocol.js';
-import type { ProtocolRegistry } from './protocol-registry.js';
+import { ProtocolRegistry } from './protocol-registry.js';
+import { ProtocolError } from '../util/errors.js';
 
 /**
  * Orchestrates the merging of multiple decision atoms during a git squash.
@@ -25,7 +26,7 @@ export class SquashMerger {
     options: { subject?: string; body?: string },
   ): { message: string; protocols: Record<string, any> } {
     if (atoms.length === 0) {
-      throw new Error('Cannot merge zero atoms');
+      throw new ProtocolError('Cannot merge zero atoms', 1);
     }
 
     const registeredProtocols = this.protocolRegistry.getAll();

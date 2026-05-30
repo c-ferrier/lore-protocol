@@ -30,3 +30,10 @@ export class NoStagedChangesError extends ProtocolError {
     this.name = 'NoStagedChangesError';
   }
 }
+
+export class ConfigurationError extends ProtocolError {
+  constructor(message: string) {
+    super(message, 1);
+    this.name = 'ConfigurationError';
+  }
+}

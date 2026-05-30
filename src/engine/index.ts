@@ -52,190 +52,22 @@ import type { IAtomCache } from './interfaces/atom-cache.js';
 import type { IQueryCache } from './interfaces/query-cache.js';
 import type { IOutputFormatter } from './interfaces/output-formatter.js';
 
-export interface EngineOptions {
-  binaryName: string;
-  version: string;
-  description: string;
-  engineDirName: string;
-  configFileName: string;
-  defaultConfig: EngineConfig;
-  staticProtocols: ProtocolDefinition[];
-  jsonFormatterFactory?: (registry: ProtocolRegistry) => IOutputFormatter;
-  textFormatterFactory?: (registry: ProtocolRegistry, options: { color: boolean }) => IOutputFormatter;
-  
-  // Hooks for Wrappers (e.g. Lore) to mutate state before bootstrap
-  onConfigLoaded?: (config: EngineConfig) => Promise<EngineConfig>;
-  onProtocolsLoaded?: (protocols: ProtocolDefinition[]) => Promise<ProtocolDefinition[]>;
+import { EngineBootstrapper, type EngineOptions } from './services/engine-bootstrapper.js';
 
-  /** Optional logger implementation. If not provided, a TerminalLogger is used. */
-  logger?: ILogger;
-  /** Optional log level. Defaults to INFO. */
-  logLevel?: LogLevel;
-}
+export { EngineBootstrapper, type EngineOptions };
 
 /**
  * Generic bootstrap for the Decision Engine CLI.
  */
 export async function runCli(options: EngineOptions) {
-  /** 
-   * 0. Initialize Logger
-   * DESIGN NOTE: We ideally want to depend on Commander.js parsed options,
-   * but the logger is initialized during the early bootstrap phase before
-   * full parsing is complete. Thus, we must check process.argv directly 
-   * for '--no-color' to ensure early bootstrap logs are correctly styled.
-   */
-  const useColor = !process.argv.includes('--no-color');
-  const logger = options.logger || new TerminalLogger(options.logLevel ?? LogLevel.INFO, useColor);
-
-  const program = new Command();
-
-  // 1. Resolve Roots
-  const tempGitClient = new GitClient(process.cwd());
-  const engineConfigLoader = new EngineConfigLoader(options.engineDirName, options.configFileName, options.defaultConfig);
-  const { protocolRoot, gitRoot } = await resolveProtocolRoot(process.cwd(), engineConfigLoader, tempGitClient);
-  const activeRoot = protocolRoot || process.cwd();
-
-  // 2. Load Engine Configuration
-  let config = await engineConfigLoader.loadForPath(activeRoot);
-  if (options.onConfigLoaded) {
-    config = await options.onConfigLoaded(config);
-  }
-
-  // 3. Load & Merge Protocols using the new ProtocolLoader
-  const protocolsDir = join(activeRoot, options.engineDirName, PROTOCOLS_DIR_NAME);
-  const protocolLoader = new ProtocolLoader(
-      new DynamicProtocolLoader(protocolsDir),
-      options.staticProtocols || []
-  );
-
-  let allProtocols = await protocolLoader.loadAll(config);
-  
-  if (options.onProtocolsLoaded) {
-    allProtocols = await options.onProtocolsLoaded(allProtocols);
-  }
-
-  // Determine if we are running in a scoped context
-  const isScoped = !!gitRoot && !!protocolRoot && protocolRoot !== gitRoot;
-
-  program
-    .name(options.binaryName)
-    .version(options.version, '--version')
-    .description(options.description)
-    .option('--json', 'Output results in JSON format')
-    .option('--no-cache', 'Bypass local atom cache')
-    .option('--no-color', 'Disable terminal colors')
-    .option('--context <path>', 'Run in the context of a specific directory')
-    .option('--format <type>', 'Output format (text, json)', 'text');
-
-  // 5. Create primary services
-  const gitClient: IGitClient = new GitClient(activeRoot);
-  const protocolRegistry = new ProtocolRegistry();
-  
-  for (const def of allProtocols) {
-    // Protocol constructor is now simplified to take only the definition
-    protocolRegistry.register(new Protocol(def));
-  }
-  
-  const trailerParser = new TrailerParser();
-  const pathResolver = new PathResolver(process.cwd(), activeRoot);
-  const searchFilter = new SearchFilter(protocolRegistry);
-  
-  const atomCache: IAtomCache = new AtomCache(
-    join(activeRoot, options.engineDirName, CACHE_DIR, ATOM_CACHE_DIR),
-  );
-
-  const queryCache: IQueryCache = new QueryCache(
-    join(activeRoot, options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
-    config.cli.queryCachePruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
-    `engine@${getEngineVersion()};${protocolRegistry.getFingerprint()}`,
-  );
-
-  const atomRepository = new AtomRepository(
-    gitClient,
-    trailerParser,
-    protocolRegistry,
-    searchFilter,
-    atomCache,
-    queryCache,
-    isScoped,
-  );
-
-  const idGenerator = new IdGenerator();
-  const supersessionResolver = new SupersessionResolver(protocolRegistry);
-  const stalenessDetector = new StalenessDetector(gitClient, config, protocolRegistry);
-  const commitBuilder = new CommitBuilder(trailerParser, idGenerator, config, protocolRegistry);
-  const squashMerger = new SquashMerger(idGenerator, protocolRegistry);
-  const validator = new Validator(trailerParser, atomRepository, config, protocolRegistry);
-  const prompt = new TerminalPrompt();
-  const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry);
-  const headIdReader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
-
-  // 6. Formatter factory
-  let cachedFormatter: IOutputFormatter | null = null;
-  const getFormatter = (): IOutputFormatter => {
-    if (cachedFormatter !== null) return cachedFormatter;
-    const opts = program.opts();
-    const isJson = opts.json || opts.format === 'json';
-
-    if (isJson) {
-      cachedFormatter = options.jsonFormatterFactory
-        ? options.jsonFormatterFactory(protocolRegistry)
-        : new JsonFormatter(protocolRegistry);
-    } else {
-      cachedFormatter = options.textFormatterFactory
-        ? options.textFormatterFactory(protocolRegistry, { color: opts.color })
-        : new TextFormatter(protocolRegistry, { color: opts.color });
-    }
-    return cachedFormatter;
-  };
-
-  // 8. Register Commands
-  const sharedDeps = {
-    atomRepository,
-    gitClient,
-    commitInputResolver,
-    headIdReader,
-    getFormatter,
-    config: config as any,
-    logger,
-    protocolRegistry,
-    trailerParser,
-    commitBuilder,
-    squashMerger,
-    validator,
-    supersessionResolver,
-    stalenessDetector,
-    pathResolver,
-    searchFilter,
-    configLoader: engineConfigLoader as any,
-    isScoped,
-    protocolRoot: protocolRoot || activeRoot,
-    gitRoot: gitRoot || activeRoot,
-    engineDirName: options.engineDirName,
-    configFileName: options.configFileName,
-    cacheDir: join(activeRoot, options.engineDirName, CACHE_DIR),
-    defaultConfig: options.defaultConfig,
-  };
-
-  registerWhyCommand(program, sharedDeps);
-  registerSearchCommand(program, sharedDeps);
-  registerLogCommand(program, sharedDeps);
-  registerStaleCommand(program, sharedDeps);
-  registerTraceCommand(program, sharedDeps);
-  registerCommitCommand(program, sharedDeps);
-  registerValidateCommand(program, sharedDeps);
-  registerSquashCommand(program, sharedDeps);
-  registerCacheCommand(program, sharedDeps);
-  registerConfigCommand(program, sharedDeps);
-  registerDoctorCommand(program, sharedDeps);
-
-  return { program, getFormatter, sharedDeps, config };
+  const bootstrapper = new EngineBootstrapper(options);
+  return bootstrapper.bootstrap();
 }
 
 /**
  * Executes the configured commander program.
  */
-export async function execute(program: Command, getFormatter: () => IOutputFormatter, config: EngineConfig) {
+export async function execute(program: any, getFormatter: () => any, config: any) {
   try {
     await program.parseAsync(process.argv);
   } catch (error: unknown) {
@@ -248,3 +80,4 @@ export async function execute(program: Command, getFormatter: () => IOutputForma
     process.exit(1);
   }
 }
+

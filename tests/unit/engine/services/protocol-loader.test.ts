@@ -88,9 +88,8 @@ directives = ["follow"]
     expect(protocols).toEqual([]);
   });
 
-  it('should handle corrupt TOML files gracefully', async () => {
+  it('should throw if a protocol file is corrupt', async () => {
     await writeFile(join(tempDir, 'corrupt.toml'), `[trailers\n name = "missing bracket"`);
-    const proto = await loader.loadFromFile(join(tempDir, 'corrupt.toml'));
-    expect(proto).toBeNull();
+    await expect(loader.loadFromFile(join(tempDir, 'corrupt.toml'))).rejects.toThrow(/Failed to load protocol/);
   });
 });

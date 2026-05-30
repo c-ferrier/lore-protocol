@@ -1,6 +1,6 @@
 import type { IProtocol } from '../interfaces/protocol.js';
 import type { QueryIdentity } from '../types/query.js';
-import { ProtocolError } from '../util/errors.js';
+import { ProtocolError, ConfigurationError } from '../util/errors.js';
 
 /**
  * Orchestrates multiple decision protocols.
@@ -22,13 +22,13 @@ export class ProtocolRegistry {
     const ns = protocol.namespace.toLowerCase();
 
     if (this.protocols.has(name)) {
-      throw new Error(`Protocol "${protocol.name}" is already registered.`);
+      throw new ConfigurationError(`Protocol "${protocol.name}" is already registered.`);
     }
 
     // Safety Rule: Only one permissive protocol allowed per namespace to prevent trailer claiming conflicts
     if (protocol.permissive && this.hasPermissiveProtocolInNamespace(ns)) {
       const existing = this.getPermissiveProtocolInNamespace(ns);
-      throw new Error(
+      throw new ConfigurationError(
         `Cannot register permissive protocol "${protocol.name}". ` +
           `A permissive protocol ("${existing?.name}") is already registered for namespace "${protocol.namespace || 'root'}". ` +
           `Only one permissive protocol is allowed per namespace to prevent trailer claiming conflicts.`,
