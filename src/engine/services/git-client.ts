@@ -20,10 +20,10 @@ const RECORD_SEP = '\x1E';
 
 /**
  * Git log format string using git's %xNN hex escape syntax.
- * Fields: hash, ISO date, author email, subject, body, trailers.
+ * Fields: hash, ISO date, author name + email, subject, body, trailers.
  * Fields separated by Unit Separator (1F), records by Record Separator (1E).
  */
-const LOG_FORMAT = '%H%x1F%aI%x1F%ae%x1F%s%x1F%b%x1F%(trailers:only,unfold)%x1E';
+const LOG_FORMAT = '%H%x1F%aI%x1F%an <%ae>%x1F%s%x1F%b%x1F%(trailers:only,unfold)%x1E';
 
 /**
  * Blame porcelain line pattern.

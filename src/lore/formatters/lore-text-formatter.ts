@@ -124,7 +124,10 @@ export class LoreTextFormatter extends TextFormatter {
 
   protected override formatAtomHeader(atom: Atom, id: string, superseded: boolean): string {
     const dateStr = atom.date.toISOString().slice(0, 10);
-    const header = `\u2500\u2500 ${id} (${dateStr}, ${atom.author}) `;
+    const authorEmail = atom.author.includes('<') 
+        ? atom.author.match(/<([^>]+)>/)?.[1] || atom.author
+        : atom.author;
+    const header = `\u2500\u2500 ${id} (${dateStr}, ${authorEmail}) `;
     const rule = '\u2500'.repeat(Math.max(0, 60 - header.length));
     const fullHeader = header + rule;
 

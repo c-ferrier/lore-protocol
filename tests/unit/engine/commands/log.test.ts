@@ -51,7 +51,9 @@ interface Harness {
 function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
   const findAll = vi.fn().mockResolvedValue(atoms);
   const findByTarget = vi.fn().mockResolvedValue(filteredAtoms ?? atoms);
-  const atomRepository = { findAll, findByTarget } as unknown as AtomRepository;
+  const findAtoms = vi.fn().mockResolvedValue(filteredAtoms ?? atoms);
+  const findByScope = vi.fn().mockResolvedValue([]);
+  const atomRepository = { findAll, findByTarget, findAtoms, findByScope } as unknown as AtomRepository;
 
   const supersessionResolver = {
     resolveAll: vi.fn().mockReturnValue(new Map([['mock', new Map()]])),
@@ -92,7 +94,7 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
     logger,
   });
 
-  return { program, capturedResult, findAll, findByTarget, logger };
+  return { program, capturedResult, findAll, findByTarget, findAtoms, findByScope, logger };
 }
 
 describe('registerLogCommand (agnostic path arguments)', () => {
@@ -109,11 +111,10 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     await h.program.parseAsync(['node', 'atom', 'log', 'src/main.ts']);
 
-    expect(h.findByTarget).toHaveBeenCalledTimes(1);
-    expect(h.findByTarget).toHaveBeenCalledWith(
-      ['--', 'src/main.ts'],
-      expect.any(Object),
-      'head-hash'
+    expect(h.findAtoms).toHaveBeenCalledTimes(1);
+    expect(h.findAtoms).toHaveBeenCalledWith(
+      ['src/main.ts'],
+      expect.any(Object)
     );
     expect(h.findAll).not.toHaveBeenCalled();
 
@@ -131,11 +132,10 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     await h.program.parseAsync(['node', 'atom', 'log', '--', 'src/main.ts']);
 
-    expect(h.findByTarget).toHaveBeenCalledTimes(1);
-    expect(h.findByTarget).toHaveBeenCalledWith(
-      ['--', 'src/main.ts'],
-      expect.any(Object),
-      'head-hash'
+    expect(h.findAtoms).toHaveBeenCalledTimes(1);
+    expect(h.findAtoms).toHaveBeenCalledWith(
+      ['src/main.ts'],
+      expect.any(Object)
     );
 
     const result = (h.capturedResult.data as { result: { atoms: any[] } }).result;

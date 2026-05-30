@@ -47,6 +47,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
 
     deps = {
       atomRepository: {
+        findAtoms: mockFindByTarget,
         findByTarget: mockFindByTarget,
         findByScope: vi.fn(),
         resolveFollowLinks: vi.fn(),

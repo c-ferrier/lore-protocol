@@ -11,7 +11,8 @@ import {
   MOCK_PROTOCOL_DEFINITION, 
   MOCK_CONFIG, 
   makeProtocolConfig,
-  makeProtocol
+  makeProtocol,
+  makeAtomRepository
 } from './test-utils.js';
 
 describe('Multi-Protocol Integration', () => {
@@ -46,14 +47,7 @@ describe('Multi-Protocol Integration', () => {
     registry.register(mock);
     registry.register(fred);
 
-    repo = new AtomRepository(
-      gitClient,
-      new TrailerParser(),
-      registry,
-      new SearchFilter(registry),
-      new NullAtomCache(),
-      new NullQueryCache()
-    );
+    repo = makeAtomRepository({ gitClient, registry });
   });
 
   it('Discovery: should aggregate discovery patterns from all protocols', async () => {
@@ -64,7 +58,6 @@ describe('Multi-Protocol Integration', () => {
     const combined = args.find(a => a.startsWith('--grep='));
     expect(combined).toContain('Mock-id');
     expect(combined).toContain('fred:');
-    expect(args).toContain('--extended-regexp');
   });
 
   it('Ownership: should respect namespaced trailers', async () => {

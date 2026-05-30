@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SquashMerger } from '../../../../src/engine/services/squash-merger.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, YAP_PROTOCOL_DEFINITION, makeProtocol, MOCK_CONFIG } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, makeAtomRepository, YAP_PROTOCOL_DEFINITION, makeProtocol, MOCK_CONFIG } from '../test-utils.js';
 
 import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 

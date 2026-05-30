@@ -3,12 +3,12 @@ import { AtomRepository } from '../../../../src/engine/services/atom-repository.
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { SearchFilter } from '../../../../src/engine/services/search-filter.js';
+import { PathResolver } from '../../../../src/engine/services/path-resolver.js';
 import { NullAtomCache } from '../../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { SearchOptions } from '../../../../src/engine/types/query.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
-
+import { MOCK_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeAtomRepository } from '../test-utils.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
 const MOCK_ID_KEY = "Mock-id";
@@ -24,21 +24,24 @@ describe('AtomRepository Refinement', () => {
   beforeEach(() => {
     gitClient = {
       log: vi.fn(),
+      getCommitsByHashes: vi.fn(async () => []),
       getFilesChanged: vi.fn().mockImplementation(async (hashes: string[]) => {
         const map = new Map<string, string[]>();
         for (const hash of hashes) map.set(hash, ['file.ts']);
         return map;
       }),
       resolveDate: vi.fn(async (d: string) => new Date(d)),
+      resolveRef: vi.fn(async () => 'head'),
     } as any;
     protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     trailerParser = new TrailerParser();
     searchFilter = new SearchFilter(protocolRegistry);
+    const pathResolver = new PathResolver('/mock', '/mock');
     const atomCache = new NullAtomCache();
     const queryCache = new NullQueryCache();
-    repo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, atomCache, queryCache);
+    repo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, pathResolver, atomCache, queryCache);
   });
 
   describe('stripTrailersFromBody (Internal Refinement)', () => {
@@ -116,6 +119,9 @@ describe('AtomRepository Refinement', () => {
 
       vi.mocked(gitClient.log)
         .mockResolvedValueOnce([commitA])
+        .mockResolvedValueOnce([commitB]);
+      
+      vi.mocked(gitClient.getCommitsByHashes)
         .mockResolvedValueOnce([commitB]);
 
       const options: SearchOptions = {

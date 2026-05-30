@@ -2,11 +2,10 @@ import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
 import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { StalenessDetector } from '../services/staleness-detector.js';
-import type { PathResolver } from '../services/path-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { Atom, SupersessionStatus } from '../types/domain.js';
+import type { Atom } from '../types/domain.js';
 import type { PathQueryOptions } from '../types/query.js';
-import type { FormattableStalenessResult, StaleAtomReport } from '../types/output.js';
+import type { FormattableStalenessResult } from '../types/output.js';
 import { STALE_SIGNAL } from '../util/constants.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import type { ILogger } from '../interfaces/logger.js';
@@ -28,7 +27,6 @@ export function registerStaleCommand(
     atomRepository: AtomRepository;
     supersessionResolver: SupersessionResolver;
     stalenessDetector: StalenessDetector;
-    pathResolver: PathResolver;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
   },
@@ -40,41 +38,31 @@ export function registerStaleCommand(
     .option('--drift <n>', 'File drift threshold (commits since atom)', parseInt)
     .action(async (target: string | undefined, _options: StaleCommandOptions, command: Command) => {
       const options = mergeOptions<StaleCommandOptions>(command);
-      const { atomRepository, supersessionResolver, stalenessDetector, pathResolver, getFormatter } = deps;
+      const { atomRepository, supersessionResolver, stalenessDetector, getFormatter } = deps;
 
-      let atoms: Atom[];
+      // 1. Fetch atoms using high-level Repository API
+      // This encapsulates Path resolution and Git-log construction.
+      const queryOptions: PathQueryOptions = {
+          scope: null, follow: false, all: false, author: null, limit: null, maxCommits: null, since: null, until: null,
+      };
+      
+      const atoms = target 
+        ? await atomRepository.findAtoms(target, queryOptions)
+        : await atomRepository.findAll();
 
-      if (target) {
-        const parsedTarget = pathResolver.parseTarget(target);
-        const gitLogArgs = pathResolver.toGitLogArgs(parsedTarget);
-        const queryOptions: PathQueryOptions = {
-          scope: null,
-          follow: false,
-          all: false,
-          author: null,
-          limit: null,
-          maxCommits: null,
-          since: null,
-          until: null,
-        };
-        atoms = await atomRepository.findByTarget(gitLogArgs, queryOptions);
-      } else {
-        atoms = await atomRepository.findAll();
-      }
-
-      // Compute supersession for dependency-orphan detection
+      // 2. Compute supersession for dependency-orphan detection
       const globalSupersessionMap = supersessionResolver.resolveAll(atoms);
 
-      // Filter to active atoms only (stale check on superseded atoms is not useful)
+      // 3. Filter to active atoms only (stale check on superseded atoms is not useful)
       const activeAtoms = supersessionResolver.filterActive(atoms, globalSupersessionMap);
 
-      // Run staleness analysis
+      // 4. Run staleness analysis
       let reports = await stalenessDetector.analyze(
         activeAtoms,
         globalSupersessionMap,
       );
 
-      // Apply additional CLI-level filters: keep reports that match ANY active signal
+      // 5. Apply additional CLI-level filters: keep reports that match ANY active signal
       const activeSignals: string[] = options.signals || [];
       if (options.olderThan) activeSignals.push(STALE_SIGNAL.AGE);
       if (options.drift !== undefined) activeSignals.push(STALE_SIGNAL.DRIFT);
@@ -88,5 +76,5 @@ export function registerStaleCommand(
 
       const formatter = getFormatter();
       deps.logger.result(formatter.formatStalenessResult(stalenessResult));
-      });
-      }
+    });
+}

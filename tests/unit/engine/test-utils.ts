@@ -6,6 +6,7 @@ import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry
 import { ProtocolLoader } from '../../../src/engine/services/protocol/protocol-loader.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
+import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
@@ -183,6 +184,8 @@ export function makeAtomRepository(options: {
     gitClient?: any;
     registry?: ProtocolRegistry;
     isScoped?: boolean;
+    pathResolver?: PathResolver;
+    searchFilter?: SearchFilter;
 } = {}): AtomRepository {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
     return new AtomRepository(
@@ -195,7 +198,8 @@ export function makeAtomRepository(options: {
         },
         new TrailerParser(),
         registry,
-        new SearchFilter(registry),
+        options.searchFilter || new SearchFilter(registry),
+        options.pathResolver || new PathResolver('/mock', '/mock'),
         new NullAtomCache(),
         new NullQueryCache(),
         options.isScoped ?? false

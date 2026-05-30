@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
 import { AtomRepository } from '../../../../src/engine/services/atom-repository.js';
-import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { SearchFilter } from '../../../../src/engine/services/search-filter.js';
+import { PathResolver } from '../../../../src/engine/services/path-resolver.js';
 import { NullAtomCache } from '../../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
-import { MOCK_CONFIG, makeProtocol } from '../test-utils.js';
+import { makeProtocol, makeAtomRepository } from '../test-utils.js';
 
 describe('AtomRepository Body Stripping', () => {
   let repo: AtomRepository;
@@ -24,14 +24,10 @@ describe('AtomRepository Body Stripping', () => {
   beforeEach(() => {
     const registry = new ProtocolRegistry();
     registry.register(protocol);
-    repo = new AtomRepository(
-      {} as any,
-      new TrailerParser(),
-      registry,
-      new SearchFilter(registry),
-      new NullAtomCache(),
-      new NullQueryCache()
-    );
+    repo = makeAtomRepository({
+        registry,
+        pathResolver: new PathResolver('/mock', '/mock')
+    });
   });
 
   const strip = (body: string, trailers: string) => (repo as any).stripTrailersFromBody(body, trailers);

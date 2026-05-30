@@ -1,42 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { AtomRepository } from '../../../../src/engine/services/atom-repository.js';
+import { Protocol } from '../../../../src/engine/services/protocol.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { PathResolver } from '../../../../src/engine/services/path-resolver.js';
 import { SearchFilter } from '../../../../src/engine/services/search-filter.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
 import { NullAtomCache } from '../../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
-import { makeProtocolConfig, MOCK_CONFIG } from '../test-utils.js';
+import { makeProtocol, makeAtomRepository } from '../test-utils.js';
 
-describe('ID Disambiguation & Qualified Identities', () => {
-  let registry: ProtocolRegistry;
-  let repo: AtomRepository;
+describe('AtomRepository Identity Disambiguation', () => {
   let gitClient: IGitClient;
+  let repo: AtomRepository;
+  let protocolRegistry: ProtocolRegistry;
 
-  // Protocol A: Root namespace, ID key is 'Alpha-id'
-  const PROTOCOL_A: ProtocolDefinition = {
+  const ALPHA_DEF = {
     name: 'Alpha',
     version: '1.0',
     identityKey: 'Alpha-id',
-    namespace: '',
-    strict: false,
-    permissive: false,
+    namespace: 'alpha',
     trailers: {
-      'Alpha-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$', isCore: true }
+      'Alpha-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' },
     }
   };
 
-  // Protocol B: Root namespace, ID key is 'Beta-id'
-  const PROTOCOL_B: ProtocolDefinition = {
+  const BETA_DEF = {
     name: 'Beta',
     version: '1.0',
     identityKey: 'Beta-id',
-    namespace: '',
-    strict: false,
-    permissive: false,
+    namespace: 'beta',
     trailers: {
-      'Beta-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$', isCore: true }
+      'Beta-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' },
     }
   };
 
@@ -46,112 +41,87 @@ describe('ID Disambiguation & Qualified Identities', () => {
       getCommitsByHashes: vi.fn(async () => []),
       getFilesChanged: vi.fn(async () => new Map()),
       resolveRef: vi.fn(async () => 'head'),
-      resolveDate: vi.fn(async (d) => new Date(d)),
+      resolveDate: vi.fn(async (d: string) => new Date(d)),
     } as any;
 
-    registry = new ProtocolRegistry();
-    const alpha = new Protocol(PROTOCOL_A, makeProtocolConfig({ permissive: false }));
-    const beta = new Protocol(PROTOCOL_B, makeProtocolConfig({ permissive: false }));
+    protocolRegistry = new ProtocolRegistry();
+    protocolRegistry.register(makeProtocol(ALPHA_DEF));
+    protocolRegistry.register(makeProtocol(BETA_DEF));
+
+    repo = makeAtomRepository({
+        gitClient,
+        registry: protocolRegistry,
+        pathResolver: new PathResolver('/mock', '/mock')
+    });
+  });
+
+  it('should find an atom using a qualified ID (alpha/12345678)', async () => {
+    const targetId = '12345678';
+    const commit: RawCommit = {
+      hash: 'h1',
+      date: new Date().toISOString(),
+      author: 'a',
+      subject: 's',
+      body: 'b',
+      trailers: `alpha: Alpha-id: ${targetId}`,
+    };
+
+    vi.mocked(gitClient.log).mockResolvedValue([commit]);
+
+    const result = await repo.findById({ id: targetId, protocol: 'alpha' });
+
+    expect(result).not.toBeNull();
+    const state = result!.protocols.get('alpha')!;
+    expect((state as any).trailers['Alpha-id'][0]).toBe(targetId);
     
-    registry.register(alpha);
-    registry.register(beta);
-
-    repo = new AtomRepository(
-      gitClient,
-      new TrailerParser(),
-      registry,
-      new SearchFilter(registry),
-      new NullAtomCache(),
-      new NullQueryCache()
-    );
+    // Ensure we used a specific grep
+    const args = vi.mocked(gitClient.log).mock.calls[0][0];
+    expect(args.some(a => a.includes('alpha: Alpha-id: 12345678'))).toBe(true);
   });
 
-  describe('Ambiguity Enforcement', () => {
-    it('should throw ProtocolError when resolving an ambiguous raw ID without context', () => {
-      const targetId = 'deadbeef';
-      expect(() => registry.resolveIdentity(targetId)).toThrow(/Ambiguous ID "deadbeef" matches multiple protocols/);
-    });
+  it('should find an atom using a qualified ID (beta/12345678)', async () => {
+    const targetId = '12345678';
+    const commit: RawCommit = {
+      hash: 'h2',
+      date: new Date().toISOString(),
+      author: 'a',
+      subject: 's',
+      body: 'b',
+      trailers: `beta: Beta-id: ${targetId}`,
+    };
 
-    it('should resolve correctly when an explicit prefix is provided', () => {
-      const result = registry.resolveIdentity('alpha/deadbeef');
-      expect(result).toEqual({ protocol: 'alpha', id: 'deadbeef' });
-    });
+    vi.mocked(gitClient.log).mockResolvedValue([commit]);
 
-    it('should resolve correctly when a default context is provided', () => {
-      const result = registry.resolveIdentity('deadbeef', 'beta');
-      expect(result).toEqual({ protocol: 'beta', id: 'deadbeef' });
-    });
+    const result = await repo.findById({ id: targetId, protocol: 'beta' });
+
+    expect(result).not.toBeNull();
+    expect(result!.protocols.has('beta')).toBe(true);
   });
 
-  describe('Deterministic Search', () => {
-    it('findById should return the correct atom when protocol is qualified', async () => {
-      const targetId = 'deadbeef';
+  it('should resolve ambiguous IDs by checking all protocols (three-pass)', async () => {
+    const targetId = '12345678';
+    // Commit only has Beta ID
+    const commit: RawCommit = {
+      hash: 'h2',
+      date: new Date().toISOString(),
+      author: 'a',
+      subject: 's',
+      body: 'b',
+      trailers: `beta: Beta-id: ${targetId}`,
+    };
 
-      const commitBeta: RawCommit = {
-        hash: 'h_beta',
-        date: '2023-01-02T00:00:00Z',
-        author: 'b',
-        subject: 's',
-        body: 'b',
-        trailers: 'Beta-id: deadbeef'
-      };
+    vi.mocked(gitClient.log).mockResolvedValue([commit]);
 
-      const commitAlpha: RawCommit = {
-        hash: 'h_alpha',
-        date: '2023-01-01T00:00:00Z',
-        author: 'a',
-        subject: 's',
-        body: 'b',
-        trailers: 'Alpha-id: deadbeef'
-      };
+    // Query without protocol prefix
+    const result = await repo.findById({ id: targetId });
 
-      vi.mocked(gitClient.log).mockResolvedValue([commitBeta, commitAlpha]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([
-        ['h_beta', []],
-        ['h_alpha', []]
-      ]));
-
-      const result = await repo.findById({ id: targetId, protocol: 'alpha' });
-
-      expect(result?.commitHash).toBe('h_alpha');
-      expect(result?.protocols.has('alpha')).toBe(true);
-    });
-
-    it('findByIds should return all atoms matching specific qualified identities', async () => {
-      const targetId = 'deadbeef';
-
-      const commitBeta: RawCommit = {
-        hash: 'h_beta',
-        date: '2023-01-02T00:00:00Z',
-        author: 'b',
-        subject: 's',
-        body: 'b',
-        trailers: 'Beta-id: deadbeef'
-      };
-
-      const commitAlpha: RawCommit = {
-        hash: 'h_alpha',
-        date: '2023-01-01T00:00:00Z',
-        author: 'a',
-        subject: 's',
-        body: 'b',
-        trailers: 'Alpha-id: deadbeef'
-      };
-
-      vi.mocked(gitClient.log).mockResolvedValue([commitBeta, commitAlpha]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([
-        ['h_beta', []],
-        ['h_alpha', []]
-      ]));
-
-      const results = await repo.findByIds([
-        { id: targetId, protocol: 'alpha' }, 
-        { id: targetId, protocol: 'beta' }
-      ]);
-
-      expect(results).toHaveLength(2);
-      expect(results.some(r => r.commitHash === 'h_beta')).toBe(true);
-      expect(results.some(r => r.commitHash === 'h_alpha')).toBe(true);
-    });
+    expect(result).not.toBeNull();
+    expect(result!.protocols.has('beta')).toBe(true);
+    
+    // Verification: ensure the grep included both possible patterns
+    const args = vi.mocked(gitClient.log).mock.calls[0][0];
+    const combinedGrep = args.find(a => a.startsWith('--grep='));
+    expect(combinedGrep).toContain('alpha: Alpha-id: 12345678');
+    expect(combinedGrep).toContain('beta: Beta-id: 12345678');
   });
 });

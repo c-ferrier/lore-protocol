@@ -151,6 +151,7 @@ export class EngineBootstrapper {
       trailerParser,
       protocolRegistry,
       searchFilter,
+      pathResolver,
       atomCache,
       queryCache,
       isScoped,

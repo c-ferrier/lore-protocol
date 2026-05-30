@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SupersessionResolver } from '../../../../src/engine/services/supersession-resolver.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { MOCK_PROTOCOL_DEFINITION, makeProtocol } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol } from '../test-utils.js';
 import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 
 const MOCK_ID_KEY = "Mock-id";

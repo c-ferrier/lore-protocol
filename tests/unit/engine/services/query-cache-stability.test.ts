@@ -3,6 +3,8 @@ import { QueryCache } from '../../../../src/engine/services/query-cache.js';
 import { rm, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { GLOBAL_CACHE_KEY } from '../../../../src/engine/util/constants.js';
+
 describe('QueryCache Stability', () => {
   const testCacheDir = join(process.cwd(), '.atom', 'test-query-cache');
 
@@ -17,7 +19,7 @@ describe('QueryCache Stability', () => {
   it('should produce the same hash for filters with different key orders', async () => {
     const cache = new QueryCache(testCacheDir, 100, 'mock@1.0');
     const headHash = 'a'.repeat(40);
-    const gitLogArgs = ['GLOBAL'];
+    const gitLogArgs = [GLOBAL_CACHE_KEY];
     
     const options1 = {
       filters: {
@@ -46,7 +48,7 @@ describe('QueryCache Stability', () => {
 
   it('should produce different hashes (cache miss) when the fingerprint changes', async () => {
     const headHash = 'a'.repeat(40);
-    const gitLogArgs = ['GLOBAL'];
+    const gitLogArgs = [GLOBAL_CACHE_KEY];
     const options = { text: 'bug' };
     const hashes = ['h1'];
 
@@ -76,7 +78,7 @@ describe('QueryCache Stability', () => {
   it('should be case-insensitive for filter keys', async () => {
     const cache = new QueryCache(testCacheDir, 100, 'mock@1.0');
     const headHash = 'a'.repeat(40);
-    const gitLogArgs = ['GLOBAL'];
+    const gitLogArgs = [GLOBAL_CACHE_KEY];
     const hashes = ['h1'];
 
     await cache.set(headHash, gitLogArgs, { filters: { Confidence: 'high' } }, hashes);
@@ -88,7 +90,7 @@ describe('QueryCache Stability', () => {
   it('should be order-independent for multiple filter values (arrays)', async () => {
     const cache = new QueryCache(testCacheDir, 100, 'mock@1.0');
     const headHash = 'a'.repeat(40);
-    const gitLogArgs = ['GLOBAL'];
+    const gitLogArgs = [GLOBAL_CACHE_KEY];
     const hashes = ['h1'];
 
     await cache.set(headHash, gitLogArgs, { filters: { Status: ['open', 'done'] } }, hashes);

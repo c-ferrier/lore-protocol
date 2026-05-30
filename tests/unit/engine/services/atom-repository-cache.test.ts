@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../../src/engine/services/atom-repository.js';
-import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { SearchFilter } from '../../../../src/engine/services/search-filter.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
+import { PathResolver } from '../../../../src/engine/services/path-resolver.js';
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { IAtomCache } from '../../../../src/engine/interfaces/atom-cache.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeAtomRepository } from '../test-utils.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
 const MOCK_ID_KEY = "Mock-id";
@@ -22,7 +22,9 @@ describe('AtomRepository Cache Interaction', () => {
     gitClient = {
       log: vi.fn(),
       getFilesChanged: vi.fn(async () => new Map()),
+      getCommitsByHashes: vi.fn(async () => []),
       resolveDate: vi.fn(async (d: string) => new Date(d)),
+      resolveRef: vi.fn(async () => 'head'),
     } as any;
 
     const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
@@ -34,14 +36,13 @@ describe('AtomRepository Cache Interaction', () => {
       set: vi.fn(async () => {}),
     };
 
-    repo = new AtomRepository(
-      gitClient,
-      trailerParser,
-      protocolRegistry,
-      new SearchFilter(protocolRegistry),
-      atomCache,
-      new NullQueryCache()
-    );
+    repo = makeAtomRepository({
+        gitClient,
+        registry: protocolRegistry,
+        pathResolver: new PathResolver('/mock', '/mock'),
+    });
+    // Manually override cache for testing
+    (repo as any).atomCache = atomCache;
   });
 
   const mockCommit: RawCommit = {

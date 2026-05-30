@@ -287,8 +287,22 @@ export async function buildLoreCli() {
           const textOpt = cmd.options.find(o => o.long === '--text');
           if (textOpt) (textOpt as any).description = 'Full-text search across intent, body, and trailer values';
           
+          const hasOpt = cmd.options.find(o => o.long === '--has');
+          if (hasOpt) (hasOpt as any).description = 'Filter atoms that contain this trailer type';
+
+          const scopeOpt = cmd.options.find(o => o.long === '--scope');
+          if (scopeOpt) (scopeOpt as any).description = 'Filter by conventional commit scope';
+
           const maxCommitsOpt = cmd.options.find(o => o.long === '--max-commits');
           if (maxCommitsOpt) (maxCommitsOpt as any).description = 'Maximum git commits to scan (supersession may be incomplete)';
+
+          const sinceOpt = cmd.options.find(o => o.long === '--since');
+          if (sinceOpt) (sinceOpt as any).description = 'Only consider commits since ref/date';
+
+          const untilOpt = cmd.options.find(o => o.long === '--until');
+          if (untilOpt) (untilOpt as any).description = 'Upper time/revision bound';
+
+          hideOpt('--follow');
 
           // Re-add Lore semantic filters
           cmd.option('--confidence <level>', 'Filter by confidence: low, medium, high');

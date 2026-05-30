@@ -417,6 +417,11 @@ describe('AtomRepository', () => {
         .mockResolvedValueOnce([a2])
         .mockResolvedValueOnce([a3]);
         
+      vi.mocked(gitClient.getCommitsByHashes)
+        .mockResolvedValueOnce([a1])
+        .mockResolvedValueOnce([a2])
+        .mockResolvedValueOnce([a3]);
+
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([
         [a1.hash, []], [a2.hash, []], [a3.hash, []]
       ]));
@@ -436,6 +441,7 @@ describe('AtomRepository', () => {
       const a2 = makeMockCommit({ id: 'bbbb2222', trailerExtras: 'Related: cccc3333' });
 
       vi.mocked(gitClient.log).mockResolvedValueOnce([a1]).mockResolvedValueOnce([a2]);
+      vi.mocked(gitClient.getCommitsByHashes).mockResolvedValueOnce([a1]).mockResolvedValueOnce([a2]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[a1.hash, []], [a2.hash, []]]));
 
       const start = await repo.findByCommitHash(a1.hash);
@@ -450,6 +456,7 @@ describe('AtomRepository', () => {
       const a2 = makeMockCommit({ id: 'bbbb2222', trailerExtras: 'Related: aaaa1111' });
 
       vi.mocked(gitClient.log).mockResolvedValue([a1, a2]);
+      vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([a1, a2]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[a1.hash, []], [a2.hash, []]]));
 
       const start = await repo.findByCommitHash(a1.hash);

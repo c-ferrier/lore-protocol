@@ -58,7 +58,9 @@ export class LoreJsonFormatter implements IOutputFormatter {
         lore_id: loreId,
         commit: atom.commitHash,
         date: atom.date.toISOString(),
-        author: atom.author,
+        author: atom.author.includes('<') 
+            ? atom.author.match(/<([^>]+)>/)?.[1] || atom.author 
+            : atom.author,
         intent: atom.subject,
         body: atom.body,
         trailers,
@@ -109,7 +111,9 @@ export class LoreJsonFormatter implements IOutputFormatter {
           lore_id: loreId,
           commit: report.atom.commitHash,
           date: report.atom.date.toISOString(),
-          author: report.atom.author,
+          author: report.atom.author.includes('<') 
+              ? report.atom.author.match(/<([^>]+)>/)?.[1] || report.atom.author 
+              : report.atom.author,
           intent: report.atom.subject,
           trailers,
           reasons: report.reasons.map((r) => ({

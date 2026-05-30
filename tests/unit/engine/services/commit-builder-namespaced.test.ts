@@ -2,7 +2,7 @@ import { ProtocolRegistry } from '../../../../src/engine/services/protocol-regis
 import { describe, it, expect, vi } from 'vitest';
 import { CommitBuilder } from '../../../../src/engine/services/commit-builder.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION, makeAtomRepository, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
 import type { CommitInput } from '../../../../src/engine/types/commit.js';
 
 describe('CommitBuilder Namespacing', () => {

@@ -57,6 +57,9 @@ export const CACHE_DIR = 'cache';
 export const ATOM_CACHE_DIR = 'atom';
 export const QUERY_CACHE_DIR = 'query';
 
+/** Sentinel key for global query cache entries (when no paths are provided) */
+export const GLOBAL_CACHE_KEY = 'GLOBAL';
+
 /** Engine configuration component names */
 export const ENGINE_DIR_NAME = '.atom';
 export const PROTOCOLS_DIR_NAME = 'protocols';

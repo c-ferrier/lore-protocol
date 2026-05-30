@@ -1,14 +1,12 @@
 import type { Command } from 'commander';
 import type { AtomRepository } from '../../services/atom-repository.js';
 import type { SupersessionResolver } from '../../services/supersession-resolver.js';
-import type { PathResolver } from '../../services/path-resolver.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { EngineConfig } from '../../types/config.js';
 import type { Atom, SupersessionStatus } from '../../types/domain.js';
 import type { PathQueryOptions, QueryResult, TargetType } from '../../types/query.js';
 import type { FormattableQueryResult } from '../../types/output.js';
 import { buildQueryMeta } from './build-query-meta.js';
-import type { IGitClient } from '../../interfaces/git-client.js';
 import type { ILogger } from '../../interfaces/logger.js';
 import { ProtocolError } from '../../util/errors.js';
 
@@ -26,9 +24,7 @@ export function parsePositiveInt(value: string): number {
 
 export interface PathQueryDeps {
   readonly atomRepository: AtomRepository;
-  readonly gitClient: IGitClient;
   readonly supersessionResolver: SupersessionResolver;
-  readonly pathResolver: PathResolver;
   readonly getFormatter: () => IOutputFormatter;
   readonly config: EngineConfig;
   readonly logger: ILogger;
@@ -59,7 +55,7 @@ export async function executePathQuery(
   commandName: string,
   visibleTrailers: readonly string[] | 'all',
 ): Promise<void> {
-  const { atomRepository, gitClient, supersessionResolver, pathResolver, getFormatter, config, logger } = deps;
+  const { atomRepository, supersessionResolver, getFormatter, config, logger } = deps;
 
   const queryOptions: PathQueryOptions = {
     scope: options.scope ?? null,
@@ -72,28 +68,19 @@ export async function executePathQuery(
     until: options.until ?? null,
   };
 
-  // Step 0: Resolve HEAD for caching
-  let headHash: string | undefined;
-  try {
-    headHash = await gitClient.resolveRef('HEAD');
-  } catch {
-    // Ignore if not in repo (e.g. tests)
-  }
-
-  // Step 1: Resolve target or use --scope
+  // Step 1: Resolve target or use --scope using high-level Repository API
   let atoms: Atom[];
   let targetType: TargetType | 'search' | 'global';
   let targetDisplay: string;
 
   if (queryOptions.scope) {
-    atoms = await atomRepository.findByScope(queryOptions.scope, { ...queryOptions, limit: null }, headHash);
+    atoms = await atomRepository.findByScope(queryOptions.scope, { ...queryOptions, limit: null });
     targetType = 'global';
     targetDisplay = `scope:${queryOptions.scope}`;
   } else {
-    const parsedTarget = pathResolver.parseTarget(target);
-    const gitLogArgs = pathResolver.toGitLogArgs(parsedTarget);
-    atoms = await atomRepository.findByTarget(gitLogArgs, { ...queryOptions, limit: null }, headHash);
-    targetType = parsedTarget.type;
+    // Encapsulates path resolution
+    atoms = await atomRepository.findAtoms(target, { ...queryOptions, limit: null });
+    targetType = 'directory'; 
     targetDisplay = target;
   }
 

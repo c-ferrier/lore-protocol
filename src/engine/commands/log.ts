@@ -3,24 +3,21 @@ import type { AtomRepository } from '../services/atom-repository.js';
 import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { Atom, SupersessionStatus } from '../types/domain.js';
-import type { PathQueryOptions, SearchOptions, QueryResult } from '../types/query.js';
+import type { PathQueryOptions, QueryResult } from '../types/query.js';
 import type { FormattableQueryResult } from '../types/output.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
 import { addPathQueryOptions } from './helpers/path-query.js';
-import type { IGitClient } from '../interfaces/git-client.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import type { ILogger } from '../interfaces/logger.js';
 
 /**
  * Register the log command.
- * atom-enriched git log.
- * Accepts paths as arguments and routes to the appropriate repository method.
+ * Standardizes git-history based surveyor across all protocols.
  */
 export function registerLogCommand(
   program: Command,
   deps: {
     atomRepository: AtomRepository;
-    gitClient: IGitClient;
     supersessionResolver: SupersessionResolver;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
@@ -28,38 +25,33 @@ export function registerLogCommand(
 ): void {
   const cmd = program
     .command('log [paths...]')
-    .description('Decision-enriched git log');
+    .description('Chronological decision surveyors for specific paths');
 
-  // addPathQueryOptions adds --scope, --follow, --all, --author, --limit, --max-commits, --since, --until
   addPathQueryOptions(cmd);
 
   cmd.action(async (paths: string[] | undefined, _options: any, command: Command) => {
     const options = mergeOptions<PathQueryOptions>(command);
-    const { atomRepository, gitClient, supersessionResolver, getFormatter, logger } = deps;
+    const { atomRepository, supersessionResolver, getFormatter, logger } = deps;
 
-    // Resolve HEAD for caching
-    let headHash: string | undefined;
-    try {
-      headHash = await gitClient.resolveRef('HEAD');
-    } catch {
-      // Ignore if not in repo
-    }
-
+    // Step 1: Query atoms using the high-level repository API
+    // This encapsulates Path resolution, Git-log construction, and Caching.
     let atoms: Atom[];
+    let targetDisplay: string;
 
-    if (paths && paths.length > 0) {
-      // Case A: Paths provided - route to findByTarget
-      const gitLogArgs = ['--', ...paths];
-      atoms = await atomRepository.findByTarget(gitLogArgs, options, headHash);
+    if (options.scope) {
+      atoms = await atomRepository.findByScope(options.scope, options);
+      targetDisplay = `scope:${options.scope}`;
+    } else if (paths && paths.length > 0) {
+      atoms = await atomRepository.findAtoms(paths, options);
+      targetDisplay = paths.join(', ');
     } else {
-      // Case B: No paths - route to findAll (global discovery)
-      const findOptions: SearchOptions = {
-        ...options,
-      };
-      atoms = await atomRepository.findAll(findOptions, headHash);
+      atoms = await atomRepository.findAll(options);
+      targetDisplay = 'all';
     }
 
-    // Compute supersession status
+    const totalAtoms = atoms.length;
+
+    // Step 2: Compute supersession status
     const globalSupersessionMap = supersessionResolver.resolveAll(atoms);
     
     // Flatten global map into a single map for the formatter (legacy text UI parity)
@@ -70,10 +62,7 @@ export function registerLogCommand(
         }
     }
 
-    const totalAtoms = atoms.length;
-
-    // Default to showing all atoms (mirroring git log)
-    // Supersession status is still calculated and displayed, but atoms are not hidden.
+    // Step 3: Filter superseded atoms unless --all
     let displayAtoms: readonly Atom[];
     if (options.all === false) {
       displayAtoms = supersessionResolver.filterActive(atoms, globalSupersessionMap);
@@ -81,14 +70,14 @@ export function registerLogCommand(
       displayAtoms = atoms;
     }
 
-    // Apply the display-level limit
+    // Step 4: Apply the display-level limit
     if (options.limit !== null && options.limit !== undefined && options.limit > 0) {
       displayAtoms = displayAtoms.slice(0, options.limit);
     }
 
     const result: QueryResult = {
       command: 'log',
-      target: paths?.join(', ') || 'repository',
+      target: targetDisplay,
       targetType: paths && paths.length > 0 ? 'directory' : 'global',
       atoms: displayAtoms,
       meta: buildQueryMeta(totalAtoms, displayAtoms),
