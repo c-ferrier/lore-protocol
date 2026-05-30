@@ -26,6 +26,7 @@ import { CommitInputResolver } from './services/commit-input-resolver.js';
 import { HeadIdReader } from './services/head-id-reader.js';
 import { resolveProtocolRoot } from './services/root-resolver.js';
 import { DynamicProtocolLoader } from './services/protocol-loader.js';
+import { ProtocolLoader } from './services/protocol/protocol-loader.js';
 import { getEngineVersion } from './util/version.js';
 import {
   registerWhyCommand,
@@ -66,9 +67,6 @@ export interface EngineOptions {
   onConfigLoaded?: (config: EngineConfig) => Promise<EngineConfig>;
   onProtocolsLoaded?: (protocols: ProtocolDefinition[]) => Promise<ProtocolDefinition[]>;
 
-  // Per-protocol runtime configuration provider
-  getProtocolConfig?: (name: string) => ProtocolConfig;
-
   /** Optional logger implementation. If not provided, a TerminalLogger is used. */
   logger?: ILogger;
   /** Optional log level. Defaults to INFO. */
@@ -103,40 +101,14 @@ export async function runCli(options: EngineOptions) {
     config = await options.onConfigLoaded(config);
   }
 
-  // 3. Load Protocols
-  // 3. Load Protocols
+  // 3. Load & Merge Protocols using the new ProtocolLoader
   const protocolsDir = join(activeRoot, options.engineDirName, PROTOCOLS_DIR_NAME);
-  const dynamicLoader = new DynamicProtocolLoader(protocolsDir);
-  const dynamicProtocols = await dynamicLoader.loadAll();
+  const protocolLoader = new ProtocolLoader(
+      new DynamicProtocolLoader(protocolsDir),
+      options.staticProtocols || []
+  );
 
-  let allProtocols: ProtocolDefinition[] = [];
-  const dynamicMap = new Map(dynamicProtocols.map(p => [p.name.toLowerCase(), p]));
-  const staticMap = new Map((options.staticProtocols || []).map(p => [p.name.toLowerCase(), p]));
-  const allNames = new Set([...dynamicMap.keys(), ...staticMap.keys()]);
-
-  for (const name of allNames) {
-      const discovered = dynamicMap.get(name);
-      const staticDef = staticMap.get(name);
-
-      if (discovered && staticDef) {
-          // HYBRID: Schema from Repo + Logic Hooks from Library
-          allProtocols.push({
-              ...discovered,
-              getStaleSignals: staticDef.getStaleSignals
-          });
-      } else if (discovered) {
-          allProtocols.push(discovered);
-      } else if (staticDef) {
-          allProtocols.push(staticDef);
-      }
-  }
-
-  // Final Pass: Standardize all trailer schemas via Hydrator
-  for (const def of allProtocols) {
-    for (const [key, t] of Object.entries(def.trailers)) {
-        (def.trailers as any)[key] = ProtocolHydrator.hydrateTrailer(key, t);
-    }
-  }
+  let allProtocols = await protocolLoader.loadAll(config);
   
   if (options.onProtocolsLoaded) {
     allProtocols = await options.onProtocolsLoaded(allProtocols);
@@ -159,17 +131,9 @@ export async function runCli(options: EngineOptions) {
   const gitClient: IGitClient = new GitClient(activeRoot);
   const protocolRegistry = new ProtocolRegistry();
   
-  const defaultProtocolConfig: ProtocolConfig = {
-    version: '1.0',
-    strict: false,
-    permissive: true,
-  };
-
   for (const def of allProtocols) {
-    const pConfig = options.getProtocolConfig 
-        ? options.getProtocolConfig(def.name)
-        : defaultProtocolConfig;
-    protocolRegistry.register(new Protocol(def, pConfig));
+    // Protocol constructor is now simplified to take only the definition
+    protocolRegistry.register(new Protocol(def));
   }
   
   const trailerParser = new TrailerParser();

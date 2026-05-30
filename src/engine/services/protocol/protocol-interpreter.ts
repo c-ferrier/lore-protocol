@@ -37,11 +37,10 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
       const isOwner = this.protocol.owns(key);
       const isReserved = lowerClaimed.has(lowerKey);
 
-      // Logic for Namespaced Protocol (Global Path)
+      // A. Namespaced Protocol (Global Path)
       if (namespace !== '' && !isPreBucketed) {
         if (!isOwner) continue;
 
-        // Unpack nested values: "Key: value"
         for (const nestedRaw of values) {
           const match = nestedRaw.match(/^([A-Za-z0-9][A-Za-z0-9-]*):\s*(.*)$/);
           if (!match) {
@@ -59,7 +58,6 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
             existing.push(innerValue);
             normalized[authorizedKey] = existing;
           } else {
-            // Intended for us (namespaced) but not in schema
             const existing = unauthorized[innerKey] || [];
             unauthorized[innerKey] = [...existing, innerValue];
           }
@@ -67,8 +65,9 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
         continue;
       }
 
-      // Logic for Root Namespace OR Pre-Bucketed Namespaced Protocol
+      // B. Root Namespace OR Pre-Bucketed Namespaced Protocol
       const authorizedKey = this.protocol.authorize(key);
+      
       if (authorizedKey && (isOwner || isPreBucketed)) {
           const existing = normalized[authorizedKey] ?? [];
           existing.push(...values);
@@ -76,17 +75,25 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
           continue;
       }
 
-      // Handle orphans (not claimed by any namespace or root schema)
-      if (!isReserved) {
-        if (this.protocol.permissive) {
+      const isQualified = values.every(v => v.includes(':'));
+      if (namespace === '' && isQualified) {
+          continue;
+      }
+
+      if (isReserved) {
+          continue;
+      }
+
+      if (this.protocol.permissive) {
           const existing = normalized[key] ?? [];
           existing.push(...values);
           normalized[key] = existing;
-        } else if (isOwner || isPreBucketed || namespace === '') {
-          // If it's in our namespace bucket (or we are root) but not authorized, it's a typo
+          continue;
+      }
+
+      if (namespace === '' || isOwner || isPreBucketed) {
           const existing = unauthorized[key] || [];
           unauthorized[key] = [...existing, ...values];
-        }
       }
     }
 
@@ -100,7 +107,9 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
     if (!state) return null;
     const values = state.trailers[this.protocol.identityKey];
     if (!values || values.length === 0) return null;
-    return values[0];
+    
+    const id = values[0];
+    return this.protocol.isValidIdentity(id) ? id : null;
   }
 
   isValidIdentity(id: string): boolean {
@@ -185,15 +194,22 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
             targetId = suffix;
           }
 
+          const isLocal = targetPName === this.protocol.name.toLowerCase();
           const targetStatusMap = globalSupersessionMap.get(targetPName);
           const status = targetStatusMap?.get(targetId);
 
-          // Only stale if the target is superseded by SOMEONE ELSE (not us)
-          if (status?.superseded && status.supersededBy !== currentId && status.supersededBy !== `${this.protocol.name.toLowerCase()}/${currentId}`) {
-            return {
-              signal: condition.signal || STALE_SIGNAL.ORPHANED_DEP,
-              description: `[${this.protocol.name}] Dependency "${value}" (in ${key}) has been superseded by ${status.supersededBy}`,
-            };
+          if (status?.superseded) {
+            // Identity awareness logic:
+            // 1. If it's a cross-protocol reference, we skip the self-exclusion check (can't supersede yourself in another protocol).
+            // 2. If it's local, we check if the target was superseded by someone OTHER THAN the current atom.
+            const isBySomeoneElse = !isLocal || (status.supersededBy !== currentId && status.supersededBy !== `${targetPName}/${currentId}`);
+
+            if (isBySomeoneElse) {
+                return {
+                    signal: condition.signal || STALE_SIGNAL.ORPHANED_DEP,
+                    description: `[${this.protocol.name}] Dependency "${value}" (in ${key}) has been superseded by ${status.supersededBy}`,
+                };
+            }
           }
         } catch {
           // ignore

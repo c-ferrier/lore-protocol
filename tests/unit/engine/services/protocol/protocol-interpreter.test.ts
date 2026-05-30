@@ -14,6 +14,7 @@ describe('ProtocolInterpreter', () => {
     owns: vi.fn((key: string) => key === 'Mock-id'),
     authorize: vi.fn((key: string) => (key === 'Mock-id' ? 'Mock-id' : (overrides.permissive !== false ? key : null))),
     getDefinition: vi.fn(),
+    isValidIdentity: vi.fn((id: string) => /^[0-9a-f]{8}$/.test(id)),
     ...overrides
   } as unknown as IProtocol);
 
@@ -69,11 +70,11 @@ describe('ProtocolInterpreter', () => {
     const interpreter = new ProtocolInterpreter(protocol, parser);
 
     const state = {
-        trailers: { 'Lore-id': ['atom-123'] },
+        trailers: { 'Lore-id': ['a1b2c3d4'] },
         unauthorized: {}
     };
 
-    expect(interpreter.getIdentity(state)).toBe('atom-123');
+    expect(interpreter.getIdentity(state)).toBe('a1b2c3d4');
     expect(interpreter.getIdentity(null)).toBeNull();
   });
 
@@ -184,7 +185,7 @@ describe('ProtocolInterpreter', () => {
       ]);
 
       const atom: any = {
-        protocols: new Map([['mock', { trailers: { 'Mock-id': ['some-other-id'], 'Depends-on': ['deadbeef'] }, unauthorized: {} }]])
+        protocols: new Map([['mock', { trailers: { 'Mock-id': ['a1b2c3d4'], 'Depends-on': ['deadbeef'] }, unauthorized: {} }]])
       };
 
       const signals = interpreter.getStaleSignals(atom, new Date(), globalMap);
@@ -206,15 +207,15 @@ describe('ProtocolInterpreter', () => {
       const interpreter = new ProtocolInterpreter(protocol, parser);
 
       const globalMap = new Map([
-          ['mock', new Map([['old-id', { superseded: true, supersededBy: 'active-id' }]])]
+          ['mock', new Map([['deadbeef', { superseded: true, supersededBy: 'a1b2c3d4' }]])]
       ]);
 
       const atom: any = {
-        protocols: new Map([['mock', { trailers: { 'Mock-id': ['active-id'], 'Supersedes': ['old-id'] }, unauthorized: {} }]])
+        protocols: new Map([['mock', { trailers: { 'Mock-id': ['a1b2c3d4'], 'Supersedes': ['deadbeef'] }, unauthorized: {} }]])
       };
 
       const signals = interpreter.getStaleSignals(atom, new Date(), globalMap);
-      // Should be empty because 'active-id' (us) is the one that superseded 'old-id'
+      // Should be empty because 'a1b2c3d4' (us) is the one that superseded 'deadbeef'
       expect(signals).toHaveLength(0);
     });
   });

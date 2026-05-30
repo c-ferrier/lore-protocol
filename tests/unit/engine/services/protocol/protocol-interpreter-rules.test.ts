@@ -15,6 +15,7 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
     getDefinition: vi.fn(),
     authorize: vi.fn(key => key),
     owns: vi.fn(() => true),
+    isValidIdentity: vi.fn((id: string) => /^[0-9a-f]{8}$/.test(id)),
     ...overrides
   } as unknown as IProtocol);
 
@@ -82,20 +83,20 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
 
     // Global map showing a security atom being superseded
     const globalMap = new Map([
-        ['sec', new Map([['cve-123', { superseded: true, supersededBy: 'sec/cve-456' }]])]
+        ['sec', new Map([['cve-1234', { superseded: true, supersededBy: 'sec/cve-5678' }]])]
     ]);
 
     const atom: any = {
       protocols: new Map([['lore', { 
-          trailers: { 'Lore-id': ['a1'], 'Depends-on': ['sec/cve-123'] }, 
+          trailers: { 'Lore-id': ['a1b2c3d4'], 'Depends-on': ['sec/cve-1234'] }, 
           unauthorized: {} 
       }]])
     };
 
     const signals = interpreter.getStaleSignals(atom, new Date(), globalMap);
     expect(signals).toHaveLength(1);
-    expect(signals[0].description).toContain('Dependency "sec/cve-123"');
-    expect(signals[0].description).toContain('superseded by sec/cve-456');
+    expect(signals[0].description).toContain('Dependency "sec/cve-1234"');
+    expect(signals[0].description).toContain('superseded by sec/cve-5678');
   });
 
   it('should correctly handle "reference-superseded" when supersededBy is a qualified ID', () => {
@@ -111,18 +112,18 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
     const interpreter = new ProtocolInterpreter(protocol, parser);
 
     const globalMap = new Map([
-        ['mock', new Map([['old-id', { superseded: true, supersededBy: 'mock/active-id' }]])]
+        ['mock', new Map([['deadbeef', { superseded: true, supersededBy: 'mock/a1b2c3d4' }]])]
     ]);
 
     const atom: any = {
       protocols: new Map([['mock', { 
-          trailers: { 'Mock-id': ['active-id'], 'Supersedes': ['old-id'] }, 
+          trailers: { 'Mock-id': ['a1b2c3d4'], 'Supersedes': ['deadbeef'] }, 
           unauthorized: {} 
       }]])
     };
 
     const signals = interpreter.getStaleSignals(atom, new Date(), globalMap);
-    // Should be empty because 'mock/active-id' is us
+    // Should be empty because 'mock/a1b2c3d4' is us
     expect(signals).toHaveLength(0);
   });
 

@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FlagsInputReader } from '../../../src/engine/services/readers/flags-input-reader.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
-import { MOCK_PROTOCOL_CONFIG } from '../engine/test-utils.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
+import { MOCK_PROTOCOL_CONFIG, makeProtocol } from '../engine/test-utils.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
@@ -33,7 +32,7 @@ describe('Protocol Architectural Integrity', () => {
       },
     };
 
-    const protocol = new Protocol(LoreProtocolDefinition, config);
+    const protocol = makeProtocol(LoreProtocolDefinition, config);
     const registry = new ProtocolRegistry();
     registry.register(protocol);
 
@@ -63,15 +62,7 @@ describe('Protocol Architectural Integrity', () => {
       body: '',
       filesChanged: [],
       protocols: new Map([
-        ['lore', { 
-            name: 'Lore', 
-            version: '1.0', 
-            strict: false,
-            permissive: true,
-            identityKey: LORE_ID_KEY, 
-            trailers,
-            unauthorized: {}
-        }]
+        ['lore', { trailers, unauthorized: {} }]
       ]),
     };
 
@@ -96,7 +87,7 @@ describe('Protocol Architectural Integrity', () => {
   });
 
   it('should handle a hybrid flow of core and custom trailers simultaneously', async () => {
-    const protocol = new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
+    const protocol = makeProtocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
     const options: CommitCommandOptions = {
       subject: 'feat',
       confidence: 'high',

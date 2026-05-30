@@ -1,4 +1,4 @@
-import type { ProtocolConfig, TrailerUiKind, TrailerUiColor } from '../types/config.js';
+import type { ProtocolConfig, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
 import type { ProtocolState, Atom, SupersessionStatus, StaleReason, Trailers } from '../types/domain.js';
 import type { FormattableTrailerDefinition, ValidationIssue } from '../types/output.js';
 import { type IProtocol, type ActiveTrailer } from '../interfaces/protocol.js';
@@ -16,7 +16,6 @@ import { ProtocolQueryAdapter } from './protocol/protocol-query-adapter.js';
 /**
  * A generic engine for Decision Protocols.
  * Drives validation, authorization, and Git discovery based on a provided ProtocolDefinition.
- * Merges built-in core trailers with project-specific custom configuration.
  * 
  * DESIGN: This is a Facade that delegates to specialized capability modules.
  * SOLID: SRP -- decomposed into Schema, Interpreter, Validator, and QueryAdapter.
@@ -26,8 +25,6 @@ export class Protocol implements IProtocol {
   private readonly definitions = new Map<string, ActiveTrailer>();
   private readonly caseMap = new Map<string, string>();
   private readonly parser = new TrailerParser();
-  private readonly _strict: boolean;
-  private readonly _permissive: boolean;
   private registry?: ProtocolRegistry;
 
   // Delegates
@@ -36,21 +33,11 @@ export class Protocol implements IProtocol {
   private readonly validator: ProtocolValidator;
   private readonly queryAdapter: ProtocolQueryAdapter;
 
-  constructor(
-    private readonly definition: ProtocolDefinition,
-    private readonly config: ProtocolConfig,
-  ) {
-    // Merge Policy: Config overrides Definition, defaults to Definition's mandatory value
-    this._strict = config.strict !== undefined ? config.strict : definition.strict;
-    this._permissive = config.permissive !== undefined ? config.permissive : definition.permissive;
-    
-    // 1. Instantiate Schema first (takes empty maps by reference)
-    this.schema = new ProtocolSchema(this.definitions, this.caseMap, this._permissive);
-
-    // 2. Populate maps
+  constructor(private readonly definition: ProtocolDefinition) {
     this.loadDefinitions();
 
-    // 3. Instantiate other Delegates
+    // Instantiate Delegates (Composition)
+    this.schema = new ProtocolSchema(this.definitions, this.caseMap, this.permissive);
     this.interpreter = new ProtocolInterpreter(this, this.parser);
     this.validator = new ProtocolValidator(this);
     this.queryAdapter = new ProtocolQueryAdapter(this);
@@ -78,11 +65,11 @@ export class Protocol implements IProtocol {
   }
 
   get strict(): boolean {
-    return this._strict;
+    return this.definition.strict;
   }
 
   get permissive(): boolean {
-    return this._permissive;
+    return this.definition.permissive;
   }
 
   // --- IProtocolSchema Delegation ---
@@ -206,28 +193,12 @@ export class Protocol implements IProtocol {
   }
 
   private loadDefinitions(): void {
-    // 1. Load Protocol-Defined Trailers (from static definition)
+    // Populate and sanitize maps from the static definition
     for (const [key, def] of Object.entries(this.definition.trailers)) {
+      const hydrated = ProtocolHydrator.hydrateTrailer(key, def);
       this.addDefinition(key, { 
-        ...ProtocolHydrator.hydrateTrailer(key, def), 
+        ...hydrated, 
         key 
-      });
-    }
-
-    // 2. Load Configured Custom Trailers & Overrides (from TOML config)
-    for (const [key, def] of Object.entries(this.config.trailers || {})) {
-      const canonicalKey = this.authorize(key) || key;
-      const existing = this.definitions.get(canonicalKey);
-      
-      const hydrated = ProtocolHydrator.hydrateTrailer(canonicalKey, def);
-      
-      const isCore = (def.isCore !== undefined) ? hydrated.isCore : (existing?.isCore ?? false);
-
-      this.addDefinition(canonicalKey, {
-          ...existing,
-          ...hydrated,
-          key: canonicalKey,
-          isCore
       });
     }
   }

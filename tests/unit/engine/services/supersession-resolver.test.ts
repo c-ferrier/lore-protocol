@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SupersessionResolver } from '../../../../src/engine/services/supersession-resolver.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { MOCK_PROTOCOL_DEFINITION, makeProtocol } from '../test-utils.js';
@@ -18,7 +18,7 @@ function makeAtom(options: {
     Confidence: [],
     Related: options.related ?? [],
     Supersedes: options.supersedes ?? [],
-  } as any;
+  };
 
   return {
     commitHash: `hash-${options.id}`,
@@ -27,7 +27,7 @@ function makeAtom(options: {
     subject: 'test commit',
     body: '',
     protocols: new Map([
-      ['mock', { name: 'Mock', version: '1.0', identityKey: MOCK_ID_KEY, trailers }]
+      ['mock', { trailers, unauthorized: {} }]
     ]),
     filesChanged: [],
   };
@@ -36,7 +36,6 @@ function makeAtom(options: {
 
 describe('SupersessionResolver', () => {
   let resolver: SupersessionResolver;
-  let protocol: Protocol;
   let registry: ProtocolRegistry;
 
   beforeEach(() => {
@@ -145,13 +144,14 @@ describe('SupersessionResolver', () => {
       const sparseAtom: any = {
         date: new Date(),
         protocols: new Map([
-          ['mock', { name: 'Mock', version: '1.0', identityKey: MOCK_ID_KEY, trailers: { [MOCK_ID_KEY]: ['sparse123'] } }]
+          ['mock', { trailers: { [MOCK_ID_KEY]: ['a1b2c3d4'] }, unauthorized: {} }]
         ]),
       };
 
       const globalResult = resolver.resolveAll([sparseAtom]);
-      const result = globalResult.get('mock')!;
-      expect(result.get('sparse123')!.superseded).toBe(false);
+      const result = globalResult.get('mock');
+      expect(result).toBeDefined();
+      expect(result!.get('a1b2c3d4')!.superseded).toBe(false);
     });
 
     it(`should skip invalid identity references`, () => {

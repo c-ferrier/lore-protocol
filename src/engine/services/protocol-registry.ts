@@ -6,6 +6,8 @@ import { ProtocolError } from '../util/errors.js';
  * Orchestrates multiple decision protocols.
  * Allows the engine to discover and hydrate atoms for any registered protocol.
  * Enforces safety rules for multi-protocol environments.
+ * 
+ * SOLID: SRP -- focused purely on protocol lookups and collision prevention.
  */
 export class ProtocolRegistry {
   private readonly protocols = new Map<string, IProtocol>();
@@ -16,8 +18,16 @@ export class ProtocolRegistry {
    * @throws Error if safety rules (e.g. multiple permissive protocols in same namespace) are violated.
    */
   register(protocol: IProtocol): void {
-    if (protocol.permissive && this.hasPermissiveProtocolInNamespace(protocol.namespace)) {
-      const existing = this.getPermissiveProtocolInNamespace(protocol.namespace);
+    const name = protocol.name.toLowerCase();
+    const ns = protocol.namespace.toLowerCase();
+
+    if (this.protocols.has(name)) {
+      throw new Error(`Protocol "${protocol.name}" is already registered.`);
+    }
+
+    // Safety Rule: Only one permissive protocol allowed per namespace to prevent trailer claiming conflicts
+    if (protocol.permissive && this.hasPermissiveProtocolInNamespace(ns)) {
+      const existing = this.getPermissiveProtocolInNamespace(ns);
       throw new Error(
         `Cannot register permissive protocol "${protocol.name}". ` +
           `A permissive protocol ("${existing?.name}") is already registered for namespace "${protocol.namespace || 'root'}". ` +
@@ -26,9 +36,10 @@ export class ProtocolRegistry {
     }
 
     protocol.setRegistry(this);
-    this.protocols.set(protocol.name.toLowerCase(), protocol);
-    this.namespaceMap.set(protocol.namespace.toLowerCase(), protocol);
+    this.protocols.set(name, protocol);
+    this.namespaceMap.set(ns, protocol);
   }
+
   /**
    * Find a protocol by name (case-insensitive).
    */
@@ -55,7 +66,7 @@ export class ProtocolRegistry {
     for (const protocol of this.protocols.values()) {
         const state = atom.protocols.get(protocol.name.toLowerCase());
         if (state) {
-            const id = protocol.getIdentity(state.trailers);
+            const id = protocol.getIdentity(state);
             if (id) return id;
         }
     }
@@ -91,8 +102,6 @@ export class ProtocolRegistry {
 
   /**
    * Get combined Git discovery arguments for all registered protocols.
-   * Uses a single --grep argument with an OR statement to allow safe
-   * combination with other filters (like --author) via --all-match.
    */
   getDiscoveryGrep(): string[] {
     const patterns = this.getAll().map((p) => p.getDiscoveryPattern());
@@ -114,7 +123,6 @@ export class ProtocolRegistry {
     const args: string[] = [];
 
     if (options.has) {
-      // Find all protocols that own or authorize this key
       const patterns: string[] = [];
       for (const p of this.getAll()) {
         const authorizedKey = p.authorize(options.has);
@@ -142,15 +150,11 @@ export class ProtocolRegistry {
    * Returns the protocol registered for the root namespace ("").
    */
   getRoot(): IProtocol | undefined {
-    return this.getAll().find((p) => p.namespace === '');
+    return this.namespaceMap.get('');
   }
 
   /**
    * Resolves a raw ID string into a Qualified Identity.
-   * Enforces strict ambiguity rules.
-   * 
-   * @param id The raw ID string (e.g. "123" or "alpha/123")
-   * @param contextProtocol Optional default protocol name if not prefixed
    */
   resolveIdentity(id: string, contextProtocol?: string): QueryIdentity {
     if (id.includes('/')) {
@@ -196,7 +200,6 @@ export class ProtocolRegistry {
 
   /**
    * Generates a stable fingerprint of all registered protocols and their versions.
-   * Used to invalidate caches when the protocol registry changes.
    */
   getFingerprint(): string {
     const protocols = this.getAll().map(p => `${p.name}@${p.version}`);

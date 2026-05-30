@@ -10,7 +10,8 @@ import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-c
 import { 
   MOCK_PROTOCOL_DEFINITION, 
   MOCK_CONFIG, 
-  makeProtocolConfig 
+  makeProtocolConfig,
+  makeProtocol
 } from './test-utils.js';
 
 describe('Multi-Protocol Integration', () => {
@@ -24,7 +25,7 @@ describe('Multi-Protocol Integration', () => {
     identityKey: 'Fred-id',
     namespace: 'fred',
     trailers: {
-      'Fred-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[a-z0-9]+$' },
+      'Fred-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[a-z0-9]+$' },
       'Impact': { description: 'Impact', validation: 'none' as const }
     }
   };
@@ -39,8 +40,8 @@ describe('Multi-Protocol Integration', () => {
     } as any;
 
     registry = new ProtocolRegistry();
-    const mock = new Protocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(MOCK_CONFIG));
-    const fred = new Protocol(FRED_DEF, makeProtocolConfig(MOCK_CONFIG));
+    const mock = makeProtocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(MOCK_CONFIG));
+    const fred = makeProtocol(FRED_DEF, makeProtocolConfig(MOCK_CONFIG));
     
     registry.register(mock);
     registry.register(fred);
@@ -100,10 +101,11 @@ describe('Multi-Protocol Integration', () => {
   });
 
   it('Conflict: should not allow two permissive protocols in the same namespace', () => {
-    const anotherPermissive = new Protocol({
+    const anotherPermissive = makeProtocol({
       ...FRED_DEF,
       name: 'Another',
-      namespace: '' // Root namespace
+      namespace: '', // Root namespace
+      permissive: true
     }, makeProtocolConfig(MOCK_CONFIG));
 
     // Mock is already registered in root namespace and is permissive

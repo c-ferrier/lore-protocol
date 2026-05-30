@@ -57,7 +57,7 @@ export async function buildLoreCli() {
     onConfigLoaded: async (config: EngineConfig): Promise<EngineConfig> => {
         if (!legacyData) return config;
         
-        // Translate Legacy LoreConfig to EngineConfig overrides
+        // 1. Translate Legacy LoreConfig to EngineConfig overrides
         const validation: any = {};
         if (legacyData.validation?.strict !== undefined) validation.strict = legacyData.validation.strict;
         if (legacyData.validation?.max_message_lines !== undefined) validation.maxMessageLines = legacyData.validation.max_message_lines;
@@ -76,6 +76,43 @@ export async function buildLoreCli() {
         const cli: any = {};
         if (legacyData.cli?.update_check !== undefined) cli.updateCheck = legacyData.cli.update_check;
 
+        // 2. Translate Legacy Lore Protocols to Engine protocols bucket
+        const loreOverrides: any = {
+            version: legacyData.protocol?.version || '1.0',
+            strict: false,
+            trailers: {}
+        };
+
+        const standardTrailers = new Set(Object.keys(LoreProtocolDefinition.trailers));
+        let hasCustomTrailers = false;
+
+        // Translate legacy custom arrays
+        for (const key of legacyData.trailers?.custom || []) {
+            if (!standardTrailers.has(key)) hasCustomTrailers = true;
+            loreOverrides.trailers[key] = {
+                description: `Custom project trailer: ${key}`,
+                multivalue: true,
+                validation: 'none'
+            };
+        }
+
+        // Translate legacy required arrays
+        for (const key of legacyData.trailers?.required || []) {
+            if (!standardTrailers.has(key)) hasCustomTrailers = true;
+            if (loreOverrides.trailers[key]) {
+                loreOverrides.trailers[key].required = true;
+            } else {
+                loreOverrides.trailers[key] = {
+                    description: '',
+                    multivalue: true,
+                    validation: 'none',
+                    required: true
+                };
+            }
+        }
+
+        loreOverrides.permissive = !hasCustomTrailers;
+
         return {
             ...config,
             validation: { ...config.validation, ...validation },
@@ -83,64 +120,12 @@ export async function buildLoreCli() {
             cli: { ...config.cli, ...cli },
             follow: { ...config.follow, ...follow },
             output: { ...config.output, ...output } as any,
+            protocols: {
+                ...config.protocols,
+                Lore: loreOverrides
+            }
         };
     },
-
-    // Hook: Provide per-protocol runtime configuration (Legacy Parity)
-    getProtocolConfig: (name: string): ProtocolConfig => {
-        if (name === 'Lore' && legacyData) {
-            // Hydrate definitions using the shared Engine hydrator
-            const definitions: Record<string, TrailerDefinition> = {};
-            
-            // Standard Lore trailers from the definition itself
-            const standardTrailers = new Set(Object.keys(LoreProtocolDefinition.trailers));
-            let hasCustomTrailers = false;
-
-            // Translate legacy custom arrays into definitions
-            for (const key of legacyData.trailers?.custom || []) {
-                if (!standardTrailers.has(key)) hasCustomTrailers = true;
-                if (!definitions[key]) {
-                    definitions[key] = ProtocolHydrator.hydrateTrailer(key, {
-                        description: `Custom project trailer: ${key}`,
-                        multivalue: true,
-                        validation: 'none'
-                    });
-                }
-            }
-
-            // Translate legacy required arrays into definitions
-            for (const key of legacyData.trailers?.required || []) {
-                if (!standardTrailers.has(key)) hasCustomTrailers = true;
-                if (definitions[key]) {
-                    definitions[key] = { ...definitions[key], required: true };
-                } else {
-                    definitions[key] = ProtocolHydrator.hydrateTrailer(key, {
-                        description: '',
-                        multivalue: true, // safe default
-                        validation: 'none',
-                        required: true
-                    });
-                }
-            }
-
-            // 0.5.0 Rule: If custom trailers were added, permissive mode was disabled automatically
-            const permissive = !hasCustomTrailers;
-
-            return {
-                version: legacyData.protocol?.version || '1.0',
-                strict: false,
-                permissive,
-                trailers: definitions
-            };
-        }
-        
-        // Generic default for other protocols
-        return {
-            version: '1.0',
-            strict: false,
-            permissive: true,
-        };
-    }
   };
 
   const { program, getFormatter, sharedDeps, config } = await runCli(options);

@@ -4,7 +4,8 @@ import { ProtocolRegistry } from '../../../../src/engine/services/protocol-regis
 import { 
   MOCK_PROTOCOL_DEFINITION, 
   MOCK_CONFIG, 
-  makeProtocolConfig 
+  makeProtocolConfig,
+  makeProtocol
 } from '../test-utils.js';
 
 describe('Hierarchical Namespacing Logic', () => {
@@ -16,7 +17,7 @@ describe('Hierarchical Namespacing Logic', () => {
     registry = new ProtocolRegistry();
     
     // 1. Root Protocol (Strict)
-    rootProtocol = new Protocol(
+    rootProtocol = makeProtocol(
       { 
         ...MOCK_PROTOCOL_DEFINITION, 
         namespace: '', 
@@ -24,13 +25,15 @@ describe('Hierarchical Namespacing Logic', () => {
         trailers: {
             ...MOCK_PROTOCOL_DEFINITION.trailers,
             'Lore-id': MOCK_PROTOCOL_DEFINITION.trailers[MOCK_PROTOCOL_DEFINITION.identityKey]
-        }
+        },
+        permissive: false,
+        strict: true
       },
       makeProtocolConfig({ permissive: false })
     );
 
     // 2. Namespaced Protocol (Strict)
-    projectProtocol = new Protocol(
+    projectProtocol = makeProtocol(
       { 
         ...MOCK_PROTOCOL_DEFINITION, 
         name: 'Project', 
@@ -39,7 +42,9 @@ describe('Hierarchical Namespacing Logic', () => {
         trailers: {
             'Id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' },
             'Team': { description: 'Team', multivalue: false }
-        }
+        },
+        permissive: false,
+        strict: true
       },
       makeProtocolConfig({ permissive: false })
     );
@@ -82,7 +87,7 @@ describe('Hierarchical Namespacing Logic', () => {
     });
 
     it('should allow unrecognized trailers in namespace when permissive', () => {
-      const permissiveProject = new Protocol(
+      const permissiveProject = makeProtocol(
         projectProtocol['definition'],
         makeProtocolConfig({ strict: false, permissive: true })
       );
@@ -111,7 +116,7 @@ describe('Hierarchical Namespacing Logic', () => {
     });
 
     it('root protocol should claim orphans as trailers when permissive', () => {
-      const permissiveRoot = new Protocol(
+      const permissiveRoot = makeProtocol(
         rootProtocol['definition'],
         makeProtocolConfig({ strict: false, permissive: true })
       );
