@@ -42,11 +42,17 @@ export class AtomRepository {
 
       // 1. Resolve path-based arguments if target provided
       const target = options.target;
-      if (target && (!Array.isArray(target) || target.length > 0)) {
-          const paths = Array.isArray(target) ? target.join(' ') : target;
-          const parsedTarget = this.pathResolver.parseTarget(paths);
-          gitLogArgs = this.pathResolver.toGitLogArgs(parsedTarget);
-          isGlobal = false;
+      if (target) {
+          if (Array.isArray(target)) {
+              if (target.length > 0) {
+                  gitLogArgs = this.pathResolver.toGitLogArgsMulti(target);
+                  isGlobal = false;
+              }
+          } else if (typeof target === 'string') {
+              const parsedTarget = this.pathResolver.parseTarget(target);
+              gitLogArgs = this.pathResolver.toGitLogArgs(parsedTarget);
+              isGlobal = false;
+          }
       }
 
       return this.internalQuery(gitLogArgs, options, headHash, isGlobal);

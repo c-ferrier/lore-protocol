@@ -5,100 +5,72 @@ import type { AtomRepository } from '../../../../src/engine/services/atom-reposi
 import type { SupersessionResolver } from '../../../../src/engine/services/supersession-resolver.js';
 import type { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import type { Atom } from '../../../../src/engine/types/domain.js';
-import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, MockLogger, makeProtocol } from '../test-utils.js';
+import { 
+    MOCK_ID_KEY, 
+    MockLogger, 
+    makeAtom, 
+    makeMockAtomRepository, 
+    makeMockSupersessionResolver 
+} from '../test-utils.js';
+import type { ILogger } from '../../../../src/engine/interfaces/logger.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-
-const MOCK_ID_KEY = "Mock-id";
+import { makeProtocol } from '../test-utils.js';
+import { MOCK_PROTOCOL_DEFINITION } from '../test-utils.js';
 
 /**
  * Regression tests for positional path arguments in log command.
  */
 
-function makeAtom(overrides: Partial<Atom> & { filesChanged: readonly string[] }): Atom {
-  const id = (overrides as any).id ?? 'abcd1234';
-  const protocols = new Map();
-  protocols.set('mock', {
-    name: 'Mock',
-    version: '1.0',
-    identityKey: MOCK_ID_KEY,
-    trailers: {
-      [MOCK_ID_KEY]: [id],
-    },
-  });
-
-  const base: Atom = {
-    commitHash: 'a'.repeat(40),
-    date: new Date('2026-01-01T00:00:00Z'),
-    author: 'Tester <tester@example.com>',
-    subject: 'fix: example',
-    body: '',
-    protocols,
-    filesChanged: overrides.filesChanged,
-  };
-
-  return { ...base, ...overrides };
-}
-
 interface Harness {
   program: Command;
   capturedResult: { data: unknown };
-  find: ReturnType<typeof vi.fn>;
-  findByScope: ReturnType<typeof vi.fn>;
-  logger: ILogger;
+  repo: any;
+  logger: MockLogger;
 }
 
 function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
-  const find = vi.fn().mockResolvedValue(filteredAtoms ?? atoms);
-  const findByScope = vi.fn().mockResolvedValue([]);
-  const atomRepository = { find, findByScope } as unknown as AtomRepository;
-
-  const supersessionResolver = {
-    resolveAll: vi.fn().mockReturnValue(new Map([['mock', new Map()]])),
-    filterActive: vi.fn((atoms: Atom[]) => atoms),
-  } as unknown as SupersessionResolver;
-
-  const capturedResult: { data: unknown } = { data: undefined };
-  const formatQueryResult = vi.fn((data: unknown) => {
-    capturedResult.data = data;
-    return '';
+  const repo = makeMockAtomRepository({
+      find: vi.fn().mockResolvedValue(filteredAtoms ?? atoms),
   });
 
+  const supersessionResolver = makeMockSupersessionResolver({
+      resolveAll: vi.fn().mockReturnValue(new Map([['mock', new Map()]])),
+  });
+
+  const capturedResult: { data: unknown } = { data: undefined };
   const formatter = {
-    formatQueryResult,
-    formatValidationResult: vi.fn(),
-    formatStalenessResult: vi.fn(),
-    formatTraceResult: vi.fn(),
-    formatDoctorResult: vi.fn(),
-    formatSuccess: vi.fn(),
-    formatError: vi.fn(),
-  } as IOutputFormatter;
+    formatQueryResult: vi.fn((data: unknown) => {
+        capturedResult.data = data;
+        return '';
+    }),
+  } as unknown as IOutputFormatter;
 
   const logger = new MockLogger();
-
   const program = new Command();
   program.exitOverride();
+
   const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
   const protocolRegistry = new ProtocolRegistry();
   protocolRegistry.register(protocol);
 
   registerLogCommand(program, {
-    atomRepository,
+    atomRepository: repo,
     supersessionResolver,
     getFormatter: () => formatter,
     logger,
   });
 
-  return { program, capturedResult, find, findByScope, logger };
+  return { program, capturedResult, repo, logger };
 }
 
 describe('registerLogCommand (agnostic path arguments)', () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
+
   it('accepts a positional path and routes through find()', async () => {
     const matching = makeAtom({ 
-        id: 'match0002', 
+        protocols: new Map([['mock', { trailers: { [MOCK_ID_KEY]: ['match0002'] }, unauthorized: {} }]]),
         filesChanged: ['src/main.ts'],
         subject: 'feat(main): change' 
     });
@@ -106,8 +78,8 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     await h.program.parseAsync(['node', 'atom', 'log', 'src/main.ts']);
 
-    expect(h.find).toHaveBeenCalledTimes(1);
-    expect(h.find).toHaveBeenCalledWith(
+    expect(h.repo.find).toHaveBeenCalledTimes(1);
+    expect(h.repo.find).toHaveBeenCalledWith(
       expect.objectContaining({ target: ['src/main.ts'] })
     );
 
@@ -118,15 +90,15 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
   it('accepts the `--` pass-through and routes identically', async () => {
     const matching = makeAtom({
-      id: 'match0002',
+      protocols: new Map([['mock', { trailers: { [MOCK_ID_KEY]: ['match0002'] }, unauthorized: {} }]]),
       filesChanged: ['src/main.ts'],
     });
     const h = buildHarness([matching], [matching]);
 
     await h.program.parseAsync(['node', 'atom', 'log', '--', 'src/main.ts']);
 
-    expect(h.find).toHaveBeenCalledTimes(1);
-    expect(h.find).toHaveBeenCalledWith(
+    expect(h.repo.find).toHaveBeenCalledTimes(1);
+    expect(h.repo.find).toHaveBeenCalledWith(
       expect.objectContaining({ target: ['src/main.ts'] })
     );
 
@@ -136,14 +108,14 @@ describe('registerLogCommand (agnostic path arguments)', () => {
   });
 
   it('uses global find when no path argument is provided', async () => {
-    const a = makeAtom({ id: 'all00001', filesChanged: ['src/a.ts'] });
-    const b = makeAtom({ id: 'all00002', filesChanged: ['src/b.ts'] });
+    const a = makeAtom({ filesChanged: ['src/a.ts'] });
+    const b = makeAtom({ filesChanged: ['src/b.ts'] });
     const h = buildHarness([a, b]);
 
     await h.program.parseAsync(['node', 'atom', 'log']);
 
-    expect(h.find).toHaveBeenCalledTimes(1);
-    expect(h.find).toHaveBeenCalledWith(
+    expect(h.repo.find).toHaveBeenCalledTimes(1);
+    expect(h.repo.find).toHaveBeenCalledWith(
       expect.objectContaining({ target: [] })
     );
 

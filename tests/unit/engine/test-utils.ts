@@ -18,6 +18,11 @@ import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import type { Atom, Trailers, HierarchicalTrailers } from '../../../src/engine/types/domain.js';
 
 /**
+ * MOCK: Key for the standard Mock protocol ID.
+ */
+export const MOCK_ID_KEY = 'Mock-id';
+
+/**
  * Mock logger for testing.
  */
 export const MockLogger = InMemoryLogger;
@@ -188,16 +193,7 @@ export function makeAtomRepository(options: {
     searchFilter?: SearchFilter;
 } = {}): AtomRepository {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
-    const gitClient = options.gitClient || { 
-        log: vi.fn(async () => []), 
-        getCommitsByHashes: vi.fn(async () => []), 
-        getFilesChanged: vi.fn(async () => new Map()), 
-        resolveRef: vi.fn(async () => 'head'), 
-        resolveDate: vi.fn(async (d: string) => {
-            const date = new Date(d);
-            return isNaN(date.getTime()) ? null : date;
-        }) 
-    };
+    const gitClient = options.gitClient || makeMockGitClient();
 
     return new AtomRepository(
         gitClient,
@@ -209,6 +205,57 @@ export function makeAtomRepository(options: {
         new NullQueryCache(),
         options.isScoped ?? false
     );
+}
+
+/**
+ * Factory: Create a mock GitClient with all methods as vi.fn().
+ */
+export function makeMockGitClient(overrides: any = {}): any {
+    return {
+        log: vi.fn(async () => []),
+        blame: vi.fn(async () => []),
+        getCommitsByHashes: vi.fn(async () => []),
+        getFilesChanged: vi.fn(async () => new Map()),
+        resolveRef: vi.fn(async () => 'head'),
+        resolveDate: vi.fn(async (d: string) => {
+            const date = new Date(d);
+            return isNaN(date.getTime()) ? null : date;
+        }),
+        isInsideRepo: vi.fn(async () => true),
+        getRepoRoot: vi.fn(async () => '/mock-repo'),
+        hasStagedChanges: vi.fn(async () => false),
+        commit: vi.fn(async () => ({ hash: 'abc123', success: true, message: 'Commit created' })),
+        ...overrides
+    };
+}
+
+/**
+ * Factory: Create a mock AtomRepository with all methods as vi.fn().
+ * Ideal for command-level testing where you don't want a real repository instance.
+ */
+export function makeMockAtomRepository(overrides: any = {}): any {
+    return {
+        find: vi.fn(async () => []),
+        findById: vi.fn(async () => null),
+        findByIds: vi.fn(async () => []),
+        findByCommitHash: vi.fn(async () => null),
+        findByRange: vi.fn(async () => []),
+        findByScope: vi.fn(async () => []),
+        findByLineRange: vi.fn(async () => []),
+        resolveFollowLinks: vi.fn(async (atoms) => [...atoms]),
+        ...overrides
+    };
+}
+
+/**
+ * Factory: Create a mock SupersessionResolver with all methods as vi.fn().
+ */
+export function makeMockSupersessionResolver(overrides: any = {}): any {
+    return {
+        resolveAll: vi.fn(() => new Map()),
+        filterActive: vi.fn((atoms) => atoms),
+        ...overrides
+    };
 }
 
 /**
