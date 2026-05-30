@@ -2,11 +2,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { SquashMerger } from '../../../../src/engine/services/squash-merger.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, makeAtomRepository, YAP_PROTOCOL_DEFINITION, makeProtocol, MOCK_CONFIG } from '../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, TEST_YAP_DEFINITION, makeProtocol, TEST_ENGINE_CONFIG } from '../test-utils.js';
 
 import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 
-const MOCK_ID_KEY = "Mock-id";
+const TEST_ID_KEY = "Mock-id";
 
 function createMockIdGenerator(id = 'deadbeef') {
   return {
@@ -16,7 +16,7 @@ function createMockIdGenerator(id = 'deadbeef') {
 
 function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
   return {
-    [MOCK_ID_KEY]: overrides[MOCK_ID_KEY] ?? ['a1b2c3d4'],
+    [TEST_ID_KEY]: overrides[TEST_ID_KEY] ?? ['a1b2c3d4'],
     Constraint: overrides.Constraint ?? [],
     Confidence: overrides.Confidence ?? [],
     Related: overrides.Related ?? [],
@@ -46,7 +46,7 @@ function makeAtom(overrides: Partial<any> = {}): Atom {
       ['mock', {
         name: 'Mock',
         version: '1.0',
-        identityKey: MOCK_ID_KEY,
+        identityKey: TEST_ID_KEY,
         trailers
       }]
     ]),
@@ -72,12 +72,12 @@ describe('SquashMerger', () => {
     expect(() => merger.merge([], {})).toThrow('Cannot merge zero atoms');
   });
 
-  it(`should generate a new ${MOCK_ID_KEY}`, () => {
+  it(`should generate a new ${TEST_ID_KEY}`, () => {
     const atom = makeAtom();
     const { message, protocols } = merger.merge([atom], {});
 
     expect(mockIdGen.generate).toHaveBeenCalledOnce();
-    expect(message).toContain(`${MOCK_ID_KEY}: deadbeef`);
+    expect(message).toContain(`${TEST_ID_KEY}: deadbeef`);
     expect(protocols.mock.id).toBe('deadbeef');
   });
 
@@ -141,14 +141,14 @@ describe('SquashMerger', () => {
       const a1 = makeAtom({
         id: 'aaaa0001',
         trailers: makeTrailers({
-          [MOCK_ID_KEY]: ['aaaa0001'],
+          [TEST_ID_KEY]: ['aaaa0001'],
           Constraint: ['C1', 'C2'],
         }),
       });
       const a2 = makeAtom({
         id: 'aaaa0002',
         trailers: makeTrailers({
-          [MOCK_ID_KEY]: ['aaaa0002'],
+          [TEST_ID_KEY]: ['aaaa0002'],
           Constraint: ['C1', 'C3'],
         }),
       });
@@ -167,11 +167,11 @@ describe('SquashMerger', () => {
     it('should pick lowest confidence (most conservative)', () => {
       const a1 = makeAtom({
         id: 'aaaa0001',
-        trailers: makeTrailers({ [MOCK_ID_KEY]: ['aaaa0001'], Confidence: ['high'] }),
+        trailers: makeTrailers({ [TEST_ID_KEY]: ['aaaa0001'], Confidence: ['high'] }),
       });
       const a2 = makeAtom({
         id: 'aaaa0002',
-        trailers: makeTrailers({ [MOCK_ID_KEY]: ['aaaa0002'], Confidence: ['low'] }),
+        trailers: makeTrailers({ [TEST_ID_KEY]: ['aaaa0002'], Confidence: ['low'] }),
       });
 
       const { message } = merger.merge([a1, a2], {});
@@ -181,11 +181,11 @@ describe('SquashMerger', () => {
     it('should handle null enum values gracefully', () => {
       const a1 = makeAtom({
         id: 'aaaa0001',
-        trailers: makeTrailers({ [MOCK_ID_KEY]: ['aaaa0001'], Confidence: ['medium'] }),
+        trailers: makeTrailers({ [TEST_ID_KEY]: ['aaaa0001'], Confidence: ['medium'] }),
       });
       const a2 = makeAtom({
         id: 'aaaa0002',
-        trailers: makeTrailers({ [MOCK_ID_KEY]: ['aaaa0002'], Confidence: [] }),
+        trailers: makeTrailers({ [TEST_ID_KEY]: ['aaaa0002'], Confidence: [] }),
       });
 
       const { message } = merger.merge([a1, a2], {});
@@ -206,14 +206,14 @@ describe('SquashMerger', () => {
       const a1 = makeAtom({
         id: 'aaaa0001',
         trailers: makeTrailers({
-          [MOCK_ID_KEY]: ['aaaa0001'],
+          [TEST_ID_KEY]: ['aaaa0001'],
           Related: ['aaaa0002'],
         }),
       });
       const a2 = makeAtom({
         id: 'aaaa0002',
         trailers: makeTrailers({
-          [MOCK_ID_KEY]: ['aaaa0002'],
+          [TEST_ID_KEY]: ['aaaa0002'],
           Related: ['aaaa0001'],
         }),
       });
@@ -235,7 +235,7 @@ describe('SquashMerger', () => {
 
   describe('squash strategies', () => {
     it('should respect rank-max (Impact: high > low)', () => {
-       const yap = makeProtocol(YAP_PROTOCOL_DEFINITION);
+       const yap = makeProtocol(TEST_YAP_DEFINITION);
        registry.register(yap);
        
        const a1 = makeAtom({ id: 'l1', body: '' });
@@ -254,7 +254,7 @@ describe('SquashMerger', () => {
       const atom = makeAtom({
         subject: 'single atom subject',
         trailers: makeTrailers({
-          [MOCK_ID_KEY]: ['a1b2c3d4'],
+          [TEST_ID_KEY]: ['a1b2c3d4'],
           Constraint: ['Some constraint'],
           Confidence: ['high'],
         }),
@@ -263,7 +263,7 @@ describe('SquashMerger', () => {
       const { message, protocols } = merger.merge([atom], {});
 
       expect(message).toContain('single atom subject');
-      expect(message).toContain(`${MOCK_ID_KEY}: deadbeef`);
+      expect(message).toContain(`${TEST_ID_KEY}: deadbeef`);
       expect(message).toContain('Constraint: Some constraint');
       expect(message).toContain('Confidence: high');
       expect(protocols.mock.id).toBe('deadbeef');
@@ -276,7 +276,7 @@ describe('SquashMerger', () => {
       const atom = makeAtom({
         id: 'aaaa0001',
         body: 'Atom body text',
-        trailers: makeTrailers({ [MOCK_ID_KEY]: ['aaaa0001'], Confidence: ['high'] }),
+        trailers: makeTrailers({ [TEST_ID_KEY]: ['aaaa0001'], Confidence: ['high'] }),
       });
 
       const { message } = merger.merge([atom], { subject: 'Merged subject' });
@@ -286,13 +286,13 @@ describe('SquashMerger', () => {
       expect(lines[1]).toBe('');
       expect(lines[2]).toBe('Atom body text');
       expect(lines[3]).toBe('');
-      expect(lines[4]).toContain(`${MOCK_ID_KEY}: deadbeef`);
+      expect(lines[4]).toContain(`${TEST_ID_KEY}: deadbeef`);
     });
   });
 
   describe('Multi-Protocol Merging', () => {
     it('should synthesize context for multiple registered protocols simultaneously', () => {
-      const yap = makeProtocol(YAP_PROTOCOL_DEFINITION);
+      const yap = makeProtocol(TEST_YAP_DEFINITION);
       registry.register(yap);
 
       const mixedAtom = makeAtom({

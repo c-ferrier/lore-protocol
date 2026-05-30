@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { 
-    MOCK_CONFIG, 
+    TEST_ENGINE_CONFIG, 
     makeProtocol, 
     makeProtocolRegistry, 
     makeMockGitClient, 
@@ -30,7 +30,7 @@ describe('Strict Namespaced Validation', () => {
     );
     const registry = makeProtocolRegistry([strictProtocol]);
     
-    const builder = new CommitBuilder(parser, idGen, MOCK_CONFIG, registry);
+    const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
 
     // 2. Input with an orphan trailer in "fred" namespace
     const input: CommitInput = {
@@ -59,7 +59,7 @@ describe('Strict Namespaced Validation', () => {
     );
     const registry = makeProtocolRegistry([strictProtocol]);
     
-    const builder = new CommitBuilder(parser, idGen, MOCK_CONFIG, registry);
+    const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
 
     const input: CommitInput = {
       subject: 'feat: add feature',

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol } from '../test-utils.js';
 
 describe('Protocol configuration merging', () => {
   it('should identify custom keys in permissive mode', () => {
-    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
       strict: false, 
       permissive: true,
       trailers: { 

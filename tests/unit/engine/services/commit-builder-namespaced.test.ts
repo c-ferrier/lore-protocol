@@ -2,7 +2,7 @@ import { ProtocolRegistry } from '../../../../src/engine/services/protocol-regis
 import { describe, it, expect, vi } from 'vitest';
 import { CommitBuilder } from '../../../../src/engine/services/commit-builder.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
-import { MOCK_PROTOCOL_DEFINITION, makeAtomRepository, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, TEST_ENGINE_CONFIG, makeProtocol } from '../test-utils.js';
 import type { CommitInput } from '../../../../src/engine/types/commit.js';
 
 describe('CommitBuilder Namespacing', () => {
@@ -11,13 +11,13 @@ describe('CommitBuilder Namespacing', () => {
 
   it('should include namespaced trailers in the built message', () => {
     const registry = new ProtocolRegistry();
-    const mockProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
+    const mockProtocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
     const fredProtocol = makeProtocol(
-      { ...MOCK_PROTOCOL_DEFINITION, name: 'Fred', namespace: 'fred', identityKey: 'Fred-id' },
+      { ...TEST_PROTOCOL_DEFINITION, name: 'Fred', namespace: 'fred', identityKey: 'Fred-id' },
       { trailers: { strict: false, permissive: true } }
     );
     const jiraProtocol = makeProtocol(
-      { ...MOCK_PROTOCOL_DEFINITION, name: 'Jira', namespace: 'jira', identityKey: 'Issue' },
+      { ...TEST_PROTOCOL_DEFINITION, name: 'Jira', namespace: 'jira', identityKey: 'Issue' },
       { permissive: false, trailers: { definitions: {} } }
     );
 
@@ -25,7 +25,7 @@ describe('CommitBuilder Namespacing', () => {
     registry.register(fredProtocol);
     registry.register(jiraProtocol);
 
-    const builder = new CommitBuilder(mockParser, mockIdGen as any, MOCK_CONFIG, registry);
+    const builder = new CommitBuilder(mockParser, mockIdGen as any, TEST_ENGINE_CONFIG, registry);
     mockIdGen.generate.mockReturnValueOnce('mock123').mockReturnValueOnce('fred456').mockReturnValueOnce('PROJ-123');
 
     const input: CommitInput = {
@@ -53,7 +53,7 @@ describe('CommitBuilder Namespacing', () => {
     );
     registry.register(fredProtocol);
 
-    const builder = new CommitBuilder(mockParser, mockIdGen as any, MOCK_CONFIG, registry);
+    const builder = new CommitBuilder(mockParser, mockIdGen as any, TEST_ENGINE_CONFIG, registry);
 
     const input: CommitInput = {
       subject: 'feat: add feature',

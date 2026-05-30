@@ -10,9 +10,9 @@ import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
 import { 
-    MOCK_ID_KEY,
-    MOCK_PROTOCOL_DEFINITION, 
-    MOCK_CONFIG, 
+    TEST_ID_KEY,
+    TEST_PROTOCOL_DEFINITION, 
+    TEST_ENGINE_CONFIG, 
     makeProtocol, 
     makeProtocolRegistry, 
     makeMockGitClient, 
@@ -39,7 +39,7 @@ function createDeps(overrides: any = {}) {
     getFormatter: () => makeMockFormatter(),
     commitInputResolver: makeMockInputResolver(),
     headIdReader: makeMockHeadIdReader(),
-    config: MOCK_CONFIG,
+    config: TEST_ENGINE_CONFIG,
     protocol,
     protocolRegistry,
     trailerParser: new TrailerParser(),
@@ -62,7 +62,7 @@ describe('atom commit --amend', () => {
     expect(gitClient.hasStagedChanges).not.toHaveBeenCalled();
   });
 
-  it(`should pass existing ${MOCK_ID_KEY} to commitBuilder.build when amending`, async () => {
+  it(`should pass existing ${TEST_ID_KEY} to commitBuilder.build when amending`, async () => {
     const headIdReader = makeMockHeadIdReader({ 
         readIds: vi.fn().mockResolvedValue({ mock: 'cafebabe' }) 
     });
@@ -156,7 +156,7 @@ describe('atom commit --amend', () => {
     ).rejects.toThrow('--no-edit can only be used with --amend');
   });
 
-  it(`should generate new ${MOCK_ID_KEY} when amending a non-Mock commit`, async () => {
+  it(`should generate new ${TEST_ID_KEY} when amending a non-Mock commit`, async () => {
     const headIdReader = makeMockHeadIdReader({});
     const deps = createDeps({ headIdReader });
 
@@ -169,7 +169,7 @@ describe('atom commit --amend', () => {
     );
   });
 
-  it(`should not read ${MOCK_ID_KEY} from HEAD for normal commits`, async () => {
+  it(`should not read ${TEST_ID_KEY} from HEAD for normal commits`, async () => {
     const headIdReader = makeMockHeadIdReader({ mock: 'cafebabe' });
     const deps = createDeps({ headIdReader });
 

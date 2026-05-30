@@ -4,7 +4,7 @@ import { registerInitCommand } from '../../../../src/engine/commands/init.js';
 import type { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
-import { MockLogger } from '../test-utils.js';
+import { TestLogger } from '../test-utils.js';
 
 vi.mock('node:fs/promises');
 
@@ -20,7 +20,7 @@ describe('Engine registerInitCommand', () => {
     formatConfig: vi.fn(),
   } as any;
 
-  let logger: MockLogger;
+  let logger: TestLogger;
 
   const MOCK_DEPS = {
     getFormatter: () => formatter,
@@ -35,7 +35,7 @@ describe('Engine registerInitCommand', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    logger = new MockLogger();
+    logger = new TestLogger();
     MOCK_DEPS.logger = logger;
   });
 

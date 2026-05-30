@@ -8,8 +8,8 @@ import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { 
-  MOCK_PROTOCOL_DEFINITION, 
-  MOCK_CONFIG, 
+  TEST_PROTOCOL_DEFINITION, 
+  TEST_ENGINE_CONFIG, 
   makeProtocolConfig,
   makeProtocol,
   makeAtomRepository
@@ -41,8 +41,8 @@ describe('Multi-Protocol Integration', () => {
     } as any;
 
     registry = new ProtocolRegistry();
-    const mock = makeProtocol(MOCK_PROTOCOL_DEFINITION, makeProtocolConfig(MOCK_CONFIG));
-    const fred = makeProtocol(FRED_DEF, makeProtocolConfig(MOCK_CONFIG));
+    const mock = makeProtocol(TEST_PROTOCOL_DEFINITION, makeProtocolConfig(TEST_ENGINE_CONFIG));
+    const fred = makeProtocol(FRED_DEF, makeProtocolConfig(TEST_ENGINE_CONFIG));
     
     registry.register(mock);
     registry.register(fred);
@@ -99,7 +99,7 @@ describe('Multi-Protocol Integration', () => {
       name: 'Another',
       namespace: '', // Root namespace
       permissive: true
-    }, makeProtocolConfig(MOCK_CONFIG));
+    }, makeProtocolConfig(TEST_ENGINE_CONFIG));
 
     // Mock is already registered in root namespace and is permissive
     expect(() => registry.register(anotherPermissive)).toThrow(/Only one permissive protocol is allowed per namespace/);

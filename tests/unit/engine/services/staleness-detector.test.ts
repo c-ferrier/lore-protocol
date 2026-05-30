@@ -6,9 +6,9 @@ import type { Atom, StaleReason } from '../../../../src/engine/types/domain.js';
 import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import type { IProtocol } from '../../../../src/engine/interfaces/protocol.js';
-import { MOCK_CONFIG, makeProtocol } from '../test-utils.js';
+import { TEST_ENGINE_CONFIG, makeProtocol } from '../test-utils.js';
 
-const MOCK_ID_KEY = "Mock-id";
+const TEST_ID_KEY = "Mock-id";
 
 function createMockGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
   return {
@@ -27,9 +27,9 @@ function createMockGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
 
 function createDefaultConfig(overrides: Partial<EngineConfig['stale']> = {}): EngineConfig {
   return {
-    ...MOCK_CONFIG,
+    ...TEST_ENGINE_CONFIG,
     stale: {
-      ...MOCK_CONFIG.stale,
+      ...TEST_ENGINE_CONFIG.stale,
       ...overrides,
     },
   };
@@ -44,13 +44,13 @@ function createMockProtocol(): IProtocol {
     name: 'mock',
     version: '1.0',
     namespace: '',
-    identityKey: MOCK_ID_KEY,
+    identityKey: TEST_ID_KEY,
     strict: false, permissive: true,
     getAuthorizedKeys: vi.fn(() => []),
     getDefinition: vi.fn(() => undefined),
     getReferenceKeys: vi.fn(() => ['Supersedes', 'Depends-on']),
     isValidIdentity: vi.fn((id) => /^[a-f0-9]{8}$/.test(id)),
-    getIdentity: vi.fn((trailers) => trailers?.[MOCK_ID_KEY]?.[0] || null),
+    getIdentity: vi.fn((trailers) => trailers?.[TEST_ID_KEY]?.[0] || null),
     setRegistry: vi.fn(),
     
     // Core Engine Logic Test: verify that the detector delegates to this method
@@ -111,9 +111,9 @@ function makeAtom(options: {
   protocols.set('mock', {
     name: 'mock',
     version: '1.0',
-    identityKey: MOCK_ID_KEY,
+    identityKey: TEST_ID_KEY,
     trailers: {
-      [MOCK_ID_KEY]: [id],
+      [TEST_ID_KEY]: [id],
       Confidence: options.confidence ? [options.confidence] : [],
       Directive: options.directives ?? [],
       'Depends-on': options.dependsOn ?? [],
@@ -419,7 +419,7 @@ describe('StalenessDetector', () => {
 
         expect(result).toHaveLength(1);
         const state = result[0].atom.protocols.get('mock');
-        expect(state?.trailers[MOCK_ID_KEY][0]).toBe('aaaa1111');
+        expect(state?.trailers[TEST_ID_KEY][0]).toBe('aaaa1111');
       });
 
       it('should handle empty atom list', async () => {

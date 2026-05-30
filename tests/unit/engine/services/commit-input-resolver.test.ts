@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CommitInputResolver } from '../../../../src/engine/services/commit-input-resolver.js';
 import type { IPrompt } from '../../../../src/engine/interfaces/prompt.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, makeAtomRepository, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, TEST_ENGINE_CONFIG, makeProtocol } from '../test-utils.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
 function createMockPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
@@ -24,7 +24,7 @@ describe('CommitInputResolver', () => {
 
   beforeEach(() => {
     prompt = createMockPrompt();
-    protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
+    protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
     registry = new ProtocolRegistry();
     registry.register(protocol);
     resolver = new CommitInputResolver(prompt, registry);

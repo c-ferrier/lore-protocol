@@ -3,7 +3,7 @@ import { LoreJsonFormatter } from '../../../../src/lore/formatters/lore-json-for
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
-import { MOCK_PROTOCOL_CONFIG } from '../../engine/test-utils.js';
+import { TEST_PROTOCOL_CONFIG } from '../../engine/test-utils.js';
 import type { FormattableQueryResult } from '../../../../src/engine/types/output.js';
 import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 
@@ -40,7 +40,7 @@ describe('LoreJsonFormatter (0.5.0 Parity)', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    registry.register(new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG));
+    registry.register(new Protocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG));
     formatter = new LoreJsonFormatter(registry);
   });
 

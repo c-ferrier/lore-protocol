@@ -6,10 +6,10 @@ import { PathResolver } from '../../../../src/engine/services/path-resolver.js';
 import { NullQueryCache } from '../../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { IAtomCache } from '../../../../src/engine/interfaces/atom-cache.js';
-import { MOCK_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeAtomRepository } from '../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeAtomRepository } from '../test-utils.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
-const MOCK_ID_KEY = "Mock-id";
+const TEST_ID_KEY = "Mock-id";
 
 describe('AtomRepository Cache Interaction', () => {
   let gitClient: IGitClient;
@@ -27,7 +27,7 @@ describe('AtomRepository Cache Interaction', () => {
       resolveRef: vi.fn(async () => 'head'),
     } as any;
 
-    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
+    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
     trailerParser = new TrailerParser();
@@ -51,7 +51,7 @@ describe('AtomRepository Cache Interaction', () => {
     author: 'dev@example.com',
     subject: 'feat(auth): add login',
     body: 'Implemented login flow.',
-    trailers: `${MOCK_ID_KEY}: a1b2c3d4`,
+    trailers: `${TEST_ID_KEY}: a1b2c3d4`,
   };
 
   it('should use cached files and skip git lookup on cache hit', async () => {
@@ -87,10 +87,10 @@ describe('AtomRepository Cache Interaction', () => {
   it('should handle partial cache hits in a batch', async () => {
     const cachedFiles = ['src/cached.ts'];
     const gitFiles = ['src/git.ts'];
-    const mockCommit2: RawCommit = { ...mockCommit, hash: 'hash2', trailers: `${MOCK_ID_KEY}: bbb222` };
+    const mockCommit2: RawCommit = { ...mockCommit, hash: 'hash2', trailers: `${TEST_ID_KEY}: bbb222` };
 
     vi.mocked(gitClient.log).mockResolvedValue([
-      { ...mockCommit, hash: 'hash1', trailers: `${MOCK_ID_KEY}: aaa111` },
+      { ...mockCommit, hash: 'hash1', trailers: `${TEST_ID_KEY}: aaa111` },
       mockCommit2
     ]);
 

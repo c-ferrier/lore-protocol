@@ -4,7 +4,7 @@ import { registerCommitCommand } from '../../../../src/engine/commands/commit.js
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol } from '../test-utils.js';
 
 describe('atom commit (dynamic flags)', () => {
   const mockDeps = {
@@ -21,7 +21,7 @@ describe('atom commit (dynamic flags)', () => {
   });
 
   it('should register flags for custom trailers defined in config', async () => {
-    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
       trailers: {
           Department: {
             description: 'Dept',
@@ -36,7 +36,7 @@ describe('atom commit (dynamic flags)', () => {
 
     const program = new Command();
     
-    registerCommitCommand(program, { ...mockDeps, config: MOCK_CONFIG, protocol, protocolRegistry });
+    registerCommitCommand(program, { ...mockDeps, config: TEST_ENGINE_CONFIG, protocol, protocolRegistry });
     
     const commitCmd = program.commands.find(c => c.name() === 'commit');
     expect(commitCmd).toBeDefined();
@@ -47,7 +47,7 @@ describe('atom commit (dynamic flags)', () => {
   });
 
   it('should automatically slugify custom trailer keys into flags', async () => {
-    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
       trailers: {
           'Assisted-by': {
             description: 'A',
@@ -61,7 +61,7 @@ describe('atom commit (dynamic flags)', () => {
 
     const program = new Command();
     
-    registerCommitCommand(program, { ...mockDeps, config: MOCK_CONFIG, protocol, protocolRegistry });
+    registerCommitCommand(program, { ...mockDeps, config: TEST_ENGINE_CONFIG, protocol, protocolRegistry });
     
     const commitCmd = program.commands.find(c => c.name() === 'commit');
     const assistedOption = commitCmd?.options.find(o => o.long === '--assisted-by');

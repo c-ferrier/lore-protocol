@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { MOCK_CONFIG, makeProtocolConfig } from '../test-utils.js';
+import { TEST_ENGINE_CONFIG, makeProtocolConfig } from '../test-utils.js';
 
 describe('ProtocolRegistry Advanced', () => {
   let registry: ProtocolRegistry;
@@ -17,14 +17,14 @@ describe('ProtocolRegistry Advanced', () => {
       identityKey: 'P1-id', 
       namespace: '', 
       trailers: { 'P1-id': { description: '', multivalue: false, validation: 'pattern', pattern: '[0-9]+' } } 
-    }, makeProtocolConfig(MOCK_CONFIG));
+    }, makeProtocolConfig(TEST_ENGINE_CONFIG));
     const p2 = new Protocol({ 
       name: 'P2', 
       version: '1', 
       identityKey: 'P2-id', 
       namespace: 'ns', 
       trailers: { 'P2-id': { description: '', multivalue: false, validation: 'pattern', pattern: '[a-z]+' } } 
-    }, makeProtocolConfig(MOCK_CONFIG));
+    }, makeProtocolConfig(TEST_ENGINE_CONFIG));
 
     registry.register(p1);
     registry.register(p2);
@@ -45,7 +45,7 @@ describe('ProtocolRegistry Advanced', () => {
       identityKey: 'P1-id',
       namespace: 'n1',
       trailers: {}
-    }, makeProtocolConfig(MOCK_CONFIG));
+    }, makeProtocolConfig(TEST_ENGINE_CONFIG));
     
     registry.register(p1);
     expect(registry.getRoot()).toBeUndefined();
@@ -56,7 +56,7 @@ describe('ProtocolRegistry Advanced', () => {
       identityKey: 'P2-id',
       namespace: '',
       trailers: {}
-    }, makeProtocolConfig(MOCK_CONFIG));
+    }, makeProtocolConfig(TEST_ENGINE_CONFIG));
     
     registry.register(p2);
     expect(registry.getRoot()).toBe(p2);

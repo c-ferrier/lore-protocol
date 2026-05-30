@@ -5,7 +5,7 @@ import type { IOutputFormatter } from '../../../../src/engine/interfaces/output-
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
 import { LORE_CONFIG_DIR as CONFIG_DIR, LORE_CONFIG_FILENAME as CONFIG_FILENAME } from '../../../../src/lore/defaults.js';
-import { MockLogger } from '../../engine/test-utils.js';
+import { TestLogger } from '../../engine/test-utils.js';
 import { DEFAULT_ENGINE_CONFIG } from '../../../../src/engine/defaults.js';
 
 vi.mock('node:fs/promises');
@@ -22,7 +22,7 @@ describe('registerInitCommand', () => {
     formatConfig: vi.fn(),
   } as any;
 
-  let logger: MockLogger;
+  let logger: TestLogger;
 
   const MOCK_ENGINE_DEPS = {
     getFormatter: () => formatter,
@@ -34,7 +34,7 @@ describe('registerInitCommand', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    logger = new MockLogger();
+    logger = new TestLogger();
     MOCK_ENGINE_DEPS.logger = logger;
   });
 

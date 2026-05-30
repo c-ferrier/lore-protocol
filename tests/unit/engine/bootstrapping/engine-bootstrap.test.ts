@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EngineBootstrapper } from '../../../../src/engine/services/engine-bootstrapper.js';
-import { MOCK_CONFIG } from '../test-utils.js';
+import { TEST_ENGINE_CONFIG } from '../test-utils.js';
 import { LogLevel } from '../../../../src/engine/interfaces/logger.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
@@ -14,7 +14,7 @@ vi.mock('../../../../src/engine/services/git-client.js', () => ({
 
 vi.mock('../../../../src/engine/services/config-loader.js', () => ({
     EngineConfigLoader: vi.fn().mockImplementation(() => ({
-        loadForPath: vi.fn(async () => MOCK_CONFIG),
+        loadForPath: vi.fn(async () => TEST_ENGINE_CONFIG),
     }))
 }));
 
@@ -35,7 +35,7 @@ describe('EngineBootstrapper', () => {
     description: 'Test CLI Description',
     engineDirName: '.test-engine',
     configFileName: 'config.toml',
-    defaultConfig: MOCK_CONFIG,
+    defaultConfig: TEST_ENGINE_CONFIG,
     staticProtocols: [],
     logLevel: LogLevel.SILENT
   };

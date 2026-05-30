@@ -4,14 +4,14 @@ import { ProtocolRegistry } from '../../../../src/engine/services/protocol-regis
 import type { IGitClient, RawCommit } from '../../../../src/engine/interfaces/git-client.js';
 import type { PathQueryOptions } from '../../../../src/engine/types/query.js';
 import { 
-    MOCK_PROTOCOL_DEFINITION, 
-    YAP_PROTOCOL_DEFINITION, 
+    TEST_PROTOCOL_DEFINITION, 
+    TEST_YAP_DEFINITION, 
     makeProtocol, 
     makeAtomRepository, 
     makeProtocolRegistry 
 } from '../test-utils.js';
 
-const MOCK_ID_KEY = "Mock-id";
+const TEST_ID_KEY = "Mock-id";
 
 function createMockGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
   return {
@@ -57,7 +57,7 @@ function makeMockCommit(options: {
     author: options.author ?? 'dev@example.com',
     subject: options.subject ?? 'feat(auth): add login',
     body: options.body ?? 'Implemented login flow.',
-    trailers: `${MOCK_ID_KEY}: ${id}\n${extras}`.trim(),
+    trailers: `${TEST_ID_KEY}: ${id}\n${extras}`.trim(),
   };
 }
 
@@ -82,7 +82,7 @@ describe('AtomRepository', () => {
 
   beforeEach(() => {
     gitClient = createMockGitClient();
-    protocolRegistry = makeProtocolRegistry([makeProtocol(MOCK_PROTOCOL_DEFINITION)]);
+    protocolRegistry = makeProtocolRegistry([makeProtocol(TEST_PROTOCOL_DEFINITION)]);
     repo = makeAtomRepository({ gitClient, registry: protocolRegistry });
   });
 
@@ -95,7 +95,7 @@ describe('AtomRepository', () => {
       const result = await repo.find({ target: 'src/auth.ts' });
 
       expect(result).toHaveLength(1);
-      expect(result[0].protocols.get('mock')?.trailers[MOCK_ID_KEY]?.[0]).toBe('a1b2c3d4');
+      expect(result[0].protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe('a1b2c3d4');
       expect(result[0].commitHash).toBe(commit.hash);
       expect(result[0].author).toBe('dev@example.com');
       expect(result[0].filesChanged).toEqual(['src/auth.ts']);
@@ -118,7 +118,7 @@ describe('AtomRepository', () => {
       const result = await repo.find({ target: 'src/auth.ts' });
 
       expect(result).toHaveLength(1);
-      expect(result[0].protocols.get('mock')?.trailers[MOCK_ID_KEY]?.[0]).toBe('a1b2c3d4');
+      expect(result[0].protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe('a1b2c3d4');
     });
 
     it('should pass author filter to git log args', async () => {
@@ -189,22 +189,22 @@ describe('AtomRepository', () => {
   });
 
   describe('findById', () => {
-    it(`should find an atom by its ${MOCK_ID_KEY}`, async () => {
+    it(`should find an atom by its ${TEST_ID_KEY}`, async () => {
       const commit = makeMockCommit({ id: 'deadbeef' });
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, ['src/auth.ts']]]));
 
       const result = await repo.findById({ id: 'deadbeef' });
-      expect(result?.protocols.get('mock')?.trailers[MOCK_ID_KEY]?.[0]).toBe('deadbeef');
+      expect(result?.protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe('deadbeef');
     });
 
-    it(`should return null if no atom matches the ${MOCK_ID_KEY}`, async () => {
+    it(`should return null if no atom matches the ${TEST_ID_KEY}`, async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
       const result = await repo.findById({ id: 'deadbeef' });
       expect(result).toBeNull();
     });
 
-    it(`should return null for invalid ${MOCK_ID_KEY} format`, async () => {
+    it(`should return null for invalid ${TEST_ID_KEY} format`, async () => {
       const result = await repo.findById({ id: 'not-valid' });
       expect(result).toBeNull();
       expect(gitClient.log).not.toHaveBeenCalled();
@@ -257,7 +257,7 @@ describe('AtomRepository', () => {
     });
 
     it('should strip trailers from body when body is exactly the trailer block', async () => {
-      const trailersRaw = `${MOCK_ID_KEY}: aaaa1111\nConstraint: C1`;
+      const trailersRaw = `${TEST_ID_KEY}: aaaa1111\nConstraint: C1`;
       const commit: RawCommit = {
         hash: 'aaa',
         date: '2025-01-15T10:00:00Z',
@@ -305,7 +305,7 @@ describe('AtomRepository', () => {
       const result = await repo.findByScope('auth', makeQueryOptions());
 
       expect(result).toHaveLength(1);
-      expect(result[0].protocols.get('mock')?.trailers[MOCK_ID_KEY]?.[0]).toBe('aaaa1111');
+      expect(result[0].protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe('aaaa1111');
     });
 
     it('should match scope case-insensitively', async () => {
@@ -320,10 +320,10 @@ describe('AtomRepository', () => {
 
   describe('Multi-Protocol Hydration', () => {
     it('should hydrate an atom with multiple protocol states if claimed by multiple protocols', async () => {
-      const yap = makeProtocol(YAP_PROTOCOL_DEFINITION);
+      const yap = makeProtocol(TEST_YAP_DEFINITION);
       protocolRegistry.register(yap);
 
-      const trailers = `${MOCK_ID_KEY}: abcd1234\nyap: YAP-id: abcd5678\nyap: Impact: high`;
+      const trailers = `${TEST_ID_KEY}: abcd1234\nyap: YAP-id: abcd5678\nyap: Impact: high`;
       const commit: RawCommit = {
         hash: 'multi-hash',
         date: new Date().toISOString(),
@@ -344,7 +344,7 @@ describe('AtomRepository', () => {
       expect(atom.protocols.has('yap')).toBe(true);
 
       const mockState = atom.protocols.get('mock')!;
-      expect(mockState.trailers[MOCK_ID_KEY]).toEqual(['abcd1234']);
+      expect(mockState.trailers[TEST_ID_KEY]).toEqual(['abcd1234']);
 
       const yapState = atom.protocols.get('yap')!;
       expect(yapState.trailers['YAP-id']).toEqual(['abcd5678']);
@@ -358,7 +358,7 @@ describe('AtomRepository', () => {
       vi.spyOn(mockProtocol as any, 'permissive', 'get').mockReturnValue(true);
 
       // 2. YAP is strict but defines its own ID
-      const yap = makeProtocol(YAP_PROTOCOL_DEFINITION, { permissive: false });
+      const yap = makeProtocol(TEST_YAP_DEFINITION, { permissive: false });
       protocolRegistry.register(yap);
 
       // 3. Mock commit: 
@@ -424,7 +424,7 @@ describe('AtomRepository', () => {
       const result = await repo.resolveFollowLinks([startAtoms!], 10);
 
       expect(result).toHaveLength(3);
-      const ids = result.map(a => a.protocols.get('mock')?.trailers[MOCK_ID_KEY]?.[0]);
+      const ids = result.map(a => a.protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]);
       expect(ids).toContain('aaaa1111');
       expect(ids).toContain('bbbb2222');
       expect(ids).toContain('cccc3333');

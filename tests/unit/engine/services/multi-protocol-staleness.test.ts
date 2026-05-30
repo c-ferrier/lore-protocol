@@ -3,7 +3,7 @@ import { StalenessDetector } from '../../../../src/engine/services/staleness-det
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
 import type { Atom } from '../../../../src/engine/types/domain.js';
-import { MOCK_CONFIG } from '../test-utils.js';
+import { TEST_ENGINE_CONFIG } from '../test-utils.js';
 
 describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
   let registry: ProtocolRegistry;
@@ -24,7 +24,7 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    detector = new StalenessDetector({} as any, MOCK_CONFIG, registry);
+    detector = new StalenessDetector({} as any, TEST_ENGINE_CONFIG, registry);
   });
 
   it('should aggregate staleness signals from multiple protocols for a single atom', async () => {

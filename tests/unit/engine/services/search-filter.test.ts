@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { SearchFilter } from '../../../../src/engine/services/search-filter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, makeAtomRepository, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, TEST_ENGINE_CONFIG, makeProtocol } from '../test-utils.js';
 import type { Atom } from '../../../../src/engine/types/domain.js';
 
 describe('SearchFilter', () => {
@@ -11,7 +11,7 @@ describe('SearchFilter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    const mock = makeProtocol(MOCK_PROTOCOL_DEFINITION);
+    const mock = makeProtocol(TEST_PROTOCOL_DEFINITION);
     registry.register(mock);
     filter = new SearchFilter(registry);
   });

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TextFormatter } from '../../../../src/engine/formatters/text-formatter.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol } from '../test-utils.js';
 
 import type { Atom, Trailers, SupersessionStatus } from '../../../../src/engine/types/domain.js';
 import type {
@@ -13,11 +13,11 @@ import type {
   FormattableDoctorResult,
 } from '../../../../src/engine/types/output.js';
 
-const MOCK_ID_KEY = "Mock-id";
+const TEST_ID_KEY = "Mock-id";
 
 function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
   return {
-    [MOCK_ID_KEY]: overrides[MOCK_ID_KEY] ?? ['a1b2c3d4'],
+    [TEST_ID_KEY]: overrides[TEST_ID_KEY] ?? ['a1b2c3d4'],
     Constraint: overrides.Constraint ?? [],
     Confidence: overrides.Confidence ?? [],
     Related: overrides.Related ?? [],
@@ -28,10 +28,10 @@ function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
 function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
   let trailers = overrides.protocols?.get('mock')?.trailers ?? makeTrailers();
   
-  const id = overrides.id || (trailers[MOCK_ID_KEY]?.[0] || 'a1b2c3d4');
+  const id = overrides.id || (trailers[TEST_ID_KEY]?.[0] || 'a1b2c3d4');
 
-  if (trailers[MOCK_ID_KEY]?.[0] !== id) {
-     trailers = { ...trailers, [MOCK_ID_KEY]: [id] } as any;
+  if (trailers[TEST_ID_KEY]?.[0] !== id) {
+     trailers = { ...trailers, [TEST_ID_KEY]: [id] } as any;
   }
   
   return {
@@ -41,7 +41,7 @@ function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
     subject: overrides.subject ?? 'feat(auth): add login flow',
     body: overrides.body ?? '',
     protocols: overrides.protocols ?? new Map([
-      ['mock', { name: 'Mock', version: '1.0', identityKey: MOCK_ID_KEY, trailers }]
+      ['mock', { name: 'Mock', version: '1.0', identityKey: TEST_ID_KEY, trailers }]
     ]),
     filesChanged: overrides.filesChanged ?? ['src/auth.ts'],
     ...overrides,
@@ -84,7 +84,7 @@ describe('TextFormatter', () => {
           ['mock', { 
             name: 'Mock', 
             version: '1.0', 
-            identityKey: MOCK_ID_KEY, 
+            identityKey: TEST_ID_KEY, 
             trailers: makeTrailers({
               Constraint: ['Must use OAuth2'],
               Confidence: ['high'],
@@ -145,7 +145,7 @@ describe('TextFormatter', () => {
           ['mock', {
             name: 'Mock',
             version: '1.0',
-            identityKey: MOCK_ID_KEY,
+            identityKey: TEST_ID_KEY,
             trailers: makeTrailers({
               Constraint: ['Must use OAuth2'],
               Confidence: ['high'],
@@ -176,7 +176,7 @@ describe('TextFormatter', () => {
           ['mock', {
             name: 'Mock',
             version: '1.0',
-            identityKey: MOCK_ID_KEY,
+            identityKey: TEST_ID_KEY,
             trailers: makeTrailers({
               'Assisted-by': ['Gemini'],
             })
@@ -250,7 +250,7 @@ describe('TextFormatter', () => {
       const atom: Atom = {
         ...makeAtom({ id: 'mock1234' }),
         protocols: new Map([
-          ['mock', { name: 'Mock', version: '1.0', identityKey: MOCK_ID_KEY, trailers }],
+          ['mock', { name: 'Mock', version: '1.0', identityKey: TEST_ID_KEY, trailers }],
           ['fred', { name: 'Fred', version: '2.0', identityKey: 'Fred-id', trailers: fredTrailers as any }]
         ])
       } as any;
@@ -321,7 +321,7 @@ describe('TextFormatter', () => {
             id: null,
             valid: false,
             issues: [
-              { severity: 'error', rule: 'mock-id-present', message: `${MOCK_ID_KEY} trailer is missing` },
+              { severity: 'error', rule: 'mock-id-present', message: `${TEST_ID_KEY} trailer is missing` },
               { severity: 'warning', rule: 'subject-length', message: 'Subject too long' },
             ],
           },
@@ -332,7 +332,7 @@ describe('TextFormatter', () => {
       const output = formatter.formatValidationResult(data);
       expect(output).toContain('\u2717');
       expect(output).toContain('mock-id-present');
-      expect(output).toContain(`${MOCK_ID_KEY} trailer is missing`);
+      expect(output).toContain(`${TEST_ID_KEY} trailer is missing`);
       expect(output).toContain('\u26A0');
       expect(output).toContain('Subject too long');
       expect(output).toContain('1 errors');
@@ -396,7 +396,7 @@ describe('TextFormatter', () => {
         checks: [
           { name: 'git-version', status: 'ok', message: 'Git 2.40+ detected', details: [] },
           { name: 'config', status: 'warning', message: 'No config found', details: ['Using defaults'] },
-          { name: 'duplicates', status: 'error', message: `2 duplicate ${MOCK_ID_KEY}s`, details: ['a1b2c3d4', 'e5f6a7b8'] },
+          { name: 'duplicates', status: 'error', message: `2 duplicate ${TEST_ID_KEY}s`, details: ['a1b2c3d4', 'e5f6a7b8'] },
         ],
         summary: { errors: 1, warnings: 1, info: 0 },
       };
@@ -408,7 +408,7 @@ describe('TextFormatter', () => {
       expect(output).toContain('No config found');
       expect(output).toContain('Using defaults');
       expect(output).toContain('ERROR');
-      expect(output).toContain(`2 duplicate ${MOCK_ID_KEY}s`);
+      expect(output).toContain(`2 duplicate ${TEST_ID_KEY}s`);
       expect(output).toContain('1 errors');
       expect(output).toContain('1 warnings');
     });

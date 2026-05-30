@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { ProtocolLoader } from '../../../../../src/engine/services/protocol/protocol-loader.js';
 import type { ProtocolDefinition } from '../../../../../src/engine/interfaces/protocol-definition.js';
 import type { EngineConfig } from '../../../../../src/engine/types/config.js';
-import { MOCK_CONFIG } from '../../test-utils.js';
+import { TEST_ENGINE_CONFIG } from '../../test-utils.js';
 
 describe('ProtocolLoader', () => {
   const createMockDynamicLoader = (protocols: ProtocolDefinition[]) => ({
@@ -45,7 +45,7 @@ describe('ProtocolLoader', () => {
         [staticSec]
     );
 
-    const results = await loader.loadAll(MOCK_CONFIG);
+    const results = await loader.loadAll(TEST_ENGINE_CONFIG);
     expect(results).toHaveLength(1);
     expect(results[0].name).toBe('Sec');
     expect(results[0].trailers.CVE).toBeDefined(); // Kept from dynamic
@@ -59,7 +59,7 @@ describe('ProtocolLoader', () => {
     );
 
     const configWithOverrides: EngineConfig = {
-      ...MOCK_CONFIG,
+      ...TEST_ENGINE_CONFIG,
       protocols: {
         Lore: {
           strict: true,
@@ -93,7 +93,7 @@ describe('ProtocolLoader', () => {
         []
     );
 
-    const results = await loader.loadAll(MOCK_CONFIG);
+    const results = await loader.loadAll(TEST_ENGINE_CONFIG);
     const testP = results[0];
     
     // String was hydrated into a full TrailerDefinition object

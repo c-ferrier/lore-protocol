@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { TrailerCollectorRegistry } from '../../../../../../src/engine/services/readers/collectors/trailer-collector-registry.js';
 import { Protocol } from '../../../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../../../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol } from '../../../test-utils.js';
 
 describe('TrailerCollectorRegistry', () => {
   it('should create default collectors for core trailers', () => {
-    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
+    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
@@ -24,7 +24,7 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should add custom collectors from definitions', () => {
-    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
       trailers: {
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const },
           'Squad': { description: 'Squad name', multivalue: true, validation: 'none' as const }
@@ -39,7 +39,7 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should handle multi-value enum collectors', () => {
-    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
       trailers: {
           'Features': { 
             description: 'Features', 
@@ -59,7 +59,7 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should create collectors for simple custom trailers', () => {
-    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
       trailers: {
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const },
           'Team': { description: '', multivalue: true, validation: 'none' as const }
@@ -74,7 +74,7 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should sort collectors based on metadata order', () => {
-    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
       trailers: {
           'First': { description: 'f', multivalue: false, validation: 'none' as const, prompt: { order: 1 } },
           'Last': { description: 'l', multivalue: false, validation: 'none' as const, prompt: { order: 10000 } }

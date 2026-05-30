@@ -3,7 +3,7 @@ import { runCli } from '../../../src/engine/index.js';
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { MOCK_CONFIG } from './test-utils.js';
+import { TEST_ENGINE_CONFIG } from './test-utils.js';
 
 describe('Agnostic Behavior (Zero Protocols)', () => {
   const testDir = join(tmpdir(), `agnostic-test-${Date.now()}`);
@@ -26,7 +26,7 @@ describe('Agnostic Behavior (Zero Protocols)', () => {
       description: 'Agnostic',
       engineDirName: '.atom',
       configFileName: 'config.toml',
-      defaultConfig: MOCK_CONFIG,
+      defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [], // NO protocols
     });
 

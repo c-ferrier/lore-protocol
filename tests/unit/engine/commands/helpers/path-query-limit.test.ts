@@ -3,18 +3,18 @@ import { executePathQuery } from '../../../../../src/engine/commands/helpers/pat
 import type { PathQueryDeps, PathQueryCommandOptions } from '../../../../../src/engine/commands/helpers/path-query.js';
 import type { Atom, SupersessionStatus } from '../../../../../src/engine/types/domain.js';
 import { Protocol } from '../../../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, MockLogger } from '../../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, TestLogger } from '../../test-utils.js';
 
-const MOCK_ID_KEY = "Mock-id";
+const TEST_ID_KEY = "Mock-id";
 
 function makeAtom(id: string, supersedes: string[] = []): Atom {
   const protocols = new Map();
   protocols.set('mock', {
     name: 'Mock',
     version: '1.0',
-    identityKey: MOCK_ID_KEY,
+    identityKey: TEST_ID_KEY,
     trailers: {
-      [MOCK_ID_KEY]: [id],
+      [TEST_ID_KEY]: [id],
       Supersedes: supersedes,
     },
   });
@@ -36,14 +36,14 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
   let mockResolve: ReturnType<typeof vi.fn>;
   let mockFilterActive: ReturnType<typeof vi.fn>;
   let formattedOutput: string;
-  let logger: MockLogger;
+  let logger: TestLogger;
 
   beforeEach(() => {
     mockFind = vi.fn();
     mockResolve = vi.fn();
     mockFilterActive = vi.fn();
     formattedOutput = '';
-    logger = new MockLogger();
+    logger = new TestLogger();
 
     deps = {
       atomRepository: {
@@ -77,7 +77,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
           return formattedOutput;
         }),
       }) as any,
-      config: MOCK_CONFIG,
+      config: TEST_ENGINE_CONFIG,
       logger,
     };
   });

@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { FlagsInputReader } from '../../../../../src/engine/services/readers/flags-input-reader.js';
 import { Protocol } from '../../../../../src/engine/services/protocol.js';
 import {
-  MOCK_PROTOCOL_DEFINITION,
-  MOCK_CONFIG,
+  TEST_PROTOCOL_DEFINITION,
+  TEST_ENGINE_CONFIG,
   makeProtocolConfig,
   makeProtocol
 } from '../../test-utils.js';
@@ -13,7 +13,7 @@ describe('FlagsInputReader', () => {
   let protocol: Protocol;
 
   beforeEach(() => {
-    protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
+    protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
   });
 
   it('should map all CLI options correctly', async () => {
@@ -120,7 +120,7 @@ describe('FlagsInputReader', () => {
   });
 
   it('should map auto-generated flags for simple custom trailers', async () => {
-    const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+    const customProtocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
       trailers: { 
           'Squad': { description: '', multivalue: true, validation: 'none' },
           'Team-Name': { description: '', multivalue: true, validation: 'none' }
@@ -141,7 +141,7 @@ describe('FlagsInputReader', () => {
   });
 
   it('should prioritize explicit cli flags over automatic ones', async () => {
-    const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+    const customProtocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
       trailers: {
           Department: {
             description: 'dept',
@@ -164,7 +164,7 @@ describe('FlagsInputReader', () => {
   });
 
   it('should automatically slugify custom trailer keys into CLI flags', async () => {
-    const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+    const customProtocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
       trailers: {
           'Regulatory-Compliance': {
             description: 'Check for compliance',

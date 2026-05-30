@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SupersessionResolver } from '../../../../src/engine/services/supersession-resolver.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { MOCK_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol } from '../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol } from '../test-utils.js';
 import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 
-const MOCK_ID_KEY = "Mock-id";
+const TEST_ID_KEY = "Mock-id";
 
 function makeAtom(options: {
   id: string;
@@ -13,7 +13,7 @@ function makeAtom(options: {
   related?: string[];
 }): Atom {
   const trailers: Trailers = {
-    [MOCK_ID_KEY]: [options.id],
+    [TEST_ID_KEY]: [options.id],
     Constraint: [],
     Confidence: [],
     Related: options.related ?? [],
@@ -39,7 +39,7 @@ describe('SupersessionResolver', () => {
   let registry: ProtocolRegistry;
 
   beforeEach(() => {
-    const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
+    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
     registry = new ProtocolRegistry();
     registry.register(protocol);
     resolver = new SupersessionResolver(registry);
@@ -144,7 +144,7 @@ describe('SupersessionResolver', () => {
       const sparseAtom: any = {
         date: new Date(),
         protocols: new Map([
-          ['mock', { trailers: { [MOCK_ID_KEY]: ['a1b2c3d4'] }, unauthorized: {} }]
+          ['mock', { trailers: { [TEST_ID_KEY]: ['a1b2c3d4'] }, unauthorized: {} }]
         ]),
       };
 

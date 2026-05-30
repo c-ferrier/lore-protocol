@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { 
-  MOCK_PROTOCOL_DEFINITION, 
-  MOCK_CONFIG, 
+  TEST_PROTOCOL_DEFINITION, 
+  TEST_ENGINE_CONFIG, 
   makeProtocolConfig,
   makeProtocol
 } from '../test-utils.js';
@@ -19,12 +19,12 @@ describe('Hierarchical Namespacing Logic', () => {
     // 1. Root Protocol (Strict)
     rootProtocol = makeProtocol(
       { 
-        ...MOCK_PROTOCOL_DEFINITION, 
+        ...TEST_PROTOCOL_DEFINITION, 
         namespace: '', 
         identityKey: 'Lore-id',
         trailers: {
-            ...MOCK_PROTOCOL_DEFINITION.trailers,
-            'Lore-id': MOCK_PROTOCOL_DEFINITION.trailers[MOCK_PROTOCOL_DEFINITION.identityKey]
+            ...TEST_PROTOCOL_DEFINITION.trailers,
+            'Lore-id': TEST_PROTOCOL_DEFINITION.trailers[TEST_PROTOCOL_DEFINITION.identityKey]
         },
         permissive: false,
         strict: true
@@ -35,7 +35,7 @@ describe('Hierarchical Namespacing Logic', () => {
     // 2. Namespaced Protocol (Strict)
     projectProtocol = makeProtocol(
       { 
-        ...MOCK_PROTOCOL_DEFINITION, 
+        ...TEST_PROTOCOL_DEFINITION, 
         name: 'Project', 
         namespace: 'Project', 
         identityKey: 'Id',

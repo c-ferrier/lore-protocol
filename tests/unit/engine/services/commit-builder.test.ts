@@ -3,16 +3,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CommitBuilder } from '../../../../src/engine/services/commit-builder.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import {
-  MOCK_PROTOCOL_DEFINITION,
-  MOCK_CONFIG,
-  MOCK_PROTOCOL_CONFIG,
+  TEST_PROTOCOL_DEFINITION,
+  TEST_ENGINE_CONFIG,
+  TEST_PROTOCOL_CONFIG,
   makeProtocol,
   makeProtocolConfig,
 } from '../test-utils.js';
 import type { CommitInput } from '../../../../src/engine/types/commit.js';
 import type { EngineConfig } from '../../../../src/engine/types/config.js';
 
-const MOCK_ID_KEY = "Mock-id";
+const TEST_ID_KEY = "Mock-id";
 
 // Mock TrailerParser
 function createMockTrailerParser() {
@@ -51,25 +51,25 @@ describe('CommitBuilder', () => {
   beforeEach(() => {
     mockParser = createMockTrailerParser();
     mockIdGen = createMockIdGenerator();
-    engineConfig = { ...MOCK_CONFIG };
+    engineConfig = { ...TEST_ENGINE_CONFIG };
 
     protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION));
+    protocolRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION));
 
     builder = new CommitBuilder(mockParser as any, mockIdGen as any, engineConfig, protocolRegistry);
   });
 
   describe('build', () => {
-    it(`should build a minimal commit with subject and ${MOCK_ID_KEY}`, () => {
+    it(`should build a minimal commit with subject and ${TEST_ID_KEY}`, () => {
       const input: CommitInput = {
         subject: 'feat: add login',
-        trailers: { '': { [MOCK_ID_KEY]: ['a1b2c3d4'] } },
+        trailers: { '': { [TEST_ID_KEY]: ['a1b2c3d4'] } },
       };
 
       const { message, protocols } = builder.build(input);
 
       expect(message).toContain('feat: add login');
-      expect(message).toContain(`${MOCK_ID_KEY}: a1b2c3d4`);
+      expect(message).toContain(`${TEST_ID_KEY}: a1b2c3d4`);
       expect(protocols.mock.id).toBe('a1b2c3d4');
     });
 
@@ -77,12 +77,12 @@ describe('CommitBuilder', () => {
       const input: CommitInput = {
         subject: 'feat: add login',
         body: 'Detailed description of changes.',
-        trailers: { '': { [MOCK_ID_KEY]: ['a1b2c3d4'] } },
+        trailers: { '': { [TEST_ID_KEY]: ['a1b2c3d4'] } },
       };
 
       const { message } = builder.build(input);
 
-      expect(message).toBe(`feat: add login\n\nDetailed description of changes.\n\n${MOCK_ID_KEY}: a1b2c3d4`);
+      expect(message).toBe(`feat: add login\n\nDetailed description of changes.\n\n${TEST_ID_KEY}: a1b2c3d4`);
     });
 
     it('should include all trailer types', () => {
@@ -105,28 +105,28 @@ describe('CommitBuilder', () => {
       expect(message).toContain('Related: aabbccdd');
     });
 
-    it(`should auto-generate ${MOCK_ID_KEY}`, () => {
+    it(`should auto-generate ${TEST_ID_KEY}`, () => {
       mockIdGen.generate.mockReturnValue('deadbeef');
-      const input: CommitInput = { subject: 'test', trailers: { '': { [MOCK_ID_KEY]: ['a1b2c3d4'] } } };
+      const input: CommitInput = { subject: 'test', trailers: { '': { [TEST_ID_KEY]: ['a1b2c3d4'] } } };
 
       const { message, protocols } = builder.build(input);
 
-      expect(message).toContain(`${MOCK_ID_KEY}: deadbeef`);
+      expect(message).toContain(`${TEST_ID_KEY}: deadbeef`);
       expect(protocols.mock.id).toBe('deadbeef');
     });
 
     it('should use provided existingId instead of generating one', () => {
-      const input: CommitInput = { subject: 'amend: update commit', trailers: { '': { [MOCK_ID_KEY]: ['a1b2c3d4'] } } };
+      const input: CommitInput = { subject: 'amend: update commit', trailers: { '': { [TEST_ID_KEY]: ['a1b2c3d4'] } } };
 
       const { message, protocols } = builder.build(input, { mock: 'cafebabe' });
 
-      expect(message).toContain(`${MOCK_ID_KEY}: cafebabe`);
+      expect(message).toContain(`${TEST_ID_KEY}: cafebabe`);
       expect(protocols.mock.id).toBe('cafebabe');
       expect(mockIdGen.generate).not.toHaveBeenCalled();
     });
 
-    it(`should generate new ${MOCK_ID_KEY} when no existingId is provided`, () => {
-      const input: CommitInput = { subject: 'new commit', trailers: { '': { [MOCK_ID_KEY]: ['a1b2c3d4'] } } };
+    it(`should generate new ${TEST_ID_KEY} when no existingId is provided`, () => {
+      const input: CommitInput = { subject: 'new commit', trailers: { '': { [TEST_ID_KEY]: ['a1b2c3d4'] } } };
 
       const { protocols } = builder.build(input);
 
@@ -143,7 +143,7 @@ describe('CommitBuilder', () => {
       builder.build(input);
 
       const passedTrailers = mockParser.serialize.mock.calls[0][0] as Record<string, string[]>;
-      expect(passedTrailers[MOCK_ID_KEY]).toEqual(['a1b2c3d4']);
+      expect(passedTrailers[TEST_ID_KEY]).toEqual(['a1b2c3d4']);
       expect(passedTrailers.Confidence).toEqual(['medium']);
     });
 
@@ -151,18 +151,18 @@ describe('CommitBuilder', () => {
       const mixedRegistry = new ProtocolRegistry();
       
       const fredProtocol = makeProtocol(
-        { ...MOCK_PROTOCOL_DEFINITION, name: 'Fred', namespace: 'fred', identityKey: 'Fred-id' },
-        { trailers: { ...MOCK_PROTOCOL_CONFIG.trailers, strict: false, permissive: true } }
+        { ...TEST_PROTOCOL_DEFINITION, name: 'Fred', namespace: 'fred', identityKey: 'Fred-id' },
+        { trailers: { ...TEST_PROTOCOL_CONFIG.trailers, strict: false, permissive: true } }
       );
       const rootProtocol = makeProtocol(
-        MOCK_PROTOCOL_DEFINITION,
-        { trailers: { ...MOCK_PROTOCOL_CONFIG.trailers, permissive: false } }
+        TEST_PROTOCOL_DEFINITION,
+        { trailers: { ...TEST_PROTOCOL_CONFIG.trailers, permissive: false } }
       );
 
       mixedRegistry.register(fredProtocol);
       mixedRegistry.register(rootProtocol);
 
-      const mixedBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, MOCK_CONFIG, mixedRegistry);
+      const mixedBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, TEST_ENGINE_CONFIG, mixedRegistry);
       mockIdGen.generate.mockReturnValueOnce('f1').mockReturnValueOnce('l1');
 
       const input: CommitInput = {
@@ -192,7 +192,7 @@ describe('CommitBuilder', () => {
       const input: CommitInput = {
         subject: 'feat: valid commit message',
         trailers: {
-          '': { Confidence: ['medium'], [MOCK_ID_KEY]: ['a1b2c3d4'] },
+          '': { Confidence: ['medium'], [TEST_ID_KEY]: ['a1b2c3d4'] },
         },
       };
 
@@ -203,7 +203,7 @@ describe('CommitBuilder', () => {
     it('should warn when subject exceeds max length', () => {
       const input: CommitInput = {
         subject: 'a'.repeat(80),
-        trailers: { '': { [MOCK_ID_KEY]: ['a1b2c3d4'] } },
+        trailers: { '': { [TEST_ID_KEY]: ['a1b2c3d4'] } },
       };
 
       const issues = builder.validate(input);
@@ -216,7 +216,7 @@ describe('CommitBuilder', () => {
     it('should error when subject is empty', () => {
       const input: CommitInput = {
         subject: '',
-        trailers: { '': { [MOCK_ID_KEY]: ['a1b2c3d4'] } },
+        trailers: { '': { [TEST_ID_KEY]: ['a1b2c3d4'] } },
       };
 
       const issues = builder.validate(input);
@@ -246,7 +246,7 @@ describe('CommitBuilder', () => {
       const input: CommitInput = {
         subject: 'test',
         trailers: {
-          '': { Related: ['invalid-id'], [MOCK_ID_KEY]: ['a1b2c3d4'] },
+          '': { Related: ['invalid-id'], [TEST_ID_KEY]: ['a1b2c3d4'] },
         },
       };
 
@@ -270,7 +270,7 @@ describe('CommitBuilder', () => {
     it('should check required trailers from protocol config', () => {
       const requiredRegistry = new ProtocolRegistry();
       const requiredProtocol = makeProtocol(
-          { ...MOCK_PROTOCOL_DEFINITION, name: 'Strict', namespace: 'st', identityKey: 'Id', trailers: { 'Required-Key': { description: 'R', multivalue: false, required: true } } }
+          { ...TEST_PROTOCOL_DEFINITION, name: 'Strict', namespace: 'st', identityKey: 'Id', trailers: { 'Required-Key': { description: 'R', multivalue: false, required: true } } }
       );
       requiredRegistry.register(requiredProtocol);
 
@@ -287,7 +287,7 @@ describe('CommitBuilder', () => {
     });
 
     it('should error on missing required trailers in strict mode', () => {
-      const strictProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+      const strictProtocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
         strict: true,
         permissive: false,
         trailers: {
@@ -297,8 +297,8 @@ describe('CommitBuilder', () => {
       const strictRegistry = new ProtocolRegistry();
       strictRegistry.register(strictProtocol);
 
-      const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, MOCK_CONFIG, strictRegistry);
-      const input: CommitInput = { subject: 'test', trailers: { '': { [MOCK_ID_KEY]: ['a1b2c3d4'] } } };
+      const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, TEST_ENGINE_CONFIG, strictRegistry);
+      const input: CommitInput = { subject: 'test', trailers: { '': { [TEST_ID_KEY]: ['a1b2c3d4'] } } };
 
       const issues = strictBuilder.validate(input);
       const requiredIssue = issues.find((i) => i.rule === 'required-trailer');
@@ -308,7 +308,7 @@ describe('CommitBuilder', () => {
 
     it('should warn when message exceeds max lines', () => {
       const longBody = 'line\n'.repeat(55);
-      const input: CommitInput = { subject: 'test', body: longBody, trailers: { '': { [MOCK_ID_KEY]: ['a1b2c3d4'] } } };
+      const input: CommitInput = { subject: 'test', body: longBody, trailers: { '': { [TEST_ID_KEY]: ['a1b2c3d4'] } } };
 
       const issues = builder.validate(input);
       expect(issues).toContainEqual(expect.objectContaining({
@@ -318,16 +318,16 @@ describe('CommitBuilder', () => {
     });
 
     it('should not warn when message is within line limit', () => {
-      const input: CommitInput = { subject: 'test', body: 'Short body', trailers: { '': { [MOCK_ID_KEY]: ['a1b2c3d4'] } } };
+      const input: CommitInput = { subject: 'test', body: 'Short body', trailers: { '': { [TEST_ID_KEY]: ['a1b2c3d4'] } } };
 
       const issues = builder.validate(input);
       expect(issues.filter(i => i.rule === 'message-length')).toHaveLength(0);
     });
 
     it('should pass with valid required trailer present', () => {
-      const requiredConfig: EngineConfig = { ...MOCK_CONFIG };
+      const requiredConfig: EngineConfig = { ...TEST_ENGINE_CONFIG };
       const requiredRegistry = new ProtocolRegistry();
-      requiredRegistry.register(makeProtocol(MOCK_PROTOCOL_DEFINITION, { 
+      requiredRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION, { 
           strict: false,
           permissive: true,
           trailers: { Confidence: { description: 'c', multivalue: false, validation: 'none', required: true } } 
@@ -344,7 +344,7 @@ describe('CommitBuilder', () => {
     });
 
     it('should report missing required custom trailer', () => {
-      const customProtocol = makeProtocol(MOCK_PROTOCOL_DEFINITION, {
+      const customProtocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
         strict: false,
         permissive: true,
         trailers: {
@@ -354,8 +354,8 @@ describe('CommitBuilder', () => {
       const customRegistry = new ProtocolRegistry();
       customRegistry.register(customProtocol);
 
-      const customBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, MOCK_CONFIG, customRegistry);
-      const input: CommitInput = { subject: 'test', trailers: { '': { [MOCK_ID_KEY]: ['a1b2c3d4'] } } };
+      const customBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, TEST_ENGINE_CONFIG, customRegistry);
+      const input: CommitInput = { subject: 'test', trailers: { '': { [TEST_ID_KEY]: ['a1b2c3d4'] } } };
 
       const issues = customBuilder.validate(input);
       expect(issues.filter(i => i.rule === 'required-trailer')).toHaveLength(1);
@@ -369,7 +369,7 @@ describe('CommitBuilder', () => {
         );
         strictRegistry.register(strictProtocol);
 
-        const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, MOCK_CONFIG, strictRegistry);
+        const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, TEST_ENGINE_CONFIG, strictRegistry);
 
         const input: CommitInput = {
             subject: 'test',
@@ -394,7 +394,7 @@ describe('CommitBuilder', () => {
       const registry = new ProtocolRegistry();
       registry.register(protocolWithGen);
 
-      const genBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, MOCK_CONFIG, registry);
+      const genBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, TEST_ENGINE_CONFIG, registry);
       const input: CommitInput = { 
           subject: 'test', 
           trailers: { '': { 'Other': ['val'] } } 
@@ -418,7 +418,7 @@ describe('CommitBuilder', () => {
       const registry = new ProtocolRegistry();
       registry.register(protocolNoGen);
 
-      const manualBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, MOCK_CONFIG, registry);
+      const manualBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, TEST_ENGINE_CONFIG, registry);
       const input: CommitInput = { subject: 'test', trailers: { '': {} } };
 
       const issues = manualBuilder.validate(input);

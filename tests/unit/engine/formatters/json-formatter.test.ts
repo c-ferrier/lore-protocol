@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { JsonFormatter } from '../../../../src/engine/formatters/json-formatter.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol } from '../test-utils.js';
 import type {
   FormattableQueryResult,
   FormattableValidationResult,
@@ -12,11 +12,11 @@ import type {
 } from '../../../../src/engine/types/output.js';
 import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 
-const MOCK_ID_KEY = "Mock-id";
+const TEST_ID_KEY = "Mock-id";
 
 function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
   return {
-    [MOCK_ID_KEY]: overrides[MOCK_ID_KEY] ?? ['a1b2c3d4'],
+    [TEST_ID_KEY]: overrides[TEST_ID_KEY] ?? ['a1b2c3d4'],
     Constraint: overrides.Constraint ?? [],
     Confidence: overrides.Confidence ?? [],
     Related: overrides.Related ?? [],
@@ -27,10 +27,10 @@ function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
 
 function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
   let trailers = (overrides as any).trailers ?? makeTrailers();
-  const id = overrides.id ?? trailers[MOCK_ID_KEY][0];
+  const id = overrides.id ?? trailers[TEST_ID_KEY][0];
 
-  if (trailers[MOCK_ID_KEY][0] !== id) {
-      trailers = { ...trailers, [MOCK_ID_KEY]: [id] } as any;
+  if (trailers[TEST_ID_KEY][0] !== id) {
+      trailers = { ...trailers, [TEST_ID_KEY]: [id] } as any;
   }
   
   const base: Atom = {
@@ -40,7 +40,7 @@ function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
     subject: overrides.subject ?? 'feat(auth): add login flow',
     body: overrides.body ?? '',
     protocols: overrides.protocols ?? new Map([
-      ['mock', { name: 'Mock', version: '1.0', identityKey: MOCK_ID_KEY, trailers }]
+      ['mock', { name: 'Mock', version: '1.0', identityKey: TEST_ID_KEY, trailers }]
     ]),
     filesChanged: overrides.filesChanged ?? ['src/auth.ts'],
   };
@@ -112,13 +112,13 @@ describe('JsonFormatter', () => {
 
     it('should use canonical trailer keys inside protocol object (symmetry)', () => {
       const registry = new ProtocolRegistry();
-      const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
+      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
       registry.register(protocol);
       const dataFormatter = new JsonFormatter(registry);
 
       const atom = makeAtom({
         trailers: {
-          [MOCK_ID_KEY]: ['abcd1234'],
+          [TEST_ID_KEY]: ['abcd1234'],
           Confidence: ['high'],
           'Depends-on': ['aabbccdd'],
         },

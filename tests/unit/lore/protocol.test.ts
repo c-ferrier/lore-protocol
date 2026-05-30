@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_CONFIG } from '../engine/test-utils.js';
+import { TEST_PROTOCOL_CONFIG } from '../engine/test-utils.js';
 
 const LORE_ID_KEY = 'Lore-id';
 
@@ -9,7 +9,7 @@ describe('LoreProtocolDefinition', () => {
   let protocol: Protocol;
 
   beforeEach(() => {
-    protocol = new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
+    protocol = new Protocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
   });
 
   it(`should have CLI metadata for all standard trailers except ${LORE_ID_KEY}`, () => {

@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { LORE_STALE_SIGNAL } from '../../../src/lore/constants.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
-import { MOCK_PROTOCOL_CONFIG } from '../engine/test-utils.js';
+import { TEST_PROTOCOL_CONFIG } from '../engine/test-utils.js';
 import type { Atom, SupersessionStatus } from '../../../src/engine/types/domain.js';
 
 describe('LoreProtocolDefinition Declarative Triggers', () => {
-  const protocol = new Protocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
+  const protocol = new Protocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
 
   const makeMockAtom = (loreTrailers: Record<string, string[]>): Atom => ({
     commitHash: 'h1',

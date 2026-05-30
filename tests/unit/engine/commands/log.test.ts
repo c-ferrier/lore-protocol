@@ -6,8 +6,8 @@ import type { SupersessionResolver } from '../../../../src/engine/services/super
 import type { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import type { Atom } from '../../../../src/engine/types/domain.js';
 import { 
-    MOCK_ID_KEY, 
-    MockLogger, 
+    TEST_ID_KEY, 
+    TestLogger, 
     makeAtom, 
     makeMockAtomRepository, 
     makeMockSupersessionResolver 
@@ -15,7 +15,7 @@ import {
 import type { ILogger } from '../../../../src/engine/interfaces/logger.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeProtocol } from '../test-utils.js';
-import { MOCK_PROTOCOL_DEFINITION } from '../test-utils.js';
+import { TEST_PROTOCOL_DEFINITION } from '../test-utils.js';
 
 /**
  * Regression tests for positional path arguments in log command.
@@ -25,7 +25,7 @@ interface Harness {
   program: Command;
   capturedResult: { data: unknown };
   repo: any;
-  logger: MockLogger;
+  logger: TestLogger;
 }
 
 function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
@@ -45,11 +45,11 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
     }),
   } as unknown as IOutputFormatter;
 
-  const logger = new MockLogger();
+  const logger = new TestLogger();
   const program = new Command();
   program.exitOverride();
 
-  const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
+  const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
   const protocolRegistry = new ProtocolRegistry();
   protocolRegistry.register(protocol);
 
@@ -70,7 +70,7 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
   it('accepts a positional path and routes through find()', async () => {
     const matching = makeAtom({ 
-        protocols: new Map([['mock', { trailers: { [MOCK_ID_KEY]: ['match0002'] }, unauthorized: {} }]]),
+        protocols: new Map([['mock', { trailers: { [TEST_ID_KEY]: ['match0002'] }, unauthorized: {} }]]),
         filesChanged: ['src/main.ts'],
         subject: 'feat(main): change' 
     });
@@ -85,12 +85,12 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     const result = (h.capturedResult.data as { result: { atoms: any[] } }).result;
     expect(result.atoms).toHaveLength(1);
-    expect(result.atoms[0].protocols.get('mock').trailers[MOCK_ID_KEY][0]).toBe('match0002');
+    expect(result.atoms[0].protocols.get('mock').trailers[TEST_ID_KEY][0]).toBe('match0002');
   });
 
   it('accepts the `--` pass-through and routes identically', async () => {
     const matching = makeAtom({
-      protocols: new Map([['mock', { trailers: { [MOCK_ID_KEY]: ['match0002'] }, unauthorized: {} }]]),
+      protocols: new Map([['mock', { trailers: { [TEST_ID_KEY]: ['match0002'] }, unauthorized: {} }]]),
       filesChanged: ['src/main.ts'],
     });
     const h = buildHarness([matching], [matching]);
@@ -104,7 +104,7 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     const result = (h.capturedResult.data as { result: { atoms: any[] } }).result;
     expect(result.atoms).toHaveLength(1);
-    expect(result.atoms[0].protocols.get('mock').trailers[MOCK_ID_KEY][0]).toBe('match0002');
+    expect(result.atoms[0].protocols.get('mock').trailers[TEST_ID_KEY][0]).toBe('match0002');
   });
 
   it('uses global find when no path argument is provided', async () => {

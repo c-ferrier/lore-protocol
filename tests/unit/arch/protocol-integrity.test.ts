@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FlagsInputReader } from '../../../src/engine/services/readers/flags-input-reader.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
-import { MOCK_PROTOCOL_CONFIG, makeProtocol } from '../engine/test-utils.js';
+import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../engine/test-utils.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
@@ -20,7 +20,7 @@ describe('Protocol Architectural Integrity', () => {
   it('should flow custom trailers from CLI flags to JSON output via metadata', async () => {
     // 1. Setup metadata in config
     const config = {
-      ...MOCK_PROTOCOL_CONFIG,
+      ...TEST_PROTOCOL_CONFIG,
       trailers: {
           'Ticket-ID': {
             description: 'Issue tracker reference',
@@ -87,7 +87,7 @@ describe('Protocol Architectural Integrity', () => {
   });
 
   it('should handle a hybrid flow of core and custom trailers simultaneously', async () => {
-    const protocol = makeProtocol(LoreProtocolDefinition, MOCK_PROTOCOL_CONFIG);
+    const protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
     const options: CommitCommandOptions = {
       subject: 'feat',
       confidence: 'high',

@@ -4,7 +4,7 @@ import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import * as rootResolver from '../../../src/engine/services/root-resolver.js';
-import { MOCK_ENGINE_DIR, assertIsolatedEngine } from './test-utils.js';
+import { TEST_ENGINE_DIR, assertIsolatedEngine } from './test-utils.js';
 import { ENGINE_CONFIG_FILENAME } from '../../../src/engine/util/constants.js';
 
 describe('Engine Assembly (Agnostic Bootstrap)', () => {
@@ -19,7 +19,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     trailers: {}
   };
 
-  const MOCK_CONFIG = {
+  const TEST_ENGINE_CONFIG = {
     protocol: { name: 'Atom', version: '1.0' },
     strict: false, permissive: true, trailers: { definitions: {} },
     validation: { strict: false, maxMessageLines: 50, subjectMaxLength: 72 },
@@ -30,7 +30,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
   } as any;
 
   beforeAll(() => {
-    assertIsolatedEngine(MOCK_ENGINE_DIR);
+    assertIsolatedEngine(TEST_ENGINE_DIR);
     mkdirSync(testDir, { recursive: true });
     writeFileSync(pkgPath, JSON.stringify({ version: '1.0.0' }));
   });
@@ -44,9 +44,9 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       binaryName: 'test-atom',
       version: '0.0.0-test',
       description: 'Test Engine',
-      engineDirName: MOCK_ENGINE_DIR,
+      engineDirName: TEST_ENGINE_DIR,
       configFileName: ENGINE_CONFIG_FILENAME,
-      defaultConfig: MOCK_CONFIG,
+      defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [CUSTOM_PROTOCOL],
     });
 
@@ -71,9 +71,9 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     const { program } = await runCli({
       binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
-      engineDirName: MOCK_ENGINE_DIR,
+      engineDirName: TEST_ENGINE_DIR,
       configFileName: ENGINE_CONFIG_FILENAME,
-      defaultConfig: MOCK_CONFIG,
+      defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [], // Atom starts empty
     });
 
@@ -90,9 +90,9 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     const { sharedDeps } = await runCli({
       binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
-      engineDirName: MOCK_ENGINE_DIR,
+      engineDirName: TEST_ENGINE_DIR,
       configFileName: ENGINE_CONFIG_FILENAME,
-      defaultConfig: MOCK_CONFIG,
+      defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [],
     });
 
@@ -109,9 +109,9 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     const { sharedDeps } = await runCli({
       binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
-      engineDirName: MOCK_ENGINE_DIR,
+      engineDirName: TEST_ENGINE_DIR,
       configFileName: ENGINE_CONFIG_FILENAME,
-      defaultConfig: MOCK_CONFIG,
+      defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [],
     });
 

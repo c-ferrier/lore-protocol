@@ -4,7 +4,7 @@ import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { Validator } from '../../../../src/engine/services/validator.ts';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
 import type { IGitClient } from '../../../../src/engine/interfaces/git-client.js';
-import { makeProtocolConfig, MOCK_CONFIG } from '../test-utils.js';
+import { makeProtocolConfig, TEST_ENGINE_CONFIG } from '../test-utils.js';
 
 describe('Cross-Protocol Validation', () => {
   let registry: ProtocolRegistry;
@@ -53,7 +53,7 @@ describe('Cross-Protocol Validation', () => {
       findByIds: vi.fn(async () => []),
     } as any;
 
-    validator = new Validator(new TrailerParser(), mockRepo, MOCK_CONFIG, registry);
+    validator = new Validator(new TrailerParser(), mockRepo, TEST_ENGINE_CONFIG, registry);
   });
 
   it('should allow valid cross-protocol references', async () => {

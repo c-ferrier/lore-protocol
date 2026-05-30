@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerCommitCommand } from '../../../../src/engine/commands/commit.js';
 import { 
-    MOCK_CONFIG, 
+    TEST_ENGINE_CONFIG, 
     makeProtocol, 
     makeProtocolRegistry, 
     makeMockGitClient, 
@@ -23,7 +23,7 @@ function createDeps(overrides: any = {}) {
     getFormatter: () => makeMockFormatter(),
     commitInputResolver: makeMockInputResolver(),
     headIdReader: makeMockHeadIdReader(),
-    config: MOCK_CONFIG,
+    config: TEST_ENGINE_CONFIG,
     protocol,
     protocolRegistry,
     trailerParser: new TrailerParser(),

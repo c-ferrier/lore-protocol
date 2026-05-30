@@ -4,9 +4,9 @@ import { registerDoctorCommand } from '../../../../src/engine/commands/doctor.js
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { 
-    MOCK_PROTOCOL_DEFINITION, 
-    MOCK_CONFIG, 
-    MockLogger, 
+    TEST_PROTOCOL_DEFINITION, 
+    TEST_ENGINE_CONFIG, 
+    TestLogger, 
     makeMockAtomRepository, 
     makeMockGitClient,
     makeMockConfigLoader
@@ -24,7 +24,7 @@ describe('Doctor Command', () => {
         resolveRoot: vi.fn().mockResolvedValue('/repo'),
         findConfigPath: vi.fn().mockResolvedValue('/repo/.mock/config.toml'),
     });
-    protocol = new Protocol(MOCK_PROTOCOL_DEFINITION);
+    protocol = new Protocol(TEST_PROTOCOL_DEFINITION);
     vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
   });
 
@@ -38,8 +38,8 @@ describe('Doctor Command', () => {
     registerDoctorCommand(program, {
         cacheDir: '/tmp/atom-cache',
         protocolRegistry: new ProtocolRegistry(),
-        defaultConfig: MOCK_CONFIG,
-        logger: new MockLogger(),
+        defaultConfig: TEST_ENGINE_CONFIG,
+        logger: new TestLogger(),
         ...deps
     });
     try {
@@ -84,7 +84,7 @@ describe('Doctor Command', () => {
 
     atomRepository.find.mockResolvedValue([atom]);
 
-    const logger = new MockLogger();
+    const logger = new TestLogger();
 
     await runDoctor({
       atomRepository,
@@ -120,7 +120,7 @@ describe('Doctor Command', () => {
     } as any;
 
     atomRepository.find.mockResolvedValue([atom1, atom2]);
-    const logger = new MockLogger();
+    const logger = new TestLogger();
 
     await runDoctor({
       atomRepository,
