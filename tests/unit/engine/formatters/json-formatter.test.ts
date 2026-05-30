@@ -111,12 +111,17 @@ describe('JsonFormatter', () => {
     });
 
     it('should use canonical trailer keys inside protocol object (symmetry)', () => {
+      const registry = new ProtocolRegistry();
+      const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
+      registry.register(protocol);
+      const dataFormatter = new JsonFormatter(registry);
+
       const atom = makeAtom({
-        trailers: makeTrailers({
-          'Mock-id': ['abcd1234'],
+        trailers: {
+          [MOCK_ID_KEY]: ['abcd1234'],
           Confidence: ['high'],
           'Depends-on': ['aabbccdd'],
-        }),
+        },
       });
       const data: FormattableQueryResult = {
         result: {
@@ -128,11 +133,11 @@ describe('JsonFormatter', () => {
         visibleTrailers: 'all',
       };
 
-      const output = formatter.formatQueryResult(data);
+      const output = dataFormatter.formatQueryResult(data);
       const parsed = JSON.parse(output);
 
       const mock = parsed.results[0].protocols.mock;
-      expect(mock.trailers.Confidence).toEqual(['high']);
+      expect(mock.trailers.Confidence).toBe('high');
       expect(mock.trailers['Depends-on']).toEqual(['aabbccdd']);
     });
   });

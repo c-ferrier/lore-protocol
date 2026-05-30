@@ -49,7 +49,7 @@ describe('CommitBuilder Namespacing', () => {
     const registry = new ProtocolRegistry();
     const fredProtocol = makeProtocol(
       { name: 'Fred', namespace: 'fred', identityKey: 'Fred-id' },
-      { trailers: { strict: false, permissive: true } }
+      { strict: false, permissive: true }
     );
     registry.register(fredProtocol);
 

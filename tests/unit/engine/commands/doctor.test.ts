@@ -8,25 +8,22 @@ import {
     MOCK_CONFIG, 
     MockLogger, 
     makeMockAtomRepository, 
-    makeMockGitClient 
+    makeMockGitClient,
+    makeMockConfigLoader
 } from '../test-utils.js';
 import type { Atom } from '../../../../src/engine/types/domain.js';
 
-function createMockConfigLoader() {
-  return {
-    resolveRoot: vi.fn().mockResolvedValue('/repo'),
-    findConfigPath: vi.fn().mockResolvedValue('/repo/.mock/config.toml'),
-  };
-}
-
 describe('Doctor Command', () => {
   let atomRepository: any;
-  let configLoader: ReturnType<typeof createMockConfigLoader>;
+  let configLoader: any;
   let protocol: Protocol;
 
   beforeEach(() => {
     atomRepository = makeMockAtomRepository();
-    configLoader = createMockConfigLoader();
+    configLoader = makeMockConfigLoader({
+        resolveRoot: vi.fn().mockResolvedValue('/repo'),
+        findConfigPath: vi.fn().mockResolvedValue('/repo/.mock/config.toml'),
+    });
     protocol = new Protocol(MOCK_PROTOCOL_DEFINITION);
     vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
   });

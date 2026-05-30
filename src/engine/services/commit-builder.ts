@@ -134,8 +134,11 @@ export class CommitBuilder {
     }
 
     // 2. Protocol-Specific State Validation
+    const allProtocols = this.protocolRegistry.getAll();
+    const lowerClaimed = new Set(Array.from(this.protocolRegistry.getClaimedKeys()).map(k => k.toLowerCase()));
+
     for (const [ns, nsMap] of Object.entries(input.trailers)) {
-        const protocol = this.protocolRegistry.getAll().find(p => p.namespace.toLowerCase() === ns.toLowerCase());
+        const protocol = allProtocols.find(p => p.namespace.toLowerCase() === ns.toLowerCase());
         
         if (!protocol) {
             issues.push({
@@ -148,7 +151,7 @@ export class CommitBuilder {
         }
 
         // 1. Normalize: Expert categorizes raw map into domain state (Authorized vs Unauthorized)
-        const state = protocol.normalize(nsMap);
+        const state = protocol.normalize(nsMap, lowerClaimed);
 
         // 2. Validate: Expert reviews the structured state
         const bucketIssues = protocol.validateState(state);

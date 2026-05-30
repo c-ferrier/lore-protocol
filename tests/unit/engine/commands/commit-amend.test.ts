@@ -9,89 +9,41 @@ import type { HeadIdReader } from '../../../../src/engine/services/head-id-reade
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
-import { MOCK_PROTOCOL_DEFINITION, MOCK_CONFIG, makeProtocol } from '../test-utils.js';
+import { 
+    MOCK_ID_KEY,
+    MOCK_PROTOCOL_DEFINITION, 
+    MOCK_CONFIG, 
+    makeProtocol, 
+    makeProtocolRegistry, 
+    makeMockGitClient, 
+    makeMockFormatter, 
+    makeMockCommitBuilder, 
+    makeMockInputResolver, 
+    makeMockHeadIdReader 
+} from '../test-utils.js';
 
-const MOCK_ID_KEY = "Mock-id";
-
-
-function createMockGitClient(): IGitClient {
-  return {
-    log: vi.fn().mockResolvedValue([]),
-    blame: vi.fn().mockResolvedValue([]),
-    commit: vi.fn().mockResolvedValue({ hash: 'abc1234', success: true, message: 'Commit successful', rawMessage: 'Commit successful' }),
-    hasStagedChanges: vi.fn().mockResolvedValue(true),
-    getRepoRoot: vi.fn().mockResolvedValue('/repo'),
-    isInsideRepo: vi.fn().mockResolvedValue(true),
-    getFilesChanged: vi.fn().mockResolvedValue(new Map()),
-    countCommitsSince: vi.fn().mockResolvedValue(0),
-    resolveRef: vi.fn().mockResolvedValue('abc1234'),
-    getHeadMessage: vi.fn().mockResolvedValue(''),
-    countAllCommits: vi.fn().mockResolvedValue(0),
-    listTrackedFiles: vi.fn().mockResolvedValue([]),
-  } as any;
-}
-
-function createMockFormatter(): IOutputFormatter {
-  return {
-    formatQueryResult: vi.fn().mockReturnValue(''),
-    formatValidationResult: vi.fn().mockReturnValue(''),
-    formatStalenessResult: vi.fn().mockReturnValue(''),
-    formatTraceResult: vi.fn().mockReturnValue(''),
-    formatDoctorResult: vi.fn().mockReturnValue(''),
-    formatSuccess: vi.fn().mockReturnValue(''),
-    formatError: vi.fn().mockReturnValue(''),
-    formatConfig: vi.fn().mockReturnValue(''),
-  } as any;
-}
-
-function createMockCommitBuilder(): CommitBuilder {
-  return {
-    build: vi.fn().mockReturnValue({ 
-      message: 'built message', 
-      protocols: { mock: { id: 'a1b2c3d4', version: '1.0' } } 
-    }),
-    validate: vi.fn().mockReturnValue([]),
-  } as unknown as CommitBuilder;
-}
-
-function createMockInputResolver(): CommitInputResolver {
-  return {
-    resolve: vi.fn().mockResolvedValue({ subject: 'test commit' }),
-  } as unknown as CommitInputResolver;
-}
-
-function createMockHeadIdReader(ids: Record<string, string> = {}): HeadIdReader {
-  return {
-    readIds: vi.fn().mockResolvedValue(ids),
-    read: vi.fn().mockResolvedValue(Object.values(ids)[0] || null),
-  } as unknown as HeadIdReader;
-}
-
-async function runCommitCommand(args: string[], deps: ReturnType<typeof createDeps>): Promise<void> {
+async function runCommitCommand(args: string[], deps: any): Promise<void> {
   const program = new Command();
   program.exitOverride();
   registerCommitCommand(program, deps);
   await program.parseAsync(['node', 'atom', 'commit', ...args]);
 }
 
-function createDeps(overrides?: {
-  headIdReader?: HeadIdReader;
-  gitClient?: IGitClient;
-}) {
-  const protocol = makeProtocol(MOCK_PROTOCOL_DEFINITION);
-  const protocolRegistry = new ProtocolRegistry();
-  protocolRegistry.register(protocol);
+function createDeps(overrides: any = {}) {
+  const protocol = makeProtocol();
+  const protocolRegistry = makeProtocolRegistry([protocol]);
 
   return {
-    commitBuilder: createMockCommitBuilder(),
-    gitClient: overrides?.gitClient ?? createMockGitClient(),
-    getFormatter: () => createMockFormatter(),
-    commitInputResolver: createMockInputResolver(),
-    headIdReader: overrides?.headIdReader ?? createMockHeadIdReader(),
+    commitBuilder: makeMockCommitBuilder(),
+    gitClient: makeMockGitClient(),
+    getFormatter: () => makeMockFormatter(),
+    commitInputResolver: makeMockInputResolver(),
+    headIdReader: makeMockHeadIdReader(),
     config: MOCK_CONFIG,
     protocol,
     protocolRegistry,
     trailerParser: new TrailerParser(),
+    ...overrides
   };
 }
 
@@ -102,8 +54,7 @@ describe('atom commit --amend', () => {
   });
 
   it('should skip staged-changes guard when --amend is used', async () => {
-    const gitClient = createMockGitClient();
-    vi.mocked(gitClient.hasStagedChanges).mockResolvedValue(false);
+    const gitClient = makeMockGitClient({ hasStagedChanges: vi.fn().mockResolvedValue(false) });
     const deps = createDeps({ gitClient });
 
     await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
@@ -112,15 +63,17 @@ describe('atom commit --amend', () => {
   });
 
   it(`should pass existing ${MOCK_ID_KEY} to commitBuilder.build when amending`, async () => {
-    const headIdReader = createMockHeadIdReader({ mock: 'cafebabe' });
+    const headIdReader = makeMockHeadIdReader({ 
+        readIds: vi.fn().mockResolvedValue({ mock: 'cafebabe' }) 
+    });
     const deps = createDeps({ headIdReader });
 
     await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
 
     expect(headIdReader.readIds).toHaveBeenCalledOnce();
     expect(deps.commitBuilder.build).toHaveBeenCalledWith(
-      expect.anything(),
-      { mock: 'cafebabe' },
+      expect.objectContaining({ subject: 'amend test' }),
+      { mock: 'cafebabe' }
     );
   });
 
@@ -130,7 +83,7 @@ describe('atom commit --amend', () => {
     await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
 
     expect(deps.gitClient.commit).toHaveBeenCalledWith(
-      'built message',
+      'built',
       { amend: true },
     );
   });
@@ -204,7 +157,7 @@ describe('atom commit --amend', () => {
   });
 
   it(`should generate new ${MOCK_ID_KEY} when amending a non-Mock commit`, async () => {
-    const headIdReader = createMockHeadIdReader({});
+    const headIdReader = makeMockHeadIdReader({});
     const deps = createDeps({ headIdReader });
 
     await runCommitCommand(['--amend', '--subject', 'amend non-mock'], deps);
@@ -217,7 +170,7 @@ describe('atom commit --amend', () => {
   });
 
   it(`should not read ${MOCK_ID_KEY} from HEAD for normal commits`, async () => {
-    const headIdReader = createMockHeadIdReader({ mock: 'cafebabe' });
+    const headIdReader = makeMockHeadIdReader({ mock: 'cafebabe' });
     const deps = createDeps({ headIdReader });
 
     await runCommitCommand(['--subject', 'normal commit'], deps);
@@ -230,7 +183,7 @@ describe('atom commit --amend', () => {
   });
 
   it('should check staged changes for normal commits', async () => {
-    const gitClient = createMockGitClient();
+    const gitClient = makeMockGitClient();
     const deps = createDeps({ gitClient });
 
     await runCommitCommand(['--subject', 'normal'], deps);

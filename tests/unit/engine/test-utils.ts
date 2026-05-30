@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { vi } from 'vitest';
 import { type ILogger, LogLevel } from '../../../src/engine/interfaces/logger.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
@@ -11,11 +11,14 @@ import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { InMemoryLogger } from '../../../src/engine/services/in-memory-logger.js';
+import { Validator } from '../../../src/engine/services/validator.js';
+import { StalenessDetector } from '../../../src/engine/services/staleness-detector.js';
 
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
 import type { EngineConfig, ProtocolConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition } from '../../../src/engine/types/config.js';
-import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
+import type { RawCommit, IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import type { Atom, Trailers, HierarchicalTrailers } from '../../../src/engine/types/domain.js';
+import type { IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
 
 /**
  * MOCK: Key for the standard Mock protocol ID.
@@ -32,8 +35,13 @@ export const MockLogger = InMemoryLogger;
  */
 export const MOCK_ENGINE_DIR = '.mock-engine';
 
+/**
+ * Helper to ensure a clean engine directory for tests.
+ */
 export function assertIsolatedEngine(dir: string = MOCK_ENGINE_DIR) {
-  // Logic to verify .mock-atom structure if needed
+    if (!existsSync(dir)) {
+        mkdirSync(dir, { recursive: true });
+    }
 }
 
 export const MOCK_CONFIG: EngineConfig = {
@@ -71,194 +79,6 @@ export const MOCK_PROTOCOL_CONFIG: ProtocolConfig = {
 };
 
 /**
- * Helper to create a ProtocolConfig with deep partial overrides.
- */
-export function makeProtocolConfig(overrides: Partial<ProtocolConfig> = {}): ProtocolConfig {
-  return {
-    ...MOCK_PROTOCOL_CONFIG,
-    ...overrides,
-    trailers: {
-        ...MOCK_PROTOCOL_CONFIG.trailers,
-        ...(overrides.trailers || {}),
-    },
-  };
-}
-
-/**
- * Helper to create a ProtocolDefinition with sensible defaults.
- * If no trailers are provided, it automatically adds a standard hex8 identity key.
- */
-export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = {}): ProtocolDefinition {
-  const name = overrides.name ?? 'Mock';
-  const identityKey = overrides.identityKey ?? `${name}-id`;
-  
-  const defaultTrailers: Record<string, any> = {
-    [identityKey]: {
-      description: 'Identity.',
-      multivalue: false,
-      validation: 'pattern',
-      pattern: '^[0-9a-f]{8}$',
-      generator: 'hex8',
-      ui: { kind: 'identity', color: 'dim' },
-      required: true,
-      isCore: true
-    }
-  };
-
-  return {
-    name,
-    version: overrides.version ?? '1.0',
-    namespace: overrides.namespace ?? '',
-    strict: overrides.strict ?? false,
-    permissive: overrides.permissive ?? true,
-    identityKey,
-    trailers: {
-      ...defaultTrailers,
-      ...overrides.trailers,
-    },
-    ...overrides,
-  } as ProtocolDefinition;
-}
-
-/**
- * High-level helper to create a fully initialized Protocol instance for tests.
- */
-export function makeProtocol(
-    defOverrides: Partial<ProtocolDefinition> = {},
-    configOverrides: Partial<ProtocolConfig> = {}
-): Protocol {
-    const name = defOverrides.name ?? 'Mock';
-    const identityKey = defOverrides.identityKey ?? `${name}-id`;
-    
-    // 1. Create a FRESH baseline definition for every call to avoid test pollution.
-    const baseDef: ProtocolDefinition = {
-        name,
-        version: '1.0',
-        namespace: '',
-        strict: false,
-        permissive: true,
-        identityKey,
-        trailers: {
-            ...defOverrides.trailers
-        },
-        ...defOverrides
-    };
-
-    // 2. Inject default identity ONLY if trailers object is empty. 
-    if (Object.keys(baseDef.trailers).length === 0) {
-        baseDef.trailers[identityKey] = {
-            description: 'id', 
-            multivalue: false, 
-            validation: 'pattern', 
-            pattern: '^[0-9a-f]{8}$',
-            required: true, 
-            isCore: true
-        };
-    }
-
-    // 3. Create config with explicit overrides
-    const config = makeProtocolConfig({
-        strict: defOverrides.strict,
-        permissive: defOverrides.permissive,
-        ...configOverrides
-    });
-
-    // 4. Re-use the EXACT same merge logic as production via the static ProtocolLoader helper.
-    const finalized = ProtocolLoader.applyOverrides([baseDef], {
-        [baseDef.name]: config
-    })[0];
-
-    return new Protocol(finalized);
-}
-
-/**
- * Factory: Create a ProtocolRegistry pre-populated with protocols.
- */
-export function makeProtocolRegistry(protocols: Protocol[] = []): ProtocolRegistry {
-    const registry = new ProtocolRegistry();
-    for (const p of protocols) {
-        registry.register(p);
-    }
-    return registry;
-}
-
-/**
- * Factory: Create a fully functional AtomRepository with reasonable defaults.
- */
-export function makeAtomRepository(options: {
-    gitClient?: any;
-    registry?: ProtocolRegistry;
-    isScoped?: boolean;
-    pathResolver?: PathResolver;
-    searchFilter?: SearchFilter;
-} = {}): AtomRepository {
-    const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
-    const gitClient = options.gitClient || makeMockGitClient();
-
-    return new AtomRepository(
-        gitClient,
-        new TrailerParser(),
-        registry,
-        options.searchFilter || new SearchFilter(registry),
-        options.pathResolver || new PathResolver('/mock', '/mock'),
-        new NullAtomCache(),
-        new NullQueryCache(),
-        options.isScoped ?? false
-    );
-}
-
-/**
- * Factory: Create a mock GitClient with all methods as vi.fn().
- */
-export function makeMockGitClient(overrides: any = {}): any {
-    return {
-        log: vi.fn(async () => []),
-        blame: vi.fn(async () => []),
-        getCommitsByHashes: vi.fn(async () => []),
-        getFilesChanged: vi.fn(async () => new Map()),
-        resolveRef: vi.fn(async () => 'head'),
-        resolveDate: vi.fn(async (d: string) => {
-            const date = new Date(d);
-            return isNaN(date.getTime()) ? null : date;
-        }),
-        isInsideRepo: vi.fn(async () => true),
-        getRepoRoot: vi.fn(async () => '/mock-repo'),
-        hasStagedChanges: vi.fn(async () => false),
-        commit: vi.fn(async () => ({ hash: 'abc123', success: true, message: 'Commit created' })),
-        ...overrides
-    };
-}
-
-/**
- * Factory: Create a mock AtomRepository with all methods as vi.fn().
- * Ideal for command-level testing where you don't want a real repository instance.
- */
-export function makeMockAtomRepository(overrides: any = {}): any {
-    return {
-        find: vi.fn(async () => []),
-        findById: vi.fn(async () => null),
-        findByIds: vi.fn(async () => []),
-        findByCommitHash: vi.fn(async () => null),
-        findByRange: vi.fn(async () => []),
-        findByScope: vi.fn(async () => []),
-        findByLineRange: vi.fn(async () => []),
-        resolveFollowLinks: vi.fn(async (atoms) => [...atoms]),
-        ...overrides
-    };
-}
-
-/**
- * Factory: Create a mock SupersessionResolver with all methods as vi.fn().
- */
-export function makeMockSupersessionResolver(overrides: any = {}): any {
-    return {
-        resolveAll: vi.fn(() => new Map()),
-        filterActive: vi.fn((atoms) => atoms),
-        ...overrides
-    };
-}
-
-/**
  * MOCK: A generic root, permissive protocol (Engine Default).
  */
 export const MOCK_PROTOCOL_DEFINITION: ProtocolDefinition = {
@@ -267,9 +87,9 @@ export const MOCK_PROTOCOL_DEFINITION: ProtocolDefinition = {
   namespace: '', // Root namespace
   strict: false,
   permissive: true,
-  identityKey: 'Mock-id',
+  identityKey: MOCK_ID_KEY,
   trailers: {
-    'Mock-id': {
+    [MOCK_ID_KEY]: {
       description: 'Stable identity.',
       multivalue: false,
       validation: 'pattern',
@@ -392,6 +212,285 @@ export const STRICT_PROTOCOL_DEFINITION: ProtocolDefinition = {
 };
 
 /**
+ * Helper to create a ProtocolConfig with deep partial overrides.
+ */
+export function makeProtocolConfig(overrides: Partial<ProtocolConfig> = {}): ProtocolConfig {
+  return {
+    ...MOCK_PROTOCOL_CONFIG,
+    ...overrides,
+    trailers: {
+        ...MOCK_PROTOCOL_CONFIG.trailers,
+        ...(overrides.trailers || {}),
+    },
+  };
+}
+
+/**
+ * High-level helper to create a fully initialized Protocol instance for tests.
+ */
+export function makeProtocol(
+    defOverrides: Partial<ProtocolDefinition> = {},
+    configOverrides: Partial<ProtocolConfig> = {}
+): Protocol {
+    const name = defOverrides.name ?? 'Mock';
+    const identityKey = defOverrides.identityKey ?? `${name}-id`;
+    
+    // 1. Create a FRESH baseline definition for every call to avoid test pollution.
+    const baseDef: ProtocolDefinition = {
+        name,
+        version: '1.0',
+        namespace: '',
+        strict: false,
+        permissive: true,
+        identityKey,
+        trailers: {
+            ...defOverrides.trailers
+        },
+        ...defOverrides
+    };
+
+    // 2. Inject default identity ONLY if trailers object is empty. 
+    if (Object.keys(baseDef.trailers).length === 0) {
+        baseDef.trailers[identityKey] = {
+            description: 'id', 
+            multivalue: false, 
+            validation: 'pattern', 
+            pattern: '^[0-9a-f]{8}$',
+            required: true, 
+            isCore: true
+        };
+    }
+
+    // 3. Create config with explicit overrides
+    const config = makeProtocolConfig({
+        strict: baseDef.strict,
+        permissive: baseDef.permissive,
+        ...configOverrides
+    });
+
+    // 4. Re-use the EXACT same merge logic as production via the static ProtocolLoader helper.
+    const finalized = ProtocolLoader.applyOverrides([baseDef], {
+        [baseDef.name]: config
+    })[0];
+
+    return new Protocol(finalized);
+}
+
+/**
+ * Factory: Create a ProtocolRegistry pre-populated with protocols.
+ */
+export function makeProtocolRegistry(protocols: Protocol[] = []): ProtocolRegistry {
+    const registry = new ProtocolRegistry();
+    for (const p of protocols) {
+        registry.register(p);
+    }
+    return registry;
+}
+
+// -----------------------------------------------------------------------------
+// REAL COMPONENT FACTORIES (Real Classes, Mocked Dependencies)
+// -----------------------------------------------------------------------------
+
+/**
+ * Factory: Create a fully functional AtomRepository with reasonable defaults.
+ */
+export function makeAtomRepository(options: {
+    gitClient?: any;
+    registry?: ProtocolRegistry;
+    isScoped?: boolean;
+    pathResolver?: PathResolver;
+    searchFilter?: SearchFilter;
+} = {}): AtomRepository {
+    const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
+    const gitClient = options.gitClient || makeMockGitClient();
+
+    return new AtomRepository(
+        gitClient,
+        new TrailerParser(),
+        registry,
+        options.searchFilter || new SearchFilter(registry),
+        options.pathResolver || new PathResolver('/mock', '/mock'),
+        new NullAtomCache(),
+        new NullQueryCache(),
+        options.isScoped ?? false
+    );
+}
+
+/**
+ * Factory: Create a real Validator instance with mocked dependencies.
+ */
+export function makeValidator(options: {
+    repository?: any;
+    registry?: ProtocolRegistry;
+    config?: EngineConfig;
+} = {}): Validator {
+    const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
+    const repository = options.repository || makeMockAtomRepository();
+    const config = options.config || MOCK_CONFIG;
+    
+    return new Validator(
+        new TrailerParser(),
+        repository,
+        config,
+        registry
+    );
+}
+
+/**
+ * Factory: Create a real StalenessDetector instance with mocked dependencies.
+ */
+export function makeStalenessDetector(options: {
+    gitClient?: any;
+    config?: EngineConfig;
+    registry?: ProtocolRegistry;
+} = {}): StalenessDetector {
+    const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
+    const gitClient = options.gitClient || makeMockGitClient();
+    const config = options.config || MOCK_CONFIG;
+
+    return new StalenessDetector(gitClient, config, registry);
+}
+
+// -----------------------------------------------------------------------------
+// PURE MOCK FACTORIES (Returning vi.fn() objects)
+// -----------------------------------------------------------------------------
+
+/**
+ * Factory: Create a mock GitClient with all methods as vi.fn().
+ */
+export function makeMockGitClient(overrides: any = {}): any {
+    return {
+        log: vi.fn(async () => []),
+        blame: vi.fn(async () => []),
+        commit: vi.fn(async () => ({ hash: 'abc123', success: true, message: 'Commit created', rawMessage: '...' })),
+        hasStagedChanges: vi.fn(async () => true), // Default to true for commit tests
+        getRepoRoot: vi.fn(async () => '/mock-repo'),
+        isInsideRepo: vi.fn(async () => true),
+        getFilesChanged: vi.fn(async () => new Map()),
+        countCommitsSince: vi.fn(async () => 0),
+        countAllCommits: vi.fn(async () => 0),
+        resolveRef: vi.fn(async () => 'head-hash'),
+        getHeadMessage: vi.fn(async () => 'message'),
+        listTrackedFiles: vi.fn(async () => []),
+        resolveDate: vi.fn(async (d: string) => {
+            const date = new Date(d);
+            return isNaN(date.getTime()) ? null : date;
+        }),
+        ...overrides
+    };
+}
+
+/**
+ * Factory: Create a mock AtomRepository with all methods as vi.fn().
+ */
+export function makeMockAtomRepository(overrides: any = {}): any {
+    return {
+        find: vi.fn(async () => []),
+        findById: vi.fn(async () => null),
+        findByIds: vi.fn(async () => []),
+        findByCommitHash: vi.fn(async () => null),
+        findByRange: vi.fn(async () => []),
+        findByScope: vi.fn(async () => []),
+        findByLineRange: vi.fn(async () => []),
+        resolveFollowLinks: vi.fn(async (atoms) => [...atoms]),
+        ...overrides
+    };
+}
+
+/**
+ * Factory: Create a mock SupersessionResolver with all methods as vi.fn().
+ */
+export function makeMockSupersessionResolver(overrides: any = {}): any {
+    return {
+        resolveAll: vi.fn(() => new Map()),
+        filterActive: vi.fn((atoms) => atoms),
+        ...overrides
+    };
+}
+
+/**
+ * Factory: Create a mock CommitBuilder.
+ */
+export function makeMockCommitBuilder(overrides: any = {}): any {
+    return {
+        build: vi.fn(() => ({ message: 'built', protocols: { mock: { id: 'a1b2c3d4', version: '1.0' } } })),
+        validate: vi.fn(() => []), // Must return empty array for success
+        ...overrides
+    };
+}
+
+/**
+ * Factory: Create a mock CommitInputResolver.
+ */
+export function makeMockInputResolver(overrides: any = {}): any {
+    return {
+        resolve: vi.fn(async (opts) => ({ 
+            subject: opts.subject || 'test',
+            body: opts.body || '',
+            trailers: opts.trailers || {}
+        })),
+        ...overrides
+    };
+}
+
+/**
+ * Factory: Create a mock HeadIdReader.
+ */
+export function makeMockHeadIdReader(overrides: any = {}): any {
+    return {
+        read: vi.fn(async () => null),
+        readIds: vi.fn(async () => ({})),
+        ...overrides
+    };
+}
+
+/**
+ * Factory: Create a mock ConfigLoader.
+ */
+export function makeMockConfigLoader(overrides: any = {}): any {
+    return {
+        resolveRoot: vi.fn(async () => '/mock-repo'),
+        findConfigPath: vi.fn(async () => '/mock-repo/.atom/config.toml'),
+        load: vi.fn(async () => MOCK_CONFIG),
+        ...overrides
+    };
+}
+
+/**
+ * Factory: Create a mock Prompt.
+ */
+export function makeMockPrompt(overrides: any = {}): any {
+    return {
+        confirm: vi.fn(async () => true),
+        askText: vi.fn(async () => ''),
+        askChoice: vi.fn(async () => ''),
+        askMultiSelect: vi.fn(async () => []),
+        ...overrides
+    };
+}
+
+/**
+ * Factory: Create a mock OutputFormatter.
+ */
+export function makeMockFormatter(overrides: any = {}): any {
+    return {
+        formatQueryResult: vi.fn(() => ''),
+        formatValidationResult: vi.fn(() => ''),
+        formatStalenessResult: vi.fn(() => ''),
+        formatTraceResult: vi.fn(() => ''),
+        formatDoctorResult: vi.fn(() => ''),
+        formatSuccess: vi.fn(() => ''),
+        formatError: vi.fn(() => ''),
+        formatConfig: vi.fn(() => ''),
+        ...overrides
+    };
+}
+
+// -----------------------------------------------------------------------------
+// DOMAIN OBJECT FACTORIES
+// -----------------------------------------------------------------------------
+
+/**
  * FACTORY: Create a RawCommit for testing.
  */
 export function makeRawCommit(options: {
@@ -415,7 +514,17 @@ export function makeRawCommit(options: {
 /**
  * FACTORY: Create an Atom for testing.
  */
-export function makeAtom(overrides: Partial<Atom> = {}): Atom {
+export function makeAtom(overrides: Partial<Atom & { trailers: Trailers; id: string }> = {}): Atom {
+  const id = overrides.id ?? 'a1b2c3d4';
+  const trailers = overrides.trailers || { [MOCK_ID_KEY]: [id] };
+
+  const protocols = overrides.protocols ?? new Map([
+    ['mock', {
+      trailers,
+      unauthorized: {}
+    }]
+  ]);
+
   return {
     commitHash: overrides.commitHash ?? 'abc12345',
     date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
@@ -423,12 +532,7 @@ export function makeAtom(overrides: Partial<Atom> = {}): Atom {
     subject: overrides.subject ?? 'feat: test subject',
     body: overrides.body ?? 'Test body.',
     filesChanged: overrides.filesChanged ?? ['src/main.ts'],
-    protocols: overrides.protocols ?? new Map([
-      ['mock', {
-        trailers: { 'Mock-id': ['a1b2c3d4'] },
-        unauthorized: {}
-      }]
-    ]),
+    protocols,
   };
 }
 
