@@ -32,7 +32,7 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
     expect(program.name()).toBe('lore');
     const rootProtocol = sharedDeps.protocolRegistry.getRoot();
     expect(rootProtocol).toBeDefined();
-    expect(rootProtocol?.name).toBe('Lore');
+    expect(rootProtocol?.name).toBe('lore');
 
     const commandNames = program.commands.map(cmd => cmd.name());
     

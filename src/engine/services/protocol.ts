@@ -26,6 +26,7 @@ export class Protocol implements IProtocol {
   private readonly definitions = new Map<string, ActiveTrailer>();
   private readonly caseMap = new Map<string, string>();
   private readonly parser = new TrailerParser();
+  private readonly normalizedDefinition: ProtocolDefinition;
   private registry?: ProtocolRegistry;
 
   // Delegates
@@ -34,7 +35,12 @@ export class Protocol implements IProtocol {
   private readonly validator: ProtocolValidator;
   private readonly queryAdapter: ProtocolQueryAdapter;
 
-  constructor(private readonly definition: ProtocolDefinition) {
+  constructor(definition: ProtocolDefinition) {
+    // FORCE canonical identity at the source
+    this.normalizedDefinition = {
+        ...definition,
+        name: definition.name.toLowerCase()
+    };
     this.loadDefinitions();
 
     // Instantiate Delegates (Composition)
@@ -50,27 +56,27 @@ export class Protocol implements IProtocol {
   }
 
   get name(): string {
-    return this.definition.name;
+    return this.normalizedDefinition.name;
   }
 
   get version(): string {
-    return this.definition.version;
+    return this.normalizedDefinition.version;
   }
 
   get identityKey(): string {
-    return this.definition.identityKey;
+    return this.normalizedDefinition.identityKey;
   }
 
   getStorageNamespace(): string {
-    return this.definition.namespace;
+    return this.normalizedDefinition.namespace;
   }
 
   get strict(): boolean {
-    return this.definition.strict;
+    return this.normalizedDefinition.strict;
   }
 
   get permissive(): boolean {
-    return this.definition.permissive;
+    return this.normalizedDefinition.permissive;
   }
 
   // --- IProtocolSchema Delegation ---
@@ -152,8 +158,8 @@ export class Protocol implements IProtocol {
     now: Date,
     globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
   ): StaleReason[] {
-    if (this.definition.getStaleSignals) {
-      return this.definition.getStaleSignals(atom, now, globalSupersessionMap);
+    if (this.normalizedDefinition.getStaleSignals) {
+      return this.normalizedDefinition.getStaleSignals(atom, now, globalSupersessionMap);
     }
     return this.interpreter.getStaleSignals(atom, now, globalSupersessionMap);
   }
@@ -192,7 +198,7 @@ export class Protocol implements IProtocol {
 
   private loadDefinitions(): void {
     // Populate and sanitize maps from the static definition
-    for (const [key, def] of Object.entries(this.definition.trailers)) {
+    for (const [key, def] of Object.entries(this.normalizedDefinition.trailers)) {
       const hydrated = ProtocolHydrator.hydrateTrailer(key, def);
       this.addDefinition(key, { 
         ...hydrated, 

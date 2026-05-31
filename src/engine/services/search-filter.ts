@@ -79,7 +79,7 @@ export class SearchFilter {
 
         // A. Explicitly Qualified Filter (e.g. project/status)
         if (filter.protocol) {
-          const protocolName = filter.protocol.toLowerCase();
+          const protocolName = filter.protocol;
           const state = atom.protocols.get(protocolName);
           const protocol = this.protocolRegistry.get(protocolName);
           

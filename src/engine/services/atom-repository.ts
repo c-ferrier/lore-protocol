@@ -208,7 +208,7 @@ export class AtomRepository {
     // Verify exact ID match in any of the candidate protocol states
     for (const atom of atoms) {
       for (const p of matchingProtocols) {
-        const state = atom.protocols.get(p.name.toLowerCase());
+        const state = atom.protocols.get(p.name);
         const atomId = (state as any)?.trailers[p.identityKey]?.[0];
         if (atomId === id) {
           return atom;

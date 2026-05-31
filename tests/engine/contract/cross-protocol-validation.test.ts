@@ -109,6 +109,6 @@ describe('Cross-Protocol Reference Validation', () => {
     const results = await validator.validate([rawCommit]);
     const issue = results[0].issues.find(i => i.rule === 'invalid-reference-format');
     expect(issue).toBeDefined();
-    expect(issue?.message).toContain('not a valid identifier for protocol "Beta"');
+    expect(issue?.message).toContain('not a valid identifier for protocol "beta"');
   });
 });

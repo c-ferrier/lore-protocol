@@ -18,7 +18,7 @@ import type { IProtocol } from '../../src/engine/interfaces/protocol.js';
 import type { ProtocolDefinition } from '../../src/engine/interfaces/protocol-definition.js';
 import type { EngineConfig, ProtocolConfig, TrailerUiKind, TrailerUiColor } from '../../src/engine/types/config.js';
 import type { RawCommit } from '../../src/engine/interfaces/git-client.js';
-import type { Atom, Trailers, HierarchicalTrailers } from '../../src/engine/types/domain.js';
+import { ProtocolMap, type Atom, type Trailers, type HierarchicalTrailers } from '../../src/engine/types/domain.js';
 
 /**
  * =============================================================================
@@ -308,7 +308,7 @@ export function makeMockAtomHydrator(overrides: any = {}): any {
 /** Factory: Create a strictly compliant CommitInput. */
 export function makeCommitInput(overrides: Partial<CommitInput> = {}): CommitInput {
     // Convert plain object trailers into the required ReadonlyMap
-    const trailersMap = new Map<string, Trailers>();
+    const trailersMap = new ProtocolMap<Trailers>();
     if (overrides.trailers) {
         if (overrides.trailers instanceof Map) {
             for (const [k, v] of overrides.trailers.entries()) {
@@ -338,8 +338,8 @@ export function makeMockAtomCache(overrides: any = {}): any {
 
 /** Factory: Create a PURE MOCK Protocol (vi.fn() object). */
 export function makeMockProtocol(overrides: any = {}): any {
-    const name = overrides.name || 'Mock';
-    const ns = overrides.namespace !== undefined ? overrides.namespace : '';
+    const name = (overrides.name || 'Mock').toLowerCase();
+    const ns = (overrides.namespace !== undefined ? overrides.namespace : '').toLowerCase();
     const identityKey = overrides.identityKey || `${name}-id`;
     
     const mock = {
@@ -367,10 +367,13 @@ export function makeMockProtocol(overrides: any = {}): any {
         getFormattableDefinitions: vi.fn(() => ({})),
         owns: vi.fn((key: string) => {
             const lowerKey = key.toLowerCase();
-            return lowerKey === name.toLowerCase() || lowerKey === ns.toLowerCase() || lowerKey === identityKey.toLowerCase();
+            return lowerKey === name || lowerKey === ns || lowerKey === identityKey.toLowerCase();
         }),
         ...overrides
     };
+    // Ensure overrides don't break the normalized identity
+    if (overrides.name) (mock as any).name = overrides.name.toLowerCase();
+
     return mock;
 }
 /** Factory: Create a PURE MOCK QueryCache (vi.fn() object). */

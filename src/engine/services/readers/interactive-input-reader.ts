@@ -1,3 +1,4 @@
+import { ProtocolMap } from '../../types/domain.js';
 import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js';
 import type { CommitInput } from '../../types/commit.js';
 import type { IPrompt } from '../../interfaces/prompt.js';
@@ -51,14 +52,14 @@ export class InteractiveInputReader implements ICommitInputReader {
   }
 
   private async collectTrailers(): Promise<CommitInput['trailers']> {
-    const trailersMap = new Map<string, Record<string, string[]>>();
+    const trailersMap = new ProtocolMap<Record<string, string[]>>();
 
     for (const collector of this.collectors) {
       const result = await collector.collect(this.prompt);
       if (result.value !== undefined) {
         const values = Array.isArray(result.value) ? result.value : [result.value as string];
         if (values.length > 0) {
-          const protocolName = result.protocolName.toLowerCase();
+          const protocolName = result.protocolName;
           const pMap = trailersMap.get(protocolName) ?? {};
           pMap[result.key] = values;
           trailersMap.set(protocolName, pMap);

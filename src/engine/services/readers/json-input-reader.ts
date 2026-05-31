@@ -1,3 +1,4 @@
+import { ProtocolMap } from '../../types/domain.js';
 import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js';
 import type { CommitInput } from '../../types/commit.js';
 import { ProtocolError } from '../../util/errors.js';
@@ -19,7 +20,7 @@ export class JsonInputReader implements ICommitInputReader {
 
     try {
       const data = JSON.parse(this.json);
-      const trailersMap = new Map<string, Record<string, string[]>>();
+      const trailersMap = new ProtocolMap<Record<string, string[]>>();
       const input: CommitInput = {
         subject: typeof data.intent === 'string' ? data.intent : (typeof data.subject === 'string' ? data.subject : ''),
         body: typeof data.body === 'string' ? data.body : undefined,
@@ -38,7 +39,7 @@ export class JsonInputReader implements ICommitInputReader {
                   throw new ProtocolError(`Unknown protocol "${key}" in hierarchical JSON input`, 1);
               }
               
-              const pName = protocol.name.toLowerCase();
+              const pName = protocol.name;
               const pMap: Record<string, string[]> = trailersMap.get(pName) ?? {};
               
               for (const [innerKey, innerVal] of Object.entries(val)) {
@@ -65,7 +66,7 @@ export class JsonInputReader implements ICommitInputReader {
               
               if (values.length > 0) {
                   const protocol = this.registry.resolveKey(key);
-                  const pName = protocol ? protocol.name.toLowerCase() : ''; // '' for unknown/root orphans
+                  const pName = protocol ? protocol.name : ''; // '' for unknown/root orphans
                   
                   const pMap = trailersMap.get(pName) ?? {};
                   const existing = pMap[key] || [];

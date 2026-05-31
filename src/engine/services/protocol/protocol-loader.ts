@@ -92,6 +92,7 @@ export class ProtocolLoader {
   ): ProtocolDefinition[] {
     return definitions.map(def => {
         const safeOverrides = overrides || {};
+        // Normalize name for lookup
         const override = safeOverrides[def.name] || safeOverrides[def.name.toLowerCase()];
         if (!override) return def;
 

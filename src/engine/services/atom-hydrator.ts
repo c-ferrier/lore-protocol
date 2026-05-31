@@ -1,8 +1,8 @@
+import { ProtocolMap, type Atom, type ProtocolState } from '../types/domain.js';
 import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
 import type { IAtomCache } from '../interfaces/atom-cache.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 import type { TrailerParser } from './trailer-parser.js';
-import type { Atom, ProtocolState } from '../types/domain.js';
 import type { QueryIdentity } from '../types/query.js';
 import { GIT_FILES_CHANGED_BATCH_SIZE } from '../util/constants.js';
 import { escapeRegex } from '../util/regex.js';
@@ -34,7 +34,7 @@ export class AtomHydrator {
     const hasProtocols = allProtocols.length > 0;
 
     // First pass: Filter and parse protocols
-    const parsedData: Array<{ raw: RawCommit; protocols: Map<string, ProtocolState> }> = [];
+    const parsedData: Array<{ raw: RawCommit; protocols: ProtocolMap<ProtocolState> }> = [];
 
     for (const raw of rawCommits) {
       const activeProtocols = this.protocolRegistry.detect(raw.trailers);
@@ -42,14 +42,14 @@ export class AtomHydrator {
       // If we have protocols registered, we only care about commits they claim.
       if (hasProtocols && activeProtocols.length === 0) continue;
 
-      const protocolMap = new Map<string, ProtocolState>();
+      const protocolMap = new ProtocolMap<ProtocolState>();
       
       if (hasProtocols) {
         // Ownership resolution logic:
         const claimedKeys = this.protocolRegistry.getClaimedKeys();
 
         for (const p of activeProtocols) {
-          protocolMap.set(p.name.toLowerCase(), p.parse(raw.trailers, claimedKeys));
+          protocolMap.set(p.name, p.parse(raw.trailers, claimedKeys));
         }
       }
 

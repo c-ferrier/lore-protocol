@@ -77,7 +77,7 @@ describe('Strict Namespaced Validation', () => {
     expect(errors).toHaveLength(0);
   });
 
-  it('should report missing required trailers in a strict namespaced protocol', async () => {
+  it('should report missing required trailers in a strict namespaced protocol', () => {
     const strictProtocol = makeProtocol(
         { 
             name: 'Fred', 
@@ -87,11 +87,15 @@ describe('Strict Namespaced Validation', () => {
                 'Fred-id': { type: 'string', required: true, description: 'ID', aliases: [], ui: { kind: 'identity', color: 'dim' } as any }
             }
         },
-        { strict: true, permissive: false }
+        { 
+            strict: true, 
+            permissive: false,
+            trailers: {
+                'Fred-id': { description: 'ID', multivalue: false, validation: 'none', generator: 'none', required: true }
+            }
+        }
     );
-    // Explicitly remove generator to force requirement check
-    delete strictProtocol.definition.trailers['Fred-id'].generator;
-    
+
     const registry = makeProtocolRegistry([strictProtocol]);
     const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
 
@@ -104,6 +108,7 @@ describe('Strict Namespaced Validation', () => {
         }
       },
     });
+
 
     const issues = builder.validate(input);
     if (issues.length === 0 || !issues.some(i => i.rule === 'fred-id-present' && i.field === 'fred:Fred-id')) {

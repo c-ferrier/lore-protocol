@@ -5,6 +5,24 @@ export type AtomId = string;
 export type ProtocolName = string;
 
 /**
+ * A Map that automatically normalizes ProtocolName keys to lowercase.
+ */
+export class ProtocolMap<V> extends Map<ProtocolName, V> {
+  override get(key: ProtocolName): V | undefined {
+    return super.get(key.toLowerCase());
+  }
+  override set(key: ProtocolName, value: V): this {
+    return super.set(key.toLowerCase(), value);
+  }
+  override has(key: ProtocolName): boolean {
+    return super.has(key.toLowerCase());
+  }
+  override delete(key: ProtocolName): boolean {
+    return super.delete(key.toLowerCase());
+  }
+}
+
+/**
  * A structured trailer collection for a single scope/namespace.
  * Strictly flat and uniform: every key maps to a readonly string array.
  */
@@ -42,9 +60,8 @@ export interface Atom {
 
   /**
    * Interpretations of this commit by different protocols.
-   * Keyed by protocol name (lowercase).
    */
-  readonly protocols: Map<string, ProtocolState>;
+  readonly protocols: ProtocolMap<ProtocolState>;
 }
 
 export interface SupersessionStatus {

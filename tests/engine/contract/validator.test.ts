@@ -600,7 +600,7 @@ describe('Validator', () => {
           expect(issues.length).toBeGreaterThanOrEqual(1);
           expect(messages).toContain('Tream');
           expect(messages).toContain('not recognized');
-          expect(messages).toContain('Project');
+          expect(messages).toContain('project');
       });
   });
 });

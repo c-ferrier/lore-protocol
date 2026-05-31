@@ -1,3 +1,4 @@
+import { ProtocolMap } from '../types/domain.js';
 import type { IProtocol } from '../interfaces/protocol.js';
 import type { QueryIdentity, QualifiedFilter } from '../types/query.js';
 import { ProtocolError, ConfigurationError } from '../util/errors.js';
@@ -10,14 +11,14 @@ import { ProtocolError, ConfigurationError } from '../util/errors.js';
  * SOLID: SRP -- focused purely on protocol lookups and collision prevention.
  */
 export class ProtocolRegistry {
-  private readonly protocols = new Map<string, IProtocol>();
+  private readonly protocols = new ProtocolMap<IProtocol>();
 
   /**
    * Register a protocol with the engine.
    * @throws Error if safety rules (e.g. multiple permissive protocols in same namespace) are violated.
    */
   register(protocol: IProtocol): void {
-    const name = protocol.name.toLowerCase();
+    const name = protocol.name;
     const ns = protocol.getStorageNamespace().toLowerCase();
 
     if (this.protocols.has(name)) {
@@ -47,7 +48,7 @@ export class ProtocolRegistry {
    * Find a protocol by name (case-insensitive).
    */
   get(name: string): IProtocol | undefined {
-    return this.protocols.get(name.toLowerCase());
+    return this.protocols.get(name);
   }
 
   /**
@@ -70,7 +71,7 @@ export class ProtocolRegistry {
     const primary = this.getRoot() || this.getAll()[0];
     if (!primary) return null;
 
-    const state = atom.protocols.get(primary.name.toLowerCase());
+    const state = atom.protocols.get(primary.name);
     return primary.getIdentity(state);
   }
 
@@ -204,13 +205,13 @@ export class ProtocolRegistry {
       if (!protocol) {
         throw new ProtocolError(`Unknown protocol prefix: "${prefix}" in identity "${id}"`, 1);
       }
-      return { id: suffix, protocol: protocol.name.toLowerCase() };
+      return { id: suffix, protocol: protocol.name };
     }
 
     if (contextProtocol) {
       const protocol = this.get(contextProtocol);
       if (protocol && protocol.isValidIdentity(id)) {
-        return { id, protocol: protocol.name.toLowerCase() };
+        return { id, protocol: protocol.name };
       }
     }
 
@@ -221,13 +222,13 @@ export class ProtocolRegistry {
       const names = candidates.map(p => p.name).join(', ');
       throw new ProtocolError(
         `Ambiguous ID "${id}" matches multiple protocols: ${names}. ` +
-        `Please use a prefix (e.g. "${candidates[0].name.toLowerCase()}/${id}") to disambiguate.`,
+        `Please use a prefix (e.g. "${candidates[0].name}/${id}") to disambiguate.`,
         1
       );
     }
 
     if (candidates.length === 1) {
-        return { id, protocol: candidates[0].name.toLowerCase() };
+        return { id, protocol: candidates[0].name };
     }
 
     // Fallback to root protocol if no candidates match (validation will catch format issues later)
@@ -235,7 +236,7 @@ export class ProtocolRegistry {
     if (!root) {
         throw new ProtocolError(`Cannot resolve reference "${id}": no root protocol defined`, 1);
     }
-    return { id, protocol: root.name.toLowerCase() };
+    return { id, protocol: root.name };
   }
 
   /**

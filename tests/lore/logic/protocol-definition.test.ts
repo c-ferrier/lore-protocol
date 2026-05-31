@@ -27,7 +27,7 @@ describe('LoreProtocolDefinition Declarative Triggers', () => {
       
       expect(signals).toHaveLength(1);
       expect(signals[0].signal).toBe(LORE_STALE_SIGNAL.LOW_CONFIDENCE);
-      expect(signals[0].description).toContain('[Lore]');
+      expect(signals[0].description).toContain('[lore]');
     });
 
     it('should flag "expired-hint" when an [until:date] directive has passed', () => {

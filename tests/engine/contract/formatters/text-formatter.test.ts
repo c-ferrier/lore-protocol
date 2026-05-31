@@ -113,8 +113,8 @@ describe('TextFormatter', () => {
       expect(output).toContain('a1b2c3d4');
       expect(output).toContain('2025-01-15');
       expect(output).toContain('alice@example.com');
-      expect(output).toContain('[Mock] Constraint: Must use OAuth2');
-      expect(output).toContain('[Mock] Confidence: high');
+      expect(output).toContain('[mock] Constraint: Must use OAuth2');
+      expect(output).toContain('[mock] Confidence: high');
     });
 
     it('should show supersession info for superseded atoms', () => {
@@ -166,7 +166,7 @@ describe('TextFormatter', () => {
       };
 
       const output = formatter.formatQueryResult(data);
-      expect(output).toContain('[Mock] Constraint: Must use OAuth2');
+      expect(output).toContain('[mock] Constraint: Must use OAuth2');
       expect(output).not.toContain('Confidence:');
     });
 
@@ -281,12 +281,12 @@ describe('TextFormatter', () => {
       const output = formatter.formatQueryResult(data);
       
       // Mock should be prefixed in total neutrality
-      expect(output).toContain('[Mock] Confidence: high');
+      expect(output).toContain('[mock] Confidence: high');
       
       // Fred should be prefixed
-      expect(output).toContain('[Fred] Status: active');
+      expect(output).toContain('[fred] Status: active');
       // Should show Fred ID because it differs from header ID (mock1234)
-      expect(output).toContain('[Fred] Fred-id: f8ed5678');
+      expect(output).toContain('[fred] Fred-id: f8ed5678');
     });
   });
 

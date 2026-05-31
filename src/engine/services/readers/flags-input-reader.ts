@@ -1,3 +1,4 @@
+import { ProtocolMap } from '../../types/domain.js';
 import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js';
 import type { CommitInput } from '../../types/commit.js';
 import type { CommitCommandOptions } from '../commit-input-resolver.js';
@@ -18,14 +19,14 @@ export class FlagsInputReader implements ICommitInputReader {
   ) {}
 
   async read(): Promise<CommitInput> {
-    const trailersMap = new Map<string, Record<string, string[]>>();
+    const trailersMap = new ProtocolMap<Record<string, string[]>>();
     const protocols = this.registry.getAll();
 
     // 1. Dynamically map all authorized trailers from registered flags
     for (const protocol of protocols) {
         const authorizedKeys = protocol.getAuthorizedKeys();
         const ns = protocol.getStorageNamespace();
-        const protocolName = protocol.name.toLowerCase();
+        const protocolName = protocol.name;
 
         for (const key of authorizedKeys) {
             if (key === protocol.identityKey) continue;
@@ -75,7 +76,7 @@ export class FlagsInputReader implements ICommitInputReader {
         if (targetProtocol) {
             const authorizedKey = targetProtocol.authorize(key);
             if (authorizedKey) {
-                const pName = targetProtocol.name.toLowerCase();
+                const pName = targetProtocol.name;
                 const pMap = trailersMap.get(pName) ?? {};
                 const existing = pMap[authorizedKey] || [];
                 pMap[authorizedKey] = [...existing, ...values];
@@ -87,7 +88,7 @@ export class FlagsInputReader implements ICommitInputReader {
         // C. Orphan Fallback (Permissive Root)
         const rootProtocol = this.registry.getRoot();
         if (rootProtocol?.permissive) {
-            const pName = rootProtocol.name.toLowerCase();
+            const pName = rootProtocol.name;
             const pMap = trailersMap.get(pName) ?? {};
             const existing = pMap[key] || [];
             pMap[key] = [...existing, ...values];
