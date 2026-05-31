@@ -208,7 +208,7 @@ describe('Lore CLI 0.5.0 Exhaustive Compatibility Contract', () => {
     vi.unstubAllGlobals();
   });
 
-  it('CONTRACT: Global options must match exactly', async () => {
+  it('should maintain CONTRACT: Global options must match exactly', async () => {
     const { program } = await buildLoreCli();
     const globalExpected = LORE_050_STATE['help'].options;
     
@@ -220,7 +220,7 @@ describe('Lore CLI 0.5.0 Exhaustive Compatibility Contract', () => {
     }
   });
 
-  it('CONTRACT: All commands and their options must match 0.5.0 exactly', async () => {
+  it('should maintain CONTRACT: All commands and their options must match 0.5.0 exactly', async () => {
     const { program } = await buildLoreCli();
 
     for (const [cmdName, cmdContract] of Object.entries(LORE_050_STATE)) {

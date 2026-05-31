@@ -75,4 +75,64 @@ describe('Strict Namespaced Validation', () => {
     if (errors.length !== 0) console.log('ERRORS (Strict):', errors);
     expect(errors).toHaveLength(0);
   });
+
+  it('should report missing required trailers in a strict namespaced protocol', async () => {
+    const strictProtocol = makeProtocol(
+        { 
+            name: 'Fred', 
+            namespace: 'fred', 
+            identityKey: 'Fred-id',
+            trailers: {
+                'Fred-id': { type: 'string', required: true, description: 'ID', aliases: [], ui: { kind: 'identity', color: 'dim' } as any }
+            }
+        },
+        { strict: true, permissive: false }
+    );
+    // Explicitly remove generator to force requirement check
+    delete strictProtocol.definition.trailers['Fred-id'].generator;
+    
+    const registry = makeProtocolRegistry([strictProtocol]);
+    const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
+
+    const input: CommitInput = {
+      subject: 'feat: add feature',
+      trailers: {
+        'fred': { 
+            // Missing Fred-id
+            'Other': ['val']
+        }
+      },
+    };
+
+    const issues = builder.validate(input);
+    if (issues.length === 0 || !issues.some(i => i.rule === 'fred-id-present' && i.field === 'fred:Fred-id')) {
+        console.log('DEBUG (Missing Required):', JSON.stringify(issues, null, 2));
+    }
+    expect(issues.some(i => i.rule === 'fred-id-present' && i.field === 'fred:Fred-id')).toBe(true);
+  });
+
+  it('should report unauthorized trailers in a strict namespace', async () => {
+    const strictProtocol = makeProtocol(
+        { name: 'Fred', namespace: 'fred', identityKey: 'Fred-id' },
+        { strict: true, permissive: false }
+    );
+    const registry = makeProtocolRegistry([strictProtocol]);
+    const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
+
+    const input: CommitInput = {
+      subject: 'feat: add feature',
+      trailers: {
+        'fred': { 
+            'Fred-id': ['12345678'],
+            'Unknown-key': ['value'] // Truly unknown key
+        }
+      },
+    };
+
+    const issues = builder.validate(input);
+    if (issues.length === 0 || !issues.some(i => i.rule === 'unauthorized-trailer' && i.field === 'fred:Unknown-key')) {
+        console.log('DEBUG (Unauthorized Key):', JSON.stringify(issues, null, 2));
+    }
+    expect(issues.some(i => i.rule === 'unauthorized-trailer' && i.field === 'fred:Unknown-key')).toBe(true);
+  });
 });

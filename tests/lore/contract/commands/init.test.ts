@@ -32,7 +32,7 @@ describe('registerInitCommand', () => {
     MOCK_ENGINE_DEPS.logger = logger;
   });
 
-  it('creates new config files and .gitignore if they do not exist', async () => {
+  it('should create new config files and .gitignore if they do not exist', async () => {
     const program = new Command();
     registerInitCommand(program, MOCK_ENGINE_DEPS);
 
@@ -67,7 +67,7 @@ describe('registerInitCommand', () => {
     expect(gitignoreCalls[gitignoreCalls.length - 1][1]).toContain('.atom/cache');
   });
 
-  it('reports an existing valid config with no gaps using 0.5.0 spec', async () => {
+  it('should report an existing valid config with no gaps using 0.5.0 spec', async () => {
     const fullConfig = `[protocol]
 version = "1.0"
 [trailers]
@@ -102,7 +102,7 @@ update_check = true
     expect(logger.infoLogs.some(l => l.includes('Your configuration is missing new options:'))).toBe(false);
   });
 
-  it('reports missing sections based on the 0.5.0 spec', async () => {
+  it('should report missing sections based on the 0.5.0 spec', async () => {
     const minimalConfig = `[protocol]\nversion = "1.0"\n`;
     vi.mocked(fs.access).mockResolvedValue(undefined);
     vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
@@ -119,7 +119,7 @@ update_check = true
     expect(logger.infoLogs.some(l => l.includes('- [trailers] section'))).toBe(true);
   });
 
-  it('detects missing keys within a section', async () => {
+  it('should detect missing keys within a section', async () => {
     const partialConfig = `[protocol]
 version = "1.0"
 [trailers]

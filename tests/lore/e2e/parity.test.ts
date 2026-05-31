@@ -125,49 +125,49 @@ describe('Lore CLI Output Parity (v0.5.0 vs Local)', () => {
     rmSync(sandboxDir, { recursive: true, force: true });
   });
 
-  it('PARITY: lore log (Text)', () => {
+  it('should maintain PARITY: lore log (Text)', () => {
     const system = execSystem('log', ['--no-color']).trim();
     const local = execLocal('log', ['--no-color']).trim();
     expect(local).toBe(system);
   });
 
-  it('PARITY: lore log (JSON)', () => {
+  it('should maintain PARITY: lore log (JSON)', () => {
     const system = JSON.parse(execSystem('log', ['--json']));
     const local = JSON.parse(execLocal('log', ['--json']));
     expect(local).toEqual(system);
   });
 
-  it('PARITY: lore search (Text)', () => {
+  it('should maintain PARITY: lore search (Text)', () => {
     const system = execSystem('search', ['--text', 'feature', '--no-color']).trim();
     const local = execLocal('search', ['--text', 'feature', '--no-color']).trim();
     expect(local).toBe(system);
   });
 
-  it('PARITY: lore context (Text)', () => {
+  it('should maintain PARITY: lore context (Text)', () => {
     const system = execSystem('context', ['README.md', '--no-color']).trim();
     const local = execLocal('context', ['README.md', '--no-color']).trim();
     expect(local).toBe(system);
   });
 
-  it('PARITY: lore stale (Text)', () => {
+  it('should maintain PARITY: lore stale (Text)', () => {
     const system = execSystem('stale', ['--no-color']).trim();
     const local = execLocal('stale', ['--no-color']).trim();
     expect(local).toBe(system);
   });
 
-  it('PARITY: lore trace (Text)', () => {
+  it('should maintain PARITY: lore trace (Text)', () => {
     const system = execSystem('trace', ['bbbb2222', '--no-color']).trim();
     const local = execLocal('trace', ['bbbb2222', '--no-color']).trim();
     expect(local).toBe(system);
   });
 
-  it('PARITY: lore validate (Text)', () => {
+  it('should maintain PARITY: lore validate (Text)', () => {
     const system = execSystem('validate', ['HEAD~4..HEAD', '--no-color']).trim();
     const local = execLocal('validate', ['HEAD~4..HEAD', '--no-color']).trim();
     expect(local).toBe(system);
   });
 
-  it('PARITY: lore doctor (Text)', () => {
+  it('should maintain PARITY: lore doctor (Text)', () => {
     const system = execSystem('doctor', ['--no-color']).trim();
     const local = execLocal('doctor', ['--no-color']).trim();
     
@@ -181,7 +181,7 @@ describe('Lore CLI Output Parity (v0.5.0 vs Local)', () => {
     expect(normalize(local)).toBe(normalize(system));
   });
 
-  it('PARITY: lore squash (Raw)', () => {
+  it('should maintain PARITY: lore squash (Raw)', () => {
     const system = execSystem('squash', ['HEAD~2..HEAD']).trim();
     const local = execLocal('squash', ['HEAD~2..HEAD']).trim();
     
