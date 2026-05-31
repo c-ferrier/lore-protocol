@@ -18,7 +18,7 @@ export class ProtocolRegistry {
    */
   register(protocol: IProtocol): void {
     const name = protocol.name.toLowerCase();
-    const ns = (protocol.namespace || 'root').toLowerCase();
+    const ns = (protocol.namespace || '').toLowerCase();
 
     if (this.protocols.has(name)) {
       throw new ConfigurationError(`Protocol "${protocol.name}" is already registered`);
@@ -27,7 +27,7 @@ export class ProtocolRegistry {
     // Safety Rule: Only one permissive protocol allowed per namespace to prevent trailer claiming conflicts
     if (protocol.permissive) {
       for (const p of this.protocols.values()) {
-        const pNs = (p.namespace || 'root').toLowerCase();
+        const pNs = (p.namespace || '').toLowerCase();
         if (pNs === ns && p.permissive) {
           throw new ConfigurationError(
             `Cannot register permissive protocol "${protocol.name}". ` +

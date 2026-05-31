@@ -92,6 +92,18 @@ describe('AtomRepository', () => {
       expect(result[0].author).toBe('alice@example.com');
     });
 
+    it('should strip trailers from body when body is exactly the trailer block', async () => {
+      const commit = makeRawCommit({ 
+        id: 'aaaa1111', 
+        body: 'Mock-id: aaaa1111', // Body is same as trailers
+        trailers: 'Mock-id: aaaa1111' 
+      });
+      vi.mocked(gitClient.query).mockResolvedValue([commit]);
+
+      const result = await repo.find();
+      expect(result[0].body).toBe('');
+    });
+
     it('should not apply limit at the repository level (caller responsibility)', async () => {
       const commits = [
         makeRawCommit({ hash: 'aaa', id: 'aaaa1111' }),

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { ProtocolError, ConfigurationError } from '../../../src/engine/util/errors.js';
-import { makeProtocol } from '../engine-test-utils.js';
+import { makeProtocol, makeProtocolRegistry, TEST_ID_KEY } from '../engine-test-utils.js';
 
 describe('ProtocolRegistry', () => {
   let registry: ProtocolRegistry;
@@ -37,6 +37,30 @@ describe('ProtocolRegistry', () => {
   it('should identify the root protocol', () => {
     registry.register(mockProtocol);
     expect(registry.getRoot()).toBe(mockProtocol);
+  });
+
+  it('should detect protocols that claim raw trailers', () => {
+    const raw = `${TEST_ID_KEY}: a1b2c3d4`;
+    mockProtocol.claims = vi.fn().mockReturnValue(true);
+    registry.register(mockProtocol);
+    const detected = registry.detect(raw);
+    expect(detected).toContain(mockProtocol);
+  });
+
+  it('should throw an error if registering more than one permissive protocol in same namespace', () => {
+    mockProtocol.permissive = true;
+    registry.register(mockProtocol);
+    
+    const other = makeProtocol({ name: 'Other', namespace: '', permissive: true });
+    expect(() => registry.register(other)).toThrow(ConfigurationError);
+  });
+
+  it('should allow multiple permissive protocols in DIFFERENT namespaces', () => {
+    mockProtocol.permissive = true;
+    registry.register(mockProtocol);
+    
+    const other = makeProtocol({ name: 'Other', namespace: 'Other', permissive: true });
+    expect(() => registry.register(other)).not.toThrow();
   });
 
   it('should aggregate claimed keys from all protocols', () => {

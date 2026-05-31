@@ -111,9 +111,14 @@ export class ProtocolLoader {
         if (override.trailers) {
             for (const [key, tOverride] of Object.entries(override.trailers)) {
                 const existing = def.trailers[key] || {};
+                const tOver = tOverride as any;
+                
                 (merged.trailers as any)[key] = {
                     ...existing,
-                    ...(tOverride as any)
+                    ...tOver,
+                    // Deep merge UI and Prompt objects if they exist
+                    ui: (existing.ui || tOver.ui) ? { ...(existing.ui || {}), ...(tOver.ui || {}) } : undefined,
+                    prompt: (existing.prompt || tOver.prompt) ? { ...(existing.prompt || {}), ...(tOver.prompt || {}) } : undefined,
                 };
             }
         }

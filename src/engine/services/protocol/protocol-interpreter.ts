@@ -29,7 +29,7 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
     const lowerClaimed = new Set(Array.from(claimedKeys || []).map(k => k.toLowerCase()));
     const { namespace } = this.protocol;
 
-    // 1. Identify context: are we being handed a global map or a pre-bucketed namespace map?
+    // Identify if we are being handed a pre-bucketed namespace map
     const isPreBucketed = namespace !== '' && !Object.keys(rawMap).some(k => k.toLowerCase() === namespace.toLowerCase());
 
     for (const [key, values] of Object.entries(rawMap)) {
@@ -37,15 +37,15 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
       const isOwner = this.protocol.owns(key);
       const isReserved = lowerClaimed.has(lowerKey);
 
-      // A. Namespaced Protocol (Global Path)
+      // --- PATH A: Namespaced Global Ingestion ---
+      // Input: "Project: Team: Backend" -> handles the "Project" key
       if (namespace !== '' && !isPreBucketed) {
         if (!isOwner) continue;
 
         for (const nestedRaw of values) {
           const match = nestedRaw.match(/^([A-Za-z0-9][A-Za-z0-9-]*):\s*(.*)$/);
           if (!match) {
-            const existing = unauthorized['invalid-format'] || [];
-            unauthorized['invalid-format'] = [...existing, nestedRaw];
+            unauthorized['invalid-format'] = [...(unauthorized['invalid-format'] || []), nestedRaw];
             continue;
           }
 
@@ -54,53 +54,49 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
           const authorizedKey = this.protocol.authorize(innerKey);
 
           if (authorizedKey) {
-            const existing = normalized[authorizedKey] ?? [];
-            existing.push(innerValue);
-            normalized[authorizedKey] = existing;
+            normalized[authorizedKey] = [...(normalized[authorizedKey] || []), innerValue];
           } else {
-            const existing = unauthorized[innerKey] || [];
-            unauthorized[innerKey] = [...existing, innerValue];
+            unauthorized[innerKey] = [...(unauthorized[innerKey] || []), innerValue];
           }
         }
         continue;
       }
 
-      // B. Root Namespace OR Pre-Bucketed Namespaced Protocol
+      // --- PATH B: Root OR Pre-Bucketed Ingestion ---
       const authorizedKey = this.protocol.authorize(key);
       
+      // 1. Explicit Schema Key (Owner)
       if (authorizedKey && (isOwner || isPreBucketed)) {
-          const existing = normalized[authorizedKey] ?? [];
-          existing.push(...values);
-          normalized[authorizedKey] = existing;
+          normalized[authorizedKey] = [...(normalized[authorizedKey] || []), ...values];
           continue;
       }
 
+      // 2. Foreign/Qualified Trailer
+      // Skip if it looks like "Other: value" and we are the root protocol
       const isQualified = values.every(v => v.includes(':'));
       if (namespace === '' && isQualified) {
           continue;
       }
 
+      // 3. Reserved Key (Claimed by another protocol)
       if (isReserved) {
           continue;
       }
 
+      // 4. Permissive Fallback
       if (this.protocol.permissive) {
-          const existing = normalized[key] ?? [];
-          existing.push(...values);
-          normalized[key] = existing;
+          normalized[key] = [...(normalized[key] || []), ...values];
           continue;
       }
 
+      // 5. Unauthorized Fallback
+      // If we are root or the explicit owner of this key, and it's not authorized, mark it.
       if (namespace === '' || isOwner || isPreBucketed) {
-          const existing = unauthorized[key] || [];
-          unauthorized[key] = [...existing, ...values];
+          unauthorized[key] = [...(unauthorized[key] || []), ...values];
       }
     }
 
-    return {
-      trailers: normalized,
-      unauthorized,
-    };
+    return { trailers: normalized, unauthorized };
   }
 
   getIdentity(state?: ProtocolState | null): string | null {

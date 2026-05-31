@@ -4,7 +4,8 @@ import {
   TEST_PROTOCOL_DEFINITION, 
   TEST_ENGINE_CONFIG, 
   makeProtocolConfig,
-  makeProtocol
+  makeProtocol,
+  makeProtocolRegistry
 } from '../engine-test-utils.js';
 
 const TEST_ID_KEY = "Mock-id";
@@ -98,6 +99,17 @@ describe('Protocol Service', () => {
     expect(urgentIdx).toBeLessThan(confidenceIdx);
   });
 
+  it('should default custom trailers to the end of the sort order', () => {
+    const config = {
+      trailers: {
+        Z_Custom: { description: 'Z', multivalue: false, validation: 'none' as const }
+      }
+    };
+    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, config);
+    const keys = protocol.getAuthorizedKeys();
+    expect(keys[keys.length - 1]).toBe('Z_Custom');
+  });
+
   describe('Case-Insensitive Normalization', () => {
     it('should normalize core keys regardless of input casing', () => {
       const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG);
@@ -139,6 +151,21 @@ describe('Protocol Service', () => {
       };
       const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, config);
       expect(protocol.getDefinition('Team')?.required).toBe(true);
+    });
+  });
+
+  describe('Custom Overrides', () => {
+    it('should allow custom definitions to override core trailer metadata (e.g. color)', () => {
+      const config = {
+        trailers: {
+          Confidence: {
+            description: 'Override',
+            ui: { kind: 'risk' as const, color: 'magenta' as const }
+          }
+        }
+      };
+      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, config);
+      expect(protocol.getDefinition('Confidence')?.ui?.color).toBe('magenta');
     });
   });
 
@@ -292,18 +319,170 @@ describe('Protocol Service', () => {
           expect(result.trailers.Team).toEqual(['Backend']);
       });
 
-      it('should ignore root trailers in namespaced protocol', () => {
+      it('should track typos in namespaced trailers as unauthorized', () => {
           const nsProtocol = makeProtocol({ 
               name: 'Project', 
               namespace: 'Project', 
               identityKey: 'Id',
               trailers: { 'Id': { description: 'id' } }
-          }, { permissive: false });
+          }, { strict: true, permissive: false } as any);
           
-          const raw = 'Lore-id: root-id\nProject: Id: ns-id';
+          const raw = 'Project: Tream: Backend';
           const result = nsProtocol.parse(raw);
-          expect(result.trailers.Id).toEqual(['ns-id']);
-          expect(result.trailers['Lore-id']).toBeUndefined();
+          expect(result.unauthorized.Tream).toEqual(['Backend']);
       });
+
+      it('should provide namespaced discovery pattern', () => {
+          const nsProtocol = makeProtocol({
+              name: 'Project',
+              namespace: 'Project',
+              identityKey: 'Id'
+          });
+          expect(nsProtocol.getDiscoveryPatterns()).toEqual(['^Project:']);
+      });
+
+      it('should provide namespaced search patterns', () => {
+          const nsProtocol = makeProtocol({
+              name: 'Project',
+              namespace: 'Project',
+              identityKey: 'Id',
+              trailers: { Team: { description: 'T' } }
+          });
+          const patterns = nsProtocol.getSearchPatterns({ Team: 'Backend' });
+          expect(patterns).toEqual([['^Project: Team: Backend']]);
+      });
+  });
+
+  describe('Ownership & Claims', () => {
+    it('should own its identity key', () => {
+      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+      expect(protocol.owns(TEST_ID_KEY)).toBe(true);
+    });
+
+    it('should own core trailers', () => {
+      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+      expect(protocol.owns('Constraint')).toBe(true);
+      expect(protocol.owns('Confidence')).toBe(true);
+    });
+
+    it('should own configured custom trailers', () => {
+      const config = {
+        trailers: {
+          Team: { description: 'T', multivalue: false, validation: 'none' as const }
+        }
+      };
+      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, config);
+      expect(protocol.owns('Team')).toBe(true);
+    });
+
+    it('should not own unregistered trailers', () => {
+      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, { strict: true, permissive: false });
+      expect(protocol.owns('Random')).toBe(false);
+    });
+
+    describe('parse with claim hierarchy', () => {
+      it('should ingest owned trailers even if not in unclaimedKeys', () => {
+          const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+          const raw = 'Constraint: C1';
+          // Passing 'Other-Key' as the only claimed key means 'Constraint' is UNCLAIMED
+          const result = protocol.parse(raw, new Set(['Other-Key']));
+          expect(result.trailers.Constraint).toEqual(['C1']);
+      });
+
+      it('should ingest unowned trailers only if permissive AND unclaimed', () => {
+          const permissive = makeProtocol(TEST_PROTOCOL_DEFINITION, {
+              strict: false,
+              permissive: true,
+              trailers: {}
+          });
+          const raw = 'Adhoc: value';
+          // Passing an empty set means 'Adhoc' is UNCLAIMED
+          const result = permissive.parse(raw, new Set());
+          expect(result.trailers.Adhoc).toEqual(['value']);
+      });
+    });
+
+    it('should NOT ingest unowned trailers if not permissive', () => {
+        const strict = makeProtocol(TEST_PROTOCOL_DEFINITION, {
+            strict: true,
+            permissive: false,
+            trailers: {}
+        });
+        const raw = 'Adhoc: value';
+        // Passing an empty set means 'Adhoc' is UNCLAIMED, but we are strict
+        const result = strict.parse(raw, new Set());
+        expect(result.trailers.Adhoc).toBeUndefined();
+        expect(result.unauthorized.Adhoc).toEqual(['value']);
+    });
+  });
+
+  describe('validateTrailer', () => {
+    it('should validate enum values correctly', () => {
+      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+      expect(protocol.validateTrailer('Confidence', 'high').valid).toBe(true);
+      expect(protocol.validateTrailer('Confidence', 'invalid').valid).toBe(false);
+    });
+
+    it('should validate regex patterns correctly', () => {
+      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+      expect(protocol.validateTrailer(TEST_ID_KEY, '12345678').valid).toBe(true);
+      expect(protocol.validateTrailer(TEST_ID_KEY, 'not-hex').valid).toBe(false);
+    });
+
+    it('should handle unresolvable cross-protocol references without a registry', () => {
+      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+      const result = protocol.validateTrailer('Related', 'other/123');
+      expect(result.valid).toBe(false);
+      expect(result.rule).toBe('unknown-protocol-prefix');
+    });
+
+    it('should handle unknown protocol prefixes with a linked registry', () => {
+        const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+        makeProtocolRegistry([protocol]); // Link it
+        const result = protocol.validateTrailer('Related', 'ghost/999');
+        expect(result.valid).toBe(false);
+        expect(result.rule).toBe('unknown-protocol-prefix');
+    });
+
+    it('should treat self-prefixed references as local even without a registry', () => {
+      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+      const result = protocol.validateTrailer('Related', 'mock/12345678');
+      expect(result.valid).toBe(true);
+    });
+
+    it('should return specific id-format rule when identity key fails pattern', () => {
+        const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+        const result = protocol.validateTrailer(TEST_ID_KEY, 'not-hex');
+        expect(result.rule).toBe('mock-id-format');
+    });
+
+    it('should successfully validate a cross-protocol reference when registry is linked', () => {
+      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+      const otherProtocol = makeProtocol({ name: 'Other', identityKey: 'Other-id', trailers: {} }, { permissive: false });
+      makeProtocolRegistry([protocol, otherProtocol]);
+      
+      const result = protocol.validateTrailer('Related', 'other/abc');
+      expect(result.valid).toBe(true);
+    });
+
+    it('should return valid for unknown trailers in permissive mode', () => {
+        const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, { permissive: true });
+        expect(protocol.validateTrailer('Random', 'any').valid).toBe(true);
+    });
+
+    it('should enforce boundary rules (crossProtocol: false) autonomously', () => {
+        const protocol = makeProtocol({
+            ...TEST_PROTOCOL_DEFINITION,
+            trailers: {
+                'Internal': { description: 'I', validation: 'reference', crossProtocol: false }
+            }
+        });
+        const otherProtocol = makeProtocol({ name: 'Other', identityKey: 'Other-id', trailers: {} }, { permissive: false });
+        makeProtocolRegistry([protocol, otherProtocol]);
+
+        const result = protocol.validateTrailer('Internal', 'other/abc');
+        expect(result.valid).toBe(false);
+        expect(result.rule).toBe('cross-protocol-prohibited');
+    });
   });
 });
