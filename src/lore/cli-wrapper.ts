@@ -17,6 +17,7 @@ import { ProtocolHydrator } from '../engine/services/protocol-hydrator.js';
 import { getLoreVersion, getLorePackageName, getLorePublishedVersion } from './util/version.js';
 import { getEngineVersion, getEnginePackageName, getEnginePublishedVersion } from '../engine/util/version.js';
 import { checkForUpdates } from '../engine/util/update-check.js';
+import { camelCase } from '../engine/util/string.js';
 import { resolve, join } from 'node:path';
 import type { EngineConfig, ProtocolConfig, TrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../engine/types/config.js';
 import type { ProtocolDefinition } from '../engine/interfaces/protocol-definition.js';
@@ -194,22 +195,20 @@ export async function buildLoreCli() {
     const name = cmd.name();
     if (name !== 'commit') continue; // Only apply to commit for 0.5.0 parity
 
-    for (const p of sharedDeps.protocolRegistry.getAll()) {
-      const ns = p.getStorageNamespace();
-      const isRoot = ns === '';
-      const prefix = ns ? `${ns}-` : '';
-      
-      for (const key of p.getAuthorizedKeys()) {
-        if (key === p.identityKey) continue;
+    // Lore-Only CLI Surface: The Wrapper only exposes Lore flags as top-level options.
+    // This maintains 100% parity with 0.5.0 and prevents UI clutter from internal plugins.
+    const loreProtocol = sharedDeps.protocolRegistry.get('lore');
+    if (loreProtocol) {
+      for (const key of loreProtocol.getAuthorizedKeys()) {
+        if (key === loreProtocol.identityKey) continue;
 
-        const def = p.getDefinition(key) as TrailerDefinition;
+        const def = loreProtocol.getDefinition(key) as TrailerDefinition;
         if (!def) continue;
 
         const flagName = def.cli?.flag || key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        const fullFlag = isRoot ? flagName : `${prefix.toLowerCase()}${flagName}`;
         
-        if (!cmd.options.some(o => o.long === `--${fullFlag}`)) {
-          cmd.option(`--${fullFlag} <value...>`, `[${p.name}] ${def.description}`);
+        if (!cmd.options.some(o => o.long === `--${flagName}`)) {
+          cmd.option(`--${flagName} <value...>`, `[lore] ${def.description}`);
         }
       }
     }
@@ -274,24 +273,22 @@ export async function buildLoreCli() {
               const opts = thisCommand.opts();
               if (opts.intent) thisCommand.setOptionValue('subject', opts.intent);
 
-              // Map dynamic protocol flags to the generic --trailer array
+              // Map dynamic Lore flags to the generic --trailer array
               const trailerArray: string[] = opts.trailer || [];
-              for (const p of sharedDeps.protocolRegistry.getAll()) {
-                  const ns = p.getStorageNamespace();
-                  const isRoot = ns === '';
-                  const prefix = ns ? `${ns}-` : '';
+              const loreProtocol = sharedDeps.protocolRegistry.get('lore');
+              
+              if (loreProtocol) {
+                  for (const key of loreProtocol.getAuthorizedKeys()) {
+                      if (key === loreProtocol.identityKey) continue;
 
-                  for (const key of p.getAuthorizedKeys()) {
-                      if (key === p.identityKey) continue;
-                      
-                      const def = p.getDefinition(key) as TrailerDefinition;
-                      if (!def || (isRoot && def.isCore)) continue;
+                      const def = loreProtocol.getDefinition(key) as TrailerDefinition;
+                      if (!def) continue;
 
                       const flagName = def.cli?.flag || key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-                      const camelFlagName = (isRoot ? flagName : `${prefix.toLowerCase()}${flagName}`).replace(/-([a-z])/g, g => g[1].toUpperCase());
+                      const camelFlag = camelCase(flagName);
 
-                      if (opts[camelFlagName]) {
-                          const vals = Array.isArray(opts[camelFlagName]) ? opts[camelFlagName] : [opts[camelFlagName]];
+                      if (opts[camelFlag]) {
+                          const vals = Array.isArray(opts[camelFlag]) ? opts[camelFlag] : [opts[camelFlag]];
                           for (const v of vals) {
                               trailerArray.push(`${key}=${v}`);
                           }

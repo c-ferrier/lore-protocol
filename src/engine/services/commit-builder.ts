@@ -32,18 +32,6 @@ export class CommitBuilder {
     for (const [pName, pTrailers] of input.trailers.entries()) {
       const protocol = this.protocolRegistry.get(pName);
       
-      // If pName is "", it might be root orphans for a permissive host
-      if (!protocol && pName === "") {
-          const root = this.protocolRegistry.getRoot();
-          if (root?.permissive) {
-              for (const [key, values] of Object.entries(pTrailers)) {
-                  serializedTrailers[key] = [...values];
-                  displayOrder.push(key);
-              }
-          }
-          continue;
-      }
-
       if (!protocol) {
           throw new ProtocolError(`Unknown protocol "${pName}" in commit input`, 1);
       }
@@ -154,18 +142,6 @@ export class CommitBuilder {
     for (const [pName, pTrailers] of input.trailers.entries()) {
         const protocol = this.protocolRegistry.get(pName);
         
-        // Handle root orphans for permissive host
-        if (!protocol && pName === "") {
-            const root = this.protocolRegistry.getRoot();
-            if (root?.permissive) {
-                validatedProtocols.add(root.name.toLowerCase());
-                const state = root.normalize(pTrailers, lowerClaimed);
-                const bucketIssues = root.validateState(state);
-                issues.push(...bucketIssues);
-            }
-            continue;
-        }
-
         if (!protocol) {
             issues.push({
                 severity: 'warning',
@@ -247,13 +223,6 @@ export class CommitBuilder {
   private hasTrailer(input: CommitInput, key: string, protocolName: string): Promise<boolean> {
     const pMap = input.trailers.get(protocolName.toLowerCase());
     if (pMap && pMap[key] && pMap[key].length > 0) return Promise.resolve(true);
-    
-    // Fallback for root-namespace trailers (via the host protocol)
-    const root = this.protocolRegistry.getRoot();
-    if (root) {
-        const rootMap = input.trailers.get(root.name.toLowerCase());
-        if (rootMap && rootMap[key] && rootMap[key].length > 0) return Promise.resolve(true);
-    }
     
     return Promise.resolve(false);
   }
