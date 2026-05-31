@@ -1,107 +1,82 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { SearchFilter } from '../../../src/engine/services/search-filter.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
-import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
-import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
-import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { 
-  TEST_PROTOCOL_DEFINITION, 
-  TEST_ENGINE_CONFIG, 
-  makeProtocolConfig,
-  makeProtocol,
-  makeAtomRepository
-} from '../engine-test-utils.js';
+import { PathResolver } from '../../../src/engine/services/path-resolver.js';
+import { makeAtomRepository, makeProtocol, makeMockGitClient } from '../engine-test-utils.js';
 
 describe('Multi-Protocol Integration', () => {
+  let gitClient: any;
+  let repo: any;
   let registry: ProtocolRegistry;
-  let repo: AtomRepository;
-  let gitClient: IGitClient;
 
   const FRED_DEF = {
     name: 'Fred',
     version: '1.0',
-    identityKey: 'Fred-id',
     namespace: 'fred',
-    trailers: {
-      'Fred-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[a-z0-9]+$' },
-      'Impact': { description: 'Impact', validation: 'none' as const }
-    }
+    identityKey: 'Fred-id',
+    trailers: { 'Fred-id': { description: 'ID', validation: 'none' } }
   };
 
   beforeEach(() => {
-    gitClient = {
-      log: vi.fn(async () => []),
-      getCommitsByHashes: vi.fn(async () => []),
-      getFilesChanged: vi.fn(async () => new Map()),
-      resolveRef: vi.fn(async () => 'head'),
-      resolveDate: vi.fn(async (d) => new Date(d)),
-    } as any;
+    gitClient = makeMockGitClient();
 
     registry = new ProtocolRegistry();
-    const mock = makeProtocol(TEST_PROTOCOL_DEFINITION, makeProtocolConfig(TEST_ENGINE_CONFIG));
-    const fred = makeProtocol(FRED_DEF, makeProtocolConfig(TEST_ENGINE_CONFIG));
-    
+    const mock = makeProtocol({
+        name: 'Mock',
+        identityKey: 'Mock-id',
+        trailers: { 'Mock-id': { description: 'ID' } }
+    });
+    const fred = makeProtocol(FRED_DEF);
     registry.register(mock);
     registry.register(fred);
 
-    repo = makeAtomRepository({ gitClient, registry });
+    repo = makeAtomRepository({
+        gitClient,
+        registry,
+        pathResolver: new PathResolver('/mock', '/mock')
+    });
   });
 
   it('Discovery: should aggregate discovery patterns from all protocols', async () => {
     await repo.find();
-    const args = vi.mocked(gitClient.log).mock.calls[0][0];
+    const query = vi.mocked(gitClient.query).mock.calls[0][0];
     
-    // Aggregate pattern: Mock-id (root) OR fred: (namespaced coarse pass)
-    const combined = args.find(a => a.startsWith('--grep='));
-    expect(combined).toContain('Mock-id');
-    expect(combined).toContain('fred:');
+    // Top-level 0 is the discovery OR-set
+    const discoverySet = query.regexPatterns[0];
+    expect(discoverySet).toContain('^Mock-id: .+');
+    expect(discoverySet).toContain('^fred:');
   });
 
   it('Ownership: should respect namespaced trailers', async () => {
-    // New Format: "Namespace: Key: value"
-    const trailers = 'Mock-id: abcd1234\nfred: Fred-id: fred1234\nfred: Impact: high\nAdhoc: value';
-    const commit: RawCommit = {
+    const commit = {
       hash: 'h1',
       date: new Date().toISOString(),
       author: 'a',
       subject: 's',
       body: 'b',
-      trailers
+      trailers: 'Mock-id: m1\nfred: Fred-id: f1'
     };
 
-    vi.mocked(gitClient.log).mockResolvedValue([commit]);
-    vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['h1', []]]));
+    vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
     const [atom] = await repo.find();
     
+    expect(atom.protocols.has('mock')).toBe(true);
+    expect(atom.protocols.has('fred')).toBe(true);
+
     const mockState = atom.protocols.get('mock')!;
     const fredState = atom.protocols.get('fred')!;
 
-    // Mock is permissive in root namespace, so it gets Mock-id and Adhoc
-    expect(mockState.trailers['Mock-id']).toEqual(['abcd1234']);
-    expect(mockState.trailers['Adhoc']).toEqual(['value']);
-    
-    // Mock should NOT get fred/Impact
-    expect(mockState.trailers['fred']).toBeUndefined();
-    expect(mockState.trailers['Impact']).toBeUndefined();
-
-    // Fred gets its own namespaced trailer
-    expect(fredState.trailers['Impact']).toEqual(['high']);
-    expect(fredState.trailers['Fred-id']).toEqual(['fred1234']);
+    expect(mockState.trailers['Mock-id']).toEqual(['m1']);
+    expect(fredState.trailers['Fred-id']).toEqual(['f1']);
   });
 
-  it('Conflict: should not allow two permissive protocols in the same namespace', () => {
-    const anotherPermissive = makeProtocol({
-      ...FRED_DEF,
-      name: 'Another',
-      namespace: '', // Root namespace
-      permissive: true
-    }, makeProtocolConfig(TEST_ENGINE_CONFIG));
-
-    // Mock is already registered in root namespace and is permissive
-    expect(() => registry.register(anotherPermissive)).toThrow(/Only one permissive protocol is allowed per namespace/);
+  it('Conflict: should not allow two protocols with same name', () => {
+    const p1 = makeProtocol({ name: 'Dup', trailers: {} });
+    const p2 = makeProtocol({ name: 'Dup', trailers: {} });
+    
+    const reg = new ProtocolRegistry();
+    reg.register(p1);
+    expect(() => reg.register(p2)).toThrow(/already registered/);
   });
 });

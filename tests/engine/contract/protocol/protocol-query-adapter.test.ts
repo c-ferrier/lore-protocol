@@ -1,93 +1,65 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { ProtocolQueryAdapter } from '../../../../src/engine/services/protocol/protocol-query-adapter.js';
-import type { IProtocol } from '../../../../src/engine/interfaces/protocol.js';
+import { TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../engine-test-utils.js';
 
 describe('ProtocolQueryAdapter', () => {
-  const createMockProtocol = (overrides: Partial<IProtocol> = {}) => ({
-    name: 'Mock',
-    namespace: '',
-    identityKey: 'Mock-id',
-    permissive: true,
-    authorize: vi.fn((key: string) => (key === 'Mock-id' || key === 'Confidence' ? key : null)),
-    getDefinition: vi.fn((key: string) => {
-        if (key === 'Mock-id') return { key: 'Mock-id', description: '', multivalue: false, pattern: '^[0-9a-f]{8}$' };
-        return null;
-    }),
-    owns: vi.fn((key: string) => key === 'Mock-id'),
-    ...overrides
-  } as unknown as IProtocol);
+  let adapter: ProtocolQueryAdapter;
+
+  beforeEach(() => {
+    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+    adapter = new ProtocolQueryAdapter(protocol);
+  });
 
   it('should generate discovery pattern for root protocol', () => {
-    const protocol = createMockProtocol();
-    const adapter = new ProtocolQueryAdapter(protocol);
-    
-    // ^Mock-id: [0-9a-f]{8}
-    expect(adapter.getDiscoveryPattern()).toBe('^Mock-id: [0-9a-f]{8}');
+    // TEST_PROTOCOL_DEFINITION uses '^[0-9a-f]{8}$' for pattern, but adapter removes ^ and $
+    expect(adapter.getDiscoveryPatterns()).toEqual(['^Mock-id: [0-9a-f]{8}']);
   });
 
   it('should generate discovery pattern for namespaced protocol', () => {
-    const protocol = createMockProtocol({ namespace: 'Project' });
-    const adapter = new ProtocolQueryAdapter(protocol);
+    const nsProtocol = makeProtocol({
+      ...TEST_PROTOCOL_DEFINITION,
+      namespace: 'Project'
+    });
+    const nsAdapter = new ProtocolQueryAdapter(nsProtocol);
     
-    expect(adapter.getDiscoveryPattern()).toBe('^Project:');
+    expect(nsAdapter.getDiscoveryPatterns()).toEqual(['^Project:']);
   });
 
-  it('should generate search grep arguments', () => {
-    const protocol = createMockProtocol();
-    const adapter = new ProtocolQueryAdapter(protocol);
-    
+  it('should generate search patterns', () => {
     const filters = { Confidence: 'high' };
-    expect(adapter.getSearchGrep(filters)).toEqual(['--grep=^Confidence: high']);
+    expect(adapter.getSearchPatterns(filters)).toEqual([['^Confidence: high']]);
   });
 
-  it('should generate namespaced search grep arguments', () => {
-    const protocol = createMockProtocol({ namespace: 'Project' });
-    const adapter = new ProtocolQueryAdapter(protocol);
-    
+  it('should generate namespaced search patterns', () => {
+    const nsProtocol = makeProtocol({
+      ...TEST_PROTOCOL_DEFINITION,
+      namespace: 'Project'
+    });
+    const nsAdapter = new ProtocolQueryAdapter(nsProtocol);
     const filters = { Confidence: 'high' };
-    expect(adapter.getSearchGrep(filters)).toEqual(['--grep=^Project: Confidence: high']);
+    
+    expect(nsAdapter.getSearchPatterns(filters)).toEqual([['^Project: Confidence: high']]);
   });
 
   it('should check if protocol claims raw trailers', () => {
-    const protocol = createMockProtocol({ identityKey: 'Lore-id' });
-    const adapter = new ProtocolQueryAdapter(protocol);
-    
-    expect(adapter.claims('Lore-id: abc12345')).toBe(true);
-    expect(adapter.claims('Other-id: xyz')).toBe(false);
+    expect(adapter.claims('Mock-id: 12345678')).toBe(true);
+    expect(adapter.claims('Other: value')).toBe(false);
   });
 
-  it('should generate multiple grep arguments for multi-value filters', () => {
-    const protocol = createMockProtocol();
-    const adapter = new ProtocolQueryAdapter(protocol);
-    
-    const filters = { Confidence: ['high', 'low'] };
-    expect(adapter.getSearchGrep(filters)).toEqual([
-        '--grep=^Confidence: high',
-        '--grep=^Confidence: low'
+  it('should handle multi-value filters', () => {
+    const filters = { Confidence: ['high', 'medium'] };
+    expect(adapter.getSearchPatterns(filters)).toEqual([
+      ['^Confidence: high', '^Confidence: medium']
     ]);
   });
 
   it('should handle missing keys in matches logic by returning false if owned', () => {
-    const protocol = createMockProtocol();
-    const adapter = new ProtocolQueryAdapter(protocol);
-    
-    const state = {
-        trailers: {}, // Missing Confidence
-        unauthorized: {}
-    };
-
-    expect(adapter.matches(state, { Confidence: 'high' })).toBe(false);
+      const state = { trailers: {}, unauthorized: {} } as any;
+      expect(adapter.matches(state, { Confidence: 'high' })).toBe(false);
   });
 
   it('should ignore filters for keys it does not own', () => {
-    const protocol = createMockProtocol();
-    const adapter = new ProtocolQueryAdapter(protocol);
-    
-    const state = {
-        trailers: { Confidence: ['high'] },
-        unauthorized: {}
-    };
-
-    expect(adapter.matches(state, { Unknown: 'val' })).toBe(true);
+      const state = { trailers: {}, unauthorized: {} } as any;
+      expect(adapter.matches(state, { Unowned: 'value' })).toBe(true);
   });
 });

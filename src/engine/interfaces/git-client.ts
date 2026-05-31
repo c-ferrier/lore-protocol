@@ -7,6 +7,21 @@ export interface RawCommit {
   readonly trailers: string;
 }
 
+export interface StorageQuery {
+  readonly author?: string;
+  readonly sinceDate?: Date;
+  readonly untilDate?: Date;
+  readonly limit?: number;
+  /** 
+   * High-level regex patterns structured for boolean logic.
+   * Top-level array items are AND'ed (multiple --grep flags).
+   * Sub-array items are OR'ed (joined by | within a single --grep flag).
+   */
+  readonly regexPatterns?: readonly (readonly string[])[];
+  /** Scoping paths. Git implementation translates these to -- <paths> suffix. */
+  readonly paths?: readonly string[];
+}
+
 export interface BlameLine {
   readonly commitHash: string;
   readonly lineNumber: number;
@@ -26,6 +41,7 @@ export interface CommitOptions {
 
 export interface IGitClient {
   log(args: readonly string[]): Promise<readonly RawCommit[]>;
+  query(query: StorageQuery): Promise<readonly RawCommit[]>;
   blame(file: string, lineStart: number, lineEnd: number): Promise<readonly BlameLine[]>;
   commit(message: string, options?: CommitOptions): Promise<CommitResult>;
   hasStagedChanges(): Promise<boolean>;

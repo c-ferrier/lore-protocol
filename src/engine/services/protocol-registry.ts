@@ -11,7 +11,6 @@ import { ProtocolError, ConfigurationError } from '../util/errors.js';
  */
 export class ProtocolRegistry {
   private readonly protocols = new Map<string, IProtocol>();
-  private readonly namespaceMap = new Map<string, IProtocol>();
 
   /**
    * Register a protocol with the engine.
@@ -19,25 +18,29 @@ export class ProtocolRegistry {
    */
   register(protocol: IProtocol): void {
     const name = protocol.name.toLowerCase();
-    const ns = protocol.namespace.toLowerCase();
+    const ns = (protocol.namespace || 'root').toLowerCase();
 
     if (this.protocols.has(name)) {
-      throw new ConfigurationError(`Protocol "${protocol.name}" is already registered.`);
+      throw new ConfigurationError(`Protocol "${protocol.name}" is already registered`);
     }
 
     // Safety Rule: Only one permissive protocol allowed per namespace to prevent trailer claiming conflicts
-    if (protocol.permissive && this.hasPermissiveProtocolInNamespace(ns)) {
-      const existing = this.getPermissiveProtocolInNamespace(ns);
-      throw new ConfigurationError(
-        `Cannot register permissive protocol "${protocol.name}". ` +
-          `A permissive protocol ("${existing?.name}") is already registered for namespace "${protocol.namespace || 'root'}". ` +
-          `Only one permissive protocol is allowed per namespace to prevent trailer claiming conflicts.`,
-      );
+    if (protocol.permissive) {
+      for (const p of this.protocols.values()) {
+        const pNs = (p.namespace || 'root').toLowerCase();
+        if (pNs === ns && p.permissive) {
+          throw new ConfigurationError(
+            `Cannot register permissive protocol "${protocol.name}". ` +
+            `A permissive protocol ("${p.name}") is already registered for namespace "${protocol.namespace || 'root'}". ` +
+            `Only one permissive protocol is allowed per namespace to prevent trailer claiming conflicts.`
+          );
+        }
+      }
     }
 
+    // Link the protocol to this registry for cross-protocol lookups
     protocol.setRegistry(this);
     this.protocols.set(name, protocol);
-    this.namespaceMap.set(ns, protocol);
   }
 
   /**
@@ -61,16 +64,14 @@ export class ProtocolRegistry {
 
   /**
    * Gets the primary identity for an atom by asking the protocol that claimed it.
+   * Prefers the Root protocol's identity if available.
    */
   getIdentity(atom: any): string | null {
-    for (const protocol of this.protocols.values()) {
-        const state = atom.protocols.get(protocol.name.toLowerCase());
-        if (state) {
-            const id = protocol.getIdentity(state);
-            if (id) return id;
-        }
-    }
-    return null;
+    const primary = this.getRoot() || this.getAll()[0];
+    if (!primary) return null;
+
+    const state = atom.protocols.get(primary.name.toLowerCase());
+    return primary.getIdentity(state);
   }
 
   /**
@@ -101,60 +102,47 @@ export class ProtocolRegistry {
   }
 
   /**
-   * Get combined Git discovery arguments for all registered protocols.
+   * Returns a list of regex patterns for discovery. All returned patterns 
+   * should be OR'ed together.
    */
-  getDiscoveryGrep(): string[] {
-    const patterns = this.getAll().map((p) => p.getDiscoveryPattern());
-    if (patterns.length === 0) return [];
-    
-    if (patterns.length === 1) {
-      return [`--grep=${patterns[0]}`];
+  getDiscoveryPatterns(): string[] {
+    const patterns: string[] = [];
+    for (const p of this.getAll()) {
+      patterns.push(...p.getDiscoveryPatterns());
     }
-    
-    // Combine multiple patterns using | and wrap in parentheses for safety
-    const combined = patterns.map(p => `(${p})`).join('|');
-    return [`--grep=${combined}`];
+    return patterns;
   }
 
   /**
-   * Translates generic filters into specific Git grep arguments across all protocols.
+   * Translates generic filters into nested raw regex patterns.
+   * Returns an array of arrays, where top level is AND and inner is OR.
+   * Logic: multiple protocols authorizing the same key are OR'ed together.
    */
-  getSearchGrep(options: { has?: string | null; filters?: Record<string, string | string[]> }): string[] {
-    const args: string[] = [];
+  getSearchPatterns(filters: Record<string, string | string[]>): string[][] {
+    const patternsByKey = new Map<string, string[]>();
 
-    if (options.has) {
-      const patterns: string[] = [];
+    for (const [key, value] of Object.entries(filters)) {
+      const orSet: string[] = [];
       for (const p of this.getAll()) {
-        const authorizedKey = p.authorize(options.has);
-        if (authorizedKey) {
-          const prefix = p.namespace ? `${p.namespace}: ` : '';
-          patterns.push(`(^${prefix}${authorizedKey}: )`);
+        const pPatterns = p.getSearchPatterns({ [key]: value });
+        // pPatterns is string[][], we flatten the inner parts for this key
+        for (const set of pPatterns) {
+            orSet.push(...set);
         }
       }
-      if (patterns.length > 0) {
-        args.push(`--grep=${patterns.join('|')}`);
+      if (orSet.length > 0) {
+        // Dedup for safety (in case multiple protocols generate identical patterns)
+        patternsByKey.set(key, Array.from(new Set(orSet)));
       }
     }
 
-    if (options.filters) {
-      for (const p of this.getAll()) {
-        const pArgs = p.getSearchGrep(options.filters);
-        args.push(...pArgs);
-      }
-    }
-
-    return args;
+    return Array.from(patternsByKey.values());
   }
 
   /**
-   * Returns the protocol registered for the root namespace ("").
-   */
-  getRoot(): IProtocol | undefined {
-    return this.namespaceMap.get('');
-  }
-
-  /**
-   * Resolves a raw ID string into a Qualified Identity.
+   * Resolves a raw trailer value into a qualified QueryIdentity.
+   * Format support: "protocol/id" or just "id".
+   * Unqualified IDs are resolved by checking context and scanning for ambiguity.
    */
   resolveIdentity(id: string, contextProtocol?: string): QueryIdentity {
     if (id.includes('/')) {
@@ -168,13 +156,14 @@ export class ProtocolRegistry {
 
     if (contextProtocol) {
       const protocol = this.get(contextProtocol);
-      if (protocol) {
+      if (protocol && protocol.isValidIdentity(id)) {
         return { id, protocol: protocol.name.toLowerCase() };
       }
     }
 
-    // Ambiguity Detection
+    // Ambiguity Detection: find all protocols that recognize this ID format
     const candidates = this.getAll().filter(p => p.isValidIdentity(id));
+    
     if (candidates.length > 1) {
       const names = candidates.map(p => p.name).join(', ');
       throw new ProtocolError(
@@ -184,18 +173,16 @@ export class ProtocolRegistry {
       );
     }
 
-    return { 
-      id, 
-      protocol: candidates.length === 1 ? candidates[0].name.toLowerCase() : undefined 
-    };
-  }
+    if (candidates.length === 1) {
+        return { id, protocol: candidates[0].name.toLowerCase() };
+    }
 
-  private hasPermissiveProtocolInNamespace(namespace: string): boolean {
-    return this.getAll().some((p) => p.permissive && p.namespace.toLowerCase() === namespace.toLowerCase());
-  }
-
-  private getPermissiveProtocolInNamespace(namespace: string): IProtocol | undefined {
-    return this.getAll().find((p) => p.permissive && p.namespace.toLowerCase() === namespace.toLowerCase());
+    // Fallback to root protocol if no candidates match (validation will catch format issues later)
+    const root = this.getRoot();
+    if (!root) {
+        throw new ProtocolError(`Cannot resolve reference "${id}": no root protocol defined`, 1);
+    }
+    return { id, protocol: root.name.toLowerCase() };
   }
 
   /**
@@ -205,5 +192,17 @@ export class ProtocolRegistry {
     const protocols = this.getAll().map(p => `${p.name}@${p.version}`);
     protocols.sort();
     return protocols.join(';');
+  }
+
+  /**
+   * Returns the "Root" protocol (global namespace).
+   * Rule: If exactly 1 protocol is in the root namespace, it is the root.
+   * If multiple exist, the one that is permissive=true is the root.
+   */
+  getRoot(): IProtocol | undefined {
+    const candidates = this.getAll().filter(p => p.namespace === '');
+    if (candidates.length === 0) return undefined;
+    if (candidates.length === 1) return candidates[0];
+    return candidates.find(p => p.permissive);
   }
 }

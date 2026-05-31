@@ -1,39 +1,66 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { PathResolver } from '../../../src/engine/services/path-resolver.js';
-import { makeAtomRepository } from '../engine-test-utils.js';
+import { makeAtomRepository, makeMockGitClient, makeProtocol } from '../engine-test-utils.js';
 
 describe('Git Security (Argument Escaping)', () => {
   let gitClient: any;
   let repository: AtomRepository;
+  let registry: ProtocolRegistry;
 
   beforeEach(() => {
-    gitClient = {
-      log: vi.fn().mockResolvedValue([]),
-      resolveRef: vi.fn().mockResolvedValue('head'),
-      getFilesChanged: vi.fn().mockResolvedValue(new Map()),
-      resolveDate: vi.fn().mockImplementation(async (d) => new Date(d)),
-    };
+    gitClient = makeMockGitClient();
+    registry = new ProtocolRegistry();
+    registry.register(makeProtocol({
+        name: 'Mock',
+        identityKey: 'Mock-id',
+        trailers: { 'Mock-id': { description: 'ID' } }
+    }));
     
-    // We only care about the gitClient.log arguments in this test
     repository = makeAtomRepository({
         gitClient,
-        registry: new ProtocolRegistry()
+        registry
     });
   });
 
-  it('should escape regex characters in author filter', async () => {
-    await repository.find({ author: 'cole (admin) | rm -rf' });
+  it('should pass author filter to GitClient.query raw (escaping is Client responsibility)', async () => {
+    const maliciousAuthor = 'cole (admin) | rm -rf';
+    await repository.find({ author: maliciousAuthor });
     
-    const callArgs = gitClient.log.mock.calls[0][0];
-    const authorArg = callArgs.find((a: string) => a.startsWith('--author='));
-    
-    // The parens and pipe should be escaped
-    expect(authorArg).toContain('cole \\(admin\\) \\| rm -rf');
+    expect(gitClient.query).toHaveBeenCalledWith(expect.objectContaining({
+        author: maliciousAuthor
+    }));
   });
 
-  it('should escape regex characters in discovery patterns', async () => {
-     // Implementation detail check
+  it('should escape regex characters in scope filter (handled by Repository)', async () => {
+    await repository.find({ scope: 'ui) | grep (secret' });
+    
+    const query = gitClient.query.mock.calls[0][0];
+    const found = query.regexPatterns.some((set: string[]) => 
+        set.some(p => p.includes('ui\\) \\| grep \\(secret'))
+    );
+    expect(found).toBe(true);
+  });
+
+  it('should escape regex characters in atom ID filter (handled by Repository/Adapter)', async () => {
+    const maliciousId = 'dead) | beef';
+    await repository.findById({ id: maliciousId });
+    
+    const query = gitClient.query.mock.calls[0][0];
+    const found = query.regexPatterns.some((set: string[]) => 
+        set.some(p => p.includes('dead\\) \\| beef'))
+    );
+    expect(found).toBe(true);
+  });
+
+  it('should escape regex characters in trailer key search (has filter)', async () => {
+    await repository.find({ has: 'Secret: ) | grep' });
+    
+    // The 'has' filter should result in an escaped regex pattern starting with ^
+    const query = gitClient.query.mock.calls[0][0];
+    const found = query.regexPatterns.some((set: string[]) => 
+        set.some(p => p.includes('^Secret: \\) \\| grep'))
+    );
+    expect(found).toBe(true);
   });
 });

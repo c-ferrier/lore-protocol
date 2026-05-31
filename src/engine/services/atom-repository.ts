@@ -1,4 +1,4 @@
-import type { IGitClient } from '../interfaces/git-client.js';
+import type { IGitClient, RawCommit, StorageQuery } from '../interfaces/git-client.js';
 import type { PathQueryOptions, SearchOptions, QueryIdentity } from '../types/query.js';
 import type { Atom } from '../types/domain.js';
 import { GLOBAL_CACHE_KEY } from '../util/constants.js';
@@ -35,7 +35,7 @@ export class AtomRepository {
   async find(options: SearchOptions & { target?: string | string[] } = {}): Promise<Atom[]> {
       const headHash = await this.getHeadHash();
       
-      let gitLogArgs: readonly string[] = [];
+      let paths: string[] = [];
       let isGlobal = true;
 
       // 1. Resolve path-based arguments if target provided
@@ -43,24 +43,24 @@ export class AtomRepository {
       if (target) {
           if (Array.isArray(target)) {
               if (target.length > 0) {
-                  gitLogArgs = this.pathResolver.toGitLogArgsMulti(target);
+                  paths = [...target];
                   isGlobal = false;
               }
           } else if (typeof target === 'string') {
               const parsedTarget = this.pathResolver.parseTarget(target);
-              gitLogArgs = this.pathResolver.toGitLogArgs(parsedTarget);
+              paths = [parsedTarget.filePath];
               isGlobal = false;
           }
       }
 
-      return this.internalQuery(gitLogArgs, options, headHash, isGlobal);
+      return this.internalQuery(paths, options, headHash, isGlobal);
   }
 
   /**
    * BASE: Orchestrates the coarse discovery, fine extraction, and post-filtering passes.
    */
   private async internalQuery(
-    gitLogArgs: readonly string[],
+    paths: readonly string[],
     options: SearchOptions,
     headHash?: string,
     isGlobal: boolean = false,
@@ -68,7 +68,7 @@ export class AtomRepository {
     const resolvedOptions = await this.resolveDateOptions(options);
 
     // 1. Try Cache First (Fast Path)
-    const cacheKey = isGlobal ? [GLOBAL_CACHE_KEY] : gitLogArgs;
+    const cacheKey = isGlobal ? [GLOBAL_CACHE_KEY] : paths;
     if (headHash && resolvedOptions.cache !== false) {
       const cachedHashes = await this.queryCache.get(headHash, cacheKey, resolvedOptions);
       if (cachedHashes) {
@@ -77,16 +77,56 @@ export class AtomRepository {
       }
     }
 
-    // 2. Discovery Pass: Build optimized Git flags
-    const discoveryArgs = this.protocolRegistry.getDiscoveryGrep();
-    const filterArgs = this.protocolRegistry.getSearchGrep(resolvedOptions);
+    // 2. Discovery Pass: Assemble protocol regex patterns
+    // Top-level is AND, inner is OR
+    const regexPatterns: string[][] = [];
+    
+    const discoveryPatterns = this.protocolRegistry.getDiscoveryPatterns();
+    if (discoveryPatterns.length > 0) {
+        regexPatterns.push(discoveryPatterns);
+    }
+    
+    const filterPatterns = this.protocolRegistry.getSearchPatterns(options.filters || {});
+    regexPatterns.push(...filterPatterns);
 
-    const args = this.buildGitLogArgs(
-        [...discoveryArgs, ...filterArgs, ...gitLogArgs, ...this.getPathScope()], 
-        resolvedOptions
-    );
+    // Scope patterns (regex based coarse filtering)
+    if (options.scope) {
+      if (options.scope.startsWith('^[a-zA-Z]+\\(')) {
+        regexPatterns.push([options.scope]);
+      } else {
+        regexPatterns.push([`^[a-zA-Z]+\\(${escapeRegex(options.scope)}\\):`]);
+      }
+    }
+    
+    // Push 'has' filter (trailer key search) down to Git Grep
+    if (options.has) {
+        const hasPatterns: string[] = [];
+        for (const p of this.protocolRegistry.getAll()) {
+            const authorizedKey = p.authorize(options.has);
+            if (authorizedKey) {
+                const prefix = p.namespace ? `${p.namespace}: ` : '';
+                hasPatterns.push(`^${escapeRegex(prefix)}${escapeRegex(authorizedKey)}: `);
+            }
+        }
+        if (hasPatterns.length > 0) {
+            regexPatterns.push(hasPatterns);
+        }
+    }
 
-    const rawCommits = await this.gitClient.log(args);
+    if (options.text) {
+        regexPatterns.push([options.text]);
+    }
+
+    const storageQuery: StorageQuery = {
+        author: options.author || undefined,
+        sinceDate: resolvedOptions.sinceDate || undefined,
+        untilDate: resolvedOptions.untilDate || undefined,
+        limit: options.maxCommits || undefined,
+        regexPatterns,
+        paths: [...paths, ...this.getPathScope()],
+    };
+
+    const rawCommits = await this.gitClient.query(storageQuery);
 
     // 3. Fine Extraction & Parsing Pass (Delegated)
     let atoms = await this.hydrator.hydrate(rawCommits);
@@ -155,8 +195,12 @@ export class AtomRepository {
 
     // Build a combined grep for all candidate protocols
     const patterns = matchingProtocols.map(p => p.getIdentityPattern(id));
-    const args = [`--grep=${patterns.join('|')}`, '--extended-regexp', ...this.getPathScope()];
-    const rawCommits = await this.gitClient.log(args);
+    
+    const rawCommits = await this.gitClient.query({
+        regexPatterns: [patterns], // OR-set
+        paths: this.getPathScope()
+    });
+    
     const atoms = await this.hydrator.hydrate(rawCommits);
     
     // Verify exact ID match in any of the candidate protocol states
@@ -176,8 +220,7 @@ export class AtomRepository {
    * Find a single atom by its commit hash.
    */
   async findByCommitHash(hash: string): Promise<Atom | null> {
-    const args = ['-1', hash, ...this.getPathScope()];
-    const rawCommits = await this.gitClient.log(args);
+    const rawCommits = await this.gitClient.log(['-1', hash, ...this.getPathScope()]);
     const atoms = await this.hydrator.hydrate(rawCommits);
     return atoms[0] || null;
   }
@@ -206,8 +249,11 @@ export class AtomRepository {
     
     if (patterns.length === 0) return [];
 
-    const args = [`--grep=${patterns.join('|')}`, '--extended-regexp', ...this.getPathScope()];
-    const rawCommits = await this.gitClient.log(args);
+    const rawCommits = await this.gitClient.query({
+        regexPatterns: [patterns], // OR-set
+        paths: this.getPathScope()
+    });
+    
     const atoms = await this.hydrator.hydrate(rawCommits);
 
     // Verify exact ID matches against the requested identities
@@ -234,8 +280,7 @@ export class AtomRepository {
    * Find atoms by a git revision range.
    */
   async findByRange(range: string): Promise<Atom[]> {
-    const args = [range, ...this.getPathScope()];
-    const rawCommits = await this.gitClient.log(args);
+    const rawCommits = await this.gitClient.log([range, ...this.getPathScope()]);
     return this.hydrator.hydrate(rawCommits);
   }
 
@@ -306,81 +351,7 @@ export class AtomRepository {
     return resolved;
   }
 
-  /**
-   * Internal Git log argument builder.
-   * Standardizes flags across all Repository queries.
-   */
-  private buildGitLogArgs(baseArgs: readonly string[], options: SearchOptions): string[] {
-    const args: string[] = [];
-    
-    // 1. Author Filter
-    if (options.author) {
-      args.push(`--author=${escapeRegex(options.author)}`);
-    }
-
-    // 2. Date/Ref Range Filters
-    if (options.sinceDate) {
-      args.push(`--since=${options.sinceDate.toISOString()}`);
-    } else if (options.since) {
-      args.push(`--since=${options.since}`);
-    }
-
-    if (options.untilDate) {
-      args.push(`--until=${options.untilDate.toISOString()}`);
-    } else if (options.until) {
-      args.push(`--until=${options.until}`);
-    }
-
-    // 3. Limit/Depth Filters
-    if (options.maxCommits) {
-      args.push(`--max-count=${options.maxCommits}`);
-    }
-    
-    // 4. Discovery Block (Regex based coarse filtering)
-    if (options.scope) {
-      if (options.scope.startsWith('^[a-zA-Z]+\\(')) {
-        args.push(`--grep=${options.scope}`);
-      } else {
-        args.push(`--grep=^[a-zA-Z]+\\(${escapeRegex(options.scope)}\\):`);
-      }
-    }
-    
-    // Push 'has' filter (trailer key search) down to Git Grep
-    if (options.has) {
-        const patterns: string[] = [];
-        for (const p of this.protocolRegistry.getAll()) {
-            const authorizedKey = p.authorize(options.has);
-            if (authorizedKey) {
-                const prefix = p.namespace ? `${p.namespace}: ` : '';
-                patterns.push(`(^${prefix}${authorizedKey}: )`);
-            }
-        }
-        if (patterns.length > 0) {
-            args.push(`--grep=${patterns.join('|')}`);
-        }
-    }
-
-    if (options.text) {
-      args.push(`--grep=${options.text}`);
-    }
-
-    // ALWAYS use Extended Regexp and Ignore Case for protocol-aware queries
-    args.push('--extended-regexp', '--regexp-ignore-case', '--all-match');
-
-    // Add base args (might contain --)
-    const separatorIndex = baseArgs.indexOf('--');
-    if (separatorIndex !== -1) {
-      const flags = baseArgs.slice(0, separatorIndex);
-      const paths = baseArgs.slice(separatorIndex);
-      // Ensure no duplicates if baseArgs already has the flags
-      const finalFlags = Array.from(new Set([...args, ...flags]));
-      return [...finalFlags, ...paths];
-    }
-
-    return Array.from(new Set([...args, ...baseArgs]));
-  }
-
   private getPathScope(): string[] {
-    return this.isScoped ? ['--', '.'] : [];
+    return this.isScoped ? ['.'] : [];
   }
 }

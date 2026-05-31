@@ -246,6 +246,7 @@ export function makeStalenessDetector(options: {
 export function makeMockGitClient(overrides: any = {}): any {
     return {
         log: vi.fn(async () => []),
+        query: vi.fn(async () => []),
         blame: vi.fn(async () => []),
         commit: vi.fn(async () => ({ hash: 'abc123', success: true, message: 'Commit created', rawMessage: '...' })),
         hasStagedChanges: vi.fn(async () => true),
@@ -299,6 +300,27 @@ export function makeMockAtomHydrator(overrides: any = {}): any {
   return {
     hydrate: vi.fn(async () => []),
     extractReferenceIds: vi.fn(() => []),
+    ...overrides
+  };
+}
+
+/** Factory: Create a PURE MOCK AtomCache (vi.fn() object). */
+export function makeMockAtomCache(overrides: any = {}): any {
+  return {
+    get: vi.fn(async () => null),
+    set: vi.fn(async () => {}),
+    clear: vi.fn(async () => {}),
+    ...overrides
+  };
+}
+
+/** Factory: Create a PURE MOCK QueryCache (vi.fn() object). */
+export function makeMockQueryCache(overrides: any = {}): any {
+  return {
+    get: vi.fn(async () => null),
+    set: vi.fn(async () => {}),
+    clear: vi.fn(async () => {}),
+    prune: vi.fn(async () => {}),
     ...overrides
   };
 }

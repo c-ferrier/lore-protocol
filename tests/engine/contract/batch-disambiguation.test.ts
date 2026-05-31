@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { makeProtocol, makeAtomRepository } from '../engine-test-utils.js';
+import { makeProtocol, makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
 
 describe('AtomRepository Batch Disambiguation', () => {
-  let gitClient: IGitClient;
+  let gitClient: any;
   let repo: any;
   let registry: ProtocolRegistry;
 
@@ -12,13 +12,7 @@ describe('AtomRepository Batch Disambiguation', () => {
   const BETA_DEF = { name: 'Beta', namespace: 'beta', identityKey: 'Beta-id' };
 
   beforeEach(() => {
-    gitClient = {
-      log: vi.fn(async () => []),
-      getCommitsByHashes: vi.fn(async () => []),
-      getFilesChanged: vi.fn(async () => new Map()),
-      resolveRef: vi.fn(async () => 'head'),
-      resolveDate: vi.fn(async (d) => new Date(d)),
-    } as any;
+    gitClient = makeMockGitClient();
 
     registry = new ProtocolRegistry();
     registry.register(makeProtocol(ALPHA_DEF));
@@ -37,7 +31,7 @@ describe('AtomRepository Batch Disambiguation', () => {
         trailers: 'beta: Beta-id: bbbb2222' 
     };
 
-    vi.mocked(gitClient.log).mockResolvedValue([c1, c2]);
+    vi.mocked(gitClient.query).mockResolvedValue([c1, c2]);
 
     const results = await repo.findByIds([
       { id: 'aaaa1111', protocol: 'alpha' },
@@ -47,5 +41,9 @@ describe('AtomRepository Batch Disambiguation', () => {
     expect(results).toHaveLength(2);
     expect(results.find(a => a.commitHash === 'h1')?.protocols.has('alpha')).toBe(true);
     expect(results.find(a => a.commitHash === 'h2')?.protocols.has('beta')).toBe(true);
+    
+    // Verify query patterns
+    const query = vi.mocked(gitClient.query).mock.calls[0][0];
+    expect(query.regexPatterns).toContainEqual(['^alpha: Alpha-id: aaaa1111', '^beta: Beta-id: bbbb2222']);
   });
 });

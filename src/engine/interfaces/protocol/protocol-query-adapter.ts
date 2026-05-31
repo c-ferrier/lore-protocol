@@ -6,22 +6,19 @@ import type { ProtocolState } from '../../types/domain.js';
  */
 export interface IProtocolQueryAdapter {
   /**
-   * Returns the raw regex pattern that identifies a commit belonging to this protocol.
+   * Returns a list of regex patterns. If multiple patterns are returned, 
+   * they are treated as an OR set.
    */
-  getDiscoveryPattern(): string;
+  getDiscoveryPatterns(): string[];
 
   /**
-   * Get Git grep arguments to find commits belonging to this protocol.
+   * Translates generic filters into high-level regex patterns.
+   * Returns an array of arrays, where top level is AND and inner is OR.
    */
-  getDiscoveryGrep(): string[];
+  getSearchPatterns(filters: Record<string, string | string[]>): string[][];
 
   /**
-   * Translates generic filters into specific Git grep arguments.
-   */
-  getSearchGrep(filters: Record<string, string | string[]>): string[];
-
-  /**
-   * Returns a Git grep pattern for finding a specific atom by its identity.
+   * Returns a raw regex pattern for finding a specific atom by its identity.
    */
   getIdentityPattern(id: string): string;
 

@@ -1,7 +1,8 @@
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { IGitClient, RawCommit, BlameLine, CommitResult, CommitOptions } from '../interfaces/git-client.js';
+import type { IGitClient, RawCommit, BlameLine, CommitResult, CommitOptions, StorageQuery } from '../interfaces/git-client.js';
 import { GitError } from '../util/errors.js';
+import { escapeRegex } from '../util/regex.js';
 
 const execFile = promisify(execFileCb);
 
@@ -58,6 +59,56 @@ export class GitClient implements IGitClient {
     }
 
     return this.parseLogOutput(stdout);
+  }
+
+  async query(query: StorageQuery): Promise<readonly RawCommit[]> {
+    const args: string[] = [];
+
+    // 1. Author Filter
+    if (query.author) {
+      args.push(`--author=${escapeRegex(query.author)}`);
+    }
+
+    // 2. Date Filters
+    if (query.sinceDate) {
+      args.push(`--since=${query.sinceDate.toISOString()}`);
+    }
+
+    if (query.untilDate) {
+      args.push(`--until=${query.untilDate.toISOString()}`);
+    }
+
+    // 3. Limit
+    if (query.limit) {
+      args.push(`--max-count=${query.limit}`);
+    }
+
+    // 4. Regex Patterns (Greps)
+    if (query.regexPatterns && query.regexPatterns.length > 0) {
+      for (const patternSet of query.regexPatterns) {
+          const activePatterns = patternSet.filter(p => p.trim().length > 0);
+          if (activePatterns.length === 0) continue;
+
+          if (activePatterns.length === 1) {
+              args.push(`--grep=${activePatterns[0]}`);
+          } else {
+              // OR logic: join with | and wrap in parentheses for safety
+              args.push(`--grep=(${activePatterns.join('|')})`);
+          }
+      }
+      
+      // If we added any greps, add the control flags
+      if (args.some(a => a.startsWith('--grep='))) {
+        args.push('--extended-regexp', '--regexp-ignore-case', '--all-match');
+      }
+    }
+
+    // 5. Scoping Paths
+    if (query.paths && query.paths.length > 0) {
+      args.push('--', ...query.paths);
+    }
+
+    return this.log(args);
   }
 
   async blame(file: string, lineStart: number, lineEnd: number): Promise<readonly BlameLine[]> {

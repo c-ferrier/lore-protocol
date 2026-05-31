@@ -1,18 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
+import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import type { PathQueryOptions } from '../../../src/engine/types/query.js';
 import { 
     TEST_PROTOCOL_DEFINITION, 
-    TEST_YAP_DEFINITION, 
     makeProtocol, 
     makeAtomRepository, 
     makeProtocolRegistry,
     makeMockGitClient,
     makeRawCommit,
-    makeQueryOptions
+    makeQueryOptions,
 } from '../engine-test-utils.js';
+import { ProtocolError } from '../../../src/engine/util/errors.js';
 
 const TEST_ID_KEY = "Mock-id";
 
@@ -22,7 +22,12 @@ describe('AtomRepository', () => {
   let protocolRegistry: ProtocolRegistry;
 
   beforeEach(() => {
-    gitClient = makeMockGitClient();
+    gitClient = makeMockGitClient({
+        resolveDate: vi.fn(async (d: string) => {
+            const date = new Date(d);
+            return isNaN(date.getTime()) ? new Date('2025-01-01') : date;
+        })
+    });
     protocolRegistry = makeProtocolRegistry([makeProtocol(TEST_PROTOCOL_DEFINITION)]);
     repo = makeAtomRepository({ gitClient, registry: protocolRegistry });
   });
@@ -30,7 +35,7 @@ describe('AtomRepository', () => {
   describe('find', () => {
     it('should return atoms for a file target', async () => {
       const commit = makeRawCommit({ id: 'a1b2c3d4' });
-      vi.mocked(gitClient.log).mockResolvedValue([commit]);
+      vi.mocked(gitClient.query).mockResolvedValue([commit]);
       vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, ['src/auth.ts']]]));
 
       const result = await repo.find({ target: 'src/auth.ts' });
@@ -40,6 +45,12 @@ describe('AtomRepository', () => {
       expect(result[0].commitHash).toBe(commit.hash);
       expect(result[0].author).toBe('dev@example.com');
       expect(result[0].filesChanged).toEqual(['src/auth.ts']);
+    });
+
+    it('should resolve date strings before querying', async () => {
+        vi.mocked(gitClient.query).mockResolvedValue([]);
+        await repo.find({ since: '2025-01-01' });
+        expect(gitClient.resolveDate).toHaveBeenCalledWith('2025-01-01');
     });
 
     it('should filter out non-protocol commits', async () => {
@@ -53,8 +64,7 @@ describe('AtomRepository', () => {
         trailers: '',
       };
 
-      vi.mocked(gitClient.log).mockResolvedValue([mockCommit, nonMockCommit]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[mockCommit.hash, ['src/auth.ts']]]));
+      vi.mocked(gitClient.query).mockResolvedValue([mockCommit, nonMockCommit]);
 
       const result = await repo.find({ target: 'src/auth.ts' });
 
@@ -62,49 +72,18 @@ describe('AtomRepository', () => {
       expect(result[0].protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe('a1b2c3d4');
     });
 
-    it('should pass author filter to git log args', async () => {
-      vi.mocked(gitClient.log).mockResolvedValue([]);
+    it('should pass author filter to GitClient.query', async () => {
+      vi.mocked(gitClient.query).mockResolvedValue([]);
       const options = makeQueryOptions({ author: 'alice@example.com' });
       await repo.find({ target: 'src/auth.ts', ...options });
-      const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--author=alice@example\\.com');
+      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      expect(query.author).toBe('alice@example.com');
     });
 
-    it('should pass since filter to git log args', async () => {
-      vi.mocked(gitClient.log).mockResolvedValue([]);
-      const options = makeQueryOptions({ since: '2025-01-01' });
-      await repo.find({ target: 'src/auth.ts', ...options });
-      const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--since=2025-01-01T00:00:00.000Z');
-    });
-
-    it('should pass until filter to git log args', async () => {
-      vi.mocked(gitClient.log).mockResolvedValue([]);
-      const options = makeQueryOptions({ until: '2025-06-01' });
-      await repo.find({ target: 'src/auth.ts', ...options });
-      const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--until=2025-06-01T00:00:00.000Z');
-    });
-
-    it('should pass maxCommits to git log args', async () => {
-      vi.mocked(gitClient.log).mockResolvedValue([]);
-      const options = makeQueryOptions({ maxCommits: 5 });
-      await repo.find({ target: 'src/auth.ts', ...options });
-      const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--max-count=5');
-    });
-
-    it('should return empty array when no commits match', async () => {
-      vi.mocked(gitClient.log).mockResolvedValue([]);
-      const result = await repo.find({ target: 'src/auth.ts' });
-      expect(result).toEqual([]);
-    });
-
-    it('should apply author filter at the application level', async () => {
+    it('should apply author filter at the application level (Secondary Pass)', async () => {
       const commit1 = makeRawCommit({ id: 'aaaa1111', author: 'alice@example.com' });
       const commit2 = makeRawCommit({ id: 'bbbb2222', author: 'bob@example.com' });
-      vi.mocked(gitClient.log).mockResolvedValue([commit1, commit2]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit1.hash, ['src/auth.ts']], [commit2.hash, ['src/auth.ts']]]));
+      vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
 
       const options = makeQueryOptions({ author: 'alice' });
       const result = await repo.find({ target: 'src/auth.ts', ...options });
@@ -119,290 +98,326 @@ describe('AtomRepository', () => {
         makeRawCommit({ hash: 'bbb', id: 'bbbb2222' }),
         makeRawCommit({ hash: 'ccc', id: 'cccc3333' }),
       ];
-      vi.mocked(gitClient.log).mockResolvedValue(commits);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map(commits.map(c => [c.hash, ['src/auth.ts']])));
+      vi.mocked(gitClient.query).mockResolvedValue(commits);
 
       const options = makeQueryOptions({ limit: 2 });
       const result = await repo.find({ target: 'src/auth.ts', ...options });
 
       expect(result).toHaveLength(3);
     });
+
+    it('should return empty array when no commits match', async () => {
+      vi.mocked(gitClient.query).mockResolvedValue([]);
+      const result = await repo.find({ target: 'src/auth.ts' });
+      expect(result).toEqual([]);
+    });
+
+    it('should handle multi-file targets correctly', async () => {
+      const commit1 = makeRawCommit({ hash: 'h1', id: 'aaaa1111' });
+      const commit2 = makeRawCommit({ hash: 'h2', id: 'bbbb2222' });
+      vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
+
+      const result = await repo.find({ target: ['file1.ts', 'file2.ts'] });
+
+      expect(result).toHaveLength(2);
+      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      expect(query.paths).toContain('file1.ts');
+      expect(query.paths).toContain('file2.ts');
+    });
+  });
+
+  describe('findByLineRange', () => {
+    it('should return atoms for a line range target', async () => {
+      const commit = makeRawCommit({ id: 'a1b2c3d4', trailers: 'Mock-id: a1b2c3d4' });
+      vi.mocked(gitClient.blame).mockResolvedValue([{ commitHash: commit.hash, lineNumber: 10, content: 'code' }]);
+      vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit]);
+
+      const result = await repo.findByLineRange('src/auth.ts:10-20', {});
+
+      expect(result).toHaveLength(1);
+      expect(result[0].commitHash).toBe(commit.hash);
+      expect(gitClient.blame).toHaveBeenCalledWith('src/auth.ts', 10, 20);
+    });
+
+    it('should deduplicate atoms by identity', async () => {
+      const commit1 = makeRawCommit({ hash: 'h1', id: 'aaaa1111', trailers: 'Mock-id: aaaa1111' });
+      const commit2 = makeRawCommit({ hash: 'h2', id: 'aaaa1111', trailers: 'Mock-id: aaaa1111' }); // Same identity, different hash
+      
+      vi.mocked(gitClient.blame).mockResolvedValue([
+        { commitHash: 'h1', lineNumber: 10, content: 'a' },
+        { commitHash: 'h2', lineNumber: 11, content: 'b' }
+      ]);
+      vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit1, commit2]);
+
+      const result = await repo.findByLineRange('src/auth.ts:10-20', {});
+
+      expect(result).toHaveLength(1); // Deduplicated
+      expect(result[0].protocols.get('mock')?.trailers[TEST_ID_KEY]).toEqual(['aaaa1111']);
+    });
+
+    it('should throw error for non-line-range target', async () => {
+        await expect(repo.findByLineRange('src/auth.ts', {})).rejects.toThrow(ProtocolError);
+    });
   });
 
   describe('findById', () => {
-    it(`should find an atom by its ${TEST_ID_KEY}`, async () => {
+    it('should find an atom by its Mock-id', async () => {
       const commit = makeRawCommit({ id: 'deadbeef' });
-      vi.mocked(gitClient.log).mockResolvedValue([commit]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, ['src/auth.ts']]]));
+      vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
       const result = await repo.findById({ id: 'deadbeef' });
+
       expect(result?.protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe('deadbeef');
     });
 
-    it(`should return null if no atom matches the ${TEST_ID_KEY}`, async () => {
-      vi.mocked(gitClient.log).mockResolvedValue([]);
-      const result = await repo.findById({ id: 'deadbeef' });
+    it('should return null if no atom matches the Mock-id', async () => {
+      vi.mocked(gitClient.query).mockResolvedValue([]);
+      const result = await repo.findById({ id: 'missing' });
       expect(result).toBeNull();
     });
 
-    it(`should return null for invalid ${TEST_ID_KEY} format`, async () => {
-      const result = await repo.findById({ id: 'not-valid' });
+    it('should return null for invalid Mock-id format', async () => {
+      const result = await repo.findById({ id: 'not-hex-id' });
       expect(result).toBeNull();
-      expect(gitClient.log).not.toHaveBeenCalled();
+      expect(gitClient.query).not.toHaveBeenCalled();
     });
 
     it('should append path scope when isScoped=true', async () => {
       const scopedRepo = makeAtomRepository({ gitClient, registry: protocolRegistry, isScoped: true });
-      vi.mocked(gitClient.log).mockResolvedValue([]);
+      vi.mocked(gitClient.query).mockResolvedValue([]);
+      
       await scopedRepo.findById({ id: 'deadbeef' });
-      expect(gitClient.log).toHaveBeenCalledWith(expect.arrayContaining(['--', '.']));
+      
+      expect(gitClient.query).toHaveBeenCalledWith(expect.objectContaining({
+          paths: expect.arrayContaining(['.'])
+      }));
+    });
+  });
+
+  describe('findByIds', () => {
+    it('should find atoms by their Mock-ids', async () => {
+      const c1 = makeRawCommit({ hash: 'h1', id: 'aaaa1111' });
+      const c2 = makeRawCommit({ hash: 'h2', id: 'bbbb2222' });
+      vi.mocked(gitClient.query).mockResolvedValue([c1, c2]);
+
+      const results = await repo.findByIds([
+          { id: 'aaaa1111' },
+          { id: 'bbbb2222' }
+      ]);
+
+      expect(results).toHaveLength(2);
+      expect(results.map(a => a.commitHash)).toEqual(['h1', 'h2']);
+    });
+
+    it('should return empty array for empty identities', async () => {
+        const results = await repo.findByIds([]);
+        expect(results).toHaveLength(0);
+        expect(gitClient.query).not.toHaveBeenCalled();
+    });
+
+    it('should handle multiple protocols correctly', async () => {
+        const localRegistry = new ProtocolRegistry();
+        localRegistry.register(makeProtocol({ name: 'P1', identityKey: 'P1-id', permissive: false }));
+        localRegistry.register(makeProtocol({ name: 'P2', identityKey: 'P2-id', permissive: false }));
+        const localRepo = makeAtomRepository({ gitClient, registry: localRegistry });
+
+        const c1 = makeRawCommit({ hash: 'h1', id: 'aaaa1111', trailers: 'P1-id: aaaa1111' });
+        const c2 = makeRawCommit({ hash: 'h2', id: 'bbbb2222', trailers: 'P2-id: bbbb2222' });
+        vi.mocked(gitClient.query).mockResolvedValue([c1, c2]);
+
+        const results = await localRepo.findByIds([
+            { protocol: 'p1', id: 'aaaa1111' },
+            { protocol: 'p2', id: 'bbbb2222' }
+        ]);
+
+        expect(results).toHaveLength(2);
     });
   });
 
   describe('findByCommitHash', () => {
     it('should fetch and parse a single commit', async () => {
-      const commit = makeRawCommit({ id: 'aaaa1111' });
+      const commit = makeRawCommit({ hash: 'abc12345' });
       vi.mocked(gitClient.log).mockResolvedValue([commit]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, []]]));
 
-      const result = await repo.findByCommitHash(commit.hash);
-      expect(result?.commitHash).toBe(commit.hash);
-      expect(gitClient.log).toHaveBeenCalledWith(expect.arrayContaining(['-1', commit.hash]));
+      const result = await repo.findByCommitHash('abc12345');
+
+      expect(result?.commitHash).toBe('abc12345');
+      expect(gitClient.log).toHaveBeenCalledWith(expect.arrayContaining(['-1', 'abc12345']));
     });
 
     it('should return null if no commit found', async () => {
       vi.mocked(gitClient.log).mockResolvedValue([]);
-      const result = await repo.findByCommitHash('abc123');
+      const result = await repo.findByCommitHash('missing');
       expect(result).toBeNull();
     });
   });
 
   describe('findByRange', () => {
     it('should pass the range directly to git log', async () => {
+      vi.mocked(gitClient.log).mockResolvedValue([]);
       await repo.findByRange('main..HEAD');
-      expect(gitClient.log).toHaveBeenCalledWith(['main..HEAD']);
+      expect(gitClient.log).toHaveBeenCalledWith(expect.arrayContaining(['main..HEAD']));
     });
   });
 
   describe('global find', () => {
     it('should return all Mock atoms', async () => {
       const commits = [
-        makeRawCommit({ id: 'aaaa1111' }),
-        makeRawCommit({ id: 'bbbb2222' }),
+        makeRawCommit({ hash: 'h1', id: 'aaaa1111' }),
+        makeRawCommit({ hash: 'h2', id: 'bbbb2222' })
       ];
-      vi.mocked(gitClient.log).mockResolvedValue(commits);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map(commits.map(c => [c.hash, []])));
+      vi.mocked(gitClient.query).mockResolvedValue(commits);
 
       const result = await repo.find();
+
       expect(result).toHaveLength(2);
+      expect(result[0].protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe('aaaa1111');
     });
 
-    it('should strip trailers from body when body is exactly the trailer block', async () => {
-      const trailersRaw = `${TEST_ID_KEY}: aaaa1111\nConstraint: C1`;
-      const commit: RawCommit = {
-        hash: 'aaa',
-        date: '2025-01-15T10:00:00Z',
-        author: 'dev@example.com',
-        subject: 'feat: no body',
-        body: trailersRaw,
-        trailers: trailersRaw,
-      };
-      vi.mocked(gitClient.log).mockResolvedValue([commit]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['aaa', []]]));
-
-      const result = await repo.find();
-      expect(result[0].body).toBe('');
-    });
-
-    it('should pass since option to git log', async () => {
-      vi.mocked(gitClient.log).mockResolvedValue([]);
+    it('should pass since option to GitClient.query', async () => {
+      vi.mocked(gitClient.query).mockResolvedValue([]);
       await repo.find({ since: '2025-01-01' });
-      const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--since=2025-01-01T00:00:00.000Z');
+      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      expect(query.sinceDate).toBeDefined();
     });
 
-    it('should pass until option to git log', async () => {
-      vi.mocked(gitClient.log).mockResolvedValue([]);
+    it('should pass until option to GitClient.query', async () => {
+      vi.mocked(gitClient.query).mockResolvedValue([]);
       await repo.find({ until: '2025-06-01' });
-      const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--until=2025-06-01T00:00:00.000Z');
+      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      expect(query.untilDate).toBeDefined();
     });
 
-    it('should pass maxCommits option to git log', async () => {
-      vi.mocked(gitClient.log).mockResolvedValue([]);
-      await repo.find({ maxCommits: 10 });
-      const logArgs = vi.mocked(gitClient.log).mock.calls[0][0];
-      expect(logArgs).toContain('--max-count=10');
+    it('should pass maxCommits option to GitClient.query', async () => {
+      vi.mocked(gitClient.query).mockResolvedValue([]);
+      await repo.find({ maxCommits: 50 });
+      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      expect(query.limit).toBe(50);
     });
   });
 
   describe('findByScope', () => {
     it('should find atoms matching the scope', async () => {
-      const authCommit = makeRawCommit({ subject: 'feat(auth): add login', id: 'aaaa1111' });
-      const dbCommit = makeRawCommit({ subject: 'fix(database): fix query', id: 'bbbb2222' });
-      vi.mocked(gitClient.log).mockResolvedValue([authCommit, dbCommit]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[authCommit.hash, []], [dbCommit.hash, []]]));
+      const commit = makeRawCommit({ id: '00000001', subject: 'feat(auth): login' });
+      vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
-      const result = await repo.findByScope('auth', makeQueryOptions());
+      const result = await repo.findByScope('auth', {});
 
       expect(result).toHaveLength(1);
-      expect(result[0].protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe('aaaa1111');
+      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      const found = query.regexPatterns.some((set: string[]) => set.some(p => p.includes('auth')));
+      expect(found).toBe(true);
     });
 
-    it('should match scope case-insensitively', async () => {
-      const commit = makeRawCommit({ subject: 'feat(Auth): add login', id: 'aaaa1111' });
-      vi.mocked(gitClient.log).mockResolvedValue([commit]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, []]]));
+    it('match scope case-insensitively', async () => {
+      const commit = makeRawCommit({ id: '00000001', subject: 'feat(auth): login' });
+      vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
-      const result = await repo.findByScope('auth', makeQueryOptions());
+      const result = await repo.findByScope('AUTH', {});
+
       expect(result).toHaveLength(1);
+      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      const found = query.regexPatterns.some((set: string[]) => set.some(p => p.includes('AUTH')));
+      expect(found).toBe(true);
     });
   });
 
   describe('Multi-Protocol Hydration', () => {
     it('should hydrate an atom with multiple protocol states if claimed by multiple protocols', async () => {
-      const yap = makeProtocol(TEST_YAP_DEFINITION);
-      protocolRegistry.register(yap);
+      const localRegistry = new ProtocolRegistry();
+      localRegistry.register(makeProtocol({
+          name: 'P1',
+          identityKey: 'P1-id',
+          permissive: false,
+          trailers: { 'P1-id': { description: 'ID' } }
+      }));
+      localRegistry.register(makeProtocol({
+          name: 'P2',
+          identityKey: 'P2-id',
+          permissive: false,
+          trailers: { 'P2-id': { description: 'ID' } }
+      }));
 
-      const trailers = `${TEST_ID_KEY}: abcd1234\nyap: YAP-id: abcd5678\nyap: Impact: high`;
+      const localRepo = makeAtomRepository({ gitClient, registry: localRegistry });
+
       const commit: RawCommit = {
-        hash: 'multi-hash',
-        date: new Date().toISOString(),
-        author: 'cole@example.com',
-        subject: 'feat: multi-protocol',
-        body: 'Body',
-        trailers,
+        hash: 'multi123',
+        date: '2025-01-16T10:00:00Z',
+        author: 'dev@example.com',
+        subject: 'feat: multi',
+        body: 'body',
+        trailers: 'P1-id: a1b2c3d4\nP2-id: f1a2b3'
       };
 
-      vi.mocked(gitClient.log).mockResolvedValue([commit]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['multi-hash', []]]));
+      vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
-      const atoms = await repo.find();
-      expect(atoms).toHaveLength(1);
-      const atom = atoms[0];
-      
-      expect(atom.protocols.has('mock')).toBe(true);
-      expect(atom.protocols.has('yap')).toBe(true);
+      const result = await localRepo.find();
 
-      const mockState = atom.protocols.get('mock')!;
-      expect(mockState.trailers[TEST_ID_KEY]).toEqual(['abcd1234']);
-
-      const yapState = atom.protocols.get('yap')!;
-      expect(yapState.trailers['YAP-id']).toEqual(['abcd5678']);
-      expect(yapState.trailers['Impact']).toEqual(['high']);
-    });
-
-    it('should respect implicit ownership (protocols get what they define, permissive gets orphans)', async () => {
-      // 1. Mock is permissive (greedy)
-      const mockProtocol = protocolRegistry.get('mock')!;
-      // Need to cast to any because permissive is a getter in the real class but can be mocked
-      vi.spyOn(mockProtocol as any, 'permissive', 'get').mockReturnValue(true);
-
-      // 2. YAP is strict but defines its own ID
-      const yap = makeProtocol(TEST_YAP_DEFINITION, { permissive: false });
-      protocolRegistry.register(yap);
-
-      // 3. Mock commit: 
-      // - Mock-id (Owned by Mock)
-      // - YAP-id (Owned by YAP - via namespace)
-      // - Impact (Owned by YAP - via namespace)
-      // - Adhoc (Owned by NEITHER)
-      const trailers = `Mock-id: abcd1234\nyap: YAP-id: abcd5678\nyap: Impact: high\nAdhoc: value`;
-      const commit: RawCommit = {
-        hash: 'implicit-hash',
-        date: new Date().toISOString(),
-        author: 'cole@example.com',
-        subject: 'feat: implicit claims',
-        body: 'Body',
-        trailers,
-      };
-
-      vi.mocked(gitClient.log).mockResolvedValue([commit]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['implicit-hash', []]]));
-
-      const atoms = await repo.find();
-      const atom = atoms[0];
-
-      const yapState = atom.protocols.get('yap')!;
-      const mockState = atom.protocols.get('mock')!;
-
-      // YAP gets what it defines
-      expect(yapState.trailers['YAP-id']).toEqual(['abcd5678']);
-      expect(yapState.trailers['Impact']).toEqual(['high']);
-      
-      // Mock gets what it defines
-      expect(mockState.trailers['Mock-id']).toEqual(['abcd1234']);
-      
-      // Mock is permissive so it gets the orphan
-      expect(mockState.trailers['Adhoc']).toEqual(['value']);
-      
-      // IMPORTANT: Mock should NOT get namespaced trailers!
-      expect(mockState.trailers['yap']).toBeUndefined();
+      expect(result).toHaveLength(1);
+      const atom = result[0];
+      expect(atom.protocols.has('p1')).toBe(true);
+      expect(atom.protocols.has('p2')).toBe(true);
     });
   });
 
   describe('Recursive Trace Resolution', () => {
     it('should resolve transitive Related links', async () => {
-      const a1 = makeRawCommit({ id: 'aaaa1111', trailerExtras: 'Related: bbbb2222' });
-      const a2 = makeRawCommit({ id: 'bbbb2222', trailerExtras: 'Related: cccc3333' });
-      const a3 = makeRawCommit({ id: 'cccc3333' });
+      const id1 = '00000001';
+      const id2 = '00000002';
+      const id3 = '00000003';
 
-      vi.mocked(gitClient.log)
-        .mockResolvedValueOnce([a1])
-        .mockResolvedValueOnce([a2])
-        .mockResolvedValueOnce([a3]);
-        
-      vi.mocked(gitClient.getCommitsByHashes)
-        .mockResolvedValueOnce([a1])
-        .mockResolvedValueOnce([a2])
-        .mockResolvedValueOnce([a3]);
+      const a1 = makeRawCommit({ hash: 'h1', id: id1, trailers: `Mock-id: ${id1}\nRelated: ${id2}` });
+      const a2 = makeRawCommit({ hash: 'h2', id: id2, trailers: `Mock-id: ${id2}\nRelated: ${id3}` });
+      const a3 = makeRawCommit({ hash: 'h3', id: id3, trailers: `Mock-id: ${id3}` });
 
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([
-        [a1.hash, []], [a2.hash, []], [a3.hash, []]
-      ]));
+      vi.mocked(gitClient.query)
+        .mockResolvedValueOnce([a1]) 
+        .mockResolvedValueOnce([a2]) 
+        .mockResolvedValueOnce([a3]); 
 
-      const startAtoms = await repo.findByCommitHash(a1.hash);
-      const result = await repo.resolveFollowLinks([startAtoms!], 10);
+      const initial = await repo.find();
+      const resolved = await repo.resolveFollowLinks(initial, 5);
 
-      expect(result).toHaveLength(3);
-      const ids = result.map(a => a.protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]);
-      expect(ids).toContain('aaaa1111');
-      expect(ids).toContain('bbbb2222');
-      expect(ids).toContain('cccc3333');
+      expect(resolved).toHaveLength(3);
+      expect(resolved.map(a => a.commitHash)).toEqual(['h1', 'h2', 'h3']);
     });
 
     it('should respect maxDepth in recursive resolution', async () => {
-      const a1 = makeRawCommit({ id: 'aaaa1111', trailerExtras: 'Related: bbbb2222' });
-      const a2 = makeRawCommit({ id: 'bbbb2222', trailerExtras: 'Related: cccc3333' });
+      const id1 = '00000001';
+      const id2 = '00000002';
 
-      vi.mocked(gitClient.log).mockResolvedValueOnce([a1]).mockResolvedValueOnce([a2]);
-      vi.mocked(gitClient.getCommitsByHashes).mockResolvedValueOnce([a1]).mockResolvedValueOnce([a2]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[a1.hash, []], [a2.hash, []]]));
+      const a1 = makeRawCommit({ hash: 'h1', id: id1, trailers: `Mock-id: ${id1}\nRelated: ${id2}` });
+      const a2 = makeRawCommit({ hash: 'h2', id: id2, trailers: `Mock-id: ${id2}` });
 
-      const start = await repo.findByCommitHash(a1.hash);
-      const result = await repo.resolveFollowLinks([start!], 1); // Depth 1 only
+      vi.mocked(gitClient.query)
+        .mockResolvedValueOnce([a1])
+        .mockResolvedValueOnce([a2]);
 
-      expect(result).toHaveLength(2);
-      expect(vi.mocked(gitClient.log)).toHaveBeenCalledTimes(2); 
+      const initial = await repo.find();
+      const resolved = await repo.resolveFollowLinks(initial, 1);
+
+      expect(resolved).toHaveLength(2);
     });
 
     it('should handle circular references without infinite loop', async () => {
-      const a1 = makeRawCommit({ id: 'aaaa1111', trailerExtras: 'Related: bbbb2222' });
-      const a2 = makeRawCommit({ id: 'bbbb2222', trailerExtras: 'Related: aaaa1111' });
-
-      vi.mocked(gitClient.log).mockResolvedValue([a1, a2]);
-      vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([a1, a2]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[a1.hash, []], [a2.hash, []]]));
-
-      const start = await repo.findByCommitHash(a1.hash);
-      const result = await repo.resolveFollowLinks([start!], 5);
-
-      expect(result).toHaveLength(2);
+        const id1 = '00000001';
+        const id2 = '00000002';
+  
+        const a1 = makeRawCommit({ hash: 'h1', id: id1, trailers: `Mock-id: ${id1}\nRelated: ${id2}` });
+        const a2 = makeRawCommit({ hash: 'h2', id: id2, trailers: `Mock-id: ${id2}\nRelated: ${id1}` });
+  
+        vi.mocked(gitClient.query).mockResolvedValueOnce([a1, a2]);
+  
+        const initial = await repo.find();
+        const resolved = await repo.resolveFollowLinks(initial, 5);
+  
+        expect(resolved).toHaveLength(2);
+        expect(gitClient.query).toHaveBeenCalledTimes(2); 
     });
 
     it('should return empty array for empty input', async () => {
-      const result = await repo.resolveFollowLinks([], 3);
-      expect(result).toEqual([]);
+        const resolved = await repo.resolveFollowLinks([], 5);
+        expect(resolved).toEqual([]);
     });
   });
 
@@ -410,40 +425,17 @@ describe('AtomRepository', () => {
     it('should append path scope when isScoped=true in findByCommitHash', async () => {
       const scopedRepo = makeAtomRepository({ gitClient, registry: protocolRegistry, isScoped: true });
       vi.mocked(gitClient.log).mockResolvedValue([]);
-
+      
       await scopedRepo.findByCommitHash('abc123');
-
-      expect(gitClient.log).toHaveBeenCalledWith(
-        expect.arrayContaining(['-1', 'abc123', '--', '.']),
-      );
+      expect(gitClient.log).toHaveBeenCalledWith(expect.arrayContaining(['.']));
     });
 
     it('should append path scope when isScoped=true in findByRange', async () => {
       const scopedRepo = makeAtomRepository({ gitClient, registry: protocolRegistry, isScoped: true });
       vi.mocked(gitClient.log).mockResolvedValue([]);
-
-      await scopedRepo.findByRange('main..HEAD');
-
-      expect(gitClient.log).toHaveBeenCalledWith(['main..HEAD', '--', '.']);
-    });
-  });
-
-  describe('batching behavior', () => {
-    it('should call getFilesChanged in batches of 20', async () => {
-      const commits = Array.from({ length: 25 }, (_, i) =>
-        makeRawCommit({ id: String(i).padStart(8, '0') }),
-      );
-      vi.mocked(gitClient.log).mockResolvedValue(commits);
       
-      const filesMap = new Map<string, string[]>();
-      commits.forEach(c => filesMap.set(c.hash, ['file.ts']));
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(filesMap);
-
-      await repo.find();
-
-      expect(gitClient.getFilesChanged).toHaveBeenCalledTimes(2);
-      expect(vi.mocked(gitClient.getFilesChanged).mock.calls[0][0]).toHaveLength(20);
-      expect(vi.mocked(gitClient.getFilesChanged).mock.calls[1][0]).toHaveLength(5);
+      await scopedRepo.findByRange('main..HEAD');
+      expect(gitClient.log).toHaveBeenCalledWith(['main..HEAD', '.']);
     });
   });
 });

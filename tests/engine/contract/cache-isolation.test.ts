@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import type { IQueryCache } from '../../../src/engine/interfaces/query-cache.js';
-import { makeAtomRepository } from '../engine-test-utils.js';
+import { makeAtomRepository, makeMockGitClient, makeMockQueryCache } from '../engine-test-utils.js';
 import { GLOBAL_CACHE_KEY } from '../../../src/engine/util/constants.js';
 
 describe('AtomRepository Cache Isolation', () => {
@@ -10,23 +10,8 @@ describe('AtomRepository Cache Isolation', () => {
   let repo: any;
 
   beforeEach(() => {
-    gitClient = {
-      log: vi.fn(async () => []),
-      getCommitsByHashes: vi.fn(async () => []),
-      getFilesChanged: vi.fn(async () => new Map()),
-      resolveRef: vi.fn(async () => 'head-hash'),
-      resolveDate: vi.fn(async (d: string) => {
-        const date = new Date(d);
-        return isNaN(date.getTime()) ? null : date;
-      }),
-    } as any;
-
-    queryCache = {
-      get: vi.fn(async () => null),
-      set: vi.fn(async () => {}),
-      clear: vi.fn(async () => {}),
-      prune: vi.fn(async () => {}),
-    };
+    gitClient = makeMockGitClient();
+    queryCache = makeMockQueryCache();
 
     repo = makeAtomRepository({ gitClient });
     (repo as any).queryCache = queryCache;
@@ -37,8 +22,9 @@ describe('AtomRepository Cache Isolation', () => {
     expect(queryCache.get).toHaveBeenCalledWith('head-hash', [GLOBAL_CACHE_KEY], expect.any(Object));
 
     await repo.find({ target: 'src/main.ts' });
-    // PathResolver translates 'src/main.ts' into ['--', 'src/main.ts']
-    expect(queryCache.get).toHaveBeenCalledWith('head-hash', ['--', 'src/main.ts'], expect.any(Object));
+    // PathResolver translates 'src/main.ts' into 'src/main.ts' filePath.
+    // The repository uses [filePath] as the cache key.
+    expect(queryCache.get).toHaveBeenCalledWith('head-hash', ['src/main.ts'], expect.any(Object));
   });
 
   it(`search (find with text) should also use "${GLOBAL_CACHE_KEY}" key`, async () => {

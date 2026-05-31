@@ -1,17 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { PathResolver } from '../../../src/engine/services/path-resolver.js';
-import { SearchFilter } from '../../../src/engine/services/search-filter.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
-import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
-import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { makeProtocol, makeAtomRepository } from '../engine-test-utils.js';
+import { makeProtocol, makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
 
 describe('AtomRepository Identity Disambiguation', () => {
-  let gitClient: IGitClient;
+  let gitClient: any;
   let repo: AtomRepository;
   let protocolRegistry: ProtocolRegistry;
 
@@ -36,13 +31,7 @@ describe('AtomRepository Identity Disambiguation', () => {
   };
 
   beforeEach(() => {
-    gitClient = {
-      log: vi.fn(async () => []),
-      getCommitsByHashes: vi.fn(async () => []),
-      getFilesChanged: vi.fn(async () => new Map()),
-      resolveRef: vi.fn(async () => 'head'),
-      resolveDate: vi.fn(async (d: string) => new Date(d)),
-    } as any;
+    gitClient = makeMockGitClient();
 
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(makeProtocol(ALPHA_DEF));
@@ -66,7 +55,7 @@ describe('AtomRepository Identity Disambiguation', () => {
       trailers: `alpha: Alpha-id: ${targetId}`,
     };
 
-    vi.mocked(gitClient.log).mockResolvedValue([commit]);
+    vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
     const result = await repo.findById({ id: targetId, protocol: 'alpha' });
 
@@ -74,9 +63,12 @@ describe('AtomRepository Identity Disambiguation', () => {
     const state = result!.protocols.get('alpha')!;
     expect((state as any).trailers['Alpha-id'][0]).toBe(targetId);
     
-    // Ensure we used a specific grep
-    const args = vi.mocked(gitClient.log).mock.calls[0][0];
-    expect(args.some(a => a.includes('alpha: Alpha-id: 12345678'))).toBe(true);
+    // Ensure we used a specific regex pattern
+    const query = vi.mocked(gitClient.query).mock.calls[0][0];
+    const found = query.regexPatterns.some((set: string[]) => 
+        set.some(p => p.includes('alpha: Alpha-id: 12345678'))
+    );
+    expect(found).toBe(true);
   });
 
   it('should find an atom using a qualified ID (beta/12345678)', async () => {
@@ -90,7 +82,7 @@ describe('AtomRepository Identity Disambiguation', () => {
       trailers: `beta: Beta-id: ${targetId}`,
     };
 
-    vi.mocked(gitClient.log).mockResolvedValue([commit]);
+    vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
     const result = await repo.findById({ id: targetId, protocol: 'beta' });
 
@@ -110,7 +102,7 @@ describe('AtomRepository Identity Disambiguation', () => {
       trailers: `beta: Beta-id: ${targetId}`,
     };
 
-    vi.mocked(gitClient.log).mockResolvedValue([commit]);
+    vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
     // Query without protocol prefix
     const result = await repo.findById({ id: targetId });
@@ -118,10 +110,11 @@ describe('AtomRepository Identity Disambiguation', () => {
     expect(result).not.toBeNull();
     expect(result!.protocols.has('beta')).toBe(true);
     
-    // Verification: ensure the grep included both possible patterns
-    const args = vi.mocked(gitClient.log).mock.calls[0][0];
-    const combinedGrep = args.find(a => a.startsWith('--grep='));
-    expect(combinedGrep).toContain('alpha: Alpha-id: 12345678');
-    expect(combinedGrep).toContain('beta: Beta-id: 12345678');
+    // Verification: ensure the query included both possible patterns in an OR-set
+    const query = vi.mocked(gitClient.query).mock.calls[0][0];
+    expect(query.regexPatterns).toContainEqual([
+        '^alpha: Alpha-id: 12345678',
+        '^beta: Beta-id: 12345678'
+    ]);
   });
 });

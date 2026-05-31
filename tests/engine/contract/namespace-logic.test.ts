@@ -17,37 +17,28 @@ describe('Hierarchical Namespacing Logic', () => {
     registry = new ProtocolRegistry();
     
     // 1. Root Protocol (Strict)
-    rootProtocol = makeProtocol(
-      { 
-        ...TEST_PROTOCOL_DEFINITION, 
-        namespace: '', 
-        identityKey: 'Lore-id',
-        trailers: {
-            ...TEST_PROTOCOL_DEFINITION.trailers,
-            'Lore-id': TEST_PROTOCOL_DEFINITION.trailers[TEST_PROTOCOL_DEFINITION.identityKey]
-        },
-        permissive: false,
-        strict: true
-      },
-      makeProtocolConfig({ permissive: false })
-    );
+    rootProtocol = makeProtocol({
+      name: 'Root',
+      version: '1.0',
+      identityKey: 'Lore-id',
+      namespace: '',
+      trailers: {
+        'Lore-id': { description: 'ID' },
+        'Constraint': { description: 'Constraint' }
+      }
+    }, { strict: true, permissive: false } as any);
 
     // 2. Namespaced Protocol (Strict)
-    projectProtocol = makeProtocol(
-      { 
-        ...TEST_PROTOCOL_DEFINITION, 
-        name: 'Project', 
-        namespace: 'Project', 
-        identityKey: 'Id',
-        trailers: {
-            'Id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' },
-            'Team': { description: 'Team', multivalue: false }
-        },
-        permissive: false,
-        strict: true
-      },
-      makeProtocolConfig({ permissive: false })
-    );
+    projectProtocol = makeProtocol({
+      name: 'Project',
+      version: '1.0',
+      identityKey: 'Project-id',
+      namespace: 'Project',
+      trailers: {
+        'Project-id': { description: 'ID' },
+        'Team': { description: 'Team' }
+      }
+    }, { strict: true, permissive: false } as any);
 
     registry.register(rootProtocol);
     registry.register(projectProtocol);
@@ -57,7 +48,7 @@ describe('Hierarchical Namespacing Logic', () => {
     it('namespaced protocol should own its namespace key only', () => {
       expect(projectProtocol.owns('Project')).toBe(true);
       expect(projectProtocol.owns('project')).toBe(true);
-      expect(projectProtocol.owns('Id')).toBe(false);
+      expect(projectProtocol.owns('Project-id')).toBe(false);
       expect(projectProtocol.owns('Team')).toBe(false);
     });
 
@@ -70,10 +61,10 @@ describe('Hierarchical Namespacing Logic', () => {
 
   describe('Parsing (History)', () => {
     it('should unpack namespaced trailers correctly', () => {
-      const raw = 'Project: Id: abcd1234\nProject: Team: Backend';
+      const raw = 'Project: Project-id: abcd1234\nProject: Team: Backend';
       const state = projectProtocol.parse(raw);
 
-      expect(state.trailers.Id).toEqual(['abcd1234']);
+      expect(state.trailers['Project-id']).toEqual(['abcd1234']);
       expect(state.trailers.Team).toEqual(['Backend']);
       expect(Object.keys(state.unauthorized)).toHaveLength(0);
     });
@@ -87,10 +78,11 @@ describe('Hierarchical Namespacing Logic', () => {
     });
 
     it('should allow unrecognized trailers in namespace when permissive', () => {
-      const permissiveProject = makeProtocol(
-        projectProtocol['definition'],
-        makeProtocolConfig({ strict: false, permissive: true })
-      );
+      const permissiveProject = makeProtocol({
+          name: 'Project',
+          namespace: 'Project',
+          trailers: { 'Team': { description: 'T' } }
+      }, { strict: false, permissive: true } as any);
       
       const raw = 'Project: Custom: value';
       const state = permissiveProject.parse(raw);
@@ -116,28 +108,38 @@ describe('Hierarchical Namespacing Logic', () => {
     });
 
     it('root protocol should claim orphans as trailers when permissive', () => {
-      const permissiveRoot = makeProtocol(
-        rootProtocol['definition'],
-        makeProtocolConfig({ strict: false, permissive: true })
-      );
-
-      const raw = 'Unknown: value';
-      const state = permissiveRoot.parse(raw);
-
-      expect(state.trailers.Unknown).toEqual(['value']);
-      expect(Object.keys(state.unauthorized)).toHaveLength(0);
+        const permissiveRoot = makeProtocol(
+          rootProtocol['definition'],
+          makeProtocolConfig({ strict: false, permissive: true })
+        );
+  
+        const raw = 'Unknown: value';
+        const state = permissiveRoot.parse(raw);
+  
+        expect(state.trailers.Unknown).toEqual(['value']);
+        expect(Object.keys(state.unauthorized)).toHaveLength(0);
     });
   });
 
-  describe('Grep & Search', () => {
-      it('should generate nested colon grep for namespaced search', () => {
-          const grep = projectProtocol.getSearchGrep({ Team: 'Backend' });
-          expect(grep).toContain('--grep=^Project: Team: Backend');
+  describe('Discovery', () => {
+    it('should aggregate discovery patterns correctly', () => {
+      const patterns = registry.getDiscoveryPatterns();
+      // Root discovery: identityKey: .+
+      expect(patterns).toContain('^Lore-id: .+');
+      // NS discovery: namespace:
+      expect(patterns).toContain('^Project:');
+    });
+  });
+
+  describe('Search Patterns', () => {
+      it('should generate namespaced patterns for namespaced search', () => {
+          const patterns = projectProtocol.getSearchPatterns({ Team: 'Backend' });
+          expect(patterns).toEqual([['^Project: Team: Backend']]);
       });
 
-      it('should generate flat grep for root search', () => {
-          const grep = rootProtocol.getSearchGrep({ 'Lore-id': 'l1' });
-          expect(grep).toContain('--grep=^Lore-id: l1');
+      it('should generate flat patterns for root search', () => {
+          const patterns = rootProtocol.getSearchPatterns({ 'Lore-id': 'l1' });
+          expect(patterns).toEqual([['^Lore-id: l1']]);
       });
   });
 });

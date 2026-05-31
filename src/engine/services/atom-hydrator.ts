@@ -2,7 +2,8 @@ import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
 import type { IAtomCache } from '../interfaces/atom-cache.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 import type { TrailerParser } from './trailer-parser.js';
-import type { Atom, ProtocolState, QueryIdentity } from '../types/domain.js';
+import type { Atom, ProtocolState } from '../types/domain.js';
+import type { QueryIdentity } from '../types/query.js';
 import { GIT_FILES_CHANGED_BATCH_SIZE } from '../util/constants.js';
 import { escapeRegex } from '../util/regex.js';
 

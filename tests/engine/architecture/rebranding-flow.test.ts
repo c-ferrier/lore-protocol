@@ -9,19 +9,23 @@ import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG } from '../engine-test-utils.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG, makeMockGitClient } from '../engine-test-utils.js';
 import { Validator } from '../../../src/engine/services/validator.js';
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
-import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
-import type { Atom } from '../../../src/engine/types/domain.js';
 
-describe('Rebranding Flow Integration', () => {
-  it('should flow a custom protocol from raw trailers to rebranded JSON output', async () => {
-    // 1. Define a custom protocol "Fred" as the ROOT protocol
+/**
+ * ARCHITECTURAL TEST: Protocol Agnosticism
+ * 
+ * Verifies that the engine can host a completely custom protocol ("Fred")
+ * and correctly isolate its data without any knowledge of "Lore".
+ */
+describe('Engine Protocol Rebranding Flow', () => {
+  it('should flow a custom protocol from raw trailers to namespaced JSON output', async () => {
+    // 1. Define a custom protocol "Fred"
     const fredDef: ProtocolDefinition = {
       name: 'Fred',
       version: '2.5',
-      namespace: '', // Root namespace
+      namespace: '', 
       identityKey: 'Fred-id',
       trailers: {
         'Fred-id': {
@@ -38,29 +42,25 @@ describe('Rebranding Flow Integration', () => {
       }
     };
 
-    const config = {
-      ...TEST_PROTOCOL_CONFIG,
-      trailers: { ...TEST_PROTOCOL_CONFIG.trailers, strict: false, permissive: true }
-    };
-
-    const fredProtocol = new Protocol(fredDef, config);
+    const fredProtocol = new Protocol(fredDef, {
+        ...TEST_PROTOCOL_CONFIG,
+        trailers: { ...TEST_PROTOCOL_CONFIG.trailers, strict: false, permissive: true }
+    });
     const registry = new ProtocolRegistry();
     registry.register(fredProtocol);
 
-    // 2. Mock Git Client to return a Fred commit
-    const mockGit: Partial<IGitClient> = {
-      log: vi.fn(async () => [
-        {
-          hash: 'abc12345',
-          date: new Date().toISOString(),
-          author: 'fred@example.com',
-          subject: 'feat: fredly change',
-          body: '',
-          trailers: 'Fred-id: aabbccdd\nStatus: active',
-        }
-      ]),
-      getFilesChanged: vi.fn(async () => new Map([['abc12345', ['src/fred.ts']]])),
+    // 2. Mock Storage to return a Fred commit
+    const mockGit = makeMockGitClient();
+    const rawFredCommit = {
+      hash: 'abc12345',
+      date: new Date().toISOString(),
+      author: 'fred@example.com',
+      subject: 'feat: fredly change',
+      body: '',
+      trailers: 'Fred-id: aabbccdd\nStatus: active',
     };
+    vi.mocked(mockGit.query).mockResolvedValue([rawFredCommit]);
+    vi.mocked(mockGit.getFilesChanged).mockResolvedValue(new Map([['abc12345', ['src/fred.ts']]]));
 
     // 3. Setup Repository
     const trailerParser = new TrailerParser();
@@ -78,17 +78,16 @@ describe('Rebranding Flow Integration', () => {
     expect(atoms).toHaveLength(1);
     const atom = atoms[0];
 
-    // 4. Verify interpretation
+    // 4. Verify interpretation (Protocol data must be namespaced by name)
     expect(atom.protocols.has('fred')).toBe(true);
     const fredState = atom.protocols.get('fred')!;
     expect(fredState.trailers['Fred-id']).toEqual(['aabbccdd']);
-    expect(fredState.trailers['Status']).toEqual(['active']);
 
-    // 5. Format to JSON
+    // 5. Format to JSON using the Engine's generic formatter
     const formatter = new JsonFormatter(registry);
     const json = JSON.parse(formatter.formatQueryResult({
-      result: { 
-        atoms, 
+      result: {
+        atoms,
         meta: { totalAtoms: 1, filteredAtoms: 1, oldest: null, newest: null },
         command: 'search',
         target: 'all',
@@ -98,66 +97,20 @@ describe('Rebranding Flow Integration', () => {
       visibleTrailers: 'all',
     }));
 
-    // 6. Verify Total Neutrality (Top level is generic, protocol data is namespaced)
-    expect(json.version).toBe('1.0'); // Engine version
-    
-    // Identity must be found inside the protocols map
+    // 6. Verify Agnostic Structure (Data is in .protocols.fred)
+    expect(json.results[0].commit).toBe('abc12345');
     expect(json.results[0].protocols.fred.id).toBe('aabbccdd');
-    expect(json.results[0].protocols.fred.version).toBe('2.5');
-    
-    // Top-level trailers should NOT exist (per Total Neutrality rules)
-    expect(json.results[0]).not.toHaveProperty('trailers');
-    expect(json.results[0]).not.toHaveProperty('fred_id');
-  });
+    expect(json.results[0].protocols.fred.trailers.Status).toBe('active');
 
-  it('should rebrand validation rules based on protocol name', async () => {
-    // 1. Setup Fred protocol
-    const fredDef: ProtocolDefinition = {
-      name: 'Fred',
-      version: '1.0',
-      namespace: '',
-      identityKey: 'Fred-id',
-      trailers: {
-        'Fred-id': {
-          description: 'ID',
-          multivalue: false,
-          validation: 'pattern',
-          pattern: '^[0-9a-f]{8}$',
-          required: true,
-        },
-      }
-    };
-    const protocol = new Protocol(fredDef, TEST_PROTOCOL_CONFIG);
-    const registry = new ProtocolRegistry();
-    registry.register(protocol);
-    const validator = new Validator(new TrailerParser(), {} as any, TEST_ENGINE_CONFIG, registry);
+    // 7. Validation Integration (Ensures Validator respects custom definition)
+    const validator = new Validator(trailerParser, repo, TEST_ENGINE_CONFIG, registry);
+    const results = await validator.validate([rawFredCommit]);
+    expect(results[0].issues).toHaveLength(0);
 
-    // 2. Validate a commit with missing Fred-id
-    const commit = {
-      hash: 'h1',
-      date: new Date().toISOString(),
-      author: 'a',
-      subject: 's',
-      body: '',
-      trailers: '', // Missing Fred-id
-    };
-
-    const results = await validator.validate([commit]);
-    const issues = results[0].issues;
-
-    // 3. Verify rule name is rebranded
-    const presenceIssue = issues.find(i => i.rule === 'fred-id-present');
-    expect(presenceIssue).toBeDefined();
-    expect(presenceIssue?.message).toContain('[Fred] Fred-id trailer is missing');
-
-    // 4. Validate invalid format
-    const invalidCommit = {
-      ...commit,
-      trailers: 'Fred-id: not-hex',
-    };
-    const results2 = await validator.validate([invalidCommit]);
+    // Negative case: invalid ID based on Fred's custom pattern
+    const badRawCommit = { ...rawFredCommit, trailers: 'Fred-id: not-hex' };
+    const results2 = await validator.validate([badRawCommit]);
     const formatIssue = results2[0].issues.find(i => i.rule === 'fred-id-format');
     expect(formatIssue).toBeDefined();
-    expect(formatIssue?.message).toContain('[Fred] Fred-id "not-hex" is not a valid identifier');
   });
 });

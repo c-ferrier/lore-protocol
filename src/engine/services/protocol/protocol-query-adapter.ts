@@ -10,24 +10,20 @@ import { escapeRegex } from '../../util/regex.js';
 export class ProtocolQueryAdapter implements IProtocolQueryAdapter {
   constructor(private readonly protocol: IProtocol) {}
 
-  getDiscoveryPattern(): string {
+  getDiscoveryPatterns(): string[] {
     const { namespace, identityKey } = this.protocol;
     if (namespace !== '') {
       // Coarse pass: just find the namespace key at start of line
-      return `^${namespace}:`;
+      return [`^${namespace}:`];
     }
 
     const identityDef = this.protocol.getDefinition(identityKey);
     const pattern = identityDef?.pattern || '.+';
-    return `^${identityKey}: ${pattern.replace(/^\^|\$$/g, '')}`;
+    return [`^${identityKey}: ${pattern.replace(/^\^|\$$/g, '')}`];
   }
 
-  getDiscoveryGrep(): string[] {
-    return [`--grep=${this.getDiscoveryPattern()}`];
-  }
-
-  getSearchGrep(filters: Record<string, string | string[]>): string[] {
-    const args: string[] = [];
+  getSearchPatterns(filters: Record<string, string | string[]>): string[][] {
+    const results: string[][] = [];
     const { namespace } = this.protocol;
 
     for (const [key, value] of Object.entries(filters)) {
@@ -35,18 +31,22 @@ export class ProtocolQueryAdapter implements IProtocolQueryAdapter {
       if (!authorizedKey) continue;
 
       const values = Array.isArray(value) ? value : [value];
+      const orSet: string[] = [];
       for (const val of values) {
         if (namespace !== '') {
-            // Namespaced search: --grep="^Namespace: Key: value"
-            args.push(`--grep=^${namespace}: ${authorizedKey}: ${val}`);
+            // Namespaced search: "^Namespace: Key: value"
+            orSet.push(`^${namespace}: ${authorizedKey}: ${val}`);
         } else {
-            // Root search: --grep="^Key: value"
-            args.push(`--grep=^${authorizedKey}: ${val}`);
+            // Root search: "^Key: value"
+            orSet.push(`^${authorizedKey}: ${val}`);
         }
+      }
+      if (orSet.length > 0) {
+          results.push(orSet);
       }
     }
 
-    return args;
+    return results;
   }
 
   getIdentityPattern(id: string): string {
@@ -62,15 +62,17 @@ export class ProtocolQueryAdapter implements IProtocolQueryAdapter {
       const authorizedKey = this.protocol.authorize(key);
       if (!authorizedKey) continue;
 
+      // If the protocol is permissive, it "authorizes" everything.
+      // But it should only enforce filters for keys it actually owns or that exist in the state.
+      if (this.protocol.permissive && !this.protocol.owns(key) && !state.trailers[authorizedKey]) {
+          continue;
+      }
+
       const actualValues = state.trailers[authorizedKey] || [];
       const filterValues = Array.isArray(value) ? value : [value];
 
       if (actualValues.length === 0) {
-        // If we own the key but it has no values in the state, it's a mismatch
-        if (this.protocol.owns(key) || this.protocol.authorize(key)) {
-           return false;
-        }
-        continue;
+          return false;
       }
 
       const matched = filterValues.some((fv) =>

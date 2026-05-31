@@ -1,51 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { AtomHydrator } from '../../../src/engine/services/atom-hydrator.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
-import { SearchFilter } from '../../../src/engine/services/search-filter.js';
-import { PathResolver } from '../../../src/engine/services/path-resolver.js';
-import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
-import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
-import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import type { SearchOptions } from '../../../src/engine/types/query.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeAtomRepository } from '../engine-test-utils.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
+import type { SearchOptions } from '../../../src/engine/types/query.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeMockGitClient } from '../engine-test-utils.js';
 
 const TEST_ID_KEY = "Mock-id";
 
 describe('AtomRepository Refinement', () => {
-  let gitClient: IGitClient;
-  let trailerParser: TrailerParser;
+  let gitClient: any;
   let repo: AtomRepository;
-  let protocol: Protocol;
   let protocolRegistry: ProtocolRegistry;
-  let searchFilter: SearchFilter;
 
   beforeEach(() => {
-    gitClient = {
-      log: vi.fn(),
-      getCommitsByHashes: vi.fn(async () => []),
-      getFilesChanged: vi.fn().mockImplementation(async (hashes: string[]) => {
-        const map = new Map<string, string[]>();
-        for (const hash of hashes) map.set(hash, ['file.ts']);
-        return map;
-      }),
-      resolveDate: vi.fn(async (d: string) => new Date(d)),
-      resolveRef: vi.fn(async () => 'head'),
-    } as any;
-    protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+    gitClient = makeMockGitClient();
     protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(protocol);
-    trailerParser = new TrailerParser();
-    searchFilter = new SearchFilter(protocolRegistry);
-    const pathResolver = new PathResolver('/mock', '/mock');
-    const atomCache = new NullAtomCache();
-    const queryCache = new NullQueryCache();
-    const hydrator = new AtomHydrator(gitClient, trailerParser, protocolRegistry, atomCache);
+    protocolRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION));
 
-    repo = new AtomRepository(gitClient, hydrator, protocolRegistry, searchFilter, pathResolver, queryCache);
-
+    repo = makeAtomRepository({
+        gitClient,
+        registry: protocolRegistry,
+    });
   });
 
   describe('stripTrailersFromBody (Internal Refinement)', () => {
@@ -59,7 +34,7 @@ describe('AtomRepository Refinement', () => {
         body: `Main body text.\n\n   ${TEST_ID_KEY}: 12345678  \n Confidence: high \n\n`,
         trailers: trailers,
       };
-      vi.mocked(gitClient.log).mockResolvedValue([raw]);
+      vi.mocked(gitClient.query).mockResolvedValue([raw]);
 
       const [atom] = await repo.find();
       expect(atom.body).toBe('Main body text.');
@@ -75,7 +50,7 @@ describe('AtomRepository Refinement', () => {
         body: `This line looks like a trailer:\nConstraint: must be fast\n\nBut the real one is here.\n\n${TEST_ID_KEY}: 12345678`,
         trailers: trailers,
       };
-      vi.mocked(gitClient.log).mockResolvedValue([raw]);
+      vi.mocked(gitClient.query).mockResolvedValue([raw]);
 
       const [atom] = await repo.find();
       expect(atom.body).toContain('Constraint: must be fast');
@@ -92,7 +67,7 @@ describe('AtomRepository Refinement', () => {
         body: trailers,
         trailers: trailers,
       };
-      vi.mocked(gitClient.log).mockResolvedValue([raw]);
+      vi.mocked(gitClient.query).mockResolvedValue([raw]);
 
       const [atom] = await repo.find();
       expect(atom.body).toBe('');
@@ -121,30 +96,15 @@ describe('AtomRepository Refinement', () => {
         trailers: trailersB,
       };
 
-      vi.mocked(gitClient.log)
+      vi.mocked(gitClient.query)
         .mockResolvedValueOnce([commitA])
-        .mockResolvedValueOnce([commitB]);
-      
-      vi.mocked(gitClient.getCommitsByHashes)
         .mockResolvedValueOnce([commitB]);
 
       const options: SearchOptions = {
-        scope: null,
         follow: true,
-        all: false,
-        author: null,
-        limit: null,
-        maxCommits: null,
-        since: null,
-        until: null,
-        confidence: null,
-        scopeRisk: null,
-        reversibility: null,
-        has: null,
-        text: null,
-      };
+      } as any;
 
-      let atoms = await repo.find(['--', 'file.ts'], options);
+      let atoms = await repo.find({ target: 'file.ts', ...options });
       atoms = await repo.resolveFollowLinks(atoms, 1);
 
       expect(atoms).toHaveLength(2);
@@ -152,8 +112,8 @@ describe('AtomRepository Refinement', () => {
       expect(ids).toContain('aaaaaaaa');
       expect(ids).toContain('bbbbbbbb');
       
-      const secondCallArgs = vi.mocked(gitClient.log).mock.calls[1][0];
-      expect(secondCallArgs).toContain(`--grep=^${TEST_ID_KEY}: bbbbbbbb`);
+      const secondCallQuery = vi.mocked(gitClient.query).mock.calls[1][0];
+      expect(secondCallQuery.regexPatterns).toContainEqual(['^Mock-id: bbbbbbbb']);
     });
   });
 
@@ -171,7 +131,7 @@ describe('AtomRepository Refinement', () => {
         trailers: `${TEST_ID_KEY}: ${actualId}`,
       };
 
-      vi.mocked(gitClient.log).mockResolvedValue([commit]);
+      vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
       const result = await repo.findById({ id: targetId });
 
@@ -189,7 +149,7 @@ describe('AtomRepository Refinement', () => {
         trailers: `${TEST_ID_KEY}: ${targetId}`,
       };
 
-      vi.mocked(gitClient.log).mockResolvedValue([commit]);
+      vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
       const result = await repo.findById({ id: targetId });
 

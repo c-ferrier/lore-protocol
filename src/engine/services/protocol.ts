@@ -168,16 +168,12 @@ export class Protocol implements IProtocol {
 
   // --- IProtocolQueryAdapter Delegation ---
 
-  getDiscoveryPattern(): string {
-    return this.queryAdapter.getDiscoveryPattern();
+  getDiscoveryPatterns(): string[] {
+    return this.queryAdapter.getDiscoveryPatterns();
   }
 
-  getDiscoveryGrep(): string[] {
-    return this.queryAdapter.getDiscoveryGrep();
-  }
-
-  getSearchGrep(filters: Record<string, string | string[]>): string[] {
-    return this.queryAdapter.getSearchGrep(filters);
+  getSearchPatterns(filters: Record<string, string | string[]>): string[][] {
+    return this.queryAdapter.getSearchPatterns(filters);
   }
 
   getIdentityPattern(id: string): string {

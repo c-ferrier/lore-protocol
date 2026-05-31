@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { makeProtocol, makeAtomRepository } from './../engine-test-utils.js';
+import { makeProtocol, makeAtomRepository, makeMockGitClient } from './../engine-test-utils.js';
 
 describe('AtomRepository False Positive Repro', () => {
   let gitClient: any;
@@ -15,12 +15,7 @@ describe('AtomRepository False Positive Repro', () => {
   });
 
   beforeEach(() => {
-    gitClient = {
-      log: vi.fn().mockResolvedValue([]),
-      resolveRef: vi.fn().mockResolvedValue('head'),
-      getFilesChanged: vi.fn().mockResolvedValue(new Map()),
-      resolveDate: vi.fn().mockImplementation(async (d) => new Date(d)),
-    };
+    gitClient = makeMockGitClient();
     const registry = new ProtocolRegistry();
     registry.register(protocol);
     
@@ -38,8 +33,9 @@ describe('AtomRepository False Positive Repro', () => {
       trailers: 'Mock-id: bbbb2222'
     };
 
-    gitClient.log.mockResolvedValue([commit]);
+    vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
+    // Should return null because trailers didn't match targetId
     const result = await repository.findById({ id: targetId });
     expect(result).toBeNull();
   });
@@ -54,8 +50,10 @@ describe('AtomRepository False Positive Repro', () => {
       trailers: 'Adhoc: value'
     };
 
-    gitClient.log.mockResolvedValue([commit]);
+    vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
+    // Should return 0 atoms because although Git might return the commit due to subject text,
+    // the trailers do not contain the Mock-id protocol sentinel.
     const results = await repository.find();
     expect(results).toHaveLength(0);
   });

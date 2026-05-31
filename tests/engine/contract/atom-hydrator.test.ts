@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomHydrator } from '../../../src/engine/services/atom-hydrator.ts';
-import { makeAtomHydrator, makeRawCommit } from '../engine-test-utils.js';
+import { makeAtomHydrator, makeRawCommit, makeMockGitClient, makeMockAtomCache, makeProtocolRegistry, makeProtocol } from '../engine-test-utils.js';
 import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 
 const TEST_ID_KEY = "Mock-id";
@@ -11,13 +11,8 @@ describe('AtomHydrator Contract', () => {
   let atomCache: any;
 
   beforeEach(() => {
-    gitClient = {
-        getFilesChanged: vi.fn(async () => new Map()),
-    } as any;
-    atomCache = {
-        get: vi.fn(async () => null),
-        set: vi.fn(async () => {}),
-    };
+    gitClient = makeMockGitClient();
+    atomCache = makeMockAtomCache();
     hydrator = makeAtomHydrator({
         gitClient,
         atomCache
@@ -80,6 +75,59 @@ describe('AtomHydrator Contract', () => {
       expect(result[0].filesChanged).toEqual(cachedFiles);
       expect(result[1].filesChanged).toEqual(gitFiles);
       expect(gitClient.getFilesChanged).toHaveBeenCalledWith(['hash2']);
+    });
+
+    it('should call getFilesChanged in batches of 20', async () => {
+      // 25 commits should result in 2 batches (20 + 5)
+      const hashes = Array.from({ length: 25 }, (_, i) => `h${i}`);
+      const commits = hashes.map(h => makeRawCommit({ hash: h, id: `id${h}` }));
+      
+      const filesMap = new Map<string, string[]>();
+      hashes.forEach(h => filesMap.set(h, ['file.ts']));
+      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(filesMap);
+
+      await hydrator.hydrate(commits);
+
+      expect(gitClient.getFilesChanged).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(gitClient.getFilesChanged).mock.calls[0][0]).toHaveLength(20);
+      expect(vi.mocked(gitClient.getFilesChanged).mock.calls[1][0]).toHaveLength(5);
+    });
+
+    it('should respect implicit ownership (protocols get what they define, permissive gets orphans)', async () => {
+        // Register two protocols: P1 (strict) and P2 (permissive)
+        const localRegistry = makeProtocolRegistry([
+            makeProtocol({ 
+                name: 'Strict', 
+                identityKey: 'S-Key',
+                trailers: { 'S-Key': { description: 'S' } } 
+            }, { strict: true, permissive: false } as any),
+            makeProtocol({ 
+                name: 'Permissive', 
+                identityKey: 'P-Key',
+                trailers: { 'P-Key': { description: 'P' } } 
+            }, { strict: false, permissive: true } as any)
+        ]);
+
+        const localHydrator = makeAtomHydrator({ gitClient, registry: localRegistry });
+
+        const commit = makeRawCommit({ 
+            id: 'aaaa1111', 
+            trailers: 'S-Key: aaaa1111\nP-Key: p-val\nOrphan-Key: o-val' 
+        });
+
+        const [atom] = await localHydrator.hydrate([commit]);
+
+        const sState = atom.protocols.get('strict')!;
+        const pState = atom.protocols.get('permissive')!;
+
+        // Strict only gets what it owns (Identity + P-Key is NOT owned by strict)
+        expect(sState.trailers['S-Key']).toEqual(['aaaa1111']);
+        expect(sState.trailers['P-Key']).toBeUndefined();
+        expect(sState.trailers['Orphan-Key']).toBeUndefined();
+
+        // Permissive gets its own AND orphans
+        expect(pState.trailers['P-Key']).toEqual(['p-val']);
+        expect(pState.trailers['Orphan-Key']).toEqual(['o-val']);
     });
   });
 });

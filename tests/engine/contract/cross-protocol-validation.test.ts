@@ -1,26 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
-import { Validator } from '../../../src/engine/services/validator.ts';
+import { Validator } from '../../../src/engine/services/validator.js';
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
-import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
-import { makeProtocolConfig, TEST_ENGINE_CONFIG } from '../engine-test-utils.js';
+import { TEST_ENGINE_CONFIG, makeProtocolConfig, makeMockGitClient } from '../engine-test-utils.js';
+import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
 
-describe('Cross-Protocol Validation', () => {
-  let registry: ProtocolRegistry;
+describe('Cross-Protocol Reference Validation', () => {
   let validator: Validator;
-  let gitClient: IGitClient;
+  let registry: ProtocolRegistry;
+  let gitClient: any;
 
   const ALPHA_DEF: ProtocolDefinition = {
     name: 'Alpha',
     version: '1.0',
     identityKey: 'Alpha-id',
-    namespace: '',
-    strict: false,
-    permissive: false,
+    namespace: 'alpha',
     trailers: {
-      'Alpha-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[0-9]+$', isCore: true },
-      'Depends-on': { description: 'Dep', validation: 'reference' as const, crossProtocol: true, isCore: true }
+      'Alpha-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[0-9]+$' },
+      'Depends-on': { description: 'Dep', validation: 'reference' as const, crossProtocol: true }
     }
   };
 
@@ -28,12 +26,10 @@ describe('Cross-Protocol Validation', () => {
     name: 'Beta',
     version: '1.0',
     identityKey: 'Beta-id',
-    namespace: '',
-    strict: false,
-    permissive: false,
+    namespace: 'beta',
     trailers: {
-      'Beta-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[a-z]+$', isCore: true },
-      'Internal-link': { description: 'Int', validation: 'reference' as const, crossProtocol: false, isCore: true }
+      'Beta-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[a-z]+$' },
+      'Internal-link': { description: 'Int', validation: 'reference' as const, crossProtocol: false }
     }
   };
 
@@ -44,10 +40,7 @@ describe('Cross-Protocol Validation', () => {
     registry.register(alpha);
     registry.register(beta);
 
-    gitClient = {
-      log: vi.fn(async () => []),
-      isInsideRepo: vi.fn(async () => true),
-    } as any;
+    gitClient = makeMockGitClient();
 
     const mockRepo = {
       findByIds: vi.fn(async () => []),
@@ -57,65 +50,63 @@ describe('Cross-Protocol Validation', () => {
   });
 
   it('should allow valid cross-protocol references', async () => {
-    const commit = {
+    const rawCommit = {
       hash: 'h1',
       date: new Date().toISOString(),
       author: 'a',
       subject: 's',
       body: 'b',
-      trailers: 'Alpha-id: 123\nDepends-on: beta/abc'
-    };
+      trailers: 'alpha: Alpha-id: 123\nalpha: Depends-on: beta/abc'
+    } as any;
 
-    const results = await validator.validate([commit]);
-    
-    // It should NOT have format errors. (It might have reference-exists warning if not found, which is fine)
-    const formatIssues = results[0].issues.filter(i => i.rule === 'invalid-reference-format' || i.rule === 'unknown-protocol-prefix');
-    expect(formatIssues).toHaveLength(0);
+    const results = await validator.validate([rawCommit]);
+    expect(results[0].issues.filter(i => i.rule === 'invalid-reference-format')).toHaveLength(0);
   });
 
   it('should flag unknown protocol prefixes', async () => {
-    const commit = {
+    const rawCommit = {
       hash: 'h1',
       date: new Date().toISOString(),
       author: 'a',
       subject: 's',
       body: 'b',
-      trailers: 'Alpha-id: 123\nDepends-on: ghost/999'
-    };
+      trailers: 'alpha: Alpha-id: 123\nalpha: Depends-on: ghost/999'
+    } as any;
 
-    const results = await validator.validate([commit]);
+    const results = await validator.validate([rawCommit]);
     const issue = results[0].issues.find(i => i.rule === 'unknown-protocol-prefix');
     expect(issue).toBeDefined();
+    // Message: [Alpha] Unknown protocol prefix: "ghost" in identity "ghost/999"
     expect(issue?.message).toContain('Unknown protocol prefix: "ghost"');
   });
 
   it('should flag cross-protocol links when crossProtocol is false', async () => {
-    const commit = {
+    const rawCommit = {
       hash: 'h1',
       date: new Date().toISOString(),
       author: 'a',
       subject: 's',
       body: 'b',
-      trailers: 'Beta-id: abc\nInternal-link: alpha/123'
-    };
+      trailers: 'beta: Beta-id: abc\nbeta: Internal-link: alpha/123'
+    } as any;
 
-    const results = await validator.validate([commit]);
+    const results = await validator.validate([rawCommit]);
     const issue = results[0].issues.find(i => i.rule === 'cross-protocol-prohibited');
     expect(issue).toBeDefined();
     expect(issue?.message).toContain('does not allow cross-protocol references');
   });
 
   it('should validate format against the TARGET protocol rules', async () => {
-    const commit = {
+    const rawCommit = {
       hash: 'h1',
       date: new Date().toISOString(),
       author: 'a',
       subject: 's',
       body: 'b',
-      trailers: 'Alpha-id: 123\nDepends-on: beta/123' // Beta expects [a-z]+
-    };
+      trailers: 'alpha: Alpha-id: 123\nalpha: Depends-on: beta/123' // Beta IDs must be a-z
+    } as any;
 
-    const results = await validator.validate([commit]);
+    const results = await validator.validate([rawCommit]);
     const issue = results[0].issues.find(i => i.rule === 'invalid-reference-format');
     expect(issue).toBeDefined();
     expect(issue?.message).toContain('not a valid identifier for protocol "Beta"');
