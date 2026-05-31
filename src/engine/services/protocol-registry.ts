@@ -1,5 +1,5 @@
 import type { IProtocol } from '../interfaces/protocol.js';
-import type { QueryIdentity } from '../types/query.js';
+import type { QueryIdentity, QualifiedFilter } from '../types/query.js';
 import { ProtocolError, ConfigurationError } from '../util/errors.js';
 
 /**
@@ -18,7 +18,7 @@ export class ProtocolRegistry {
    */
   register(protocol: IProtocol): void {
     const name = protocol.name.toLowerCase();
-    const ns = (protocol.namespace || '').toLowerCase();
+    const ns = protocol.getStorageNamespace().toLowerCase();
 
     if (this.protocols.has(name)) {
       throw new ConfigurationError(`Protocol "${protocol.name}" is already registered`);
@@ -27,11 +27,11 @@ export class ProtocolRegistry {
     // Safety Rule: Only one permissive protocol allowed per namespace to prevent trailer claiming conflicts
     if (protocol.permissive) {
       for (const p of this.protocols.values()) {
-        const pNs = (p.namespace || '').toLowerCase();
+        const pNs = p.getStorageNamespace().toLowerCase();
         if (pNs === ns && p.permissive) {
           throw new ConfigurationError(
             `Cannot register permissive protocol "${protocol.name}". ` +
-            `A permissive protocol ("${p.name}") is already registered for namespace "${protocol.namespace || 'root'}". ` +
+            `A permissive protocol ("${p.name}") is already registered for namespace "${p.getStorageNamespace() || 'root'}". ` +
             `Only one permissive protocol is allowed per namespace to prevent trailer claiming conflicts.`
           );
         }
@@ -81,9 +81,10 @@ export class ProtocolRegistry {
   getClaimedKeys(): Set<string> {
     const claimed = new Set<string>();
     for (const p of this.getAll()) {
-      if (p.namespace !== '') {
+      const ns = p.getStorageNamespace();
+      if (ns !== '') {
         // Namespaced protocols claim their namespace key
-        claimed.add(p.namespace.toLowerCase());
+        claimed.add(ns.toLowerCase());
       } else {
         // Root protocols claim their authorized keys
         for (const k of p.getAuthorizedKeys()) {
@@ -114,29 +115,81 @@ export class ProtocolRegistry {
   }
 
   /**
-   * Translates generic filters into nested raw regex patterns.
+   * Translates structured filters into nested raw regex patterns.
    * Returns an array of arrays, where top level is AND and inner is OR.
-   * Logic: multiple protocols authorizing the same key are OR'ed together.
    */
-  getSearchPatterns(filters: Record<string, string | string[]>): string[][] {
-    const patternsByKey = new Map<string, string[]>();
+  getSearchPatterns(filters: readonly QualifiedFilter[]): string[][] {
+    const results: string[][] = [];
 
-    for (const [key, value] of Object.entries(filters)) {
+    for (const filter of filters) {
       const orSet: string[] = [];
-      for (const p of this.getAll()) {
-        const pPatterns = p.getSearchPatterns({ [key]: value });
-        // pPatterns is string[][], we flatten the inner parts for this key
-        for (const set of pPatterns) {
-            orSet.push(...set);
+
+      // A. Explicitly Qualified Filter (e.g. project/status)
+      if (filter.protocol) {
+        const p = this.get(filter.protocol);
+        if (p) {
+          const pPatterns = p.getSearchPatterns([filter]);
+          for (const set of pPatterns) orSet.push(...set);
+        }
+      } 
+      // B. Unqualified Filter (e.g. status) - Strict Disambiguation
+      else {
+        const target = this.resolveKey(filter.key);
+        if (target) {
+            const pPatterns = target.getSearchPatterns([filter]);
+            for (const set of pPatterns) orSet.push(...set);
+        } else {
+            // Orphan fallback: try all protocols if no one owns it (legacy discovery support)
+            for (const p of this.getAll()) {
+              const pPatterns = p.getSearchPatterns([filter]);
+              for (const set of pPatterns) orSet.push(...set);
+            }
         }
       }
+
       if (orSet.length > 0) {
         // Dedup for safety (in case multiple protocols generate identical patterns)
-        patternsByKey.set(key, Array.from(new Set(orSet)));
+        results.push(Array.from(new Set(orSet)));
       }
     }
 
-    return Array.from(patternsByKey.values());
+    return results;
+  }
+
+  /**
+   * Resolves an unqualified trailer key to its owning protocol.
+   * Priority:
+   * 1. Unique Schema Owner (matches authorized keys)
+   * 2. Host Protocol Fallback (if permissive and no one else claims)
+   * 
+   * @throws ProtocolError if multiple protocols claim the key.
+   */
+  resolveKey(key: string): IProtocol | undefined {
+    const candidates = this.getAll().filter(p => {
+        const authorized = p.authorize(key);
+        return authorized && authorized.toLowerCase() === key.toLowerCase();
+    });
+    
+    if (candidates.length > 1) {
+      const names = candidates.map(p => p.name).join(', ');
+      throw new ProtocolError(
+        `Ambiguous key "${key}" is owned by multiple protocols: ${names}. ` +
+        `Please use a prefix (e.g. "${candidates[0].name.toLowerCase()}/${key}") to disambiguate.`,
+        1
+      );
+    }
+
+    if (candidates.length === 1) {
+        return candidates[0];
+    }
+
+    // Fallback: If no one owns it, route to the host protocol if it is permissive
+    const root = this.getRoot();
+    if (root?.permissive) {
+        return root;
+    }
+
+    return undefined;
   }
 
   /**
@@ -200,7 +253,7 @@ export class ProtocolRegistry {
    * If multiple exist, the one that is permissive=true is the root.
    */
   getRoot(): IProtocol | undefined {
-    const candidates = this.getAll().filter(p => p.namespace === '');
+    const candidates = this.getAll().filter(p => p.getStorageNamespace() === '');
     if (candidates.length === 0) return undefined;
     if (candidates.length === 1) return candidates[0];
     return candidates.find(p => p.permissive);

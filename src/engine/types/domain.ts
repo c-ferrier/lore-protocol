@@ -1,17 +1,20 @@
 /** 8-character hex string identifying a protocol atom. */
 export type AtomId = string;
 
+/** Logical identifier for a protocol (e.g. 'lore', 'project') */
+export type ProtocolName = string;
+
 /**
- * The structured trailer collection for a single scope/namespace.
+ * A structured trailer collection for a single scope/namespace.
  * Strictly flat and uniform: every key maps to a readonly string array.
  */
 export type Trailers = Record<string, readonly string[]>;
 
 /**
- * A hierarchical collection of trailers grouped by namespace.
- * Keyed by namespace name (use "" for root namespace).
+ * A hierarchical collection of trailers grouped by protocol name.
  */
-export type HierarchicalTrailers = Record<string, Trailers>;
+export type HierarchicalTrailers = ReadonlyMap<ProtocolName, Trailers>;
+
 
 /**
  * The interpreted state of a protocol within a commit.

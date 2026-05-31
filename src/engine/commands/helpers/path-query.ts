@@ -31,6 +31,7 @@ export interface PathQueryDeps {
 }
 
 export interface PathQueryCommandOptions {
+  readonly filter?: string[];
   readonly scope?: string;
   readonly follow?: boolean;
   readonly all?: boolean;
@@ -58,6 +59,7 @@ export async function executePathQuery(
   const { atomRepository, supersessionResolver, getFormatter, config, logger } = deps;
 
   const queryOptions: PathQueryOptions = {
+    filters: options.filter && options.filter.length > 0 ? options.filter : undefined,
     scope: options.scope ?? null,
     follow: options.follow ?? false,
     all: options.all ?? false,
@@ -140,6 +142,10 @@ export async function executePathQuery(
  */
 export function addPathQueryOptions(cmd: Command): Command {
   return cmd
+    .option('--filter <query>', 'Filter by specific trailer logic (e.g. "Status=active" or "project/Priority:eq=high")', (val, memo: string[]) => {
+      memo.push(val);
+      return memo;
+    }, [])
     .option('--scope <name>', 'Filter by conventional commit scope instead of path')
     .option('--follow', 'Transitively follow Related/Supersedes/Depends-on links')
     .option('--all', 'Include superseded entries')

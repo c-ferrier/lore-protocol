@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EngineBootstrapper } from '../../../../src/engine/services/engine-bootstrapper.js';
-import { TEST_ENGINE_CONFIG } from '../../engine-test-utils.js';
+import { TEST_ENGINE_CONFIG, makeMockProtocol } from '../../engine-test-utils.js';
 import { LogLevel } from '../../../../src/engine/interfaces/logger.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 
@@ -78,7 +78,7 @@ describe('EngineBootstrapper', () => {
   });
 
   it('should allow wrappers to mutate protocols via hooks', async () => {
-    const onProtocolsLoaded = vi.fn(async (protos) => [...protos, { name: 'Hooked', version: '1.0', namespace: '', trailers: {}, identityKey: 'id' } as any]);
+    const onProtocolsLoaded = vi.fn(async (protos) => [...protos, makeMockProtocol({ name: 'Hooked', namespace: '', identityKey: 'id', trailers: {} })]);
     const bootstrapper = new EngineBootstrapper({ ...options, onProtocolsLoaded });
     
     const { sharedDeps } = await bootstrapper.bootstrap('/mock', []);

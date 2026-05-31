@@ -101,12 +101,12 @@ export class CommitInputResolver {
         );
       }
       case InputMode.File:
-        return new JsonInputReader(await promisify(readFile)(options.file!, 'utf-8'));
+        return new JsonInputReader(await promisify(readFile)(options.file!, 'utf-8'), this.protocolRegistry);
       case InputMode.Flags:
-        return new FlagsInputReader(options, this.protocolRegistry.getAll());
+        return new FlagsInputReader(options, this.protocolRegistry);
       case InputMode.Stdin: {
         const content = await this.readStdinContent();
-        return new JsonInputReader(content);
+        return new JsonInputReader(content, this.protocolRegistry);
       }
     }
   }

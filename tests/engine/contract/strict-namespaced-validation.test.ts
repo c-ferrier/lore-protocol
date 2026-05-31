@@ -6,7 +6,8 @@ import {
     makeMockGitClient, 
     makeMockAtomRepository, 
     makeRawCommit, 
-    makeValidator 
+    makeValidator,
+    makeCommitInput
 } from '../engine-test-utils.js';
 import { CommitBuilder } from '../../../src/engine/services/commit-builder.js';
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
@@ -33,7 +34,7 @@ describe('Strict Namespaced Validation', () => {
     const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
 
     // 2. Input with an orphan trailer in "fred" namespace
-    const input: CommitInput = {
+    const input = makeCommitInput({
       subject: 'feat: add feature',
       trailers: {
         'fred': { 
@@ -41,7 +42,7 @@ describe('Strict Namespaced Validation', () => {
             'Orphan': ['value'] // Not defined in Fred schema
         }
       },
-    };
+    });
 
     const issues = builder.validate(input);
     
@@ -61,14 +62,14 @@ describe('Strict Namespaced Validation', () => {
     
     const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
 
-    const input: CommitInput = {
+    const input = makeCommitInput({
       subject: 'feat: add feature',
       trailers: {
         'fred': { 
             'Fred-id': ['12345678']
         }
       },
-    };
+    });
 
     const issues = builder.validate(input);
     const errors = issues.filter(i => i.severity === 'error');
@@ -94,7 +95,7 @@ describe('Strict Namespaced Validation', () => {
     const registry = makeProtocolRegistry([strictProtocol]);
     const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
 
-    const input: CommitInput = {
+    const input = makeCommitInput({
       subject: 'feat: add feature',
       trailers: {
         'fred': { 
@@ -102,7 +103,7 @@ describe('Strict Namespaced Validation', () => {
             'Other': ['val']
         }
       },
-    };
+    });
 
     const issues = builder.validate(input);
     if (issues.length === 0 || !issues.some(i => i.rule === 'fred-id-present' && i.field === 'fred:Fred-id')) {
@@ -119,7 +120,7 @@ describe('Strict Namespaced Validation', () => {
     const registry = makeProtocolRegistry([strictProtocol]);
     const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
 
-    const input: CommitInput = {
+    const input = makeCommitInput({
       subject: 'feat: add feature',
       trailers: {
         'fred': { 
@@ -127,7 +128,7 @@ describe('Strict Namespaced Validation', () => {
             'Unknown-key': ['value'] // Truly unknown key
         }
       },
-    };
+    });
 
     const issues = builder.validate(input);
     if (issues.length === 0 || !issues.some(i => i.rule === 'unauthorized-trailer' && i.field === 'fred:Unknown-key')) {

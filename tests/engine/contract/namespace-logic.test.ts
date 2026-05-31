@@ -133,12 +133,12 @@ describe('Hierarchical Namespacing Logic', () => {
 
   describe('Search Patterns', () => {
       it('should generate namespaced patterns for namespaced search', () => {
-          const patterns = projectProtocol.getSearchPatterns({ Team: 'Backend' });
+          const patterns = projectProtocol.getSearchPatterns([{ protocol: null, key: 'Team', op: 'eq' as const, value: 'Backend' }]);
           expect(patterns).toEqual([['^Project: Team: Backend']]);
       });
 
       it('should generate flat patterns for root search', () => {
-          const patterns = rootProtocol.getSearchPatterns({ 'Lore-id': 'l1' });
+          const patterns = rootProtocol.getSearchPatterns([{ protocol: null, key: 'Lore-id', op: 'eq' as const, value: 'l1' }]);
           expect(patterns).toEqual([['^Lore-id: l1']]);
       });
   });

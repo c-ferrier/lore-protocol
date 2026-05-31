@@ -7,6 +7,7 @@ import type { ProtocolRegistry } from './protocol-registry.js';
 import type { SearchFilter } from './search-filter.js';
 import type { PathResolver } from './path-resolver.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
+import { FilterResolver } from './filter-resolver.js';
 import { escapeRegex } from '../util/regex.js';
 import type { AtomHydrator } from './atom-hydrator.js';
 
@@ -65,7 +66,7 @@ export class AtomRepository {
     headHash?: string,
     isGlobal: boolean = false,
   ): Promise<Atom[]> {
-    const resolvedOptions = await this.resolveDateOptions(options);
+    const resolvedOptions = await this.resolveOptions(options);
 
     // 1. Try Cache First (Fast Path)
     const cacheKey = isGlobal ? [GLOBAL_CACHE_KEY] : paths;
@@ -86,7 +87,7 @@ export class AtomRepository {
         regexPatterns.push(discoveryPatterns);
     }
     
-    const filterPatterns = this.protocolRegistry.getSearchPatterns(options.filters || {});
+    const filterPatterns = this.protocolRegistry.getSearchPatterns(resolvedOptions.filters as any);
     regexPatterns.push(...filterPatterns);
 
     // Scope patterns (regex based coarse filtering)
@@ -104,7 +105,8 @@ export class AtomRepository {
         for (const p of this.protocolRegistry.getAll()) {
             const authorizedKey = p.authorize(options.has);
             if (authorizedKey) {
-                const prefix = p.namespace ? `${p.namespace}: ` : '';
+                const ns = p.getStorageNamespace();
+                const prefix = ns ? `${ns}: ` : '';
                 hasPatterns.push(`^${escapeRegex(prefix)}${escapeRegex(authorizedKey)}: `);
             }
         }
@@ -335,11 +337,17 @@ export class AtomRepository {
   }
 
   /**
-   * Resolve string-based dates/refs into Date objects for authoritative filtering.
+   * Resolves raw options (strings, maps) into Engine-native objects (Dates, ASTs).
    */
-  private async resolveDateOptions(options: SearchOptions): Promise<SearchOptions> {
+  private async resolveOptions(options: SearchOptions): Promise<SearchOptions> {
     const resolved = { ...options };
 
+    // 1. Resolve Filters (Phase 2 AST)
+    (resolved as any).filters = Array.isArray(options.filters)
+      ? options.filters
+      : FilterResolver.resolve(options.filters || {}, this.protocolRegistry);
+
+    // 2. Resolve Dates for authoritative pass
     if (options.since && !options.sinceDate) {
       (resolved as any).sinceDate = await this.gitClient.resolveDate(options.since);
     }

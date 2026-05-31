@@ -3,7 +3,7 @@ import { StalenessDetector } from '../../../src/engine/services/staleness-detect
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { STALE_SIGNAL } from '../../../src/engine/util/constants.js';
 import type { Atom } from '../../../src/engine/types/domain.js';
-import { TEST_ENGINE_CONFIG } from '../engine-test-utils.js';
+import { TEST_ENGINE_CONFIG, makeMockProtocol } from '../engine-test-utils.js';
 
 describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
   let registry: ProtocolRegistry;
@@ -29,26 +29,23 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
 
   it('should aggregate staleness signals from multiple protocols for a single atom', async () => {
     // 1. Mock protocol identifies an expired hint
-    const mockProtocol: any = {
+    const mockProtocol = makeMockProtocol({
         name: 'Mock',
-        namespace: '',
         getStaleSignals: vi.fn().mockReturnValue([{ 
             signal: 'expired-hint', 
             description: '[Mock] Hint expired' 
-        }]),
-        setRegistry: vi.fn()
-    };
+        }])
+    });
 
     // 2. Security protocol identifies low confidence
-    const secProtocol: any = {
+    const secProtocol = makeMockProtocol({
         name: 'Sec',
-        namespace: 'sec',
         getStaleSignals: vi.fn().mockReturnValue([{ 
-            signal: 'low-confidence', 
-            description: '[Sec] Vulnerability detected' 
-        }]),
-        setRegistry: vi.fn()
-    };
+            signal: STALE_SIGNAL.DRIFT, 
+            description: '[Sec] Schema drift' 
+        }])
+    });
+
 
     registry.register(mockProtocol);
     registry.register(secProtocol);

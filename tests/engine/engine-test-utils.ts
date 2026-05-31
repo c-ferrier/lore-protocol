@@ -14,6 +14,7 @@ import { InMemoryLogger } from '../../src/engine/services/in-memory-logger.js';
 import { Validator } from '../../src/engine/services/validator.js';
 import { StalenessDetector } from '../../src/engine/services/staleness-detector.js';
 
+import type { IProtocol } from '../../src/engine/interfaces/protocol.js';
 import type { ProtocolDefinition } from '../../src/engine/interfaces/protocol-definition.js';
 import type { EngineConfig, ProtocolConfig, TrailerUiKind, TrailerUiColor } from '../../src/engine/types/config.js';
 import type { RawCommit } from '../../src/engine/interfaces/git-client.js';
@@ -304,16 +305,74 @@ export function makeMockAtomHydrator(overrides: any = {}): any {
   };
 }
 
-/** Factory: Create a PURE MOCK AtomCache (vi.fn() object). */
+/** Factory: Create a strictly compliant CommitInput. */
+export function makeCommitInput(overrides: Partial<CommitInput> = {}): CommitInput {
+    // Convert plain object trailers into the required ReadonlyMap
+    const trailersMap = new Map<string, Trailers>();
+    if (overrides.trailers) {
+        if (overrides.trailers instanceof Map) {
+            for (const [k, v] of overrides.trailers.entries()) {
+                trailersMap.set(k, v);
+            }
+        } else {
+            for (const [k, v] of Object.entries(overrides.trailers as any)) {
+                trailersMap.set(k, v as Trailers);
+            }
+        }
+    }
+
+    return {
+        subject: overrides.subject ?? 'feat: test commit',
+        body: overrides.body,
+        trailers: trailersMap,
+    };
+}
 export function makeMockAtomCache(overrides: any = {}): any {
-  return {
-    get: vi.fn(async () => null),
-    set: vi.fn(async () => {}),
-    clear: vi.fn(async () => {}),
-    ...overrides
-  };
+    return {
+        get: vi.fn(async () => null),
+        set: vi.fn(async () => {}),
+        clear: vi.fn(async () => {}),
+        ...overrides
+    };
 }
 
+/** Factory: Create a PURE MOCK Protocol (vi.fn() object). */
+export function makeMockProtocol(overrides: any = {}): any {
+    const name = overrides.name || 'Mock';
+    const ns = overrides.namespace !== undefined ? overrides.namespace : '';
+    const identityKey = overrides.identityKey || `${name}-id`;
+    
+    const mock = {
+        name,
+        version: '1.0',
+        strict: true,
+        permissive: false,
+        identityKey,
+        getStorageNamespace: vi.fn(() => ns),
+        setRegistry: vi.fn(),
+        getDiscoveryPatterns: vi.fn(() => []),
+        getSearchPatterns: vi.fn(() => []),
+        getIdentityPattern: vi.fn(() => ''),
+        authorize: vi.fn((key: string) => key),
+        getAuthorizedKeys: vi.fn(() => []),
+        getDefinition: vi.fn(() => undefined),
+        isCore: vi.fn(() => false),
+        isValidIdentity: vi.fn(() => true),
+        normalize: vi.fn(() => ({ trailers: {}, unauthorized: {} })),
+        validateState: vi.fn(() => []),
+        validateTrailer: vi.fn(() => ({ valid: true })),
+        matches: vi.fn(() => true),
+        claims: vi.fn(() => false),
+        getIdentity: vi.fn(() => null),
+        getFormattableDefinitions: vi.fn(() => ({})),
+        owns: vi.fn((key: string) => {
+            const lowerKey = key.toLowerCase();
+            return lowerKey === name.toLowerCase() || lowerKey === ns.toLowerCase() || lowerKey === identityKey.toLowerCase();
+        }),
+        ...overrides
+    };
+    return mock;
+}
 /** Factory: Create a PURE MOCK QueryCache (vi.fn() object). */
 export function makeMockQueryCache(overrides: any = {}): any {
   return {

@@ -1,25 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ProtocolInterpreter } from '../../../../src/engine/services/protocol/protocol-interpreter.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
-import type { IProtocol } from '../../../../src/engine/interfaces/protocol.js';
+import { makeMockProtocol } from '../../engine-test-utils.js';
 
 describe('ProtocolInterpreter', () => {
   const parser = new TrailerParser();
-  
-  const createMockProtocol = (overrides: Partial<IProtocol> = {}) => ({
-    name: 'Mock',
-    namespace: '',
-    identityKey: 'Mock-id',
-    permissive: true,
-    owns: vi.fn((key: string) => key === 'Mock-id'),
-    authorize: vi.fn((key: string) => (key === 'Mock-id' ? 'Mock-id' : (overrides.permissive !== false ? key : null))),
-    getDefinition: vi.fn(),
-    isValidIdentity: vi.fn((id: string) => /^[0-9a-f]{8}$/.test(id)),
-    ...overrides
-  } as unknown as IProtocol);
 
   it('should normalize raw trailers into authorized and unauthorized buckets', () => {
-    const protocol = createMockProtocol({ permissive: false });
+    const protocol = makeMockProtocol({ 
+        permissive: false,
+        owns: vi.fn((key: string) => key === 'Mock-id'),
+        authorize: vi.fn((key: string) => key === 'Mock-id' ? 'Mock-id' : null),
+    });
     const interpreter = new ProtocolInterpreter(protocol, parser);
     
     const raw = {
@@ -33,7 +25,7 @@ describe('ProtocolInterpreter', () => {
   });
 
   it('should ingest unknown trailers in permissive mode', () => {
-    const protocol = createMockProtocol({ permissive: true });
+    const protocol = makeMockProtocol({ permissive: true });
     const interpreter = new ProtocolInterpreter(protocol, parser);
     
     const raw = {
@@ -46,7 +38,7 @@ describe('ProtocolInterpreter', () => {
   });
 
   it('should handle namespaced trailers when configured', () => {
-    const protocol = createMockProtocol({ 
+    const protocol = makeMockProtocol({ 
         name: 'Project',
         namespace: 'Project',
         identityKey: 'Id',
@@ -66,7 +58,7 @@ describe('ProtocolInterpreter', () => {
   });
 
   it('should extract identity from protocol state', () => {
-    const protocol = createMockProtocol({ identityKey: 'Lore-id' });
+    const protocol = makeMockProtocol({ identityKey: 'Lore-id' });
     const interpreter = new ProtocolInterpreter(protocol, parser);
 
     const state = {
@@ -79,7 +71,7 @@ describe('ProtocolInterpreter', () => {
   });
 
   it('should handle namespaced trailers with invalid formats by putting them in unauthorized bucket', () => {
-    const protocol = createMockProtocol({ 
+    const protocol = makeMockProtocol({ 
         name: 'Project',
         namespace: 'Project',
         identityKey: 'Id',
@@ -97,7 +89,7 @@ describe('ProtocolInterpreter', () => {
   });
 
   it('should respect claimed keys in permissive mode', () => {
-    const protocol = createMockProtocol({ permissive: true });
+    const protocol = makeMockProtocol({ permissive: true });
     const interpreter = new ProtocolInterpreter(protocol, parser);
     
     const raw = {
@@ -110,7 +102,7 @@ describe('ProtocolInterpreter', () => {
   });
 
   it('should normalize mixed-case trailers to canonical keys', () => {
-    const protocol = createMockProtocol({ 
+    const protocol = makeMockProtocol({ 
         authorize: vi.fn((key: string) => key.toLowerCase() === 'confidence' ? 'Confidence' : null),
         owns: vi.fn((key: string) => key.toLowerCase() === 'confidence')
     });
@@ -127,7 +119,7 @@ describe('ProtocolInterpreter', () => {
 
   describe('getStaleSignals (Declarative Triggers)', () => {
     it('should evaluate "value-equals" condition', () => {
-      const protocol = createMockProtocol({
+      const protocol = makeMockProtocol({
         name: 'Mock',
         getAuthorizedKeys: () => ['Confidence'],
         getDefinition: (key: string) => ({
@@ -148,7 +140,7 @@ describe('ProtocolInterpreter', () => {
     });
 
     it('should evaluate "date-expired" condition', () => {
-      const protocol = createMockProtocol({
+      const protocol = makeMockProtocol({
         name: 'Mock',
         getAuthorizedKeys: () => ['Directive'],
         getDefinition: (key: string) => ({
@@ -169,7 +161,7 @@ describe('ProtocolInterpreter', () => {
     });
 
     it('should evaluate "reference-superseded" condition', () => {
-      const protocol = createMockProtocol({
+      const protocol = makeMockProtocol({
         name: 'Mock',
         identityKey: 'Mock-id',
         getAuthorizedKeys: () => ['Depends-on'],
@@ -195,7 +187,7 @@ describe('ProtocolInterpreter', () => {
     });
 
     it('should NOT evaluate "reference-superseded" if the target is superseded by the atom itself', () => {
-      const protocol = createMockProtocol({
+      const protocol = makeMockProtocol({
         name: 'Mock',
         identityKey: 'Mock-id',
         getAuthorizedKeys: () => ['Supersedes'],

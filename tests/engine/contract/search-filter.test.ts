@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, TEST_ENGINE_CONFIG, makeProtocol } from '../engine-test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, TEST_ENGINE_CONFIG, makeProtocol, makeMockProtocol } from '../engine-test-utils.js';
 import type { Atom } from '../../../src/engine/types/domain.js';
+import { FilterResolver } from '../../../src/engine/services/filter-resolver.js';
 
 describe('SearchFilter', () => {
   let filter: SearchFilter;
@@ -11,7 +12,10 @@ describe('SearchFilter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    const mock = makeProtocol(TEST_PROTOCOL_DEFINITION);
+    const mock = makeProtocol(TEST_PROTOCOL_DEFINITION, {
+        strict: true,
+        permissive: false
+    } as any);
     registry.register(mock);
     filter = new SearchFilter(registry);
   });
@@ -87,7 +91,7 @@ describe('SearchFilter', () => {
 
   it('should filter by confidence', () => {
     const results = filter.filter(mockAtoms, { 
-      filters: { confidence: 'high' } 
+      filters: FilterResolver.resolve({ confidence: 'high' }, registry)
     } as any);
     expect(results).toHaveLength(1);
     expect(results[0].commitHash).toBe('h1');
@@ -117,36 +121,34 @@ describe('SearchFilter', () => {
     });
 
     it('should match if any protocol in the atom matches generic filters', () => {
-      const multiAtom: any = {
-        id: 'id123',
-        subject: 'subject',
-        body: 'body',
-        date: new Date(),
-        protocols: new Map([
-          ['mock', { name: 'Mock', trailers: { Confidence: ['medium'] } }],
-          ['fred', { name: 'Fred', trailers: { 'Fred-Level': ['high'] } }]
-        ])
-      };
-      
-      // Register Fred protocol so filter knows about it
-      const fred: any = {
+      // Register Fred protocol with a UNIQUE key (not shared with Mock)
+      const fred = makeMockProtocol({
         name: 'Fred',
         namespace: 'Fred',
+        owns: (key: string) => key === 'Fred-Internal',
         matches: (state: any, filters: any) => {
-          if (filters['Fred-Level']) return state.trailers['Fred-Level'][0] === filters['Fred-Level'];
+          const filter = filters[0];
+          if (filter && filter.key === 'Fred-Internal') return state.trailers['Fred-Internal'][0] === filter.value;
           return true;
         },
-        authorize: (key: string) => key === 'Fred-Level' ? 'Fred-Level' : null,
-        setRegistry: vi.fn(),
-      } as any;
+        authorize: (key: string) => key === 'Fred-Internal' ? 'Fred-Internal' : null,
+      });
       registry.register(fred);
 
-      // Search by Fred-Level
+      const multiAtom: any = {
+        protocols: new Map([
+          ['mock', { name: 'Mock', trailers: {} }],
+          ['fred', { name: 'Fred', trailers: { 'Fred-Internal': ['secret'] } }]
+        ])
+      };
+
+      // Search by Fred-Internal (unqualified - should work because it's unique)
       const results = filter.filter([multiAtom], { 
-        filters: { 'Fred-Level': 'high' } 
+        filters: FilterResolver.resolve({ 'Fred-Internal': 'secret' }, registry)
       } as any);
-      
+
       expect(results).toHaveLength(1);
     });
+
   });
 });

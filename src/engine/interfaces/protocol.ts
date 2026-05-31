@@ -34,11 +34,13 @@ export interface IProtocol extends
   readonly identityKey: string;
 
   /**
-   * The namespace this protocol operates in.
+   * Returns the physical namespace used for storage in Git commit trailers.
    * Empty string "" indicates the Root namespace (e.g., Mock).
-   * Explicitly namespaced trailers use the format: "Namespace: Key: value".
+   * 
+   * NOTE: This is an implementation detail of the storage layer. 
+   * Core logic should route using the logical Protocol Name.
    */
-  readonly namespace: string;
+  getStorageNamespace(): string;
 
   /**
    * Links this protocol to a registry for cross-protocol resolution.

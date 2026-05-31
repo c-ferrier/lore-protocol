@@ -41,17 +41,17 @@ describe('Protocol Architectural Integrity', () => {
       'ticket-id': ['PROJ-123', 'PROJ-456'],
     } as any;
 
-    const reader = new FlagsInputReader(options, [protocol]);
+    const reader = new FlagsInputReader(options, registry);
     const input = await reader.read();
 
     // 2. Verify Reader mapped it correctly as a top-level property in root namespace
-    const rootInput = input.trailers[''] || {};
-    expect(rootInput['Ticket-ID']).toEqual(['PROJ-123', 'PROJ-456']);
+    const loreInput = input.trailers.get('lore') || {};
+    expect(loreInput['Ticket-ID']).toEqual(['PROJ-123', 'PROJ-456']);
 
     // 3. Simulate Query Result (Core Logic)
     const trailers: Trailers = {
       [LORE_ID_KEY]: ['atom-123'],
-      ...rootInput,
+      ...loreInput,
     };
 
     const atom: Atom = {
@@ -88,18 +88,22 @@ describe('Protocol Architectural Integrity', () => {
 
   it('should handle a hybrid flow of core and custom trailers simultaneously', async () => {
     const protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
+    const registry = new ProtocolRegistry();
+    registry.register(protocol);
+
     const options: CommitCommandOptions = {
       subject: 'feat',
       confidence: 'high',
       trailer: ['Project-Code:LORE-001'],
     };
 
-    const reader = new FlagsInputReader(options, [protocol]);
+    const reader = new FlagsInputReader(options, registry);
     const input = await reader.read();
 
     // Verify both are captured correctly at top level in root namespace
-    const root = input.trailers[''] || {};
-    expect(root.Confidence).toEqual(['high']);
-    expect(root['Project-Code']).toEqual(['LORE-001']);
+    const loreInput = input.trailers.get('lore') || {};
+    expect(loreInput.Confidence).toEqual(['high']);
+    expect(loreInput['Project-Code']).toEqual(['LORE-001']);
+
   });
 });

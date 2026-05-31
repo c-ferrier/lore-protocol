@@ -16,6 +16,8 @@ export interface QueryIdentity {
 }
 
 export interface PathQueryOptions {
+  /** Structured trailer filters (AST) or legacy flat map (to be normalized). */
+  readonly filters?: readonly QualifiedFilter[] | Record<string, any>;
   readonly scope?: string | null;
   readonly follow?: boolean;
   readonly all?: boolean;
@@ -32,12 +34,37 @@ export interface PathQueryOptions {
 }
 
 /**
+ * Supported logical operations for search filters.
+ */
+export type FilterOperator = 
+  | 'eq';   // Equals (default)
+  // | 'ne'   // Not Equals
+  // | 'in'   // Member of set
+  // | 'nin'  // Not a member of set
+  // | 're'   // Regex match
+  // | 'gt'   // Greater than
+  // | 'lt'   // Less than
+  // | 'has'; // Key presence (existence)
+
+/**
+ * A structured filter that can be explicitly routed to a specific protocol.
+ */
+export interface QualifiedFilter {
+  /** The name of the target protocol (e.g. "lore", "project"), or null for "any". */
+  readonly protocol: string | null;
+  /** The trailer key (e.g. "Status", "Priority"). */
+  readonly key: string;
+  /** The logical operation to perform. */
+  readonly op: FilterOperator;
+  /** The comparison value (literal, array of values, or regex string). */
+  readonly value: any;
+}
+
+/**
  * Enhanced options for cross-cutting search queries.
  * Pushes coarse filtering down to the Git layer where possible.
  */
 export interface SearchOptions extends PathQueryOptions {
-  /** Generic trailer filters: key -> value(s) to match */
-  readonly filters?: Record<string, string | string[]>;
   /** Trailer presence filter (any value) */
   readonly has?: string | null;
   /** Full-text search across intent, body, and trailers */

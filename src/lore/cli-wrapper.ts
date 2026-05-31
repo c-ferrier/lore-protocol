@@ -184,8 +184,36 @@ export async function buildLoreCli() {
   const versionOpt = program.options.find(o => o.long === '--version');
   if (versionOpt) (versionOpt as any).description = 'output the version number';
 
-  // Add 0.5.0 missing global no-op
+  // 0.5.0 missing global no-op
   program.option('--no-update-notifier', 'Disable update notification');
+
+  // Dynamic Flag Generation
+  // The Wrapper explicitly surfaces protocol properties as friendly CLI flags.
+  // E.g., a "Project" protocol with a "Status" trailer becomes --project-status.
+  for (const cmd of program.commands) {
+    const name = cmd.name();
+    if (name !== 'commit') continue; // Only apply to commit for 0.5.0 parity
+
+    for (const p of sharedDeps.protocolRegistry.getAll()) {
+      const ns = p.getStorageNamespace();
+      const isRoot = ns === '';
+      const prefix = ns ? `${ns}-` : '';
+      
+      for (const key of p.getAuthorizedKeys()) {
+        if (key === p.identityKey) continue;
+
+        const def = p.getDefinition(key) as TrailerDefinition;
+        if (!def) continue;
+
+        const flagName = def.cli?.flag || key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const fullFlag = isRoot ? flagName : `${prefix.toLowerCase()}${flagName}`;
+        
+        if (!cmd.options.some(o => o.long === `--${fullFlag}`)) {
+          cmd.option(`--${fullFlag} <value...>`, `[${p.name}] ${def.description}`);
+        }
+      }
+    }
+  }
 
   // 1. Dynamic Prefix Stripping & 0.5.0 Trailer Shims
   for (const cmd of program.commands) {
@@ -245,6 +273,34 @@ export async function buildLoreCli() {
           cmd.hook('preAction', (thisCommand) => {
               const opts = thisCommand.opts();
               if (opts.intent) thisCommand.setOptionValue('subject', opts.intent);
+
+              // Map dynamic protocol flags to the generic --trailer array
+              const trailerArray: string[] = opts.trailer || [];
+              for (const p of sharedDeps.protocolRegistry.getAll()) {
+                  const ns = p.getStorageNamespace();
+                  const isRoot = ns === '';
+                  const prefix = ns ? `${ns}-` : '';
+
+                  for (const key of p.getAuthorizedKeys()) {
+                      if (key === p.identityKey) continue;
+                      
+                      const def = p.getDefinition(key) as TrailerDefinition;
+                      if (!def || (isRoot && def.isCore)) continue;
+
+                      const flagName = def.cli?.flag || key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+                      const camelFlagName = (isRoot ? flagName : `${prefix.toLowerCase()}${flagName}`).replace(/-([a-z])/g, g => g[1].toUpperCase());
+
+                      if (opts[camelFlagName]) {
+                          const vals = Array.isArray(opts[camelFlagName]) ? opts[camelFlagName] : [opts[camelFlagName]];
+                          for (const v of vals) {
+                              trailerArray.push(`${key}=${v}`);
+                          }
+                      }
+                  }
+              }
+              if (trailerArray.length > 0) {
+                  thisCommand.setOptionValue('trailer', trailerArray);
+              }
           });
       }
 
@@ -256,6 +312,7 @@ export async function buildLoreCli() {
           hideOpt('--all');
           hideOpt('--author');
           hideOpt('--until');
+          hideOpt('--filter');
       }
       if (name === 'validate') {
           cmd.description('Validate commits for Lore protocol compliance');
@@ -271,6 +328,7 @@ export async function buildLoreCli() {
           hideOpt('--max-commits');
           hideOpt('--since');
           hideOpt('--until');
+          hideOpt('--filter');
       }
       if (name === 'trace') {
           cmd.description('Follow decision chain from a starting atom');
@@ -303,6 +361,7 @@ export async function buildLoreCli() {
           if (untilOpt) (untilOpt as any).description = 'Upper time/revision bound';
 
           hideOpt('--follow');
+          hideOpt('--filter');
 
           // Re-add Lore semantic filters
           cmd.option('--confidence <level>', 'Filter by confidence: low, medium, high');
@@ -311,11 +370,13 @@ export async function buildLoreCli() {
 
           cmd.hook('preAction', (thisCommand) => {
               const opts = thisCommand.opts();
-              const filters: Record<string, string> = opts.filters || {};
-              if (opts.confidence) filters['Confidence'] = opts.confidence;
-              if (opts.scopeRisk) filters['Scope-risk'] = opts.scopeRisk;
-              if (opts.reversibility) filters['Reversibility'] = opts.reversibility;
-              thisCommand.setOptionValue('filters', filters);
+              const filterArray: string[] = opts.filter || [];
+              if (opts.confidence) filterArray.push(`Confidence=${opts.confidence}`);
+              if (opts.scopeRisk) filterArray.push(`Scope-risk=${opts.scopeRisk}`);
+              if (opts.reversibility) filterArray.push(`Reversibility=${opts.reversibility}`);
+              if (filterArray.length > 0) {
+                thisCommand.setOptionValue('filter', filterArray);
+              }
           });
       }
       if (name === 'stale') {
@@ -346,6 +407,7 @@ export async function buildLoreCli() {
       const pathQueryCmds = ['context', 'constraints', 'rejected', 'directives', 'tested', 'coverage'];
       if (pathQueryCmds.includes(name)) {
           hideOpt('--until');
+          hideOpt('--filter');
           const maxCommitsOpt = cmd.options.find(o => o.long === '--max-commits');
           if (maxCommitsOpt) (maxCommitsOpt as any).description = 'Maximum git commits to scan (supersession may be incomplete)';
           

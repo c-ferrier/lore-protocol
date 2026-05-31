@@ -27,7 +27,7 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
     const normalized: Record<string, string[]> = {};
     const unauthorized: Record<string, string[]> = {};
     const lowerClaimed = new Set(Array.from(claimedKeys || []).map(k => k.toLowerCase()));
-    const { namespace } = this.protocol;
+    const namespace = this.protocol.getStorageNamespace();
 
     // Identify if we are being handed a pre-bucketed namespace map
     const isPreBucketed = namespace !== '' && !Object.keys(rawMap).some(k => k.toLowerCase() === namespace.toLowerCase());

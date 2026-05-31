@@ -26,7 +26,7 @@ describe('ProtocolQueryAdapter', () => {
   });
 
   it('should generate search patterns', () => {
-    const filters = { Confidence: 'high' };
+    const filters = [{ protocol: null, key: 'Confidence', op: 'eq' as const, value: 'high' }];
     expect(adapter.getSearchPatterns(filters)).toEqual([['^Confidence: high']]);
   });
 
@@ -36,7 +36,7 @@ describe('ProtocolQueryAdapter', () => {
       namespace: 'Project'
     });
     const nsAdapter = new ProtocolQueryAdapter(nsProtocol);
-    const filters = { Confidence: 'high' };
+    const filters = [{ protocol: null, key: 'Confidence', op: 'eq' as const, value: 'high' }];
     
     expect(nsAdapter.getSearchPatterns(filters)).toEqual([['^Project: Confidence: high']]);
   });
@@ -47,7 +47,7 @@ describe('ProtocolQueryAdapter', () => {
   });
 
   it('should handle multi-value filters', () => {
-    const filters = { Confidence: ['high', 'medium'] };
+    const filters = [{ protocol: null, key: 'Confidence', op: 'eq' as const, value: ['high', 'medium'] }];
     expect(adapter.getSearchPatterns(filters)).toEqual([
       ['^Confidence: high', '^Confidence: medium']
     ]);
@@ -55,11 +55,13 @@ describe('ProtocolQueryAdapter', () => {
 
   it('should handle missing keys in matches logic by returning false if owned', () => {
       const state = { trailers: {}, unauthorized: {} } as any;
-      expect(adapter.matches(state, { Confidence: 'high' })).toBe(false);
+      const filters = [{ protocol: null, key: 'Confidence', op: 'eq' as const, value: 'high' }];
+      expect(adapter.matches(state, filters)).toBe(false);
   });
 
   it('should ignore filters for keys it does not own', () => {
       const state = { trailers: {}, unauthorized: {} } as any;
-      expect(adapter.matches(state, { Unowned: 'value' })).toBe(true);
+      const filters = [{ protocol: null, key: 'Unowned', op: 'eq' as const, value: 'value' }];
+      expect(adapter.matches(state, filters)).toBe(true);
   });
 });

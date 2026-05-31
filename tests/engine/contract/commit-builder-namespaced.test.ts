@@ -2,7 +2,7 @@ import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry
 import { describe, it, expect, vi } from 'vitest';
 import { CommitBuilder } from '../../../src/engine/services/commit-builder.js';
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, TEST_ENGINE_CONFIG, makeProtocol } from '../engine-test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol, makeCommitInput } from '../engine-test-utils.js';
 import type { CommitInput } from '../../../src/engine/types/commit.js';
 
 describe('CommitBuilder Namespacing', () => {
@@ -28,14 +28,14 @@ describe('CommitBuilder Namespacing', () => {
     const builder = new CommitBuilder(mockParser, mockIdGen as any, TEST_ENGINE_CONFIG, registry);
     mockIdGen.generate.mockReturnValueOnce('mock123').mockReturnValueOnce('fred456').mockReturnValueOnce('PROJ-123');
 
-    const input: CommitInput = {
+    const input = makeCommitInput({
       subject: 'feat: add feature',
       trailers: {
-        '': {},
+        'mock': {},
         'fred': { Impact: ['high'] },
         'jira': { Issue: ['PROJ-123'] }
       },
-    };
+    });
 
     const { message } = builder.build(input);
 
@@ -55,12 +55,12 @@ describe('CommitBuilder Namespacing', () => {
 
     const builder = new CommitBuilder(mockParser, mockIdGen as any, TEST_ENGINE_CONFIG, registry);
 
-    const input: CommitInput = {
+    const input = makeCommitInput({
       subject: 'feat: add feature',
       trailers: {
         'fred': { 'Adhoc': ['value'], 'Fred-id': ['a1b2c3d4'] }
       },
-    };
+    });
 
     const issues = builder.validate(input);
     if (issues.length !== 0) console.log('ISSUES (Namespaced):', issues);

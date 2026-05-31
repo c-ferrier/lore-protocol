@@ -1,6 +1,7 @@
 import type { ProtocolConfig, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
 import type { ProtocolState, Atom, SupersessionStatus, StaleReason, Trailers } from '../types/domain.js';
 import type { FormattableTrailerDefinition, ValidationIssue } from '../types/output.js';
+import type { QualifiedFilter } from '../types/query.js';
 import { type IProtocol, type ActiveTrailer } from '../interfaces/protocol.js';
 import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
@@ -60,7 +61,7 @@ export class Protocol implements IProtocol {
     return this.definition.identityKey;
   }
 
-  get namespace(): string {
+  getStorageNamespace(): string {
     return this.definition.namespace;
   }
 
@@ -76,9 +77,10 @@ export class Protocol implements IProtocol {
 
   owns(key: string): boolean {
     const lowerKey = key.toLowerCase();
+    const ns = this.getStorageNamespace();
     // Namespacing check remains in the Facade as it's a high-level ownership rule
-    if (this.namespace !== '') {
-      return lowerKey === this.namespace.toLowerCase();
+    if (ns !== '') {
+      return lowerKey === ns.toLowerCase();
     }
     return this.schema.owns(key) || lowerKey === this.identityKey.toLowerCase();
   }
@@ -172,7 +174,7 @@ export class Protocol implements IProtocol {
     return this.queryAdapter.getDiscoveryPatterns();
   }
 
-  getSearchPatterns(filters: Record<string, string | string[]>): string[][] {
+  getSearchPatterns(filters: readonly QualifiedFilter[]): string[][] {
     return this.queryAdapter.getSearchPatterns(filters);
   }
 
@@ -180,7 +182,7 @@ export class Protocol implements IProtocol {
     return this.queryAdapter.getIdentityPattern(id);
   }
 
-  matches(state: ProtocolState, filters: Record<string, string | string[]>): boolean {
+  matches(state: ProtocolState, filters: readonly QualifiedFilter[]): boolean {
     return this.queryAdapter.matches(state, filters);
   }
 

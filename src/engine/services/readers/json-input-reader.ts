@@ -1,18 +1,16 @@
 import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js';
 import type { CommitInput } from '../../types/commit.js';
 import { ProtocolError } from '../../util/errors.js';
+import type { ProtocolRegistry } from '../protocol-registry.js';
 
 /**
  * Reads commit input by parsing a JSON string.
- *
- * Used for both file-based and stdin-based input -- the caller is responsible
- * for fetching the raw content; this class only handles parsing.
- *
- * GRASP: Information Expert -- owns all knowledge of JSON-to-CommitInput mapping.
- * SOLID: SRP -- single responsibility of parsing JSON into CommitInput.
  */
 export class JsonInputReader implements ICommitInputReader {
-  constructor(private readonly json: string) {}
+  constructor(
+    private readonly json: string,
+    private readonly registry: ProtocolRegistry
+  ) {}
 
   async read(): Promise<CommitInput> {
     if (!this.json || !this.json.trim()) {
@@ -21,42 +19,58 @@ export class JsonInputReader implements ICommitInputReader {
 
     try {
       const data = JSON.parse(this.json);
-      const trailers: Record<string, Record<string, string[]>> = { '': {} };
+      const trailersMap = new Map<string, Record<string, string[]>>();
       const input: CommitInput = {
         subject: typeof data.intent === 'string' ? data.intent : (typeof data.subject === 'string' ? data.subject : ''),
         body: typeof data.body === 'string' ? data.body : undefined,
-        trailers,
+        trailers: trailersMap as CommitInput['trailers'],
       };
 
       if (data.trailers && typeof data.trailers === 'object' && !Array.isArray(data.trailers)) {
         const rawTrailers = data.trailers as Record<string, unknown>;
 
         for (const [key, val] of Object.entries(rawTrailers)) {
-          // Detect hierarchical JSON: { "Project": { "Team": "..." } }
+          // 1. Detect hierarchical JSON: { "project": { "Status": "active" } }
+          // The top-level key is treated as the Protocol Name.
           if (val && typeof val === 'object' && !Array.isArray(val)) {
-              const nsMap: Record<string, string[]> = {};
+              const protocol = this.registry.get(key);
+              if (!protocol) {
+                  throw new ProtocolError(`Unknown protocol "${key}" in hierarchical JSON input`, 1);
+              }
+              
+              const pName = protocol.name.toLowerCase();
+              const pMap: Record<string, string[]> = trailersMap.get(pName) ?? {};
+              
               for (const [innerKey, innerVal] of Object.entries(val)) {
-                  if (Array.isArray(innerVal)) {
-                      nsMap[innerKey] = innerVal.filter(v => typeof v === 'string') as string[];
-                  } else if (typeof innerVal === 'string') {
-                      nsMap[innerKey] = [innerVal];
+                  const authorizedKey = protocol.authorize(innerKey);
+                  if (!authorizedKey) continue;
+
+                  const values = Array.isArray(innerVal) 
+                    ? innerVal.filter(v => typeof v === 'string') as string[]
+                    : (typeof innerVal === 'string' ? [innerVal] : []);
+                  
+                  if (values.length > 0) {
+                      pMap[authorizedKey] = [...(pMap[authorizedKey] || []), ...values];
                   }
               }
-              if (Object.keys(nsMap).length > 0) {
-                  trailers[key] = nsMap;
+              if (Object.keys(pMap).length > 0) {
+                  trailersMap.set(pName, pMap);
               }
-          } else {
-              // Legacy flat JSON: { "Constraint": "..." } -> route to root namespace
-              if (Array.isArray(val)) {
-                const stringValues = val.filter((v) => typeof v === 'string') as string[];
-                if (stringValues.length > 0) {
-                  trailers[''][key] = stringValues;
-                }
-              } else if (typeof val === 'string') {
-                const trimmed = val.trim();
-                if (trimmed) {
-                  trailers[''][key] = [trimmed];
-                }
+          } 
+          // 2. Flat JSON: { "Status": "..." } -> route via registry.resolveKey
+          else {
+              const values = Array.isArray(val) 
+                ? val.filter((v) => typeof v === 'string') as string[]
+                : (typeof val === 'string' ? [val.trim()] : []);
+              
+              if (values.length > 0) {
+                  const protocol = this.registry.resolveKey(key);
+                  const pName = protocol ? protocol.name.toLowerCase() : ''; // '' for unknown/root orphans
+                  
+                  const pMap = trailersMap.get(pName) ?? {};
+                  const existing = pMap[key] || [];
+                  pMap[key] = [...existing, ...values];
+                  trailersMap.set(pName, pMap);
               }
           }
         }

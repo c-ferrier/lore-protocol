@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { ProtocolError, ConfigurationError } from '../../../src/engine/util/errors.js';
-import { makeProtocol, makeProtocolRegistry, TEST_ID_KEY } from '../engine-test-utils.js';
+import { makeProtocol, makeProtocolRegistry, TEST_ID_KEY, makeMockProtocol } from '../engine-test-utils.js';
 
 describe('ProtocolRegistry', () => {
   let registry: ProtocolRegistry;
@@ -9,18 +9,12 @@ describe('ProtocolRegistry', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    mockProtocol = {
+    mockProtocol = makeMockProtocol({
       name: 'Mock',
-      version: '1.0',
-      namespace: '',
       identityKey: 'Mock-id',
-      setRegistry: vi.fn(),
-      getDiscoveryPatterns: vi.fn().mockReturnValue([]),
-      getSearchPatterns: vi.fn().mockReturnValue([]),
-      authorize: vi.fn(),
       getAuthorizedKeys: vi.fn().mockReturnValue(['Mock-id', 'Confidence']),
       isValidIdentity: vi.fn().mockReturnValue(true),
-    };
+    });
   });
 
   it('should allow registering a protocol', () => {
@@ -64,12 +58,11 @@ describe('ProtocolRegistry', () => {
   });
 
   it('should aggregate claimed keys from all protocols', () => {
-    const fredProtocol = {
+    const fredProtocol = makeMockProtocol({
       name: 'Fred',
       namespace: 'fred',
-      setRegistry: vi.fn(),
       getAuthorizedKeys: vi.fn().mockReturnValue(['Fred-id']),
-    } as any;
+    });
 
     registry.register(mockProtocol);
     registry.register(fredProtocol);

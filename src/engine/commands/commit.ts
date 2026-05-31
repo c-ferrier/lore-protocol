@@ -61,26 +61,6 @@ export function registerCommitCommand(
       return memo;
     }, []);
 
-  // Register flags for all registered protocols
-  for (const p of protocolRegistry.getAll()) {
-    const isRoot = p.namespace === '';
-    const prefix = p.namespace ? `${p.namespace}-` : '';
-    const authorizedKeys = p.getAuthorizedKeys();
-    
-    for (const key of authorizedKeys) {
-      if (key === p.identityKey) continue;
-
-      const def = p.getDefinition(key) as TrailerDefinition;
-      const flagName = def.cli?.flag || slugify(key);
-      
-      const fullFlag = isRoot ? flagName : `${prefix}${flagName}`;
-      
-      if (!cmd.options.some(o => o.long === `--${fullFlag}`)) {
-        cmd.option(`--${fullFlag} <value...>`, `[${p.name}] ${def.description}`);
-      }
-    }
-  }
-
   cmd.action(async (_options: CommitCommandOptions, command: Command) => {
     const { gitClient, getFormatter, commitInputResolver, headIdReader, commitBuilder } = deps;
     const options = mergeOptions<CommitCommandOptions>(command);

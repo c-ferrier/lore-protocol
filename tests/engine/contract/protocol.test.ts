@@ -348,7 +348,7 @@ describe('Protocol Service', () => {
               identityKey: 'Id',
               trailers: { Team: { description: 'T' } }
           });
-          const patterns = nsProtocol.getSearchPatterns({ Team: 'Backend' });
+          const patterns = nsProtocol.getSearchPatterns([{ protocol: null, key: 'Team', op: 'eq' as const, value: 'Backend' }]);
           expect(patterns).toEqual([['^Project: Team: Backend']]);
       });
   });

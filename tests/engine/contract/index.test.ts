@@ -54,7 +54,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     const customProtocol = sharedDeps.protocolRegistry.get('custom');
     expect(customProtocol).toBeDefined();
     expect(customProtocol?.name).toBe('Custom');
-    expect(customProtocol?.namespace).toBe('custom');
+    expect(customProtocol?.getStorageNamespace()).toBe('custom');
     
     // Verify services are wired correctly
     expect(sharedDeps.atomRepository).toBeDefined();

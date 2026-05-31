@@ -1,26 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ProtocolInterpreter } from '../../../../src/engine/services/protocol/protocol-interpreter.js';
 import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
-import type { IProtocol } from '../../../../src/engine/interfaces/protocol.js';
+import { makeMockProtocol } from '../../engine-test-utils.js';
 
 describe('ProtocolInterpreter Normalization Priority Matrix', () => {
   const parser = new TrailerParser();
 
-  const createMockProtocol = (overrides: Partial<IProtocol> = {}) => ({
-    name: 'Mock',
-    namespace: '',
-    permissive: true,
-    identityKey: 'Mock-id',
-    owns: vi.fn((key: string) => key === 'Owned'),
-    authorize: vi.fn((key: string) => key === 'Owned' ? 'Owned' : null),
-    getAuthorizedKeys: vi.fn(() => ['Owned']),
-    getDefinition: vi.fn(),
-    isValidIdentity: vi.fn(() => true),
-    ...overrides
-  } as unknown as IProtocol);
-
   it('Step 1: Explicit Ownership should always win', () => {
-    const protocol = createMockProtocol({ permissive: true });
+    const protocol = makeMockProtocol({ 
+        permissive: true,
+        owns: vi.fn((key: string) => key === 'Owned'),
+        authorize: vi.fn((key: string) => key === 'Owned' ? 'Owned' : null),
+    });
     const interpreter = new ProtocolInterpreter(protocol, parser);
     
     // Even if it looks like a namespace (Step 2) or is reserved (Step 3),
@@ -35,7 +26,7 @@ describe('ProtocolInterpreter Normalization Priority Matrix', () => {
   });
 
   it('Step 2: Namespace Exclusion (Root Protocol ignores qualified trailers)', () => {
-    const protocol = createMockProtocol({ namespace: '', permissive: true });
+    const protocol = makeMockProtocol({ namespace: '', permissive: true });
     const interpreter = new ProtocolInterpreter(protocol, parser);
     
     const raw = {
@@ -49,7 +40,7 @@ describe('ProtocolInterpreter Normalization Priority Matrix', () => {
   });
 
   it('Step 3: Reserved Check (Ignore if another protocol explicitly claimed this key)', () => {
-    const protocol = createMockProtocol({ namespace: '', permissive: true });
+    const protocol = makeMockProtocol({ namespace: '', permissive: true });
     const interpreter = new ProtocolInterpreter(protocol, parser);
     
     const raw = {
@@ -62,7 +53,7 @@ describe('ProtocolInterpreter Normalization Priority Matrix', () => {
   });
 
   it('Step 4: Permissive Ingestion (Capture orphans as valid data)', () => {
-    const protocol = createMockProtocol({ namespace: '', permissive: true });
+    const protocol = makeMockProtocol({ namespace: '', permissive: true });
     const interpreter = new ProtocolInterpreter(protocol, parser);
     
     const raw = {
@@ -75,7 +66,7 @@ describe('ProtocolInterpreter Normalization Priority Matrix', () => {
   });
 
   it('Step 5: Typo Enforcement (Strict mode fallback for root)', () => {
-    const protocol = createMockProtocol({ namespace: '', permissive: false });
+    const protocol = makeMockProtocol({ namespace: '', permissive: false });
     const interpreter = new ProtocolInterpreter(protocol, parser);
     
     const raw = {
@@ -89,7 +80,7 @@ describe('ProtocolInterpreter Normalization Priority Matrix', () => {
 
   it('Step 5: Typo Enforcement (Strict mode fallback for namespaced bucket)', () => {
       // Simulation: We are in a namespaced bucket "Project" (pre-bucketed)
-      const protocol = createMockProtocol({ 
+      const protocol = makeMockProtocol({ 
           name: 'Project',
           namespace: 'Project',
           permissive: false,

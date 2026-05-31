@@ -7,8 +7,7 @@ export interface CommitInput {
   readonly subject: string;
   readonly body?: string;
   /** 
-   * Unified hierarchical trailers grouped by namespace.
-   * Use "" as key for root namespace.
+   * Unified hierarchical trailers grouped by protocol name (lowercase).
    */
   readonly trailers: HierarchicalTrailers;
 }

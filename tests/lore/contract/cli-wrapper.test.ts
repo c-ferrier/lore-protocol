@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 import { buildLoreCli } from '../../../src/lore/cli-wrapper.js';
+import { LoreConfigLoader } from '../../../src/lore/services/lore-config-loader.js';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -58,5 +59,31 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
     // For now, verified via the assembly logic and command existence.
     const { program } = await buildLoreCli();
     expect(program.description()).toBe('CLI tool for the Lore protocol -- structured decision context in git commits');
+  });
+
+  describe('Dynamic Flag Generation', () => {
+    it('should dynamically surface protocol trailers as CLI flags on commit and search', async () => {
+      // Create a legacy config where Lore has custom trailers
+      const localLoader = {
+        load: async () => ({
+           protocol: { version: '1.0' },
+           trailers: {
+              custom: ['Assisted-by', 'Department']
+           }
+        })
+      };
+
+      vi.spyOn(LoreConfigLoader.prototype, 'load').mockImplementation(localLoader.load as any);
+
+      const { program } = await buildLoreCli();
+      
+      const commitCmd = program.commands.find(c => c.name() === 'commit');
+      expect(commitCmd?.options.find(o => o.long === '--assisted-by')).toBeDefined();
+      expect(commitCmd?.options.find(o => o.long === '--department')).toBeDefined();
+
+      const searchCmd = program.commands.find(c => c.name() === 'search');
+      expect(searchCmd?.options.find(o => o.long === '--assisted-by')).toBeUndefined();
+      expect(searchCmd?.options.find(o => o.long === '--department')).toBeUndefined();
+    });
   });
 });

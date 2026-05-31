@@ -9,7 +9,8 @@ import {
     TestLogger, 
     makeMockAtomRepository, 
     makeMockGitClient,
-    makeMockConfigLoader
+    makeMockConfigLoader,
+    makeMockProtocol
 } from '../engine-test-utils.js';
 import type { Atom } from '../../../src/engine/types/domain.js';
 
@@ -52,11 +53,10 @@ describe('Doctor Command', () => {
 
   it('should report broken references for namespaced trailers', async () => {
     // 1. Create a namespaced protocol (Fred)
-    const fred: any = {
+    const fred = makeMockProtocol({
       name: 'Fred',
       identityKey: 'Fred-id',
       namespace: 'Fred',
-      version: '1.0',
       isValidIdentity: (id: string) => /^[0-9a-f]{8}$/.test(id),
       getIdentity: (state: any) => state?.trailers['Fred-id']?.[0] || null,
       getReferenceKeys: () => ['Depends-on'],
@@ -64,8 +64,7 @@ describe('Doctor Command', () => {
       claims: () => false,
       owns: (key: string) => key.toLowerCase().startsWith('fred/'),
       authorize: (key: string) => key,
-      setRegistry: vi.fn()
-    };
+    });
     
     const registry = new ProtocolRegistry();
     registry.register(fred);

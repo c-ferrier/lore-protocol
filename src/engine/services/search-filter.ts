@@ -1,6 +1,7 @@
 import type { Atom } from '../types/domain.js';
 import type { SearchOptions } from '../types/query.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
+import { FilterResolver } from './filter-resolver.js';
 
 /**
  * Applies authoritative application-level filtering to a collection of atoms.
@@ -34,16 +35,12 @@ export class SearchFilter {
     }
 
     // 2. Author filter
-    // Authoritative pass: Git --author matches full "Name <email>"; Mock
-    // atoms only store the email (%ae). This pass ensures consistency.
     if (options.author) {
       const authorLower = options.author.toLowerCase();
       if (!atom.author.toLowerCase().includes(authorLower)) return false;
     }
 
     // 3. Intent/Scope filter
-    // Precise pass: Git --grep might match code snippets in the body.
-    // This pass ensures we only match the actual intent line's scope.
     if (options.scope) {
       const extractedScope = this.extractScope(atom.subject);
       if (!extractedScope) return false;
@@ -63,33 +60,48 @@ export class SearchFilter {
       }
     }
 
-    // 4. Date filters (authoritative pass for non-git sources or edge cases)
+    // 4. Date filters
     if (options.sinceDate && atom.date < options.sinceDate) return false;
     if (options.untilDate && atom.date > options.untilDate) return false;
 
     // 5. Full text search
-    // Semantic pass: Git matches keywords anywhere. This pass precisely
-    // checks context (intent, body, and all protocol trailers).
     if (options.text && !this.atomMatchesText(atom, options.text)) {
       return false;
     }
 
-    // 6. Semantic Filtering (delegated to protocols)
-    const filters = options.filters || {};
-    if (Object.keys(filters).length > 0) {
-      for (const [key, value] of Object.entries(filters)) {
-        let keyMatched = false;
+    // 6. Structured Semantic Filtering (Phase 2 AST)
+    const rawFilters = options.filters || [];
+    const filters = Array.isArray(rawFilters) ? rawFilters : FilterResolver.resolve(rawFilters, this.protocolRegistry);
 
-        // Try protocol-aware matching
-        for (const [name, state] of atom.protocols) {
-          const protocol = this.protocolRegistry.get(name);
-          if (protocol && protocol.matches(state, { [key]: value })) {
-            keyMatched = true;
-            break;
+    if (filters.length > 0) {
+      for (const filter of filters) {
+        let filterMatched = false;
+
+        // A. Explicitly Qualified Filter (e.g. project/status)
+        if (filter.protocol) {
+          const protocolName = filter.protocol.toLowerCase();
+          const state = atom.protocols.get(protocolName);
+          const protocol = this.protocolRegistry.get(protocolName);
+          
+          if (protocol && state && protocol.matches(state, [filter])) {
+            filterMatched = true;
+          }
+        } 
+        // B. Unqualified Filter (e.g. status)
+        else {
+          // Try all protocols that claimed this atom, but only those that own the key
+          for (const [name, state] of atom.protocols) {
+            const protocol = this.protocolRegistry.get(name);
+            if (protocol && protocol.owns(filter.key)) {
+              if (protocol.matches(state, [filter])) {
+                filterMatched = true;
+                break;
+              }
+            }
           }
         }
 
-        if (!keyMatched) return false;
+        if (!filterMatched) return false;
       }
     }
 

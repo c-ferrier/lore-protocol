@@ -35,6 +35,7 @@ export function registerSearchCommand(
     const mergedOptions = mergeOptions<PathQueryCommandOptions & { text?: string; has?: string }>(command);
 
     const searchOptions = {
+      filters: mergedOptions.filter && mergedOptions.filter.length > 0 ? mergedOptions.filter : undefined,
       scope: mergedOptions.scope ?? null,
       follow: mergedOptions.follow ?? false,
       all: mergedOptions.all ?? false,

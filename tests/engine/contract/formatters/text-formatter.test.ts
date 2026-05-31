@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TextFormatter } from '../../../../src/engine/formatters/text-formatter.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol } from '../../engine-test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol, makeMockProtocol } from '../../engine-test-utils.js';
 
 import type { Atom, Trailers, SupersessionStatus } from '../../../../src/engine/types/domain.js';
 import type {
@@ -256,15 +256,14 @@ describe('TextFormatter', () => {
       } as any;
 
       // Register Fred protocol so the formatter can find its metadata
-      const fredProtocol: any = {
+      const fredProtocol = makeMockProtocol({
         name: 'Fred',
         namespace: 'fred',
         identityKey: 'Fred-id',
         getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
         getFormattableDefinitions: () => ({}),
         getAuthorizedKeys: () => ['Status'],
-        setRegistry: vi.fn(),
-      };
+      });
       registry.register(fredProtocol);
 
       const data: FormattableQueryResult = {

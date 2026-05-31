@@ -4,6 +4,7 @@ import type { EngineConfig } from '../types/config.js';
 import type { AtomId, ProtocolState } from '../types/domain.js';
 import type { CommitInput } from '../types/commit.js';
 import type { ValidationIssue } from '../types/output.js';
+import { ProtocolError } from '../util/errors.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 
 /**
@@ -27,12 +28,27 @@ export class CommitBuilder {
     const serializedTrailers: Record<string, string[]> = {};
     const displayOrder: string[] = [];
 
-    const registeredProtocols = this.protocolRegistry.getAll();
+    // 1. Map logically grouped input into physical storage buckets
+    for (const [pName, pTrailers] of input.trailers.entries()) {
+      const protocol = this.protocolRegistry.get(pName);
+      
+      // If pName is "", it might be root orphans for a permissive host
+      if (!protocol && pName === "") {
+          const root = this.protocolRegistry.getRoot();
+          if (root?.permissive) {
+              for (const [key, values] of Object.entries(pTrailers)) {
+                  serializedTrailers[key] = [...values];
+                  displayOrder.push(key);
+              }
+          }
+          continue;
+      }
 
-    // 1. Process each protocol for identity and authorized keys
-    for (const protocol of registeredProtocols) {
-      const pName = protocol.name.toLowerCase();
-      const ns = protocol.namespace;
+      if (!protocol) {
+          throw new ProtocolError(`Unknown protocol "${pName}" in commit input`, 1);
+      }
+
+      const ns = protocol.getStorageNamespace();
       const id = (existingIds && existingIds[pName]) || this.idGenerator.generate(protocol);
 
       protocols[pName] = {
@@ -53,11 +69,9 @@ export class CommitBuilder {
       }
 
       // Collect other authorized keys from input
-      const nsInput = input.trailers[ns] || {};
-      for (const key of protocol.getAuthorizedKeys()) {
+      for (const [key, values] of Object.entries(pTrailers)) {
         if (key === protocol.identityKey) continue;
         
-        const values = nsInput[key];
         if (values && values.length > 0) {
           if (ns) {
             const existing = serializedTrailers[ns] || [];
@@ -74,28 +88,28 @@ export class CommitBuilder {
       }
     }
 
-    // 2. Handle Permissive orphans in all scopes
-    for (const [ns, nsMap] of Object.entries(input.trailers)) {
-        const protocol = this.protocolRegistry.getAll().find(p => p.namespace.toLowerCase() === ns.toLowerCase());
-        if (!protocol?.permissive) continue;
+    // 2. Ensure all registered protocols have an identity, even if they had no input trailers
+    for (const protocol of this.protocolRegistry.getAll()) {
+        const pName = protocol.name.toLowerCase();
+        if (protocols[pName]) continue;
 
-        const authorized = new Set(protocol.getAuthorizedKeys().map(k => k.toLowerCase()));
-        
-        for (const [key, values] of Object.entries(nsMap)) {
-            const lowerKey = key.toLowerCase();
-            if (authorized.has(lowerKey) || lowerKey === protocol.identityKey.toLowerCase()) continue;
-            
-            if (ns) {
-                const existing = serializedTrailers[ns] || [];
-                for (const v of values) {
-                    existing.push(`${key}: ${v}`);
-                }
-                serializedTrailers[ns] = existing;
-                if (!displayOrder.includes(ns)) displayOrder.push(ns);
-            } else {
-                serializedTrailers[key] = [...values];
-                displayOrder.push(key);
-            }
+        const id = (existingIds && existingIds[pName]) || this.idGenerator.generate(protocol);
+        const ns = protocol.getStorageNamespace();
+
+        protocols[pName] = {
+            id,
+            identity_key: protocol.identityKey,
+            version: protocol.version,
+        };
+
+        if (ns) {
+            const existing = serializedTrailers[ns] || [];
+            existing.push(`${protocol.identityKey}: ${id}`);
+            serializedTrailers[ns] = existing;
+            if (!displayOrder.includes(ns)) displayOrder.push(ns);
+        } else {
+            serializedTrailers[protocol.identityKey] = [id];
+            displayOrder.push(protocol.identityKey);
         }
     }
 
@@ -134,30 +148,44 @@ export class CommitBuilder {
     }
 
     // 2. Protocol-Specific State Validation
-    const allProtocols = this.protocolRegistry.getAll();
     const lowerClaimed = new Set(Array.from(this.protocolRegistry.getClaimedKeys()).map(k => k.toLowerCase()));
+    const validatedProtocols = new Set<string>();
 
-    for (const [ns, nsMap] of Object.entries(input.trailers)) {
-        const protocol = allProtocols.find(p => p.namespace.toLowerCase() === ns.toLowerCase());
+    for (const [pName, pTrailers] of input.trailers.entries()) {
+        const protocol = this.protocolRegistry.get(pName);
         
+        // Handle root orphans for permissive host
+        if (!protocol && pName === "") {
+            const root = this.protocolRegistry.getRoot();
+            if (root?.permissive) {
+                validatedProtocols.add(root.name.toLowerCase());
+                const state = root.normalize(pTrailers, lowerClaimed);
+                const bucketIssues = root.validateState(state);
+                issues.push(...bucketIssues);
+            }
+            continue;
+        }
+
         if (!protocol) {
             issues.push({
                 severity: 'warning',
-                rule: 'unrecognized-namespace',
-                field: ns,
-                message: `Namespace "${ns}" is not recognized by any registered protocol`,
+                rule: 'unrecognized-protocol',
+                field: pName,
+                message: `Protocol "${pName}" is not recognized by the engine`,
             });
             continue;
         }
 
+        const ns = protocol.getStorageNamespace();
+        validatedProtocols.add(protocol.name.toLowerCase());
+
         // 1. Normalize: Expert categorizes raw map into domain state (Authorized vs Unauthorized)
-        const state = protocol.normalize(nsMap, lowerClaimed);
+        const state = protocol.normalize(pTrailers, lowerClaimed);
 
         // 2. Validate: Expert reviews the structured state
         const bucketIssues = protocol.validateState(state);
 
         // Post-process: Filter out "missing identity" errors if the protocol provides a generator
-        // (because the builder will generate it automatically in the build() phase).
         const protocolSlug = protocol.name.toLowerCase().replace(/-/g, '');
         const identityRule = `${protocolSlug}-id-present`;
 
@@ -169,7 +197,35 @@ export class CommitBuilder {
             return true;
         });
 
-        // Add prefix to field names for namespaced protocols
+        // Add prefix to field names for namespaced protocols using the physical namespace
+        issues.push(...filteredIssues.map(issue => ({
+            ...issue,
+            field: ns ? `${ns}:${issue.field}` : issue.field
+        })));
+    }
+
+    // 3. Global Integrity: Ensure all registered protocols have their requirements met
+    // (even if they were missing from the input trailers map entirely)
+    for (const protocol of this.protocolRegistry.getAll()) {
+        if (validatedProtocols.has(protocol.name.toLowerCase())) continue;
+
+        // Perform validation on an empty state to catch missing required trailers
+        const emptyState = protocol.normalize({}, lowerClaimed);
+        const bucketIssues = protocol.validateState(emptyState);
+
+        // Filter out identity issues as they are handled during build()
+        const protocolSlug = protocol.name.toLowerCase().replace(/-/g, '');
+        const identityRule = `${protocolSlug}-id-present`;
+
+        const filteredIssues = bucketIssues.filter(issue => {
+            if (issue.rule === identityRule || (issue.rule === 'required-trailer' && issue.field === protocol.identityKey)) {
+                const def = protocol.getDefinition(protocol.identityKey);
+                if (def?.generator && def.generator !== 'none') return false;
+            }
+            return true;
+        });
+
+        const ns = protocol.getStorageNamespace();
         issues.push(...filteredIssues.map(issue => ({
             ...issue,
             field: ns ? `${ns}:${issue.field}` : issue.field
@@ -188,13 +244,18 @@ export class CommitBuilder {
     return issues;
   }
 
-  private hasTrailer(input: CommitInput, key: string, namespace: string): boolean {
-    const nsMap = input.trailers[namespace];
-    if (nsMap && nsMap[key] && nsMap[key].length > 0) return true;
+  private hasTrailer(input: CommitInput, key: string, protocolName: string): Promise<boolean> {
+    const pMap = input.trailers.get(protocolName.toLowerCase());
+    if (pMap && pMap[key] && pMap[key].length > 0) return Promise.resolve(true);
     
-    // Fallback for root-namespace trailers
-    const rootMap = input.trailers[''];
-    return !!(rootMap && rootMap[key] && rootMap[key].length > 0);
+    // Fallback for root-namespace trailers (via the host protocol)
+    const root = this.protocolRegistry.getRoot();
+    if (root) {
+        const rootMap = input.trailers.get(root.name.toLowerCase());
+        if (rootMap && rootMap[key] && rootMap[key].length > 0) return Promise.resolve(true);
+    }
+    
+    return Promise.resolve(false);
   }
 
   private estimateLineCount(input: CommitInput): number {
@@ -204,8 +265,8 @@ export class CommitBuilder {
       count += input.body.split('\n').length;
     }
     
-    for (const nsMap of Object.values(input.trailers)) {
-      for (const values of Object.values(nsMap)) {
+    for (const pMap of input.trailers.values()) {
+      for (const values of Object.values(pMap)) {
         if (values && values.length > 0) {
           count += values.length;
         }
@@ -213,7 +274,7 @@ export class CommitBuilder {
     }
     
     // Add separator space for trailers
-    if (Object.keys(input.trailers).length > 0) count += 2;
+    if (input.trailers.size > 0) count += 2;
 
     return count;
   }

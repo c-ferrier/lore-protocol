@@ -56,7 +56,8 @@ export class SquashMerger {
         version: protocol.version,
       };
 
-      const prefix = protocol.namespace ? `${protocol.namespace}/` : '';
+      const ns = protocol.getStorageNamespace();
+      const prefix = ns ? `${ns}/` : '';
       const identityKey = `${prefix}${protocol.identityKey}`;
       trailerLines.push(`${identityKey}: ${newId}`);
 
