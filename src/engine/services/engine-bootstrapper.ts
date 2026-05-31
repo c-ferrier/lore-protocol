@@ -6,6 +6,7 @@ import { TrailerParser } from './trailer-parser.js';
 import { PathResolver } from './path-resolver.js';
 import { SearchFilter } from './search-filter.js';
 import { AtomRepository } from './atom-repository.js';
+import { AtomHydrator } from './atom-hydrator.js';
 import { AtomCache } from './atom-cache.js';
 import { QueryCache } from './query-cache.js';
 import { IdGenerator } from './id-generator.js';
@@ -146,13 +147,19 @@ export class EngineBootstrapper {
       `engine@${getEngineVersion()};${protocolRegistry.getFingerprint()}`,
     );
 
-    const atomRepository = new AtomRepository(
+    const atomHydrator = new AtomHydrator(
       gitClient,
       trailerParser,
       protocolRegistry,
+      atomCache,
+    );
+
+    const atomRepository = new AtomRepository(
+      gitClient,
+      atomHydrator,
+      protocolRegistry,
       searchFilter,
       pathResolver,
-      atomCache,
       queryCache,
       isScoped,
     );

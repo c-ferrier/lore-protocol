@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { AtomHydrator } from '../../../src/engine/services/atom-hydrator.js';
 import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
@@ -62,13 +63,14 @@ describe('Rebranding Flow Integration', () => {
     };
 
     // 3. Setup Repository
+    const trailerParser = new TrailerParser();
+    const hydrator = new AtomHydrator(mockGit as any, trailerParser, registry, new NullAtomCache());
     const repo = new AtomRepository(
       mockGit as any,
-      new TrailerParser(),
+      hydrator,
       registry,
       new SearchFilter(registry),
       new PathResolver('/mock', '/mock'),
-      new NullAtomCache(),
       new NullQueryCache()
     );
 

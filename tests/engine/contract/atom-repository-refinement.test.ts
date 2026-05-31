@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { AtomHydrator } from '../../../src/engine/services/atom-hydrator.js';
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
@@ -41,7 +42,10 @@ describe('AtomRepository Refinement', () => {
     const pathResolver = new PathResolver('/mock', '/mock');
     const atomCache = new NullAtomCache();
     const queryCache = new NullQueryCache();
-    repo = new AtomRepository(gitClient, trailerParser, protocolRegistry, searchFilter, pathResolver, atomCache, queryCache);
+    const hydrator = new AtomHydrator(gitClient, trailerParser, protocolRegistry, atomCache);
+
+    repo = new AtomRepository(gitClient, hydrator, protocolRegistry, searchFilter, pathResolver, queryCache);
+
   });
 
   describe('stripTrailersFromBody (Internal Refinement)', () => {

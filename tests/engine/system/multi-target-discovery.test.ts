@@ -3,6 +3,7 @@ import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { AtomHydrator } from '../../../src/engine/services/atom-hydrator.js';
 import { GitClient } from '../../../src/engine/services/git-client.js';
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
@@ -55,13 +56,14 @@ describe('Multi-Target Atom Discovery', () => {
     gitClient = new GitClient(testDir);
     const registry = new ProtocolRegistry();
     registry.register(new Protocol(LoreProtocolDefinition));
+    const trailerParser = new TrailerParser();
+    const hydrator = new AtomHydrator(gitClient, trailerParser, registry, new NullAtomCache());
     repo = new AtomRepository(
       gitClient,
-      new TrailerParser(),
+      hydrator,
       registry,
       new SearchFilter(registry),
       new PathResolver(testDir, testDir),
-      new NullAtomCache(),
       new NullQueryCache()
     );
   });

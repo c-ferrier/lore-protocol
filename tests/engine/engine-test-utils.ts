@@ -4,6 +4,7 @@ import { Protocol } from '../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
 import { ProtocolLoader } from '../../src/engine/services/protocol/protocol-loader.js';
 import { AtomRepository } from '../../src/engine/services/atom-repository.js';
+import { AtomHydrator } from '../../src/engine/services/atom-hydrator.js';
 import { SearchFilter } from '../../src/engine/services/search-filter.js';
 import { PathResolver } from '../../src/engine/services/path-resolver.js';
 import { TrailerParser } from '../../src/engine/services/trailer-parser.js';
@@ -187,17 +188,31 @@ export function makeProtocolRegistry(protocols: Protocol[] = []): ProtocolRegist
 // REAL COMPONENT FACTORIES (Real Classes, Mocked Dependencies)
 // -----------------------------------------------------------------------------
 
+/** Factory: Create a REAL functional AtomHydrator with mocked dependencies. */
+export function makeAtomHydrator(options: {
+    gitClient?: any; registry?: ProtocolRegistry; atomCache?: any;
+} = {}): AtomHydrator {
+    const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
+    const gitClient = options.gitClient || makeMockGitClient();
+    return new AtomHydrator(
+        gitClient, new TrailerParser(), registry,
+        options.atomCache || new NullAtomCache()
+    );
+}
+
 /** Factory: Create a REAL functional AtomRepository with mocked dependencies. */
 export function makeAtomRepository(options: {
-    gitClient?: any; registry?: ProtocolRegistry; isScoped?: boolean; pathResolver?: PathResolver; searchFilter?: SearchFilter;
+    gitClient?: any; registry?: ProtocolRegistry; isScoped?: boolean; pathResolver?: PathResolver; searchFilter?: SearchFilter; hydrator?: AtomHydrator;
 } = {}): AtomRepository {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
     const gitClient = options.gitClient || makeMockGitClient();
+    const hydrator = options.hydrator || makeAtomHydrator({ gitClient, registry });
+    
     return new AtomRepository(
-        gitClient, new TrailerParser(), registry,
+        gitClient, hydrator, registry,
         options.searchFilter || new SearchFilter(registry),
         options.pathResolver || new PathResolver('/mock', '/mock'),
-        new NullAtomCache(), new NullQueryCache(),
+        new NullQueryCache(),
         options.isScoped ?? false
     );
 }
@@ -275,6 +290,15 @@ export function makeMockTrailerParser(overrides: any = {}): any {
 export function makeMockIdGenerator(id = 'a1b2c3d4', overrides: any = {}): any {
   return {
     generate: vi.fn(() => id),
+    ...overrides
+  };
+}
+
+/** Factory: Create a PURE MOCK AtomHydrator (vi.fn() object). */
+export function makeMockAtomHydrator(overrides: any = {}): any {
+  return {
+    hydrate: vi.fn(async () => []),
+    extractReferenceIds: vi.fn(() => []),
     ...overrides
   };
 }
