@@ -18,7 +18,7 @@ export class FlagsInputReader implements ICommitInputReader {
     private readonly registry: ProtocolRegistry,
   ) {}
 
-  async read(): Promise<CommitInput> {
+  async read(_options?: any): Promise<CommitInput> {
     const trailersMap = new ProtocolMap<Record<string, string[]>>();
     const protocols = this.registry.getAll();
 

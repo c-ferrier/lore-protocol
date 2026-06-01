@@ -229,8 +229,8 @@ describe('AtomRepository', () => {
 
     it('should handle multiple protocols correctly', async () => {
         const localRegistry = new ProtocolRegistry();
-        localRegistry.register(makeProtocol({ name: 'P1', identityKey: 'P1-id', permissive: false }));
-        localRegistry.register(makeProtocol({ name: 'P2', identityKey: 'P2-id', permissive: false }));
+        localRegistry.register(makeProtocol({ name: 'p1', identityKey: 'P1-id' }, { permissive: false }));
+        localRegistry.register(makeProtocol({ name: 'p2', identityKey: 'P2-id' }, { permissive: false }));
         const localRepo = makeAtomRepository({ gitClient, registry: localRegistry });
 
         const c1 = makeRawCommit({ hash: 'h1', id: 'aaaa1111', trailers: 'P1-id: aaaa1111' });
@@ -338,17 +338,16 @@ describe('AtomRepository', () => {
     it('should hydrate an atom with multiple protocol states if claimed by multiple protocols', async () => {
       const localRegistry = new ProtocolRegistry();
       localRegistry.register(makeProtocol({
-          name: 'P1',
-          identityKey: 'P1-id',
-          permissive: false,
-          trailers: { 'P1-id': { description: 'ID' } }
-      }));
+        name: 'p1',
+        identityKey: 'P1-id',
+        trailers: { 'P1-id': { description: 'ID' } }
+      }, { permissive: false }));
       localRegistry.register(makeProtocol({
-          name: 'P2',
-          identityKey: 'P2-id',
-          permissive: false,
-          trailers: { 'P2-id': { description: 'ID' } }
-      }));
+        name: 'p2',
+        identityKey: 'P2-id',
+        trailers: { 'P2-id': { description: 'ID' } }
+      }, { permissive: false }));
+
 
       const localRepo = makeAtomRepository({ gitClient, registry: localRegistry });
 

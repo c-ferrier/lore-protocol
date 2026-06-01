@@ -33,7 +33,7 @@ describe('CommitInputResolver', () => {
   describe('mode resolution priority', () => {
     it('should dispatch to flags reader when --subject is set', async () => {
       const options = { subject: 'feat: add login' };
-      const result = await resolver.resolve(options);
+      const result = await resolver.read(options);
       expect(result.subject).toBe('feat: add login');
     });
 
@@ -41,7 +41,7 @@ describe('CommitInputResolver', () => {
       const options = { interactive: true, file: 'config.json' };
       vi.mocked(prompt.askText).mockResolvedValue('inter-subject');
       vi.mocked(prompt.askConfirm).mockResolvedValue(false);
-      const result = await resolver.resolve(options);
+      const result = await resolver.read(options);
       expect(result.subject).toBe('inter-subject');
     });
 
@@ -52,7 +52,7 @@ describe('CommitInputResolver', () => {
       });
 
       const options = { subject: 'feat: from flags' };
-      const result = await resolver.resolve(options);
+      const result = await resolver.read(options);
 
       expect(result.subject).toBe('feat: from flags');
       vi.unstubAllGlobals();

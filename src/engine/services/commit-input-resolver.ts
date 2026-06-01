@@ -42,7 +42,7 @@ export interface CommitCommandOptions {
 /**
  * Resolves commit input from the appropriate source based on CLI options.
  */
-export class CommitInputResolver {
+export class CommitInputResolver implements ICommitInputReader {
   constructor(
     private readonly prompt: IPrompt,
     private readonly protocolRegistry: ProtocolRegistry,
@@ -51,10 +51,10 @@ export class CommitInputResolver {
   /**
    * Resolve commit input from the appropriate source based on CLI options.
    */
-  async resolve(options: CommitCommandOptions): Promise<CommitInput> {
+  async read(options: CommitCommandOptions): Promise<CommitInput> {
     const mode = this.resolveMode(options);
     const reader = await this.createReader(mode, options);
-    return reader.read();
+    return reader.read(options);
   }
 
   /**

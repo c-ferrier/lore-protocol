@@ -13,7 +13,7 @@ export class JsonInputReader implements ICommitInputReader {
     private readonly registry: ProtocolRegistry
   ) {}
 
-  async read(): Promise<CommitInput> {
+  async read(_options?: any): Promise<CommitInput> {
     if (!this.json || !this.json.trim()) {
       throw new ProtocolError('Empty JSON input', 1);
     }

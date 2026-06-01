@@ -19,7 +19,8 @@ import {
     makeMockFormatter, 
     makeMockCommitBuilder, 
     makeMockInputResolver, 
-    makeMockHeadIdReader 
+    makeMockHeadIdReader,
+    makeCommitInput
 } from '../engine-test-utils.js';
 
 async function runCommitCommand(args: string[], deps: any): Promise<void> {
@@ -66,7 +67,10 @@ describe('atom commit --amend', () => {
     const headIdReader = makeMockHeadIdReader({ 
         readIds: vi.fn().mockResolvedValue({ mock: 'cafebabe' }) 
     });
-    const deps = createDeps({ headIdReader });
+    const commitInputResolver = makeMockInputResolver({
+        read: vi.fn().mockResolvedValue(makeCommitInput({ subject: 'amend test' }))
+    });
+    const deps = createDeps({ headIdReader, commitInputResolver });
 
     await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
 
@@ -93,7 +97,7 @@ describe('atom commit --amend', () => {
 
     await runCommitCommand(['--amend', '--no-edit'], deps);
 
-    expect(deps.commitInputResolver.resolve).not.toHaveBeenCalled();
+    expect(deps.commitInputResolver.read).not.toHaveBeenCalled();
     expect(deps.commitBuilder.build).not.toHaveBeenCalled();
     expect(deps.commitBuilder.validate).not.toHaveBeenCalled();
     expect(deps.gitClient.commit).toHaveBeenCalledWith(

@@ -30,13 +30,16 @@ import type { IProtocol, ActiveTrailer } from './interfaces/protocol.js';
 import type { IGitClient, RawCommit, CommitResult, BlameLine } from './interfaces/git-client.js';
 import type { IAtomCache } from './interfaces/atom-cache.js';
 import type { IQueryCache } from './interfaces/query-cache.js';
-import type { IOutputFormatter } from './interfaces/output-formatter.js';
+import type { IOutputFormatter, ErrorMessage } from './interfaces/output-formatter.js';
 import type { ProtocolDefinition } from './interfaces/protocol-definition.js';
 import type { EngineConfig, ProtocolConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition } from './types/config.js';
 import type { CommitInput } from './types/commit.js';
 import type { ValidationIssue, FormattableTrailerDefinition } from './types/output.js';
 import type { QualifiedFilter } from './types/query.js';
 import type { QueryIdentity } from './types/query.js';
+import type { IConfigLoader } from './interfaces/config-loader.js';
+import type { IPrompt } from './interfaces/prompt.js';
+import type { ICommitInputReader } from './interfaces/commit-input-reader.js';
 
 /**
  * =============================================================================
@@ -44,6 +47,11 @@ import type { QueryIdentity } from './types/query.js';
  * =============================================================================
  * This file provides standardized factories, stubs, and constants for testing 
  * Atom Engine components and protocol implementations.
+ * =============================================================================
+ * DESIGN PRINCIPLE: "CENTRALIZED BRAIN"
+ * All default logic, working values (like 'head-hash'), and interface-compliant 
+ * behaviors live HERE in framework-agnostic Stubs. 
+ * Framework-specific spies (like Vitest vi.fn()) should only wrap these stubs.
  * =============================================================================
  */
 
@@ -79,9 +87,7 @@ export const TEST_ID_KEY = 'Mock-id';
 /** A clean directory name for engine-level unit testing. */
 export const TEST_ENGINE_DIR = '.test-engine';
 
-/**
- * Helper to ensure a clean engine directory for tests.
- */
+/** Helper to ensure a clean engine directory for tests. */
 export function assertIsolatedEngine(dir: string = TEST_ENGINE_DIR) {
     if (!existsSync(dir)) {
         mkdirSync(dir, { recursive: true });
@@ -90,7 +96,7 @@ export function assertIsolatedEngine(dir: string = TEST_ENGINE_DIR) {
 
 /** A standard, valid engine configuration. */
 export const TEST_ENGINE_CONFIG: EngineConfig = {
-  validation: { maxMessageLines: 50, subjectMaxLength: 72 },
+  validation: { maxMessageLines: 50, subjectMaxLength: 50 }, // Restore authoritative defaults for Validator tests
   stale: { olderThan: '6m', driftThreshold: 20 },
   output: { defaultFormat: 'text' },
   follow: { maxDepth: 3 },
@@ -184,7 +190,7 @@ export function makeProtocolConfig(overrides: Partial<ProtocolConfig> = {}): Pro
   };
 }
 
-/** High-level factory: returns a REAL Protocol instance. */
+/** Helper: returns a REAL Protocol instance. */
 export function makeProtocol(
     defOverrides: Partial<ProtocolDefinition> = {},
     configOverrides: Partial<ProtocolConfig> = {}
@@ -197,29 +203,17 @@ export function makeProtocol(
         }
         if (!trailers[defOverrides.identityKey]) {
             trailers[defOverrides.identityKey] = {
-                required: true, description: 'ID', 
-                multivalue: false,
-                validation: 'none',
+                required: true, description: 'ID', multivalue: false, validation: 'none',
                 ui: { kind: 'identity', color: 'dim' } as any
             };
         }
     }
 
-    const baseDef: ProtocolDefinition = {
-        ...TEST_PROTOCOL_DEFINITION,
-        ...defOverrides,
-        trailers
-    };
-
-    const config = makeProtocolConfig({
-        strict: baseDef.strict, permissive: baseDef.permissive, ...configOverrides
-    });
-
-    const finalized = ProtocolLoader.applyOverrides([baseDef], { [baseDef.name]: config })[0];
+    const finalized = ProtocolLoader.applyOverrides([{ ...TEST_PROTOCOL_DEFINITION, ...defOverrides, trailers }], { [defOverrides.name || 'Mock']: { ...TEST_PROTOCOL_CONFIG, ...configOverrides } })[0];
     return new Protocol(finalized);
 }
 
-/** High-level factory: returns a REAL ProtocolRegistry instance. */
+/** Helper: returns a REAL ProtocolRegistry instance. */
 export function makeProtocolRegistry(protocols: Protocol[] = []): ProtocolRegistry {
     const registry = new ProtocolRegistry();
     for (const p of protocols) registry.register(p);
@@ -233,7 +227,7 @@ export function makeAtomHydrator(options: {
     gitClient?: any; registry?: ProtocolRegistry; atomCache?: any;
 } = {}): AtomHydrator {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
-    const gitClient = options.gitClient || ({} as any);
+    const gitClient = options.gitClient || makeStubGitClient();
     return new AtomHydrator(
         gitClient, new TrailerParser(), registry,
         options.atomCache || new NullAtomCache()
@@ -245,7 +239,7 @@ export function makeAtomRepository(options: {
     gitClient?: any; registry?: ProtocolRegistry; isScoped?: boolean; pathResolver?: PathResolver; searchFilter?: SearchFilter; hydrator?: AtomHydrator;
 } = {}): AtomRepository {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
-    const gitClient = options.gitClient || ({} as any);
+    const gitClient = options.gitClient || makeStubGitClient();
     const hydrator = options.hydrator || makeAtomHydrator({ gitClient, registry });
     
     return new AtomRepository(
@@ -257,28 +251,8 @@ export function makeAtomRepository(options: {
     );
 }
 
-/** Factory: Create a REAL Validator instance with mocked dependencies. */
-export function makeValidator(options: {
-    repository?: any; registry?: ProtocolRegistry; config?: EngineConfig;
-} = {}): Validator {
-    const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
-    const repository = options.repository || ({} as any);
-    const config = options.config || TEST_ENGINE_CONFIG;
-    return new Validator(new TrailerParser(), repository, config, registry);
-}
-
-/** Factory: Create a REAL StalenessDetector instance with mocked dependencies. */
-export function makeStalenessDetector(options: {
-    gitClient?: any; config?: EngineConfig; registry?: ProtocolRegistry;
-} = {}): StalenessDetector {
-    const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
-    const gitClient = options.gitClient || ({} as any);
-    const config = options.config || TEST_ENGINE_CONFIG;
-
-    return new StalenessDetector(gitClient, config, registry);
-}
-
-// --- Pure Mock Stubs (Strictly Typed) ---
+// --- Pure Mock Stubs (THE BRAIN) ---
+// These implement the "Logic and Defaults" for testing, without any framework dependencies.
 
 /** Stub: Create a strictly-typed stubbed GitClient object. */
 export function makeStubGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
@@ -294,7 +268,10 @@ export function makeStubGitClient(overrides: Partial<IGitClient> = {}): IGitClie
         getCommitsByHashes: async () => [],
         countCommitsSince: async () => 0,
         resolveRef: async () => 'head-hash',
-        resolveDate: async () => new Date(),
+        resolveDate: async (d) => {
+            const date = new Date(d);
+            return isNaN(date.getTime()) ? null : date;
+        },
         getHeadMessage: async () => 'message',
         ...overrides
     };
@@ -304,12 +281,13 @@ export function makeStubGitClient(overrides: Partial<IGitClient> = {}): IGitClie
 export function makeStubProtocol(overrides: Partial<IProtocol> = {}): IProtocol {
     const name = (overrides.name || 'Mock').toLowerCase();
     const namespace = overrides.getStorageNamespace?.() || '';
+    const identityKey = overrides.identityKey || `${name}-id`;
     
     return {
         version: '1.0',
         strict: true,
         permissive: false,
-        identityKey: overrides.identityKey || `${name}-id`,
+        identityKey,
         getStorageNamespace: () => namespace,
         setRegistry: () => {},
         getDiscoveryPatterns: () => [],
@@ -335,12 +313,59 @@ export function makeStubProtocol(overrides: Partial<IProtocol> = {}): IProtocol 
         getFormattableDefinitions: () => ({}),
         owns: (key: string) => {
             const lowerKey = key.toLowerCase();
-            return lowerKey === name || (namespace !== '' && lowerKey === namespace.toLowerCase());
+            return lowerKey === name || 
+                   (namespace !== '' && lowerKey === namespace.toLowerCase()) ||
+                   lowerKey === identityKey.toLowerCase();
         },
         getStaleSignals: () => [],
         parse: () => ({ trailers: {}, unauthorized: {} }),
         ...overrides,
         name // Enforce canonical name AFTER overrides
+    };
+}
+
+/** Stub: Create a strictly-typed stubbed ConfigLoader object. */
+export function makeStubConfigLoader<T = any>(overrides: Partial<IConfigLoader<T>> = {}): IConfigLoader<T> {
+    return {
+        loadForPath: async () => TEST_ENGINE_CONFIG as any as T,
+        loadFromFile: async () => TEST_ENGINE_CONFIG as any as T,
+        findConfigPath: async () => null,
+        ...overrides
+    };
+}
+
+/** Stub: Create a strictly-typed stubbed IPrompt object. */
+export function makeStubPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
+    return {
+        askText: async () => '',
+        askConfirm: async () => false,
+        askChoice: async <T extends string>(m: string, choices: readonly T[]) => choices[0],
+        askMultiline: async () => '',
+        close: async () => {},
+        ...overrides
+    };
+}
+
+/** Stub: Create a strictly-typed stubbed IOutputFormatter object. */
+export function makeStubFormatter(overrides: Partial<IOutputFormatter> = {}): IOutputFormatter {
+    return {
+        formatQueryResult: () => 'formatted query result',
+        formatValidationResult: () => 'formatted validation result',
+        formatStalenessResult: () => 'formatted staleness result',
+        formatTraceResult: () => 'formatted trace result',
+        formatDoctorResult: () => 'formatted doctor result',
+        formatSuccess: (m) => m,
+        formatError: (code, messages) => messages[0]?.message || 'error',
+        formatConfig: () => 'formatted config',
+        ...overrides
+    };
+}
+
+/** Stub: Create a strictly-typed stubbed ICommitInputReader object. */
+export function makeStubInputResolver(overrides: Partial<ICommitInputReader> = {}): ICommitInputReader {
+    return {
+        read: async () => ({ subject: 'test', trailers: new ProtocolMap() }),
+        ...overrides
     };
 }
 
@@ -351,16 +376,11 @@ export function makeCommitInput(overrides: Partial<CommitInput> = {}): CommitInp
     const trailersMap = new ProtocolMap<Trailers>();
     if (overrides.trailers) {
         if (overrides.trailers instanceof Map) {
-            for (const [k, v] of overrides.trailers.entries()) {
-                trailersMap.set(k, v);
-            }
+            for (const [k, v] of overrides.trailers.entries()) trailersMap.set(k, v);
         } else {
-            for (const [k, v] of Object.entries(overrides.trailers as any)) {
-                trailersMap.set(k, v as Trailers);
-            }
+            for (const [k, v] of Object.entries(overrides.trailers as any)) trailersMap.set(k, v as Trailers);
         }
     }
-
     return {
         subject: overrides.subject ?? 'feat: test commit',
         body: overrides.body,
@@ -368,28 +388,12 @@ export function makeCommitInput(overrides: Partial<CommitInput> = {}): CommitInp
     };
 }
 
-/** Factory: Create a REAL RawCommit object. */
-export function makeRawCommit(options: { hash?: string; date?: string; author?: string; subject?: string; body?: string; id?: string; trailerExtras?: string; trailers?: string; } = {}): RawCommit {
-  const id = options.id ?? 'a1b2c3d4';
-  const extras = options.trailerExtras ?? '';
-  return {
-    hash: options.hash ?? `hash-${id}`,
-    date: options.date ?? '2025-01-15T10:00:00Z',
-    author: options.author ?? 'dev@example.com',
-    subject: options.subject ?? 'feat: test subject',
-    body: options.body ?? 'Test body.',
-    trailers: options.trailers ?? `${TEST_ID_KEY}: ${id}\n${extras}`.trim(),
-  };
-}
-
 /** Factory: Create a REAL Atom object. */
 export function makeAtom(overrides: Partial<Atom & { trailers: Trailers; id: string }> = {}): Atom {
   const id = overrides.id ?? 'a1b2c3d4';
   const trailers = overrides.trailers || { [TEST_ID_KEY]: [id] };
   const protocols = overrides.protocols ?? new ProtocolMap<ProtocolState>();
-  if (!overrides.protocols) {
-      protocols.set('mock', { trailers, unauthorized: {} });
-  }
+  if (!overrides.protocols) protocols.set('mock', { trailers, unauthorized: {} });
   
   return {
     commitHash: overrides.commitHash ?? 'abc12345',
@@ -407,5 +411,18 @@ export function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
   return {
     [TEST_ID_KEY]: overrides[TEST_ID_KEY] ?? ['a1b2c3d4'],
     ...overrides,
+  };
+}
+
+/** Factory: Create a REAL RawCommit object. */
+export function makeRawCommit(options: { hash?: string; id?: string; trailers?: string; author?: string; date?: string; body?: string; subject?: string; } = {}): RawCommit {
+  const id = options.id ?? 'a1b2c3d4';
+  return {
+    hash: options.hash ?? `hash-${id}`,
+    date: options.date ?? '2025-01-15T10:00:00Z',
+    author: options.author ?? 'dev@example.com',
+    subject: options.subject ?? 'feat: test subject',
+    body: options.body ?? 'Test body.',
+    trailers: options.trailers ?? `${TEST_ID_KEY}: ${id}`.trim(),
   };
 }

@@ -116,7 +116,7 @@ if (!options.amend) {
     throw new ProtocolError('No staged changes to commit. Use `git add` to stage files.', 3);
   }
 }
-const input = await commitInputResolver.resolve(options);
+const input = await commitInputResolver.read(options);
 
 // Validate input before building
 const validationIssues = commitBuilder.validate(input);

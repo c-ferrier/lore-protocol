@@ -27,7 +27,12 @@ import {
     makeAtom,
     makeTrailers,
     makeStubProtocol,
-    makeStubGitClient
+    makeStubGitClient,
+    makeStubConfigLoader,
+    makeStubFormatter,
+    makeStubInputResolver,
+    makeStubPrompt,
+    makeRawCommit
 } from '../../src/engine/testing.js';
 
 // SOURCE EVERYTHING FROM THE TESTING GATEWAY
@@ -38,13 +43,16 @@ export * from '../../src/engine/testing.js';
  * VITEST-SPECIFIC MOCK FACTORIES (THE BRIDGE)
  * =============================================================================
  * These factories rely on the Vitest `vi.fn()` global.
- * DESIGN: They wrap the high-fidelity stubs from the engine's testing gateway
- * in Vitest spy "dashboards" (vi.fn()).
+ * 
+ * DESIGN PRINCIPLE: "LOCAL EYES"
+ * These factories contain ZERO business logic or default values.
+ * They simply wrap the "Brain" (the framework-agnostic stubs from the testing 
+ * gateway) in Vitest spy dashboards (vi.fn()).
  * =============================================================================
  */
 
 // -----------------------------------------------------------------------------
-// PURE MOCK FACTORIES (Returning vi.fn() objects)
+// SPY WRAPPERS (Adding observability to engine stubs)
 // -----------------------------------------------------------------------------
 
 /** Factory: Create a PURE MOCK GitClient (vi.fn() object). */
@@ -90,25 +98,28 @@ export function makeMockQueryCache(overrides: any = {}): any {
 
 /** Factory: Create a PURE MOCK ConfigLoader (vi.fn() object). */
 export function makeMockConfigLoader(overrides: any = {}): any {
+    const stub = makeStubConfigLoader(overrides);
     return {
-        load: vi.fn(async () => TEST_ENGINE_CONFIG),
-        save: vi.fn(async () => {}),
-        findConfigPath: vi.fn(async () => null),
-        ...overrides
+        ...stub,
+        load: vi.fn(stub.load),
+        save: vi.fn(stub.save),
+        findConfigPath: vi.fn(stub.findConfigPath)
     };
 }
 
 /** Factory: Create a PURE MOCK OutputFormatter (vi.fn() object). */
 export function makeMockFormatter(overrides: any = {}): any {
+    const stub = makeStubFormatter(overrides);
     return {
-        formatQueryResult: vi.fn(() => 'formatted query result'),
-        formatValidationResult: vi.fn(() => 'formatted validation result'),
-        formatStalenessResult: vi.fn(() => 'formatted staleness result'),
-        formatTraceResult: vi.fn(() => 'formatted trace result'),
-        formatDoctorResult: vi.fn(() => 'formatted doctor result'),
-        formatSuccess: vi.fn((m) => m),
-        formatError: vi.fn((m) => m),
-        ...overrides
+        ...stub,
+        formatQueryResult: vi.fn(stub.formatQueryResult),
+        formatValidationResult: vi.fn(stub.formatValidationResult),
+        formatStalenessResult: vi.fn(stub.formatStalenessResult),
+        formatTraceResult: vi.fn(stub.formatTraceResult),
+        formatDoctorResult: vi.fn(stub.formatDoctorResult),
+        formatSuccess: vi.fn(stub.formatSuccess),
+        formatError: vi.fn(stub.formatError),
+        formatConfig: vi.fn(stub.formatConfig)
     };
 }
 
@@ -149,13 +160,14 @@ export function makeMockIdGenerator(overrides: any = {}): any {
 
 /** Factory: Create a PURE MOCK Prompt (vi.fn() object). */
 export function makeMockPrompt(overrides: any = {}): any {
+    const stub = makeStubPrompt(overrides);
     return {
-        askText: vi.fn(async () => ''),
-        askConfirm: vi.fn(async () => false),
-        askChoice: vi.fn(async () => ''),
-        askMultiline: vi.fn(async () => ''),
-        close: vi.fn(async () => {}),
-        ...overrides
+        ...stub,
+        askText: vi.fn(stub.askText),
+        askConfirm: vi.fn(stub.askConfirm),
+        askChoice: vi.fn(stub.askChoice),
+        askMultiline: vi.fn(stub.askMultiline),
+        close: vi.fn(stub.close)
     };
 }
 
@@ -188,9 +200,10 @@ export function makeMockCommitBuilder(overrides: any = {}): any {
 
 /** Factory: Create a PURE MOCK CommitInputResolver (vi.fn() object). */
 export function makeMockInputResolver(overrides: any = {}): any {
+    const stub = makeStubInputResolver(overrides);
     return {
-        resolve: vi.fn(async (options) => ({ subject: options?.subject || 'test', trailers: new ProtocolMap() })),
-        ...overrides
+        ...stub,
+        read: vi.fn(stub.read)
     };
 }
 
