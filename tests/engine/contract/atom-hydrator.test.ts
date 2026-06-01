@@ -1,31 +1,31 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AtomHydrator } from '../../../src/engine/services/atom-hydrator.ts';
-import { makeAtomHydrator, makeRawCommit, makeMockGitClient, makeMockAtomCache, makeProtocolRegistry, makeProtocol } from '../engine-test-utils.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { AtomHydrator } from '../../../src/engine/services/atom-hydrator.js';
+import { 
+  makeRawCommit, 
+  makeProtocol, 
+  makeProtocolRegistry,
+  TEST_ID_KEY
+} from '../engine-test-utils.js';
 import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 
-const TEST_ID_KEY = "Mock-id";
-
 describe('AtomHydrator Contract', () => {
-  let gitClient: any;
+  const protocol = makeProtocol();
+  const registry = makeProtocolRegistry([protocol]);
   let hydrator: AtomHydrator;
-  let atomCache: any;
 
   beforeEach(() => {
-    gitClient = makeMockGitClient();
-    atomCache = makeMockAtomCache();
-    hydrator = makeAtomHydrator({
-        gitClient,
-        atomCache
-    });
+    hydrator = new AtomHydrator(registry);
   });
 
   describe('hydrate', () => {
-    const mockCommit: RawCommit = makeRawCommit({ hash: 'abc12345', id: 'a1b2c3d4' });
-
-    it('should hydrate raw commits into Atoms', async () => {
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[mockCommit.hash, ['src/main.ts']]]));
+    it('should hydrate raw commits into Atoms using the built-in file list', () => {
+      const mockCommit: RawCommit = makeRawCommit({ 
+          hash: 'abc12345', 
+          id: 'a1b2c3d4',
+          filesChanged: ['src/main.ts']
+      });
       
-      const result = await hydrator.hydrate([mockCommit]);
+      const result = hydrator.hydrate([mockCommit]);
 
       expect(result).toHaveLength(1);
       const atom = result[0];
@@ -34,100 +34,73 @@ describe('AtomHydrator Contract', () => {
       expect(atom.filesChanged).toEqual(['src/main.ts']);
     });
 
-    it('should use cached files and skip git lookup on cache hit', async () => {
-      const cachedFiles = ['src/auth.ts', 'src/util.ts'];
-      vi.mocked(atomCache.get).mockResolvedValue({ filesChanged: cachedFiles });
-
-      const result = await hydrator.hydrate([mockCommit]);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].filesChanged).toEqual(cachedFiles);
-      expect(atomCache.get).toHaveBeenCalledWith(mockCommit.hash);
-      expect(gitClient.getFilesChanged).not.toHaveBeenCalled();
-    });
-
-    it('should hit git and update cache on cache miss', async () => {
-      const gitFiles = ['src/new.ts'];
-      vi.mocked(atomCache.get).mockResolvedValue(null);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[mockCommit.hash, gitFiles]]));
-
-      const result = await hydrator.hydrate([mockCommit]);
-
-      expect(result).toHaveLength(1);
-      expect(result[0].filesChanged).toEqual(gitFiles);
-      expect(atomCache.get).toHaveBeenCalledWith(mockCommit.hash);
-      expect(gitClient.getFilesChanged).toHaveBeenCalledWith([mockCommit.hash]);
-      expect(atomCache.set).toHaveBeenCalledWith(mockCommit.hash, { filesChanged: gitFiles });
-    });
-
-    it('should handle partial cache hits in a batch', async () => {
-      const cachedFiles = ['src/cached.ts'];
-      const gitFiles = ['src/git.ts'];
-      const commit1 = makeRawCommit({ hash: 'hash1', id: 'id1' });
-      const commit2 = makeRawCommit({ hash: 'hash2', id: 'id2' });
-
-      vi.mocked(atomCache.get).mockImplementation(async (h) => h === 'hash1' ? { filesChanged: cachedFiles } : null);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([['hash2', gitFiles]]));
-
-      const result = await hydrator.hydrate([commit1, commit2]);
-
-      expect(result).toHaveLength(2);
-      expect(result[0].filesChanged).toEqual(cachedFiles);
-      expect(result[1].filesChanged).toEqual(gitFiles);
-      expect(gitClient.getFilesChanged).toHaveBeenCalledWith(['hash2']);
-    });
-
-    it('should call getFilesChanged in batches of 20', async () => {
-      // 25 commits should result in 2 batches (20 + 5)
-      const hashes = Array.from({ length: 25 }, (_, i) => `h${i}`);
-      const commits = hashes.map(h => makeRawCommit({ hash: h, id: `id${h}` }));
+    it('should respect implicit ownership (protocols get what they define, permissive gets orphans)', () => {
+      const p1 = makeProtocol({ 
+        name: 'p1', 
+        identityKey: 'P1-id',
+        trailers: { 'P1-id': { description: 'ID' }, 'Authorized': { description: 'Auth' } } 
+      }, { permissive: false });
       
-      const filesMap = new Map<string, string[]>();
-      hashes.forEach(h => filesMap.set(h, ['file.ts']));
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(filesMap);
+      const p2 = makeProtocol({ 
+        name: 'p2', 
+        permissive: true,
+        identityKey: 'P2-id',
+        trailers: { 'P2-id': { description: 'ID' } }
+      });
 
-      await hydrator.hydrate(commits);
+      const localRegistry = makeProtocolRegistry([p1, p2]);
+      const localHydrator = new AtomHydrator(localRegistry);
 
-      expect(gitClient.getFilesChanged).toHaveBeenCalledTimes(2);
-      expect(vi.mocked(gitClient.getFilesChanged).mock.calls[0][0]).toHaveLength(20);
-      expect(vi.mocked(gitClient.getFilesChanged).mock.calls[1][0]).toHaveLength(5);
+      const raw: RawCommit = makeRawCommit({
+        trailers: 'P1-id: 1\nAuthorized: val\nOrphan: stray\nP2-id: 2',
+        filesChanged: ['src/main.ts']
+      });
+
+      const [atom] = localHydrator.hydrate([raw]);
+      
+      const state1 = atom.protocols.get('p1');
+      const state2 = atom.protocols.get('p2');
+
+      expect(state1?.trailers.Authorized).toEqual(['val']);
+      expect(state2?.trailers.Orphan).toEqual(['stray']); // Orphan went to permissive protocol
     });
 
-    it('should respect implicit ownership (protocols get what they define, permissive gets orphans)', async () => {
-        // Register two protocols: P1 (strict) and P2 (permissive)
-        const localRegistry = makeProtocolRegistry([
-            makeProtocol({ 
-                name: 'Strict', 
-                identityKey: 'S-Key',
-                trailers: { 'S-Key': { description: 'S' } } 
-            }, { strict: true, permissive: false } as any),
-            makeProtocol({ 
-                name: 'Permissive', 
-                identityKey: 'P-Key',
-                trailers: { 'P-Key': { description: 'P' } } 
-            }, { strict: false, permissive: true } as any)
-        ]);
-
-        const localHydrator = makeAtomHydrator({ gitClient, registry: localRegistry });
-
-        const commit = makeRawCommit({ 
-            id: 'aaaa1111', 
-            trailers: 'S-Key: aaaa1111\nP-Key: p-val\nOrphan-Key: o-val' 
+    it('should strip trailers from body when body is exactly the trailer block', () => {
+        const trailers = 'Mock-id: a1b2c3d4\nConfidence: high';
+        const raw = makeRawCommit({
+            subject: 'feat: test',
+            body: trailers,
+            trailers,
+            filesChanged: []
         });
 
-        const [atom] = await localHydrator.hydrate([commit]);
+        const [atom] = hydrator.hydrate([raw]);
+        expect(atom.body).toBe('');
+    });
+  });
 
-        const sState = atom.protocols.get('strict')!;
-        const pState = atom.protocols.get('permissive')!;
+  describe('extractReferenceIds', () => {
+    it('should extract all unique reference identities from a set of atoms', () => {
+      const p = makeProtocol({
+          name: 'mock',
+          trailers: {
+              'Related': { description: 'ref', validation: 'reference' }
+          }
+      });
+      const localRegistry = makeProtocolRegistry([p]);
+      const localHydrator = new AtomHydrator(localRegistry);
 
-        // Strict only gets what it owns (Identity + P-Key is NOT owned by strict)
-        expect(sState.trailers['S-Key']).toEqual(['aaaa1111']);
-        expect(sState.trailers['P-Key']).toBeUndefined();
-        expect(sState.trailers['Orphan-Key']).toBeUndefined();
+      const commits = [
+        makeRawCommit({ hash: 'h1', id: 'a1', trailers: 'Mock-id: a1\nRelated: b1', filesChanged: [] }),
+        makeRawCommit({ hash: 'h2', id: 'a2', trailers: 'Mock-id: a2\nRelated: b1\nRelated: c1', filesChanged: [] })
+      ];
 
-        // Permissive gets its own AND orphans
-        expect(pState.trailers['P-Key']).toEqual(['p-val']);
-        expect(pState.trailers['Orphan-Key']).toEqual(['o-val']);
+      const atoms = localHydrator.hydrate(commits);
+      const refs = localHydrator.extractReferenceIds(atoms);
+
+      expect(refs).toHaveLength(2);
+      expect(refs.map(r => r.id)).toContain('b1');
+      expect(refs.map(r => r.id)).toContain('c1');
     });
   });
 });

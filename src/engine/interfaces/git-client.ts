@@ -5,6 +5,7 @@ export interface RawCommit {
   readonly subject: string;
   readonly body: string;
   readonly trailers: string;
+  readonly filesChanged: readonly string[];
 }
 
 export interface StorageQuery {

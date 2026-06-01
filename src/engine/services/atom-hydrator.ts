@@ -1,10 +1,7 @@
 import { ProtocolMap, type Atom, type ProtocolState } from '../types/domain.js';
-import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
-import type { IAtomCache } from '../interfaces/atom-cache.js';
+import type { RawCommit } from '../interfaces/git-client.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
-import type { TrailerParser } from './trailer-parser.js';
 import type { QueryIdentity } from '../types/query.js';
-import { GIT_FILES_CHANGED_BATCH_SIZE } from '../util/constants.js';
 import { escapeRegex } from '../util/regex.js';
 
 /**
@@ -17,24 +14,17 @@ import { escapeRegex } from '../util/regex.js';
  */
 export class AtomHydrator {
   constructor(
-    private readonly gitClient: IGitClient,
-    private readonly trailerParser: TrailerParser,
     private readonly protocolRegistry: ProtocolRegistry,
-    private readonly atomCache: IAtomCache,
   ) {}
 
   /**
    * Parse an array of RawCommit into Atom[], filtering out non-protocol commits.
    */
-  async hydrate(rawCommits: readonly RawCommit[]): Promise<Atom[]> {
+  hydrate(rawCommits: readonly RawCommit[]): Atom[] {
     const results: Atom[] = [];
-    const hashesToFetchFiles: string[] = [];
-
     const allProtocols = this.protocolRegistry.getAll();
     const hasProtocols = allProtocols.length > 0;
-
-    // First pass: Filter and parse protocols
-    const parsedData: Array<{ raw: RawCommit; protocols: ProtocolMap<ProtocolState> }> = [];
+    const claimedKeys = this.protocolRegistry.getClaimedKeys();
 
     for (const raw of rawCommits) {
       const activeProtocols = this.protocolRegistry.detect(raw.trailers);
@@ -45,32 +35,19 @@ export class AtomHydrator {
       const protocolMap = new ProtocolMap<ProtocolState>();
       
       if (hasProtocols) {
-        // Ownership resolution logic:
-        const claimedKeys = this.protocolRegistry.getClaimedKeys();
-
         for (const p of activeProtocols) {
           protocolMap.set(p.name, p.parse(raw.trailers, claimedKeys));
         }
       }
 
-      parsedData.push({ raw, protocols: protocolMap });
-      hashesToFetchFiles.push(raw.hash);
-    }
-
-    // Second pass: Fetch files in parallel batches
-    const fileMap = await this.batchFetchFiles(hashesToFetchFiles);
-
-    // Final pass: Build Atom objects
-    for (const { raw, protocols } of parsedData) {
-      const files = fileMap.get(raw.hash) || [];
       results.push({
         commitHash: raw.hash,
         date: new Date(raw.date),
         author: raw.author,
         subject: raw.subject,
         body: this.stripTrailersFromBody(raw.body, raw.trailers),
-        filesChanged: files,
-        protocols,
+        filesChanged: raw.filesChanged,
+        protocols: protocolMap,
       });
     }
 
@@ -110,40 +87,6 @@ export class AtomHydrator {
     }
 
     return identities;
-  }
-
-  private async batchFetchFiles(hashes: readonly string[]): Promise<Map<string, readonly string[]>> {
-    const result = new Map<string, readonly string[]>();
-    
-    // 1. Parallel Cache Lookup
-    const cacheResults = await Promise.all(hashes.map(h => this.atomCache.get(h)));
-    
-    const missingHashes: string[] = [];
-    for (let i = 0; i < hashes.length; i++) {
-      const hash = hashes[i];
-      const cached = cacheResults[i];
-      if (cached) {
-        result.set(hash, cached.filesChanged);
-      } else {
-        missingHashes.push(hash);
-      }
-    }
-
-    if (missingHashes.length === 0) return result;
-
-    // Process missing hashes in chunks
-    for (let i = 0; i < missingHashes.length; i += GIT_FILES_CHANGED_BATCH_SIZE) {
-      const chunk = missingHashes.slice(i, i + GIT_FILES_CHANGED_BATCH_SIZE);
-      const chunkResults = await this.gitClient.getFilesChanged(chunk);
-      
-      for (const [hash, files] of chunkResults.entries()) {
-        result.set(hash, files);
-        // Background cache update
-        this.atomCache.set(hash, { filesChanged: files }).catch(() => {});
-      }
-    }
-
-    return result;
   }
 
   /**

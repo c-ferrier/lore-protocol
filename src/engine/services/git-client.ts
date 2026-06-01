@@ -24,7 +24,7 @@ const RECORD_SEP = '\x1E';
  * Fields: hash, ISO date, author name + email, subject, body, trailers.
  * Fields separated by Unit Separator (1F), records by Record Separator (1E).
  */
-const LOG_FORMAT = '%H%x1F%aI%x1F%an <%ae>%x1F%s%x1F%b%x1F%(trailers:only,unfold)%x1E';
+const LOG_FORMAT = '%x1E%H%x1F%aI%x1F%an <%ae>%x1F%s%x1F%b%x1F%(trailers:only,unfold)%x1F';
 
 /**
  * Blame porcelain line pattern.
@@ -50,7 +50,7 @@ export class GitClient implements IGitClient {
 
     const baseArgs = hasLFlag
       ? ['log', ...args]
-      : ['log', `--format=${LOG_FORMAT}`, ...args];
+      : ['log', `--format=${LOG_FORMAT}`, '--name-only', '--relative', ...args];
 
     const stdout = await this.exec(baseArgs);
 
@@ -224,6 +224,8 @@ export class GitClient implements IGitClient {
       'show',
       '--no-patch',
       `--format=${LOG_FORMAT}`,
+      '--name-only',
+      '--relative',
       '--stdin',
     ], hashes.join('\n'));
 
@@ -291,22 +293,32 @@ export class GitClient implements IGitClient {
       return [];
     }
 
-    const records = stdout.split(RECORD_SEP).filter(r => r.trim().length > 0);
-    const commits: RawCommit[] = [];
+    const FIELD_SEP = '\x1F';
+    const RECORD_SEP = '\x1E';
 
-    for (const record of records) {
-      const fields = record.split(FIELD_SEP);
-      if (fields.length < 6) {
-        continue;
-      }
+    const commits: RawCommit[] = [];
+    const chunks = stdout.split(RECORD_SEP);
+
+    for (const chunk of chunks) {
+      if (!chunk) continue;
+
+      // Each chunk is: HASH\x1FDATE\x1FAUTHOR\x1FSUBJECT\x1FBODY\x1FTRAILERS\x1F\nFILE1\nFILE2...
+      const parts = chunk.split(FIELD_SEP);
+      if (parts.length < 7) continue; // 6 metadata fields + 1 files part
+
+      const filesChanged = parts[6]
+        .split('\n')
+        .map(f => f.trim())
+        .filter(f => f.length > 0);
 
       commits.push({
-        hash: fields[0].trim(),
-        date: fields[1].trim(),
-        author: fields[2].trim(),
-        subject: fields[3].trim(),
-        body: fields[4].trim(),
-        trailers: fields[5].trim(),
+        hash: parts[0].trim(),
+        date: parts[1].trim(),
+        author: parts[2].trim(),
+        subject: parts[3].trim(),
+        body: parts[4].trim(),
+        trailers: parts[5].trim(),
+        filesChanged
       });
     }
 
@@ -375,7 +387,7 @@ export class GitClient implements IGitClient {
         }
       }
 
-      commits.push({ hash, date, author, subject, body, trailers });
+      commits.push({ hash, date, author, subject, body, trailers, filesChanged: [] });
     }
 
     return commits;

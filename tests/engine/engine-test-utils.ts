@@ -32,7 +32,16 @@ import {
     makeStubFormatter,
     makeStubInputResolver,
     makeStubPrompt,
-    makeRawCommit
+    makeStubProtocolRegistry,
+    makeStubAtomHydrator,
+    makeStubAtomRepository,
+    makeStubSupersessionResolver,
+    makeStubHeadIdReader,
+    makeStubCommitBuilder,
+    makeStubValidator,
+    makeStubStalenessDetector,
+    makeRawCommit,
+    makeProtocolConfig
 } from '../../src/engine/testing.js';
 
 // SOURCE EVERYTHING FROM THE TESTING GATEWAY
@@ -76,6 +85,25 @@ export function makeMockGitClient(overrides: any = {}): any {
     };
 }
 
+/** Factory: Create a PURE MOCK ProtocolRegistry (vi.fn() object). */
+export function makeMockProtocolRegistry(overrides: any = {}): any {
+    const stub = makeStubProtocolRegistry();
+    return {
+        ...stub,
+        get: vi.fn(stub.get),
+        getAll: vi.fn(stub.getAll),
+        detect: vi.fn(stub.detect),
+        getClaimedKeys: vi.fn(stub.getClaimedKeys),
+        getDiscoveryPatterns: vi.fn(stub.getDiscoveryPatterns),
+        getSearchPatterns: vi.fn(stub.getSearchPatterns),
+        getIdentity: vi.fn(stub.getIdentity),
+        resolveIdentity: vi.fn(stub.resolveIdentity),
+        getFingerprint: vi.fn(stub.getFingerprint),
+        register: vi.fn(stub.register),
+        ...overrides
+    };
+}
+
 /** Factory: Create a PURE MOCK AtomCache (vi.fn() object). */
 export function makeMockAtomCache(overrides: any = {}): any {
     return {
@@ -101,8 +129,8 @@ export function makeMockConfigLoader(overrides: any = {}): any {
     const stub = makeStubConfigLoader(overrides);
     return {
         ...stub,
-        load: vi.fn(stub.load),
-        save: vi.fn(stub.save),
+        loadForPath: vi.fn(stub.loadForPath),
+        loadFromFile: vi.fn(stub.loadFromFile),
         findConfigPath: vi.fn(stub.findConfigPath)
     };
 }
@@ -125,16 +153,18 @@ export function makeMockFormatter(overrides: any = {}): any {
 
 /** Factory: Create a PURE MOCK AtomRepository (vi.fn() object). */
 export function makeMockAtomRepository(overrides: any = {}): any {
+    const stub = makeStubAtomRepository(overrides);
     return {
-        findAll: vi.fn(async () => []),
-        findById: vi.fn(async () => null),
-        findByIds: vi.fn(async () => []),
-        findByRange: vi.fn(async () => []),
-        findHistory: vi.fn(async () => []),
-        extractReferenceIds: vi.fn(() => []),
-        resolveFollowLinks: vi.fn(async (atoms) => atoms),
-        find: vi.fn(async () => []),
-        ...overrides
+        ...stub,
+        find: vi.fn(stub.find),
+        findAll: vi.fn(stub.findAll),
+        findById: vi.fn(stub.findById),
+        findByIds: vi.fn(stub.findByIds),
+        findByRange: vi.fn(stub.findByRange),
+        findByCommitHash: vi.fn(stub.findByCommitHash),
+        findByScope: vi.fn(stub.findByScope),
+        resolveFollowLinks: vi.fn(stub.resolveFollowLinks),
+        extractReferenceIds: vi.fn(stub.extractReferenceIds)
     };
 }
 
@@ -173,28 +203,31 @@ export function makeMockPrompt(overrides: any = {}): any {
 
 /** Factory: Create a PURE MOCK SupersessionResolver (vi.fn() object). */
 export function makeMockSupersessionResolver(overrides: any = {}): any {
+    const stub = makeStubSupersessionResolver(overrides);
     return {
-        resolve: vi.fn(async () => ({ superseded: false, supersededBy: null })),
-        resolveAll: vi.fn(async () => new Map()),
-        ...overrides
+        ...stub,
+        resolve: vi.fn(stub.resolve),
+        resolveAll: vi.fn(stub.resolveAll)
     };
 }
 
 /** Factory: Create a PURE MOCK HeadIdReader (vi.fn() object). */
 export function makeMockHeadIdReader(overrides: any = {}): any {
+    const stub = makeStubHeadIdReader(overrides);
     return {
-        read: vi.fn(async () => null),
-        readIds: vi.fn(async () => ({})),
-        ...overrides
+        ...stub,
+        read: vi.fn(stub.read),
+        readIds: vi.fn(stub.readIds)
     };
 }
 
 /** Factory: Create a PURE MOCK CommitBuilder (vi.fn() object). */
 export function makeMockCommitBuilder(overrides: any = {}): any {
+    const stub = makeStubCommitBuilder(overrides);
     return {
-        build: vi.fn(() => ({ message: 'built', protocols: {} })),
-        validate: vi.fn(() => []),
-        ...overrides
+        ...stub,
+        build: vi.fn(stub.build),
+        validate: vi.fn(stub.validate)
     };
 }
 
@@ -209,26 +242,29 @@ export function makeMockInputResolver(overrides: any = {}): any {
 
 /** Factory: Create a PURE MOCK AtomHydrator (vi.fn() object). */
 export function makeMockAtomHydrator(overrides: any = {}): any {
+    const stub = makeStubAtomHydrator(overrides);
     return {
-        hydrate: vi.fn(async (c) => makeAtom({ commitHash: c.hash })),
-        hydrateAll: vi.fn(async (cs) => cs.map(c => makeAtom({ commitHash: c.hash }))),
-        ...overrides
+        ...stub,
+        hydrate: vi.fn(stub.hydrate),
+        extractReferenceIds: vi.fn(stub.extractReferenceIds)
     };
 }
 
 /** Factory: Create a PURE MOCK StalenessDetector (vi.fn() object). */
 export function makeMockStalenessDetector(overrides: any = {}): any {
+    const stub = makeStubStalenessDetector(overrides);
     return {
-        detect: vi.fn(async () => []),
-        ...overrides
+        ...stub,
+        detect: vi.fn(stub.detect)
     };
 }
 
 /** Factory: Create a PURE MOCK Validator (vi.fn() object). */
 export function makeMockValidator(overrides: any = {}): any {
+    const stub = makeStubValidator(overrides);
     return {
-        validate: vi.fn(() => []),
-        ...overrides
+        ...stub,
+        validate: vi.fn(stub.validate)
     };
 }
 

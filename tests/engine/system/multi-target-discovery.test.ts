@@ -57,7 +57,7 @@ describe('Multi-Target Atom Discovery', () => {
     const registry = new ProtocolRegistry();
     registry.register(new Protocol(LoreProtocolDefinition));
     const trailerParser = new TrailerParser();
-    const hydrator = new AtomHydrator(gitClient, trailerParser, registry, new NullAtomCache());
+    const hydrator = new AtomHydrator(registry);
     repo = new AtomRepository(
       gitClient,
       hydrator,

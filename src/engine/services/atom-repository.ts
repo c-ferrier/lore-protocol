@@ -131,15 +131,15 @@ export class AtomRepository {
     const rawCommits = await this.gitClient.query(storageQuery);
 
     // 3. Fine Extraction & Parsing Pass (Delegated)
-    let atoms = await this.hydrator.hydrate(rawCommits);
+    let atoms = this.hydrator.hydrate(rawCommits);
 
     // 4. Post-filter (Authoritative pass using resolved dates)
     atoms = this.searchFilter.filter(atoms, resolvedOptions);
 
-    // 5. Update Cache (Background)
+    // 5. Update Cache
     if (headHash && resolvedOptions.cache !== false) {
       const hashes = atoms.map(a => a.commitHash);
-      this.queryCache.set(headHash, cacheKey, resolvedOptions, hashes).catch(() => {});
+      await this.queryCache.set(headHash, cacheKey, resolvedOptions, hashes).catch(() => {});
     }
 
     return atoms;
@@ -167,7 +167,7 @@ export class AtomRepository {
       
       // Fetch commits and hydrate
       const rawCommits = await this.gitClient.getCommitsByHashes(commitHashes);
-      let atoms = await this.hydrator.hydrate(rawCommits);
+      let atoms = this.hydrator.hydrate(rawCommits);
 
       // Deduplicate by primary identity
       const seenIds = new Set<string>();
@@ -203,7 +203,7 @@ export class AtomRepository {
         paths: this.getPathScope()
     });
     
-    const atoms = await this.hydrator.hydrate(rawCommits);
+    const atoms = this.hydrator.hydrate(rawCommits);
     
     // Verify exact ID match in any of the candidate protocol states
     for (const atom of atoms) {
@@ -223,9 +223,10 @@ export class AtomRepository {
    */
   async findByCommitHash(hash: string): Promise<Atom | null> {
     const rawCommits = await this.gitClient.log(['-1', hash, ...this.getPathScope()]);
-    const atoms = await this.hydrator.hydrate(rawCommits);
+    const atoms = this.hydrator.hydrate(rawCommits);
     return atoms[0] || null;
   }
+
 
   /**
    * Find atoms by their identity keys.
@@ -254,11 +255,12 @@ export class AtomRepository {
     const rawCommits = await this.gitClient.query({
         regexPatterns: [patterns], // OR-set
         paths: this.getPathScope()
-    });
-    
-    const atoms = await this.hydrator.hydrate(rawCommits);
+        });
 
-    // Verify exact ID matches against the requested identities
+        const atoms = this.hydrator.hydrate(rawCommits);
+
+        // Verify exact ID matches against the requested identities
+
     return atoms.filter(a => {
       for (const { id, protocol: protocolName } of identities) {
         if (protocolName) {
@@ -285,6 +287,7 @@ export class AtomRepository {
     const rawCommits = await this.gitClient.log([range, ...this.getPathScope()]);
     return this.hydrator.hydrate(rawCommits);
   }
+
 
   /**
    * Find atoms for a conventional commit scope.

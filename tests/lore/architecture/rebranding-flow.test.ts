@@ -47,12 +47,13 @@ describe('Lore Wrapper Rebranding Flow', () => {
       subject: 'feat: change',
       body: '',
       trailers: 'Lore-id: aabbccdd\nStatus: active',
+      filesChanged: ['src/main.ts']
     };
     vi.mocked(mockGit.query).mockResolvedValue([rawCommit]);
 
     // 3. Setup Repository
     const trailerParser = new TrailerParser();
-    const hydrator = new AtomHydrator(mockGit as any, trailerParser, registry, new NullAtomCache());
+    const hydrator = new AtomHydrator(registry);
     const repo = new AtomRepository(
       mockGit as any,
       hydrator,

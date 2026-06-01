@@ -37,12 +37,13 @@ describe('AtomRepository Cache Interaction', () => {
     subject: 'feat(auth): add login',
     body: 'Implemented login flow.',
     trailers: `${TEST_ID_KEY}: a1b2c3d4`,
+    filesChanged: ['src/main.ts']
   };
 
   it('should delegate hydration to AtomHydrator', async () => {
     vi.mocked(gitClient.query).mockResolvedValue([mockCommit]);
     const mockAtoms = [{ commitHash: mockCommit.hash } as any];
-    vi.mocked(hydrator.hydrate).mockResolvedValue(mockAtoms);
+    vi.mocked(hydrator.hydrate).mockReturnValue(mockAtoms);
 
     const result = await repo.find();
 

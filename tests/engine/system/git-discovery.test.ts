@@ -66,7 +66,7 @@ describe('AtomRepository Git Integration', () => {
     const pathResolver = new PathResolver(testDir, testDir);
     const atomCache = new NullAtomCache();
     const queryCache = new NullQueryCache();
-    const hydrator = new AtomHydrator(gitClient, trailerParser, protocolRegistry, atomCache);
+    const hydrator = new AtomHydrator(protocolRegistry);
 
     repo = new AtomRepository(
       gitClient,

@@ -148,10 +148,7 @@ export class EngineBootstrapper {
     );
 
     const atomHydrator = new AtomHydrator(
-      gitClient,
-      trailerParser,
       protocolRegistry,
-      atomCache,
     );
 
     const atomRepository = new AtomRepository(

@@ -34,9 +34,8 @@ describe('AtomRepository', () => {
 
   describe('find', () => {
     it('should return atoms for a file target', async () => {
-      const commit = makeRawCommit({ id: 'a1b2c3d4' });
+      const commit = makeRawCommit({ id: 'a1b2c3d4', filesChanged: ['src/auth.ts'] });
       vi.mocked(gitClient.query).mockResolvedValue([commit]);
-      vi.mocked(gitClient.getFilesChanged).mockResolvedValue(new Map([[commit.hash, ['src/auth.ts']]]));
 
       const result = await repo.find({ target: 'src/auth.ts' });
 

@@ -78,7 +78,10 @@ export {
     type Atom,
     type Trailers,
     type HierarchicalTrailers,
-    type ProtocolState
+    type ProtocolState,
+    type SupersessionStatus,
+    type StaleReason,
+    type StaleSignal
 };
 
 /** Key for the standard baseline protocol ID. */
@@ -224,14 +227,10 @@ export function makeProtocolRegistry(protocols: Protocol[] = []): ProtocolRegist
 
 /** Factory: Create a REAL functional AtomHydrator with mocked dependencies. */
 export function makeAtomHydrator(options: {
-    gitClient?: any; registry?: ProtocolRegistry; atomCache?: any;
+    registry?: ProtocolRegistry;
 } = {}): AtomHydrator {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
-    const gitClient = options.gitClient || makeStubGitClient();
-    return new AtomHydrator(
-        gitClient, new TrailerParser(), registry,
-        options.atomCache || new NullAtomCache()
-    );
+    return new AtomHydrator(registry);
 }
 
 /** Factory: Create a REAL functional AtomRepository with mocked dependencies. */
@@ -240,7 +239,7 @@ export function makeAtomRepository(options: {
 } = {}): AtomRepository {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
     const gitClient = options.gitClient || makeStubGitClient();
-    const hydrator = options.hydrator || makeAtomHydrator({ gitClient, registry });
+    const hydrator = options.hydrator || makeAtomHydrator({ registry });
     
     return new AtomRepository(
         gitClient, hydrator, registry,
@@ -369,6 +368,93 @@ export function makeStubInputResolver(overrides: Partial<ICommitInputReader> = {
     };
 }
 
+/** Stub: Create a strictly-typed stubbed SupersessionResolver. */
+export function makeStubSupersessionResolver(overrides: any = {}): any {
+    return {
+        resolve: async () => ({ superseded: false, supersededBy: null }),
+        resolveAll: async () => new Map(),
+        ...overrides
+    };
+}
+
+/** Stub: Create a strictly-typed stubbed HeadIdReader. */
+export function makeStubHeadIdReader(overrides: any = {}): any {
+    return {
+        read: async () => null,
+        readIds: async () => ({}),
+        ...overrides
+    };
+}
+
+/** Stub: Create a strictly-typed stubbed CommitBuilder. */
+export function makeStubCommitBuilder(overrides: any = {}): any {
+    return {
+        build: () => ({ message: 'built', protocols: {} }),
+        validate: () => [],
+        ...overrides
+    };
+}
+
+/** Stub: Create a strictly-typed stubbed Validator. */
+export function makeStubValidator(overrides: any = {}): any {
+    return {
+        validate: () => [],
+        ...overrides
+    };
+}
+
+/** Stub: Create a strictly-typed stubbed StalenessDetector. */
+export function makeStubStalenessDetector(overrides: any = {}): any {
+    return {
+        detect: async () => [],
+        ...overrides
+    };
+}
+
+/** Stub: Create a functional ProtocolRegistry stub. */
+export function makeStubProtocolRegistry(protocols: readonly IProtocol[] = []): any {
+    const map = new ProtocolMap<IProtocol>();
+    for (const p of protocols) map.set(p.name, p);
+    
+    return {
+        get: (name: string) => map.get(name) || null,
+        getAll: () => Array.from(map.values()),
+        detect: (trailers: string) => Array.from(map.values()).filter(p => p.claims(trailers)),
+        getClaimedKeys: () => new Set(Array.from(map.values()).flatMap(p => p.getAuthorizedKeys())),
+        getDiscoveryPatterns: () => Array.from(map.values()).flatMap(p => p.getDiscoveryPatterns()),
+        getSearchPatterns: () => [],
+        getIdentity: () => null,
+        resolveIdentity: (val: string) => ({ protocol: 'mock', id: val }),
+        getFingerprint: () => 'stub-fingerprint',
+        register: (p: IProtocol) => map.set(p.name, p)
+    };
+}
+
+/** Stub: Create a functional AtomHydrator stub. */
+export function makeStubAtomHydrator(overrides: any = {}): any {
+    return {
+        hydrate: (raw: readonly RawCommit[]) => raw.map(c => makeAtom({ commitHash: c.hash, filesChanged: c.filesChanged })),
+        extractReferenceIds: () => [],
+        ...overrides
+    };
+}
+
+/** Stub: Create a functional AtomRepository stub. */
+export function makeStubAtomRepository(overrides: any = {}): any {
+    return {
+        find: async () => [],
+        findAll: async () => [],
+        findById: async () => null,
+        findByIds: async () => [],
+        findByRange: async () => [],
+        findByCommitHash: async () => null,
+        findByScope: async () => [],
+        resolveFollowLinks: async (atoms: any) => atoms,
+        extractReferenceIds: () => [],
+        ...overrides
+    };
+}
+
 // --- Data Object Factories ---
 
 /** Factory: Create a strictly compliant CommitInput. */
@@ -415,7 +501,7 @@ export function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
 }
 
 /** Factory: Create a REAL RawCommit object. */
-export function makeRawCommit(options: { hash?: string; id?: string; trailers?: string; author?: string; date?: string; body?: string; subject?: string; } = {}): RawCommit {
+export function makeRawCommit(options: { hash?: string; id?: string; trailers?: string; author?: string; date?: string; body?: string; subject?: string; filesChanged?: readonly string[]; } = {}): RawCommit {
   const id = options.id ?? 'a1b2c3d4';
   return {
     hash: options.hash ?? `hash-${id}`,
@@ -424,5 +510,6 @@ export function makeRawCommit(options: { hash?: string; id?: string; trailers?: 
     subject: options.subject ?? 'feat: test subject',
     body: options.body ?? 'Test body.',
     trailers: options.trailers ?? `${TEST_ID_KEY}: ${id}`.trim(),
+    filesChanged: options.filesChanged ?? []
   };
 }

@@ -58,13 +58,14 @@ describe('Engine Protocol Rebranding Flow', () => {
       subject: 'feat: fredly change',
       body: '',
       trailers: 'Fred-id: aabbccdd\nStatus: active',
+      filesChanged: ['src/fred.ts']
     };
     vi.mocked(mockGit.query).mockResolvedValue([rawFredCommit]);
     vi.mocked(mockGit.getFilesChanged).mockResolvedValue(new Map([['abc12345', ['src/fred.ts']]]));
 
     // 3. Setup Repository
     const trailerParser = new TrailerParser();
-    const hydrator = new AtomHydrator(mockGit as any, trailerParser, registry, new NullAtomCache());
+    const hydrator = new AtomHydrator(registry);
     const repo = new AtomRepository(
       mockGit as any,
       hydrator,
