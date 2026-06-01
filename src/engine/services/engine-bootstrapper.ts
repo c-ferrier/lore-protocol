@@ -7,13 +7,12 @@ import { PathResolver } from './path-resolver.js';
 import { SearchFilter } from './search-filter.js';
 import { AtomRepository } from './atom-repository.js';
 import { AtomHydrator } from './atom-hydrator.js';
-import { AtomCache } from './atom-cache.js';
 import { QueryCache } from './query-cache.js';
 import { IdGenerator } from './id-generator.js';
 import { SupersessionResolver } from './supersession-resolver.js';
 import { LogLevel } from '../interfaces/logger.js';
 import { TerminalLogger } from './terminal-logger.js';
-import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, ATOM_CACHE_DIR, QUERY_CACHE_DIR, PROTOCOLS_DIR_NAME } from '../util/constants.js';
+import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, QUERY_CACHE_DIR, PROTOCOLS_DIR_NAME } from '../util/constants.js';
 import { StalenessDetector } from './staleness-detector.js';
 import { CommitBuilder } from './commit-builder.js';
 import { SquashMerger } from './squash-merger.js';
@@ -47,7 +46,6 @@ import {
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
 import type { EngineConfig } from '../types/config.js';
-import type { IAtomCache } from '../interfaces/atom-cache.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { ILogger } from '../interfaces/logger.js';
@@ -137,10 +135,6 @@ export class EngineBootstrapper {
     const pathResolver = new PathResolver(cwd, activeRoot);
     const searchFilter = new SearchFilter(protocolRegistry);
     
-    const atomCache: IAtomCache = new AtomCache(
-      join(activeRoot, this.options.engineDirName, CACHE_DIR, ATOM_CACHE_DIR),
-    );
-
     const queryCache: IQueryCache = new QueryCache(
       join(activeRoot, this.options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
       config.cli.queryCachePruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,

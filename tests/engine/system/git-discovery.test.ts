@@ -10,7 +10,6 @@ import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { PathResolver } from '../../../src/engine/services/path-resolver.js';
-import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
@@ -64,7 +63,6 @@ describe('AtomRepository Git Integration', () => {
     protocolRegistry.register(new Protocol(LoreProtocolDefinition));
     const searchFilter = new SearchFilter(protocolRegistry);
     const pathResolver = new PathResolver(testDir, testDir);
-    const atomCache = new NullAtomCache();
     const queryCache = new NullQueryCache();
     const hydrator = new AtomHydrator(protocolRegistry);
 

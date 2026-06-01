@@ -7,7 +7,6 @@ import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
-import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG, makeMockGitClient } from '../engine-test-utils.js';
 import { Validator } from '../../../src/engine/services/validator.js';

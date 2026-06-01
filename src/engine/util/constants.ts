@@ -54,7 +54,6 @@ export const TRAILER_UI_COLORS = [
 
 /** Default cache subdirectories */
 export const CACHE_DIR = 'cache';
-export const ATOM_CACHE_DIR = 'atom';
 export const QUERY_CACHE_DIR = 'query';
 
 /** Sentinel key for global query cache entries (when no paths are provided) */

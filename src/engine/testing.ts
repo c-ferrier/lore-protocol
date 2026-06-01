@@ -10,7 +10,6 @@ import { StalenessDetector } from './services/staleness-detector.js';
 import { SearchFilter } from './services/search-filter.js';
 import { PathResolver } from './services/path-resolver.js';
 import { TrailerParser } from './services/trailer-parser.js';
-import { NullAtomCache } from './services/atom-cache.js';
 import { NullQueryCache } from './services/query-cache.js';
 import { InMemoryLogger } from './services/in-memory-logger.js';
 import { TerminalLogger } from './services/terminal-logger.js';
@@ -28,7 +27,6 @@ import type {
 } from './types/domain.js';
 import type { IProtocol, ActiveTrailer } from './interfaces/protocol.js';
 import type { IGitClient, RawCommit, CommitResult, BlameLine } from './interfaces/git-client.js';
-import type { IAtomCache } from './interfaces/atom-cache.js';
 import type { IQueryCache } from './interfaces/query-cache.js';
 import type { IOutputFormatter, ErrorMessage } from './interfaces/output-formatter.js';
 import type { ProtocolDefinition } from './interfaces/protocol-definition.js';
@@ -67,7 +65,6 @@ export {
     SearchFilter, 
     PathResolver, 
     TrailerParser,
-    NullAtomCache,
     NullQueryCache,
     InMemoryLogger,
     TerminalLogger,

@@ -6,7 +6,6 @@ import {
   PathResolver, 
   TrailerParser, 
   SearchFilter, 
-  NullAtomCache, 
   NullQueryCache,
   TEST_ENGINE_CONFIG, 
   TEST_PROTOCOL_CONFIG, 

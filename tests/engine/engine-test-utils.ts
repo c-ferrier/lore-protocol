@@ -7,7 +7,6 @@ import {
     ProtocolRegistry,
     InMemoryLogger,
     TrailerParser,
-    NullAtomCache,
     NullQueryCache,
     Validator,
     StalenessDetector,
@@ -100,16 +99,6 @@ export function makeMockProtocolRegistry(overrides: any = {}): any {
         resolveIdentity: vi.fn(stub.resolveIdentity),
         getFingerprint: vi.fn(stub.getFingerprint),
         register: vi.fn(stub.register),
-        ...overrides
-    };
-}
-
-/** Factory: Create a PURE MOCK AtomCache (vi.fn() object). */
-export function makeMockAtomCache(overrides: any = {}): any {
-    return {
-        get: vi.fn(async () => null),
-        set: vi.fn(async () => {}),
-        clear: vi.fn(async () => {}),
         ...overrides
     };
 }
