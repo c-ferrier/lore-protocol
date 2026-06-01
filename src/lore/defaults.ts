@@ -1,4 +1,4 @@
-import { DEFAULT_ENGINE_CONFIG } from '../engine/defaults.js';
+import { DEFAULT_ENGINE_CONFIG } from '../engine/index.js';
 
 /** Filesystem paths for Lore protocol configuration */
 export const LORE_CONFIG_DIR = '.lore';

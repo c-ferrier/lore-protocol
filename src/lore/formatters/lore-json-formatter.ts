@@ -1,15 +1,16 @@
-import { JsonFormatter } from '../../engine/formatters/json-formatter.js';
-import type { IOutputFormatter, ErrorMessage } from '../../engine/interfaces/output-formatter.js';
-import type { 
-    FormattableQueryResult, 
-    FormattableValidationResult, 
-    FormattableStalenessResult, 
-    FormattableTraceResult, 
-    FormattableDoctorResult, 
-    FormattableConfigResult 
-} from '../../engine/types/output.js';
-import { snakeCase } from '../../engine/util/string.js';
-import type { ProtocolRegistry } from '../../engine/services/protocol-registry.js';
+import { 
+    JsonFormatter, 
+    type IOutputFormatter, 
+    type ErrorMessage,
+    type ProtocolRegistry,
+    type FormattableQueryResult, 
+    type FormattableValidationResult, 
+    type FormattableStalenessResult, 
+    type FormattableTraceResult, 
+    type FormattableDoctorResult, 
+    type FormattableConfigResult,
+    snakeCase
+} from '../../engine/index.js';
 
 /**
  * Agnostic JSON Formatter specialized for Lore.

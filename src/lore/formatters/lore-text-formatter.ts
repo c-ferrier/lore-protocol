@@ -1,13 +1,13 @@
-import { TextFormatter } from '../../engine/formatters/text-formatter.js';
-import type { ProtocolRegistry } from '../../engine/services/protocol-registry.js';
-import type { 
-    FormattableQueryResult, 
-    FormattableDoctorResult, 
-    FormattableStalenessResult, 
-    FormattableTraceResult,
-    FormattableValidationResult
-} from '../../engine/types/output.js';
-import type { Atom } from '../../engine/types/domain.js';
+import { 
+    TextFormatter, 
+    type ProtocolRegistry, 
+    type Atom,
+    type FormattableQueryResult, 
+    type FormattableDoctorResult, 
+    type FormattableStalenessResult, 
+    type FormattableTraceResult,
+    type FormattableValidationResult
+} from '../../engine/index.js';
 
 /**
  * Lore-specific Text Formatter.

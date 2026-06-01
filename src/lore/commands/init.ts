@@ -1,5 +1,14 @@
 import type { Command } from 'commander';
-import type { IOutputFormatter } from '../../engine/interfaces/output-formatter.js';
+import { 
+    type IOutputFormatter,
+    executeEngineInit,
+    type EngineConfig,
+    ProtocolError,
+    type ILogger,
+    LogLevel,
+    InMemoryLogger
+} from '../../engine/index.js';
+
 import { mkdir, writeFile, access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { 
@@ -7,18 +16,11 @@ import {
     LORE_CONFIG_FILENAME, 
     LORE_CONFIG_TEMPLATE
 } from '../defaults.js';
-import { executeEngineInit } from '../../engine/commands/init.js';
-import type { EngineConfig } from '../../engine/types/config.js';
 import { LoreProtocolDefinition } from '../protocol-definition.js';
 import { stringify as stringifyToml, parse as parseToml } from 'smol-toml';
-import { ProtocolError } from '../../engine/util/errors.js';
-import { type ILogger, LogLevel } from '../../engine/interfaces/logger.js';
-import { InMemoryLogger } from '../../engine/services/in-memory-logger.js';
 
 /**
  * Lore-specific init command.
- * 
- * 1. Delegates core .atom setup to the Engine silently.
  * 2. Writes lore.toml to .atom/protocols/ (Dynamic Discovery).
  * 3. Creates legacy .lore/config.toml (0.5.0 parity) from template.
  * 4. Performs gap detection using a specialized 0.5.0 spec.
