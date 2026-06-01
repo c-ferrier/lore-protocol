@@ -36,10 +36,15 @@ const FINAL_ATOM_VERSION = `${ATOM_VERSION}${buildMetadata}`;
 const FINAL_LORE_VERSION = `${LORE_COMPAT_VERSION}-${LORE_VERSION}${buildMetadata}`;
 
 export default defineConfig({
-  entry: ['src/main.ts', 'src/lore/cli-wrapper.ts'],
+  entry: [
+    'src/main.ts', 
+    'src/lore/cli-wrapper.ts',
+    'src/engine/index.ts',
+    'src/engine/testing.ts'
+  ],
   format: ['esm'],
   target: 'node18',
-  dts: false,
+  dts: true, // Generate .d.ts files for library consumers
   clean: true,
   splitting: false,
   sourcemap: true,
