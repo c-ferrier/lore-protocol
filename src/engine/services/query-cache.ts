@@ -11,6 +11,10 @@ const HEX_HASH = /^[0-9a-f]{7,64}$/i;
  * File-system based cache for Mock query results.
  * Caches lists of commit hashes for specific queries (target + options) at a specific HEAD.
  * Uses file access times (atime) to support LRU pruning.
+ * 
+ * NOTE: This cache is strictly bound to Git architecture. It will silently drop 
+ * reads/writes if the provided `headHash` is not a valid hexadecimal string 
+ * (e.g. during mock testing with 'head-123').
  */
 export class QueryCache implements IQueryCache {
   constructor(
@@ -177,11 +181,13 @@ export class QueryCache implements IQueryCache {
     };
 
     const normalizedOptions = JSON.stringify(normalize(options));
-
-    // 3. Hash the combined string including the protocol identity fingerprint
-    return createHash('sha1')
-      .update(`${normalizedArgs}:${normalizedOptions}:${this.protocolFingerprint}`)
+    const finalString = `${normalizedArgs}:${normalizedOptions}:${this.protocolFingerprint}`;
+    
+    const hash = createHash('sha1')
+      .update(finalString)
       .digest('hex');
+      
+    return hash;
   }
 }
 

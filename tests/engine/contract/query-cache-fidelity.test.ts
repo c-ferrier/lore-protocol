@@ -54,8 +54,8 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  it.skip('should skip DISCOVERY (query) but perform FETCH (getCommitsByHashes) on cache hit', async () => {
-    const headHash = 'head-123';
+  it('should skip DISCOVERY (query) but perform FETCH (getCommitsByHashes) on cache hit', async () => {
+    const headHash = 'a1b2c3d4e5f6'; // Must be valid hex
     const commit = makeRawCommit({ 
       hash: 'abc', 
       id: 'id1', 

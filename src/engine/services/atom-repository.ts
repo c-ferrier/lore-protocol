@@ -136,11 +136,12 @@ export class AtomRepository {
     // 4. Post-filter (Authoritative pass using resolved dates)
     atoms = this.searchFilter.filter(atoms, resolvedOptions);
 
-    // 5. Update Cache
+    // 5. Update Cache (Background)
     if (headHash && resolvedOptions.cache !== false) {
       const hashes = atoms.map(a => a.commitHash);
-      await this.queryCache.set(headHash, cacheKey, resolvedOptions, hashes).catch(() => {});
+      this.queryCache.set(headHash, cacheKey, resolvedOptions, hashes).catch(() => {});
     }
+
 
     return atoms;
   }

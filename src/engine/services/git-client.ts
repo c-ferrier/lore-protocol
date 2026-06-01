@@ -222,7 +222,6 @@ export class GitClient implements IGitClient {
     // Using git show with our custom format and --stdin
     const stdout = await this.exec([
       'show',
-      '--no-patch',
       `--format=${LOG_FORMAT}`,
       '--name-only',
       '--relative',
