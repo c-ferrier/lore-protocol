@@ -1,42 +1,58 @@
 import { 
-    TextFormatter, 
+    type IOutputFormatter,
     type ProtocolRegistry, 
     type Atom,
     type FormattableQueryResult, 
     type FormattableDoctorResult, 
     type FormattableStalenessResult, 
     type FormattableTraceResult,
-    type FormattableValidationResult
+    type FormattableValidationResult,
+    type FormattableConfigResult,
+    type ErrorMessage,
+    createBaseFormatter
 } from '../../engine/index.js';
+import chalk from 'chalk';
 
 /**
  * Lore-specific Text Formatter.
  * 
- * Extends the agnostic engine formatter to provide Lore-specific branding 
- * and success messages, while removing engine-specific prefixes.
+ * Uses Composition over Inheritance: wraps the base engine formatter 
+ * and implements the formal IOutputFormatter interface to provide Lore 
+ * branding and 0.5.0 parity.
  */
-export class LoreTextFormatter extends TextFormatter {
+export class LoreTextFormatter implements IOutputFormatter {
+  private readonly base: IOutputFormatter;
+  private readonly c = chalk;
+
   constructor(
     private readonly registry: ProtocolRegistry,
     options: { color: boolean }
   ) {
-    super(registry, options);
+    this.base = createBaseFormatter('text', registry, options);
   }
 
   /**
    * Lore 0.5.0 Parity: success messages should be "Commit created: <hash>"
    */
-  override formatSuccess(message: string, data?: Record<string, unknown>): string {
+  formatSuccess(message: string, data?: Record<string, unknown>): string {
     if (data?.hash) {
         return this.c.green(`Commit created: ${data.hash}`);
     }
     return this.c.green(message);
   }
 
+  formatError(code: number, messages: readonly ErrorMessage[]): string {
+      return this.base.formatError(code, messages);
+  }
+
+  formatConfig(data: FormattableConfigResult): string {
+      return this.base.formatConfig(data);
+  }
+
   /**
    * Lore 0.5.0 Parity: Remove the [Lore] prefix and hide redundant subject lines.
    */
-  override formatQueryResult(data: FormattableQueryResult): string {
+  formatQueryResult(data: FormattableQueryResult): string {
     const { result, supersessionMap } = data;
     const lines: string[] = [];
 
@@ -122,7 +138,7 @@ export class LoreTextFormatter extends TextFormatter {
     return lines.join('\n').trimEnd();
   }
 
-  protected override formatAtomHeader(atom: Atom, id: string, superseded: boolean): string {
+  private formatAtomHeader(atom: Atom, id: string, superseded: boolean): string {
     const dateStr = atom.date.toISOString().slice(0, 10);
     const authorEmail = atom.author.includes('<') 
         ? atom.author.match(/<([^>]+)>/)?.[1] || atom.author
@@ -137,7 +153,7 @@ export class LoreTextFormatter extends TextFormatter {
     return this.c.bold(fullHeader);
   }
 
-  override formatStalenessResult(data: FormattableStalenessResult): string {
+  formatStalenessResult(data: FormattableStalenessResult): string {
     const lines: string[] = [];
     const loreProtocol = this.registry.get('lore');
 
@@ -170,7 +186,7 @@ export class LoreTextFormatter extends TextFormatter {
     return lines.join('\n').trimEnd();
   }
 
-  override formatTraceResult(data: FormattableTraceResult): string {
+  formatTraceResult(data: FormattableTraceResult): string {
     const lines: string[] = [];
     
     const renderNode = (node: Atom, depth: number, prefix: string = '') => {
@@ -206,7 +222,7 @@ export class LoreTextFormatter extends TextFormatter {
     return lines.join('\n');
   }
 
-  override formatValidationResult(data: FormattableValidationResult): string {
+  formatValidationResult(data: FormattableValidationResult): string {
     const lines: string[] = [];
 
     for (const commitResult of data.results) {
@@ -269,7 +285,7 @@ export class LoreTextFormatter extends TextFormatter {
     return lines.join('\n');
   }
 
-  override formatDoctorResult(data: FormattableDoctorResult): string {
+  formatDoctorResult(data: FormattableDoctorResult): string {
     const lines: string[] = [];
     const checks = data.checks.filter(c => c.name !== 'Git Repository' && c.name !== 'Local Cache' && c.name !== 'Decision Atoms');
 

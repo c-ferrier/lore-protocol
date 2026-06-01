@@ -29,9 +29,16 @@ export * from './commands/helpers/path-query.js';
 export { mergeOptions } from './commands/helpers/merge-options.js';
 export { executeEngineInit } from './commands/init.js';
 
-// --- Base Formatters (For Extension) ---
-export { TextFormatter } from './formatters/text-formatter.js';
-export { JsonFormatter } from './formatters/json-formatter.js';
+// --- Formatter Toolkit (Opaque) ---
+import { TextFormatter } from './formatters/text-formatter.js';
+import { JsonFormatter } from './formatters/json-formatter.js';
+import type { ProtocolRegistry } from './services/protocol-registry.js';
+import type { IOutputFormatter } from './interfaces/output-formatter.js';
+
+/** Factory to get standard engine behaviors without exposing base classes. */
+export function createBaseFormatter(type: 'text' | 'json', registry: ProtocolRegistry, options: { color: boolean } = { color: true }): IOutputFormatter {
+    return type === 'text' ? new TextFormatter(registry, options) : new JsonFormatter(registry);
+}
 
 // --- Utilities & Constants ---
 export { ProtocolError, ConfigurationError } from './util/errors.js';

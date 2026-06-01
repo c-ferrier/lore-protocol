@@ -1,6 +1,5 @@
 import { 
-    JsonFormatter, 
-    type IOutputFormatter, 
+    type IOutputFormatter,
     type ErrorMessage,
     type ProtocolRegistry,
     type FormattableQueryResult, 
@@ -9,30 +8,24 @@ import {
     type FormattableTraceResult, 
     type FormattableDoctorResult, 
     type FormattableConfigResult,
-    snakeCase
+    snakeCase,
+    createBaseFormatter
 } from '../../engine/index.js';
 
 /**
- * Agnostic JSON Formatter specialized for Lore.
- */
-class LoreAgnosticJsonFormatter extends JsonFormatter {
-    protected override getSubjectKey(): string {
-        return 'intent';
-    }
-}
-
-/**
- * Lore CLI 0.5.0 Legacy Formatter.
+ * Lore CLI 0.5.0 Legacy JSON Formatter.
  * 
- * A total reconstruction of the Lore 0.5.0 JSON schema.
+ * Uses Composition over Inheritance: wraps the base engine formatter 
+ * and provides a total reconstruction of the Lore 0.5.0 JSON schema.
+ * 
  * It ignores the generic engine structure entirely and produces a flat, 
- * Lore-exclusive JSON document.
+ * Lore-exclusive JSON document for backward compatibility.
  */
 export class LoreJsonFormatter implements IOutputFormatter {
-  private readonly inner: JsonFormatter;
+  private readonly inner: IOutputFormatter;
 
   constructor(private readonly protocolRegistry: ProtocolRegistry) {
-      this.inner = new LoreAgnosticJsonFormatter(protocolRegistry);
+      this.inner = createBaseFormatter('json', protocolRegistry);
   }
 
   formatQueryResult(data: FormattableQueryResult): string {
@@ -127,9 +120,6 @@ export class LoreJsonFormatter implements IOutputFormatter {
   }
 
   formatTraceResult(data: FormattableTraceResult): string {
-      // Trace result in 0.5.0 followed a similar flat pattern
-      // Skipping full reconstruction for now unless requested, 
-      // but keeping it compatible.
       return this.inner.formatTraceResult(data);
   }
 
