@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerContextCommand } from '../../../../src/lore/commands/context.js';
 import { registerConstraintsCommand } from '../../../../src/lore/commands/constraints.js';
-import * as pathQuery from '../../../../src/engine/commands/helpers/path-query.js';
+import { executePathQuery } from '../../../../src/engine/index.js';
+import * as engineExports from '../../../../src/engine/index.js';
 
 describe('Lore Compatibility Command Registration', () => {
   let program: Command;
@@ -20,7 +21,7 @@ describe('Lore Compatibility Command Registration', () => {
     };
     
     // Spy on the shared helper
-    vi.spyOn(pathQuery, 'executePathQuery').mockResolvedValue(undefined);
+    vi.spyOn(engineExports, 'executePathQuery').mockResolvedValue(undefined);
   });
 
   it('context command should pass all CLI options to the engine', async () => {
@@ -35,7 +36,7 @@ describe('Lore Compatibility Command Registration', () => {
       '--all'
     ], { from: 'user' });
     
-    expect(pathQuery.executePathQuery).toHaveBeenCalledWith(
+    expect(engineExports.executePathQuery).toHaveBeenCalledWith(
       'src/',
       expect.objectContaining({
         limit: 10,
@@ -55,7 +56,7 @@ describe('Lore Compatibility Command Registration', () => {
     
     await cmd.parseAsync(['src/'], { from: 'user' });
     
-    expect(pathQuery.executePathQuery).toHaveBeenCalledWith(
+    expect(engineExports.executePathQuery).toHaveBeenCalledWith(
       'src/',
       expect.any(Object),
       deps,

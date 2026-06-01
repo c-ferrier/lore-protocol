@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { ProtocolRegistry } from '../../../src/engine/index.js';
 import { makeMockProtocol } from '../../engine/engine-test-utils.js';
 
 describe('Lore CLI Wrapper (Compatibility Layer)', () => {

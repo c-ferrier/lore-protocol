@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
+import { Protocol } from '../../../src/engine/index.js';
 import { TEST_PROTOCOL_CONFIG } from '../../engine/engine-test-utils.js';
 
 const LORE_ID_KEY = 'Lore-id';

@@ -11,7 +11,7 @@ export * from './types/output.js';
 export * from './types/commit.js';
 
 // --- Primary Public Interfaces ---
-export type { IGitClient } from './interfaces/git-client.js';
+export type { IGitClient, RawCommit } from './interfaces/git-client.js';
 export type { IProtocol } from './interfaces/protocol.js';
 export type { ProtocolDefinition } from './interfaces/protocol-definition.js';
 export type { ILogger } from './interfaces/logger.js';

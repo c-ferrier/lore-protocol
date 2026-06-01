@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Validator } from '../../../src/engine/services/validator.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { Protocol, ProtocolRegistry, type RawCommit } from '../../../src/engine/index.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG, makeRawCommit, makeMockAtomRepository } from '../../engine/engine-test-utils.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
-import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
+import { 
+  Validator, 
+  TrailerParser, 
+  TEST_ENGINE_CONFIG, 
+  TEST_PROTOCOL_CONFIG, 
+  makeRawCommit, 
+  makeMockAtomRepository 
+} from '../../engine/engine-test-utils.js';
 
 describe('Lore Protocol Validation Contract', () => {
   let validator: Validator;

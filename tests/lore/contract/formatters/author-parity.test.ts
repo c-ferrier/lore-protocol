@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { LoreTextFormatter } from '../../../../src/lore/formatters/lore-text-formatter.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { ProtocolRegistry } from '../../../../src/engine/index.js';
 import { makeAtom } from '../../../engine/engine-test-utils.js';
 
 describe('LoreTextFormatter Author Parity', () => {

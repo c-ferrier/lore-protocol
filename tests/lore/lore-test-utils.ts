@@ -1,14 +1,13 @@
-import { vi } from 'vitest';
 import { 
     makeProtocol, 
     makeProtocolRegistry, 
     makeMockAtomRepository, 
     makeMockSupersessionResolver,
     makeMockFormatter,
-    TEST_ENGINE_CONFIG
+    TEST_ENGINE_CONFIG,
+    ProtocolRegistry
 } from '../engine/engine-test-utils.js';
 import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
-import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
 import { Command } from 'commander';
 
 /**

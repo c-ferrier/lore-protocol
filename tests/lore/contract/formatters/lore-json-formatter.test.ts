@@ -1,11 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { LoreJsonFormatter } from '../../../../src/lore/formatters/lore-json-formatter.js';
-import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { 
+    Protocol, 
+    ProtocolRegistry, 
+    type FormattableQueryResult, 
+    type Atom, 
+    type Trailers 
+} from '../../../../src/engine/index.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 import { TEST_PROTOCOL_CONFIG } from '../../../engine/engine-test-utils.js';
-import type { FormattableQueryResult } from '../../../../src/engine/types/output.js';
-import type { Atom, Trailers } from '../../../../src/engine/types/domain.js';
 
 const LORE_ID_KEY = "Lore-id";
 

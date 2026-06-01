@@ -1,16 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Protocol } from '../../../src/engine/services/protocol.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { AtomHydrator } from '../../../src/engine/services/atom-hydrator.js';
-import { PathResolver } from '../../../src/engine/services/path-resolver.js';
+import { Protocol, ProtocolRegistry, type ProtocolDefinition } from '../../../src/engine/index.js';
+import { 
+  AtomRepository, 
+  AtomHydrator, 
+  PathResolver, 
+  TrailerParser, 
+  SearchFilter, 
+  NullAtomCache, 
+  NullQueryCache,
+  TEST_ENGINE_CONFIG, 
+  TEST_PROTOCOL_CONFIG, 
+  makeMockGitClient 
+} from '../../engine/engine-test-utils.js';
 import { LoreJsonFormatter } from '../../../src/lore/formatters/lore-json-formatter.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
-import { SearchFilter } from '../../../src/engine/services/search-filter.js';
-import { NullAtomCache } from '../../../src/engine/services/atom-cache.js';
-import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG, makeMockGitClient } from '../../engine/engine-test-utils.js';
-import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
 
 /**
  * ARCHITECTURAL TEST: Wrapper Rebranding
