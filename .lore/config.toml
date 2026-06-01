@@ -3,7 +3,7 @@ version = "1.0"
 
 [trailers]
 required = []
-custom = ["Assisted-by", "Co-authored-by"]
+custom = []
 
 [validation]
 strict = false

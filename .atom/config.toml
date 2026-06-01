@@ -1,5 +1,4 @@
 [validation]
-strict = false
 max_message_lines = 50
 subject_max_length = 72
 
@@ -19,13 +18,4 @@ cache = true
 query_cache = true
 query_cache_prune_threshold = 100
 
-[protocol]
-name = "Lore"
-version = "1.0"
-
-[trailers]
-required = []
-custom = []
-permissive = true
-
-[trailers.definitions]
+[protocols]
