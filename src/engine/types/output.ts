@@ -1,4 +1,4 @@
-import type { Atom, SupersessionStatus, StaleSignal } from './domain.js';
+import type { Atom, SupersessionStatus, StaleSignal, StaleReason } from './domain.js';
 import type { QueryResult } from './query.js';
 import type { ValueDefinition, TrailerUiKind, TrailerUiColor } from './config.js';
 
@@ -30,11 +30,6 @@ export interface ValidationIssue {
 
 export interface FormattableStalenessResult {
   readonly atoms: readonly StaleAtomReport[];
-}
-
-export interface StaleReason {
-  readonly signal: StaleSignal;
-  readonly description: string;
 }
 
 export interface StaleAtomReport {

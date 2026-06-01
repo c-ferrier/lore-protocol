@@ -1,26 +1,10 @@
+import { ProtocolMap, type ProtocolName } from '../util/protocol-map.js';
+
+export { ProtocolMap };
+export type { ProtocolName };
+
 /** 8-character hex string identifying a protocol atom. */
 export type AtomId = string;
-
-/** Logical identifier for a protocol (e.g. 'lore', 'project') */
-export type ProtocolName = string;
-
-/**
- * A Map that automatically normalizes ProtocolName keys to lowercase.
- */
-export class ProtocolMap<V> extends Map<ProtocolName, V> {
-  override get(key: ProtocolName): V | undefined {
-    return super.get(key.toLowerCase());
-  }
-  override set(key: ProtocolName, value: V): this {
-    return super.set(key.toLowerCase(), value);
-  }
-  override has(key: ProtocolName): boolean {
-    return super.has(key.toLowerCase());
-  }
-  override delete(key: ProtocolName): boolean {
-    return super.delete(key.toLowerCase());
-  }
-}
 
 /**
  * A structured trailer collection for a single scope/namespace.

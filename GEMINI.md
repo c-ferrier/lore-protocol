@@ -11,4 +11,10 @@
  - **Logic Sign-off:** You MUST provide a "Logic Parity Report" in your final turn, explicitly listing any behavioral assertions that were evolved, added, or intentionally removed.
 
 ### 3. Sub-Agent Audit
- - **Mandate:** For large changes (>3 files), you MUST invoke the `codebase_investigator` sub-agent to perform an independent audit of the diffs against these mandates before claiming completion.
+ - **Mandate**: For large changes (>3 files), you MUST invoke the `codebase_investigator` sub-agent to perform an independent audit of the diffs against these mandates before claiming completion.
+
+### 4. Diagnostic Trace Mandate
+ - **Mandate**: If a test regression persists after **3 attempts** at speculative patching, you MUST transition to **Diagnostic Mode**.
+ - **Action**: Inject `console.log` diagnostic traces into the production logic to trace state flow.
+ - **Requirement**: Use the empiric trace results to apply a targeted, high-fidelity fix rather than guessing.
+

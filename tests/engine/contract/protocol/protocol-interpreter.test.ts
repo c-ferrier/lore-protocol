@@ -39,22 +39,22 @@ describe('ProtocolInterpreter', () => {
 
   it('should handle namespaced trailers when configured', () => {
     const protocol = makeMockProtocol({ 
-        name: 'Project',
-        namespace: 'Project',
-        identityKey: 'Id',
-        owns: vi.fn((key: string) => key === 'Project'),
-        authorize: vi.fn((key: string) => key === 'Id' ? 'Id' : null),
+        name: 'project',
+        getStorageNamespace: () => 'project',
+        identityKey: 'id',
+        owns: vi.fn((key: string) => key.toLowerCase() === 'project'),
+        authorize: vi.fn((key: string) => key.toLowerCase() === 'id' ? 'id' : null),
         permissive: false
     });
     const interpreter = new ProtocolInterpreter(protocol, parser);
 
     const raw = {
-        'Project': ['Id: 12345678', 'Team: backend']
+        'project': ['id: 12345678', 'team: backend']
     };
 
     const state = interpreter.normalize(raw);
-    expect(state.trailers.Id).toEqual(['12345678']);
-    expect(state.unauthorized.Team).toEqual(['backend']);
+    expect(state.trailers.id).toEqual(['12345678']);
+    expect(state.unauthorized.team).toEqual(['backend']);
   });
 
   it('should extract identity from protocol state', () => {
@@ -72,16 +72,16 @@ describe('ProtocolInterpreter', () => {
 
   it('should handle namespaced trailers with invalid formats by putting them in unauthorized bucket', () => {
     const protocol = makeMockProtocol({ 
-        name: 'Project',
-        namespace: 'Project',
-        identityKey: 'Id',
-        owns: vi.fn((key: string) => key === 'Project'),
+        name: 'project',
+        getStorageNamespace: () => 'project',
+        identityKey: 'id',
+        owns: vi.fn((key: string) => key.toLowerCase() === 'project'),
         permissive: false
     });
     const interpreter = new ProtocolInterpreter(protocol, parser);
 
     const raw = {
-        'Project': ['this is not a key-value pair']
+        'project': ['this is not a key-value pair']
     };
 
     const state = interpreter.normalize(raw);

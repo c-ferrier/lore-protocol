@@ -1,7 +1,7 @@
 import type { TrailerParser } from './trailer-parser.js';
 import type { IdGenerator } from './id-generator.js';
 import type { EngineConfig } from '../types/config.js';
-import type { AtomId, ProtocolState } from '../types/domain.js';
+import type { AtomId } from '../types/domain.js';
 import type { CommitInput } from '../types/commit.js';
 import type { ValidationIssue } from '../types/output.js';
 import { ProtocolError } from '../util/errors.js';

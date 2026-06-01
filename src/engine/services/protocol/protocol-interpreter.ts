@@ -1,5 +1,5 @@
 import type { IProtocolInterpreter } from '../../interfaces/protocol/protocol-interpreter.js';
-import type { ProtocolState, Atom, SupersessionStatus, StaleReason, Trailers } from '../../types/domain.js';
+import { type ProtocolState, type Atom, type SupersessionStatus, type StaleReason, type Trailers, ProtocolMap } from '../../types/domain.js';
 import type { IProtocol } from '../../interfaces/protocol.js';
 import type { TrailerParser } from '../trailer-parser.js';
 import type { StaleIfCondition } from '../../types/config.js';

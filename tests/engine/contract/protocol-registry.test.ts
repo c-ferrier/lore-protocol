@@ -61,7 +61,7 @@ describe('ProtocolRegistry', () => {
     const fredProtocol = makeMockProtocol({
       name: 'Fred',
       namespace: 'fred',
-      getAuthorizedKeys: vi.fn().mockReturnValue(['Fred-id']),
+      getAuthorizedKeys: vi.fn().mockReturnValue(['fred']),
     });
 
     registry.register(mockProtocol);

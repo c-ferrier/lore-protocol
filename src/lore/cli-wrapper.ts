@@ -1,9 +1,29 @@
-import { runCli, execute, type EngineOptions } from '../engine/index.js';
-import { ProtocolRegistry } from '../engine/services/protocol-registry.js';
+import { 
+    runCli, 
+    execute, 
+    type EngineOptions,
+    ProtocolRegistry,
+    ProtocolHydrator,
+    ENGINE_CONFIG_FILENAME, 
+    ENGINE_DIR_NAME, 
+    TRAILER_UI_KINDS, 
+    TRAILER_UI_COLORS,
+    DEFAULT_ENGINE_CONFIG,
+    getEngineVersion, 
+    getEnginePackageName, 
+    getEnginePublishedVersion,
+    checkForUpdates,
+    camelCase,
+    type EngineConfig, 
+    type ProtocolConfig, 
+    type TrailerDefinition, 
+    type ValueDefinition, 
+    type TrailerUiKind, 
+    type TrailerUiColor,
+    type ProtocolDefinition
+} from '../engine/index.js';
 import { LoreProtocolDefinition } from './protocol-definition.js';
 import { LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from './defaults.js';
-import { ENGINE_CONFIG_FILENAME, ENGINE_DIR_NAME, TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../engine/util/constants.js';
-import { DEFAULT_ENGINE_CONFIG } from '../engine/defaults.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerContextCommand } from './commands/context.js';
 import { registerConstraintsCommand } from './commands/constraints.js';
@@ -13,14 +33,8 @@ import { registerRejectedCommand } from './commands/rejected.js';
 import { LoreJsonFormatter } from './formatters/lore-json-formatter.js';
 import { LoreTextFormatter } from './formatters/lore-text-formatter.js';
 import { LoreConfigLoader } from './services/lore-config-loader.js';
-import { ProtocolHydrator } from '../engine/services/protocol-hydrator.js';
 import { getLoreVersion, getLorePackageName, getLorePublishedVersion } from './util/version.js';
-import { getEngineVersion, getEnginePackageName, getEnginePublishedVersion } from '../engine/util/version.js';
-import { checkForUpdates } from '../engine/util/update-check.js';
-import { camelCase } from '../engine/util/string.js';
 import { resolve, join } from 'node:path';
-import type { EngineConfig, ProtocolConfig, TrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../engine/types/config.js';
-import type { ProtocolDefinition } from '../engine/interfaces/protocol-definition.js';
 import type { LoreConfig } from './defaults.js';
 
 /**

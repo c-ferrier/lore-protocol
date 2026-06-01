@@ -13,12 +13,16 @@ Decision tracking and testing consistency are managed by the Lore Protocol. When
    - Integrity tests (e.g., `protocol-integrity.test.ts`).
 
 ## Mocking Mandates
-- **NEVER** use manual object literals with `vi.fn()` for core services (Git, Repository, Resolver).
-- **ALWAYS** use the high-fidelity factories:
-    - `makeMockGitClient()`
-    - `makeMockAtomRepository()`
-    - `makeMockSupersessionResolver()`
-- **REAL INSTANCES**: Use `makeAtomRepository()` (no `Mock`) only when testing component-level interactions that require real service logic but mocked infrastructure.
+- **NEVER** use manual object literals with `vi.fn()` for core services in new tests.
+- **ALWAYS** use the high-fidelity factories from the appropriate gateway:
+    - **Logic Factories**: Use `src/engine/testing.ts` (e.g., `makeStubProtocol`, `makeCommitInput`). These are framework-agnostic and 100% interface-compliant.
+    - **Vitest Bridge**: Use `tests/engine/engine-test-utils.ts` (e.g., `makeMockGitClient`, `makeMockProtocol`). These wrap the stubs in Vitest `vi.fn()` spies for full observability.
+- **REAL INSTANCES**: Use `makeAtomRepository()` (no `Mock`) from the testing gateway when testing component-level interactions that require real service logic but mocked infrastructure.
+
+## Diagnostic Protocol
+- **MANDATE**: If a test regression persists after **3 attempts** at speculative patching, you MUST transition to **Diagnostic Mode**.
+- **ACTION**: Inject `console.log` diagnostic traces into the relevant service logic to trace state flow.
+- **RATIONALE**: Empiric evidence is superior to speculative patching in complex logical routing systems.
 
 ## Test Maintenance
 - **REFACTORING**: If you refactor a service, prioritize updating the corresponding Level 2 Contract tests first.

@@ -35,11 +35,12 @@ This repository follows a strict 4-level testing hierarchy to ensure stability, 
 
 ## Mocking Conventions
 
-To reduce boilerplate and prevent test brittleness, always use the central factories in `tests/engine/engine-test-utils.ts` and `tests/lore/lore-test-utils.ts`:
+To reduce boilerplate and prevent test brittleness, always use the central factories:
 
-- **`TEST_*`**: Standard baseline data (configs, schema definitions).
-- **`make*`**: Real service instances with mocked dependencies (for Level 2/3 tests).
-- **`makeMock*`**: Pure spycable objects returning `vi.fn()` methods (for Level 2 unit isolation).
+- **`TEST_*`**: Standard baseline data (configs, schema definitions) from `src/engine/testing.ts`.
+- **`make*`**: Real service instances with mocked dependencies from `src/engine/testing.ts`.
+- **`makeStub*`**: Strictly-typed, framework-agnostic stubs from `src/engine/testing.ts`.
+- **`makeMock*`**: Pure spycable objects returning `vi.fn()` methods from `tests/engine/engine-test-utils.ts` (The Vitest Bridge).
 
 ## Test Hygiene
 - Use `beforeEach` to ensure every test starts with a clean registry and fresh mock instances.
