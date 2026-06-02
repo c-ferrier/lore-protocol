@@ -11,6 +11,8 @@ import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
 import type { QueryTargetFactory } from '../services/query-target-factory.js';
 
+import { mergeOptions } from './helpers/merge-options.js';
+
 /**
  * Register the ` trace <id>` command.
  * Finds an atom by its identity key, then BFS through all references to build
@@ -34,7 +36,8 @@ export function registerTraceCommand(
     .command('trace <id>')
     .description('Trace the lineage and relationships of a decision')
     .option('--max-depth <n>', 'Maximum BFS traversal depth', (val) => parseInt(val, 10), 10)
-    .action(async (id: string, options: { maxDepth: number }) => {
+    .action(async (id: string, _options: any, command: Command) => {
+      const options = mergeOptions<{ maxDepth: number; cache: boolean }>(command);
       const { atomRepository, getFormatter, protocolRegistry, logger } = deps;
 
       // 1. Resolve Initial Identity
@@ -44,7 +47,8 @@ export function registerTraceCommand(
       // ONE repository call handles the entire BFS walk up to maxDepth.
       const atoms = await atomRepository.findByIds([identity], { 
           follow: true, 
-          maxDepth: options.maxDepth 
+          maxDepth: options.maxDepth,
+          cache: options.cache 
       });
 
       const rootAtom = atoms.find(a => {

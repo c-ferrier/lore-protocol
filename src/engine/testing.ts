@@ -239,6 +239,7 @@ export function makeAtomHydrator(options: {
 /** Factory: Create a REAL functional AtomRepository with mocked dependencies. */
 export function makeAtomRepository(options: {
     gitClient?: any; registry?: ProtocolRegistry; isScoped?: boolean; searchFilter?: SearchFilter; hydrator?: AtomHydrator;
+    queryCache?: IQueryCache;
 } = {}): AtomRepository {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
     const gitClient = options.gitClient || makeStubGitClient();
@@ -250,7 +251,7 @@ export function makeAtomRepository(options: {
     return new AtomRepository(
         gitClient, hydrator, registry,
         options.searchFilter || new SearchFilter(registry),
-        new NullQueryCache(),
+        options.queryCache || new NullQueryCache(),
         baseTarget,
         supersessionResolver,
         targetFactory as any

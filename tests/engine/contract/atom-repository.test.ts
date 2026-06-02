@@ -421,7 +421,9 @@ describe('AtomRepository', () => {
         const resolved = await repo.resolveFollowLinks(initial, 5);
   
         expect(resolved).toHaveLength(2);
-        expect(gitClient.query).toHaveBeenCalledTimes(2); 
+        // Optimization check: Both atoms were found in initial query, 
+        // so resolution happens in-memory without second git query.
+        expect(gitClient.query).toHaveBeenCalledTimes(1); 
     });
 
     it('should return empty array for empty input', async () => {
@@ -505,10 +507,14 @@ describe('AtomRepository', () => {
 
   describe('Base Target Fallback', () => {
     it('should use baseTarget when no target is provided', async () => {
-        const baseTarget = makeQueryTarget(['src/scoped']);
-        const repoWithBase = new AtomRepository(
-            gitClient, (repo as any).hydrator, protocolRegistry, (repo as any).searchFilter, new NullQueryCache(), baseTarget, (repo as any).supersessionResolver
-        );
+        const repoWithBase = makeAtomRepository({ 
+            gitClient, 
+            registry: protocolRegistry,
+            isScoped: true 
+        });
+        
+        // Setup base target mock in the repository
+        (repoWithBase as any).baseTarget = makeQueryTarget(['src/scoped']);
 
         vi.mocked(gitClient.query).mockResolvedValue([]);
         await repoWithBase.find();
@@ -518,10 +524,11 @@ describe('AtomRepository', () => {
     });
 
     it('should override baseTarget when explicit target is provided', async () => {
-        const baseTarget = makeQueryTarget(['src/scoped']);
-        const repoWithBase = new AtomRepository(
-            gitClient, (repo as any).hydrator, protocolRegistry, (repo as any).searchFilter, new NullQueryCache(), baseTarget, (repo as any).supersessionResolver
-        );
+        const repoWithBase = makeAtomRepository({ 
+            gitClient, 
+            registry: protocolRegistry 
+        });
+        (repoWithBase as any).baseTarget = makeQueryTarget(['src/scoped']);
 
         vi.mocked(gitClient.query).mockResolvedValue([]);
         await repoWithBase.find(makeQueryTarget('override.ts'));

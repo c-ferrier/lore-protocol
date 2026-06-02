@@ -45,6 +45,18 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 *   **Action**: Replaced hardcoded TypeScript staleness hooks with a structured, declarative DSL in the protocol schema. 
 *   **Result**: Protocols like Lore are now 100% declarative. The engine natively evaluates `value-equals`, `date-expired`, and `reference-superseded` triggers. This enables "Zero-Code Protocols."
 
+### Phase 8: Framework Bootstrapper (Atom-as-a-Library)
+*   **Action**: Refactored the monolithic CLI entry into the `EngineBootstrapper` service.
+*   **Result**: The engine is now a modular library. Branded wrappers (like Lore) can now instantiate the repository, registry, and commands programmatically with zero boilerplate.
+
+### Phase 9: "Lazy" Interaction Model
+*   **Action**: Implemented the `greedy: true` resolution mode in the `CommitInputResolver`.
+*   **Result**: The engine now automatically invokes `TerminalPrompt` for missing required trailers in TTY environments, providing a frictionless human experience while maintaining machine-grade schema validity.
+
+### Phase 3.7 - 3.9: Unified Discovery & Atomic Caching
+*   **Action**: Promoted logical identities to first-class `IQueryTarget` handles and unified all search paths (Path, ID, Range, Blame) into a single integrated pipeline. Implemented an **Atomic Identity Cache** and an in-memory BFS short-circuit.
+*   **Result**: Achieved absolute structural autonomy. The repository now serves as the single source of truth for "Projected Metadata." Complex discovery (e.g., `lore trace`) is now up to 1.8x faster by neutralizing the Git subprocess bottleneck.
+
 ---
 
 ## 4. STRATEGIC ROADMAP: Implementation Phases
@@ -57,22 +69,19 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 *   Execute exactly *one* bounded subprocess: `git log --format=format:%H --name-only <oldestHash>..HEAD`.
 *   Build a localized timeline in memory and calculate file drift counts synchronously, dropping subprocess overhead to O(1).
 
-### PHASE 8: Framework Bootstrapper (Atom-as-a-Library)
-**Urgency**: High | **Importance**: High | **Difficulty**: Medium
-**Concept:** Refactor the monolithic `runCli` God-function into a modular `EngineBootstrapper` class.
-**Action:** Allow external wrappers (like Lore) to instantiate the engine, register custom commands/formatters, and control the lifecycle programmatically.
-**Value:** Enables developers to build their own branded "Industrial Strength" decision tools on top of Atom with minimal code.
-
-### PHASE 9: "Lazy" (Auto-Interactive) Interaction Model
-**Urgency**: High | **Importance**: Medium | **Difficulty**: Low
-**Concept:** Move from "Binary Enforcement" to "Helpful Guidance" for human users.
-**Action:** Implement a `greedy: true` mode in the `CommitInputResolver`. If a user misses a `required: true` trailer in a TTY environment, the engine automatically invokes the `TerminalPrompt` service instead of failing.
-**Value:** Provides a professional, frictionless UX for humans while maintaining strict schema validity for machines and AI agents.
-
 ### PHASE 7.6: Universal TypeScript Conversion
 **Urgency**: Medium | **Importance**: High | **Difficulty**: Low
 **Concept:** Eliminate the last remaining `.js` orphans in the source tree to ensure total type safety and testability.
 **Action:** Convert `rebase-editor.js`, `rewrite-trailers.js`, and `extract-lore-state.cjs` to `.ts`. Add isolated tests for programmatic rebase logic.
+
+### PHASE 4.1: Persistent Identity Index (Discovery Sovereignty)
+**Urgency**: Medium | **Importance**: High | **Difficulty**: Medium
+**Concept:** Transition from commit-bound "Temporal Caching" to a long-lived "Logical Index" that survives repository updates.
+**Action:** Implement an append-only log in `.atom/` that maps `Lore-id -> Last Seen Commit Hash`.
+*   **Mechanism**: On every lookup, check the index first.
+*   **Verification**: Use Git only to verify reachability (`git cat-file -e <hash>`). If the hash exists and is part of the current branch, accept it as truth.
+*   **Post-Commit Hook**: Automatically append new nodes to the index during `lore commit`.
+**Value:** Eliminates the "First Run Pain" after a commit. Tracing a decision through history becomes a near-zero latency operation regardless of repository size or history depth.
 
 ### PHASE 3: Hosted Protocol Registry
 **Urgency**: Medium | **Importance**: High | **Difficulty**: Medium

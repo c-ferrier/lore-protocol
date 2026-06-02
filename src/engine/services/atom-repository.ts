@@ -111,7 +111,7 @@ export class AtomRepository {
     if (target.isBlameTarget()) {
         initialAtoms = await this.discoveryByBlame(target);
     } else if (target.type === 'identity') {
-        initialAtoms = await this.discoveryByIdentities(target.getIdentities());
+        initialAtoms = await this.discoveryByIdentities(target.getIdentities(), headHash);
     } else {
         initialAtoms = await this.discoveryByPaths(target.getPaths(), resolvedOptions);
     }
@@ -127,7 +127,8 @@ export class AtomRepository {
     const resultAtoms = this.postProcessAtoms(expandedAtoms, resolvedOptions);
 
     // 5. Update Cache (Background)
-    if (headHash && resolvedOptions.cache !== false && target.type !== 'identity' && !target.isBlameTarget()) {
+    // Caching is enabled for all discovery modes except Blame (Range)
+    if (headHash && resolvedOptions.cache !== false && !target.isBlameTarget()) {
       const hashes = resultAtoms.map(a => a.commitHash);
       this.queryCache.set(headHash, fingerprint, resolvedOptions, hashes).catch(() => {});
     }
@@ -184,10 +185,38 @@ export class AtomRepository {
 
   /**
    * Coarse Discovery: Search by logical identities.
+   * STRATEGY: Atomic Caching. Checks for individual ID hits to minimize Git load,
+   * then batches misses into a single scan and persists individual results.
    */
-  private async discoveryByIdentities(identities: readonly QueryIdentity[]): Promise<Atom[]> {
+  private async discoveryByIdentities(identities: readonly QueryIdentity[], headHash?: string): Promise<Atom[]> {
+    const results: Atom[] = [];
+    const missing: QueryIdentity[] = [];
+
+    const primaryProtocol = this.protocolRegistry.getRoot()?.name.toLowerCase() || 
+                           this.protocolRegistry.getAll()[0]?.name.toLowerCase() || '';
+
+    // 1. Check Atomic Cache First
+    if (headHash) {
+        await Promise.all(identities.map(async (identity) => {
+            const pName = identity.protocol?.toLowerCase() || primaryProtocol;
+            const fingerprint = `identity:${pName}/${identity.id}`;
+            const cached = await this.queryCache.get(headHash, fingerprint, {});
+            if (cached && cached.length > 0) {
+                const raw = await this.gitClient.getCommitsByHashes(cached);
+                results.push(...this.hydrator.hydrate(raw));
+            } else {
+                missing.push(identity);
+            }
+        }));
+    } else {
+        missing.push(...identities);
+    }
+
+    if (missing.length === 0) return results;
+
+    // 2. Batch missing IDs into one Git query
     const patterns: string[] = [];
-    for (const { id, protocol: pName } of identities) {
+    for (const { id, protocol: pName } of missing) {
       if (!id) continue;
       const protocols = pName ? [this.protocolRegistry.get(pName)!] : this.protocolRegistry.getAll();
       for (const p of protocols) {
@@ -195,7 +224,7 @@ export class AtomRepository {
       }
     }
     
-    if (patterns.length === 0) return [];
+    if (patterns.length === 0) return results;
 
     const rawCommits = await this.gitClient.query({
         regexPatterns: [patterns],
@@ -204,21 +233,31 @@ export class AtomRepository {
 
     const hydrated = this.hydrator.hydrate(rawCommits);
 
-    // Strict identity matching pass
-    return hydrated.filter(a => {
-      for (const { id, protocol: pName } of identities) {
-        if (pName) {
-          const p = this.protocolRegistry.get(pName);
-          if (p?.getIdentity(a.protocols.get(pName)) === id) return true;
-        } else {
-          for (const [name, state] of a.protocols) {
-            const p = this.protocolRegistry.get(name);
-            if (p?.getIdentity(state) === id) return true;
-          }
+    // 3. Match result atoms back to requested missing identities
+    const foundFromGit: Atom[] = [];
+    for (const { id, protocol: pName } of missing) {
+        const matchingAtom = hydrated.find(a => {
+            if (pName) {
+                return this.protocolRegistry.get(pName)?.getIdentity(a.protocols.get(pName)) === id;
+            }
+            for (const [name, state] of a.protocols) {
+                if (this.protocolRegistry.get(name)?.getIdentity(state) === id) return true;
+            }
+            return false;
+        });
+
+        if (matchingAtom) {
+            foundFromGit.push(matchingAtom);
+            // 4. Persist Atomic Cache (Background)
+            if (headHash) {
+                const pNameFinal = pName?.toLowerCase() || primaryProtocol;
+                const fingerprint = `identity:${pNameFinal}/${id}`;
+                this.queryCache.set(headHash, fingerprint, {}, [matchingAtom.commitHash]).catch(() => {});
+            }
         }
-      }
-      return false;
-    });
+    }
+
+    return [...results, ...foundFromGit];
   }
 
   /**
@@ -275,10 +314,37 @@ export class AtomRepository {
 
   /**
    * Resolve BFS traversal for Related/Supersedes/Depends-on links.
+   * OPTIMIZATION: Uses a local knowledge map to resolve links already present
+   * in the initial set, bypassing redundant Git/Cache lookups.
    */
   async resolveFollowLinks(atoms: readonly Atom[], maxDepth: number): Promise<Atom[]> {
     const result = [...atoms];
     const visited = new Set(atoms.map((a) => a.commitHash));
+    
+    // 1. Build Local Knowledge Index
+    // This allows us to short-circuit lookups for atoms we already have in memory.
+    const localKnowledge = new Map<string, Atom>();
+    const indexAtoms = (list: readonly Atom[]) => {
+        const rootProtocol = this.protocolRegistry.getRoot();
+        for (const atom of list) {
+            // Index by hash for direct hash links
+            localKnowledge.set(atom.commitHash, atom);
+            
+            for (const [pName, state] of atom.protocols) {
+                const p = this.protocolRegistry.get(pName);
+                const id = p?.getIdentity(state);
+                if (id) {
+                    localKnowledge.set(`${pName.toLowerCase()}/${id}`, atom);
+                    // Support naked ID lookup for root protocol only to avoid collisions
+                    if (pName === rootProtocol?.name) {
+                        localKnowledge.set(id, atom); 
+                    }
+                }
+            }
+        }
+    };
+    indexAtoms(atoms);
+
     const queue: { identities: QueryIdentity[]; depth: number }[] = [
       { identities: this.hydrator.extractReferenceIds(atoms), depth: 1 },
     ];
@@ -287,10 +353,35 @@ export class AtomRepository {
       const { identities, depth } = queue.shift()!;
       if (depth > maxDepth || identities.length === 0) continue;
 
-      const linkedAtoms = await this.findByIds(identities, { follow: false });
-      const newAtoms: Atom[] = [];
+      // 2. Local Resolution Pass
+      const missingIdentities: QueryIdentity[] = [];
+      const foundAtoms: Atom[] = [];
 
-      for (const atom of linkedAtoms) {
+      for (const identity of identities) {
+          const qualifiedId = identity.protocol 
+            ? `${identity.protocol.toLowerCase()}/${identity.id}`
+            : identity.id;
+          
+          const found = localKnowledge.get(qualifiedId);
+          if (found) {
+              if (!visited.has(found.commitHash)) {
+                  foundAtoms.push(found);
+              }
+          } else {
+              missingIdentities.push(identity);
+          }
+      }
+
+      // 3. Remote Resolution Pass (Only for identities not in memory)
+      if (missingIdentities.length > 0) {
+          const linkedAtoms = await this.findByIds(missingIdentities, { follow: false });
+          foundAtoms.push(...linkedAtoms);
+          // Add newly discovered atoms to local knowledge for the next BFS level
+          indexAtoms(linkedAtoms);
+      }
+
+      const newAtoms: Atom[] = [];
+      for (const atom of foundAtoms) {
         if (!visited.has(atom.commitHash)) {
           visited.add(atom.commitHash);
           newAtoms.push(atom);

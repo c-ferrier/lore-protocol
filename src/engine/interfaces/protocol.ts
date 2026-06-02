@@ -16,7 +16,7 @@ export type ActiveTrailer = TrailerDefinition & {
 };
 
 /**
- * Interface for a decision protocol (e.g., Mock, Fred).
+ * Interface for a decision protocol.
  * Defines the semantics, identity, and discovery rules for a specific protocol.
  * 
  * DESIGN: This is a Facade interface that combines multiple capability modules.
