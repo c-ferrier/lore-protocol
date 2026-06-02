@@ -39,85 +39,67 @@ export function registerTraceCommand(
 
       // 1. Resolve Initial Identity
       const identity = protocolRegistry.resolveIdentity(id);
-      const rootAtom = await atomRepository.findById(identity);
+      
+      // 2. Perform Integrated Trace (Expansion + Truth)
+      // ONE repository call handles the entire BFS walk up to maxDepth.
+      const atoms = await atomRepository.findByIds([identity], { 
+          follow: true, 
+          maxDepth: options.maxDepth 
+      });
 
-      if (rootAtom === null) {
-        throw new ProtocolError(
-          `Atom "${id}" not found in commit history.`,
-          1,
-        );
+      const rootAtom = atoms.find(a => {
+          const state = a.protocols.get(identity.protocol?.toLowerCase() || '');
+          if (!state) return false;
+          const atomId = protocolRegistry.get(identity.protocol || '')?.getIdentity(state);
+          return atomId === identity.id;
+      }) || atoms[0]; // Fallback to first if ambiguity
+
+      if (!rootAtom) {
+        throw new ProtocolError(`Atom "${id}" not found in history.`, 1);
       }
 
-      // 2. Identify the Active Protocol for the root atom
-      // If the user provided a prefix, we use that. Otherwise we use the root's first claimed protocol.
-      const protocolName = identity.protocol || Array.from(rootAtom.protocols.keys())[0];
-      const activeProtocol = protocolRegistry.get(protocolName);
-
-      if (!activeProtocol) {
-        throw new ProtocolError(
-          `No active protocol found for atom "${id}".`,
-          1,
-        );
-      }
-
-
+      // 3. Build edges for the formatter
+      // The formatter still needs edges, but we build them from the pre-resolved atom set.
       const edges: TraceEdge[] = [];
       const visited = new Set<string>();
-      const queue: Array<{ atom: Atom; depth: number }> = [
-        { atom: rootAtom, depth: 0 },
-      ];
-
-      const rootProtocolName = activeProtocol.name.toLowerCase();
-      const getAtomId = (a: Atom) => activeProtocol!.getIdentity(a.protocols.get(rootProtocolName));
-
-      const rootId = getAtomId(rootAtom);
-      if (!rootId) throw new ProtocolError('Root atom has no valid identity for the active protocol.', 1);
-
-      visited.add(rootId);
-
-      // BFS to find all relationships
-      // Limit depth to avoid infinite loops or massive graphs
-      const maxDepth = options.maxDepth;
+      const queue: Array<{ atom: Atom; depth: number }> = [{ atom: rootAtom, depth: 0 }];
+      
+      visited.add(id);
 
       while (queue.length > 0) {
-        const { atom, depth } = queue.shift()!;
-        if (depth >= maxDepth) continue;
+          const { atom, depth } = queue.shift()!;
+          if (depth >= options.maxDepth) continue;
 
-        const currentId = getAtomId(atom);
-        if (!currentId) continue;
+          for (const [pName, state] of atom.protocols) {
+              const protocol = protocolRegistry.get(pName);
+              if (!protocol) continue;
 
-        const refKeys = activeProtocol.getReferenceKeys();
-        const state = atom.protocols.get(rootProtocolName);
+              const currentId = protocol.getIdentity(state);
+              if (!currentId) continue;
 
-        if (state) {
-          for (const key of refKeys) {
-            const refs = state.trailers[key] || [];
-            for (const refId of refs) {
-              try {
-                const targetIdentity = protocolRegistry.resolveIdentity(refId, protocolName);
-                const targetAtom = await atomRepository.findById(targetIdentity);
-                const edge: TraceEdge = {
-                  from: currentId,
-                  to: refId,
-                  relationship: key,
-                  targetAtom: targetAtom ?? null,
-                };
+              for (const key of protocol.getReferenceKeys()) {
+                  const refs = state.trailers[key] || [];
+                  for (const refId of refs) {
+                      // Find the target atom in our pre-resolved set
+                      const targetAtom = atoms.find(a => {
+                          const targetState = a.protocols.get(pName);
+                          return protocol.getIdentity(targetState) === refId;
+                      });
 
-                edges.push(edge);
+                      edges.push({
+                          from: currentId,
+                          to: refId,
+                          relationship: key,
+                          targetAtom: targetAtom ?? null
+                      });
 
-                if (targetAtom) {
-                  const targetId = getAtomId(targetAtom);
-                  if (targetId && !visited.has(targetId)) {
-                    visited.add(targetId);
-                    queue.push({ atom: targetAtom, depth: depth + 1 });
+                      if (targetAtom && !visited.has(refId)) {
+                          visited.add(refId);
+                          queue.push({ atom: targetAtom, depth: depth + 1 });
+                      }
                   }
-                }
-              } catch {
-                // Skip invalid/unresolvable references in trace
               }
-            }
           }
-        }
       }
 
       const traceResult: FormattableTraceResult = {

@@ -7,6 +7,7 @@ import {
   makeAtom,
   makeProtocol,
   makeQueryTarget,
+  makeMockTargetFactory,
   SupersessionResolver,
   ProtocolRegistry,
   TEST_ID_KEY
@@ -41,6 +42,8 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
 
     const searchFilter = new SearchFilter(registry);
 
+    const targetFactory = makeMockTargetFactory();
+
     repo = new AtomRepository(
       gitClient,
       hydrator as any,
@@ -48,7 +51,8 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
       searchFilter,
       cache,
       makeQueryTarget(),
-      new SupersessionResolver(registry)
+      new SupersessionResolver(registry),
+      targetFactory
     );
   });
 
@@ -94,5 +98,33 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     // 'Smart Atom' projection must still happen even on cache hit
     expect(result[0].protocols.get('mock')?.supersession).toBeDefined();
     expect(result[0].protocols.get('mock')?.supersession?.superseded).toBe(false);
+  });
+
+  it('should skip DISCOVERY for identity targets on cache hit', async () => {
+    const headHash = 'f1e2d3c4b5a6';
+    const id = '12345678'; // Must be valid 8-char hex
+    const commit = makeRawCommit({ hash: 'hash123', id });
+
+    vi.mocked(gitClient.resolveRef).mockResolvedValue(headHash);
+    vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit]);
+    vi.mocked(hydrator.hydrate).mockReturnValue([makeAtom({ id })]);
+    
+    // 1. Initial run: Fill cache
+    vi.spyOn(cache, 'get').mockResolvedValue(null);
+    const target = (repo as any).targetFactory.fromIdentities([{ id }]);
+
+    await repo.find(target, { cache: true });
+    expect(gitClient.query).toHaveBeenCalledTimes(1);
+
+    // 2. Second run: Cache hit
+    vi.mocked(gitClient.query).mockClear();
+    vi.spyOn(cache, 'get').mockResolvedValue(['hash123']);
+    
+    const result = await repo.find(target, { cache: true });
+
+    // VERIFICATION: Discovery is skipped, but truth projection still happens
+    expect(gitClient.query).not.toHaveBeenCalled();
+    expect(result).toHaveLength(1);
+    expect(result[0].protocols.get('mock')?.supersession).toBeDefined();
   });
 });

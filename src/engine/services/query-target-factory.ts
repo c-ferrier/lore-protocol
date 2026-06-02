@@ -1,5 +1,5 @@
 import { resolve, relative, isAbsolute, join } from 'node:path';
-import type { IQueryTarget } from '../interfaces/query-target.js';
+import type { IQueryTarget, QueryIdentity } from '../interfaces/query-target.js';
 import { ProtocolError } from '../util/errors.js';
 
 /**
@@ -55,6 +55,14 @@ export class QueryTargetFactory {
   }
 
   /**
+   * Creates a target from one or more logical identities.
+   */
+  fromIdentities(identities: readonly QueryIdentity[]): IQueryTarget {
+    const raw = identities.map(i => i.protocol ? `${i.protocol}/${i.id}` : i.id);
+    return new QueryTarget(raw, 'identity', [], null, identities);
+  }
+
+  /**
    * Resolves a user-provided path string to a path relative to the Protocol Root.
    * REJECTS: Paths outside the protocol root (security/logical boundary).
    */
@@ -92,9 +100,10 @@ export class QueryTargetFactory {
 class QueryTarget implements IQueryTarget {
   constructor(
     public readonly raw: string | readonly string[],
-    public readonly type: 'global' | 'path' | 'line-range',
+    public readonly type: 'global' | 'path' | 'line-range' | 'identity',
     private readonly resolvedPaths: readonly string[],
-    private readonly lineRange: { file: string; start: number; end: number } | null = null
+    private readonly lineRange: { file: string; start: number; end: number } | null = null,
+    private readonly identities: readonly QueryIdentity[] = []
   ) {}
 
   getPaths(): readonly string[] {
@@ -103,6 +112,26 @@ class QueryTarget implements IQueryTarget {
 
   getLineRange(): { file: string; start: number; end: number } | null {
     return this.lineRange;
+  }
+
+  getIdentities(): readonly QueryIdentity[] {
+    return this.identities;
+  }
+
+  getCacheFingerprint(): string {
+    switch (this.type) {
+      case 'global':
+        return this.resolvedPaths.length > 0 ? 'scoped-global:.' : 'global';
+      case 'path':
+        return `path:${[...this.resolvedPaths].sort().join(',')}`;
+      case 'identity':
+        const ids = this.identities.map(i => i.protocol ? `${i.protocol}/${i.id}` : i.id);
+        return `identity:${ids.sort().join(',')}`;
+      case 'line-range':
+        return `blame:${this.lineRange?.file}:${this.lineRange?.start}-${this.lineRange?.end}`;
+      default:
+        return 'unknown';
+    }
   }
 
   isBlameTarget(): boolean {

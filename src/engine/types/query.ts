@@ -10,11 +10,6 @@ export interface QueryTarget {
   readonly lineEnd: number | null;
 }
 
-export interface QueryIdentity {
-  readonly id: string;
-  readonly protocol?: string;
-}
-
 export interface PathQueryOptions {
   /** Structured trailer filters (AST) or legacy flat map (to be normalized). */
   readonly filters?: readonly QualifiedFilter[] | Record<string, any>;

@@ -25,11 +25,11 @@ export class QueryCache implements IQueryCache {
 
   async get(
     headHash: string,
-    gitLogArgs: readonly string[],
+    targetFingerprint: string,
     options: QueryOptions,
   ): Promise<readonly string[] | null> {
     if (!HEX_HASH.test(headHash)) return null;
-    const path = this.getCachePath(headHash, gitLogArgs, options);
+    const path = this.getCachePath(headHash, targetFingerprint, options);
     try {
       const content = await readFile(path, 'utf8');
 
@@ -67,17 +67,17 @@ export class QueryCache implements IQueryCache {
 
   async set(
     headHash: string,
-    gitLogArgs: readonly string[],
+    targetFingerprint: string,
     options: QueryOptions,
     hashes: readonly string[],
   ): Promise<void> {
     if (!HEX_HASH.test(headHash)) return;
-    const path = this.getCachePath(headHash, gitLogArgs, options);
+    const path = this.getCachePath(headHash, targetFingerprint, options);
     await mkdir(dirname(path), { recursive: true });
 
     const header = {
       head: headHash,
-      query: { gitLogArgs, ...options },
+      query: { targetFingerprint, ...options },
       protocolFingerprint: this.protocolFingerprint,
       createdAt: new Date().toISOString(),
     };
@@ -139,18 +139,13 @@ export class QueryCache implements IQueryCache {
     }
   }
 
-  private getCachePath(headHash: string, gitLogArgs: readonly string[], options: QueryOptions): string {
-    const queryHash = this.generateQueryHash(gitLogArgs, options);
+  private getCachePath(headHash: string, targetFingerprint: string, options: QueryOptions): string {
+    const queryHash = this.generateQueryHash(targetFingerprint, options);
     return join(this.cacheDir, `${headHash}-${queryHash}`);
   }
 
-  private generateQueryHash(gitLogArgs: readonly string[], options: QueryOptions): string {
-    // 1. Normalize and sort path args (case-sensitive as Git paths are usually case-sensitive)
-    const normalizedArgs = [...gitLogArgs]
-      .map(a => a.trim())
-      .filter(a => a.length > 0)
-      .sort()
-      .join(' ');
+  private generateQueryHash(targetFingerprint: string, options: QueryOptions): string {
+    // 1. Target identity is already normalized by IQueryTarget
     
     // 2. Deep normalize options (sort all keys recursively and lowercase them for stable hashing)
     const normalize = (obj: any): any => {
@@ -181,7 +176,7 @@ export class QueryCache implements IQueryCache {
     };
 
     const normalizedOptions = JSON.stringify(normalize(options));
-    const finalString = `${normalizedArgs}:${normalizedOptions}:${this.protocolFingerprint}`;
+    const finalString = `${targetFingerprint}:${normalizedOptions}:${this.protocolFingerprint}`;
     
     const hash = createHash('sha1')
       .update(finalString)
@@ -198,7 +193,7 @@ export class QueryCache implements IQueryCache {
 export class NullQueryCache implements IQueryCache {
   async get(
     _headHash: string,
-    _gitLogArgs: readonly string[],
+    _targetFingerprint: string,
     _options: QueryOptions,
   ): Promise<readonly string[] | null> {
     return null;
@@ -206,7 +201,7 @@ export class NullQueryCache implements IQueryCache {
 
   async set(
     _headHash: string,
-    _gitLogArgs: readonly string[],
+    _targetFingerprint: string,
     _options: QueryOptions,
     _hashes: readonly string[],
   ): Promise<void> {

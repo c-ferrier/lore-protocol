@@ -263,7 +263,8 @@ export function makeMockValidator(overrides: any = {}): any {
 export function makeMockTargetFactory(overrides: any = {}): any {
     const stub = makeStubTargetFactory(overrides);
     return {
-        create: vi.fn(stub.create)
+        create: vi.fn(stub.create),
+        fromIdentities: vi.fn(stub.fromIdentities)
     };
 }
 

@@ -11,13 +11,13 @@ export interface IQueryCache {
   /**
    * Retrieve cached hashes for a query.
    * @param headHash The 40-char HEAD commit hash.
-   * @param gitLogArgs The path-resolution arguments (files/dirs).
-   * @param options The Mock-specific query filters.
+   * @param targetFingerprint A unique, stable string representing the query target (e.g. from IQueryTarget).
+   * @param options The engine-specific query options (filters, text, etc.).
    * @returns List of matching commit hashes, or null if not in cache.
    */
   get(
     headHash: string,
-    gitLogArgs: readonly string[],
+    targetFingerprint: string,
     options: QueryOptions,
   ): Promise<readonly string[] | null>;
 
@@ -26,7 +26,7 @@ export interface IQueryCache {
    */
   set(
     headHash: string,
-    gitLogArgs: readonly string[],
+    targetFingerprint: string,
     options: QueryOptions,
     hashes: readonly string[],
   ): Promise<void>;

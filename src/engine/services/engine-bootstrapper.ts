@@ -161,6 +161,7 @@ export class EngineBootstrapper {
       queryCache,
       baseTarget,
       supersessionResolver,
+      targetFactory,
     );
 
     const idGenerator = new IdGenerator();

@@ -36,8 +36,7 @@ import type { EngineConfig, ProtocolConfig, TrailerUiKind, TrailerUiColor, Trail
 import type { CommitInput } from './types/commit.js';
 import type { ValidationIssue, FormattableTrailerDefinition } from './types/output.js';
 import type { QualifiedFilter, SearchOptions } from './types/query.js';
-import type { QueryIdentity } from './types/query.js';
-import type { IQueryTarget } from './interfaces/query-target.js';
+import type { IQueryTarget, QueryIdentity } from './interfaces/query-target.js';
 import type { IConfigLoader } from './interfaces/config-loader.js';
 
 import type { IPrompt } from './interfaces/prompt.js';
@@ -244,6 +243,7 @@ export function makeAtomRepository(options: {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
     const gitClient = options.gitClient || makeStubGitClient();
     const hydrator = options.hydrator || makeAtomHydrator({ registry });
+    const targetFactory = makeStubTargetFactory({ isScoped: options.isScoped ?? false });
     const baseTarget = makeQueryTarget(undefined, options.isScoped ?? false);
     const supersessionResolver = new SupersessionResolver(registry);
     
@@ -252,7 +252,8 @@ export function makeAtomRepository(options: {
         options.searchFilter || new SearchFilter(registry),
         new NullQueryCache(),
         baseTarget,
-        supersessionResolver
+        supersessionResolver,
+        targetFactory as any
     );
 }
 
@@ -463,7 +464,7 @@ export function makeStubAtomRepository(overrides: any = {}): any {
 /** Stub: Create a strictly-typed stubbed QueryTargetFactory. */
 export function makeStubTargetFactory(overrides: any = {}): any {
     const isScoped = overrides.isScoped ?? false;
-    return {
+    const factory = {
         create: (input?: any) => {
             const isEmpty = !input || (Array.isArray(input) && input.length === 0);
             return {
@@ -474,11 +475,25 @@ export function makeStubTargetFactory(overrides: any = {}): any {
                     return isScoped ? ['.'] : [];
                 },
                 getLineRange: () => null,
+                getIdentities: () => [],
+                getCacheFingerprint: () => 'stub',
                 isBlameTarget: () => input?.includes?.(':') || false,
                 ...overrides
             };
-        }
+        },
+        fromIdentities: (identities: readonly QueryIdentity[]) => ({
+            raw: identities.map(i => i.id),
+            type: 'identity',
+            getPaths: () => [],
+            getLineRange: () => null,
+            getIdentities: () => identities,
+            getCacheFingerprint: () => 'stub-identity',
+            isBlameTarget: () => false,
+            ...overrides
+        }),
+        ...overrides
     };
+    return factory;
 }
 
 

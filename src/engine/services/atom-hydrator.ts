@@ -1,7 +1,7 @@
 import { ProtocolMap, type Atom, type ProtocolState } from '../types/domain.js';
 import type { RawCommit } from '../interfaces/git-client.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
-import type { QueryIdentity } from '../types/query.js';
+import type { QueryIdentity } from '../interfaces/query-target.js';
 import { escapeRegex } from '../util/regex.js';
 
 /**
