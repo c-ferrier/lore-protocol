@@ -124,18 +124,25 @@ export class AtomRepository {
     const hydratedAtoms = this.hydrator.hydrate(rawCommits);
 
     // 4. Post-filter (Authoritative pass using resolved dates)
-    const filteredAtoms = this.searchFilter.filter(hydratedAtoms, resolvedOptions);
+    let atoms = this.searchFilter.filter(hydratedAtoms, resolvedOptions);
 
-    // 5. Internalize Supersession (The "Truth" Pass)
-    const atoms = this.postProcessAtoms(filteredAtoms, resolvedOptions);
+    // 5. Expansion Pass (Transitive Link Following)
+    if (resolvedOptions.follow && atoms.length > 0) {
+        const maxDepth = resolvedOptions.maxDepth ?? 10; // Default to 10
+        atoms = await this.resolveFollowLinks(atoms, maxDepth);
+    }
 
-    // 6. Update Cache (Background)
+    // 6. Internalize Supersession (The "Truth" Pass)
+    // Run on the COMBINED set (initial + followed)
+    const processedAtoms = this.postProcessAtoms(atoms, resolvedOptions);
+
+    // 7. Update Cache (Background)
     if (headHash && resolvedOptions.cache !== false) {
-      const hashes = atoms.map(a => a.commitHash);
+      const hashes = processedAtoms.map(a => a.commitHash);
       this.queryCache.set(headHash, cacheKey, resolvedOptions, hashes).catch(() => {});
     }
 
-    return atoms;
+    return processedAtoms;
   }
 
   /**

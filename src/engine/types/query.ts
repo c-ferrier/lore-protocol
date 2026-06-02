@@ -20,6 +20,8 @@ export interface PathQueryOptions {
   readonly filters?: readonly QualifiedFilter[] | Record<string, any>;
   readonly scope?: string | null;
   readonly follow?: boolean;
+  /** Maximum recursion depth for transitive link following. */
+  readonly maxDepth?: number | null;
   readonly all?: boolean;
   readonly author?: string | null;
   /** Result-level cap applied by the command layer after querying. Not used by the repository. */

@@ -63,6 +63,7 @@ export async function executePathQuery(
     filters: options.filter && options.filter.length > 0 ? options.filter : undefined,
     scope: options.scope ?? null,
     follow: options.follow ?? false,
+    maxDepth: config.follow.maxDepth,
     all: options.all ?? false,
     author: options.author ?? null,
     limit: options.limit ?? null,
@@ -76,12 +77,7 @@ export async function executePathQuery(
     ? targetFactory.create() // Scopes use the base target logic
     : targetFactory.create(rawTarget);
 
-  let atoms = await atomRepository.find(target, { ...queryOptions, limit: null });
-
-  // Step 2: Follow links if requested
-  if (queryOptions.follow && atoms.length > 0) {
-    atoms = await atomRepository.resolveFollowLinks(atoms, config.follow.maxDepth);
-  }
+  const atoms = await atomRepository.find(target, { ...queryOptions, limit: null });
 
   const totalAtoms = atoms.length;
 

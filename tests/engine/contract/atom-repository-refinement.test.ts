@@ -74,8 +74,8 @@ describe('AtomRepository Refinement', () => {
     });
   });
 
-  describe('followLinks Integration (End-to-End)', () => {
-    it('should transitively resolve links when followLinks is enabled', async () => {
+  describe('followLinks Integration (The Integrated Pipeline)', () => {
+    it('should transitively resolve links when follow: true is passed to find()', async () => {
       const trailersA = `${TEST_ID_KEY}: aaaaaaaa\nRelated: bbbbbbbb`;
       const trailersB = `${TEST_ID_KEY}: bbbbbbbb`;
 
@@ -100,18 +100,15 @@ describe('AtomRepository Refinement', () => {
         .mockResolvedValueOnce([commitA])
         .mockResolvedValueOnce([commitB]);
 
-      const options: SearchOptions = {
-        follow: true,
-      } as any;
-
-      let atoms = await repo.find(makeQueryTarget('file.ts'), options);
-      atoms = await repo.resolveFollowLinks(atoms, 1);
+      // Execution: ONE repository call handles everything
+      const atoms = await repo.find(makeQueryTarget('file.ts'), { follow: true, maxDepth: 1 });
 
       expect(atoms).toHaveLength(2);
       const ids = atoms.map(a => a.protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]);
       expect(ids).toContain('aaaaaaaa');
       expect(ids).toContain('bbbbbbbb');
       
+      // Verification: Second call to Git was for the linked ID
       const secondCallQuery = vi.mocked(gitClient.query).mock.calls[1][0];
       expect(secondCallQuery.regexPatterns).toContainEqual(['^Mock-id: bbbbbbbb']);
     });
