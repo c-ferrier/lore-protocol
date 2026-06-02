@@ -9,9 +9,11 @@ import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
+import { QueryTargetFactory } from '../../../src/engine/services/query-target-factory.js';
 import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { makeQueryTarget } from '../engine-test-utils.js';
 
 describe('Multi-Target Atom Discovery', () => {
   let testDir: string;
@@ -32,23 +34,24 @@ describe('Multi-Target Atom Discovery', () => {
     // 1. Atom touching fileA
     writeFileSync(join(testDir, 'fileA.ts'), 'A');
     run('git add fileA.ts');
-    run('git commit -m "feat(a): atom A\n\nLore-id: 0000000A"');
+    run('git commit -m "feat(a): atom A\n\nLore-id: 0000000a"');
 
-    // 2. Atom touching fileB
+    // 2. Atom touching file B
     writeFileSync(join(testDir, 'fileB.ts'), 'B');
     run('git add fileB.ts');
-    run('git commit -m "feat(b): atom B\n\nLore-id: 0000000B"');
+    run('git commit -m "feat(b): atom B\n\nLore-id: 0000000b"');
 
-    // 3. Atom touching BOTH
+    // 3. Atom touching both A and B
     writeFileSync(join(testDir, 'fileA.ts'), 'A2');
     writeFileSync(join(testDir, 'fileB.ts'), 'B2');
     run('git add fileA.ts fileB.ts');
-    run('git commit -m "feat(ab): atom AB\n\nLore-id: 000000AB"');
+    run('git commit -m "feat(ab): atom AB\n\nLore-id: 000000ab"');
 
     // 4. Atom touching unrelated file
     writeFileSync(join(testDir, 'fileC.ts'), 'C');
     run('git add fileC.ts');
-    run('git commit -m "feat(c): atom C\n\nLore-id: 0000000C"');
+    run('git commit -m "feat(c): atom C\n\nLore-id: 0000000c"');
+
   });
 
   beforeEach(() => {
@@ -57,13 +60,19 @@ describe('Multi-Target Atom Discovery', () => {
     registry.register(new Protocol(LoreProtocolDefinition));
     const trailerParser = new TrailerParser();
     const hydrator = new AtomHydrator(registry);
+    const targetFactory = new QueryTargetFactory({
+        cwd: testDir,
+        protocolRoot: testDir,
+        isScoped: false
+    });
+
     repo = new AtomRepository(
       gitClient,
       hydrator,
       registry,
       new SearchFilter(registry),
-      new PathResolver(testDir, testDir),
-      new NullQueryCache()
+      new NullQueryCache(),
+      targetFactory.create()
     );
   });
 
@@ -72,19 +81,20 @@ describe('Multi-Target Atom Discovery', () => {
   });
 
   it('should find atoms touching any of the provided targets', async () => {
-    const result = await repo.find({ target: ['fileA.ts', 'fileB.ts'] });
+    const result = await repo.find(makeQueryTarget(['fileA.ts', 'fileB.ts']));
     
     // Should find A, B, and AB, but NOT C.
     expect(result).toHaveLength(3);
     const ids = result.map(a => a.protocols.get('lore')?.trailers['Lore-id']?.[0]);
-    expect(ids).toContain('0000000A');
-    expect(ids).toContain('0000000B');
-    expect(ids).toContain('000000AB');
-    expect(ids).not.toContain('0000000C');
+    expect(ids).toContain('0000000a');
+    expect(ids).toContain('0000000b');
+    expect(ids).toContain('000000ab');
+    expect(ids).not.toContain('0000000c');
   });
 
   it('should return empty array if none of the targets have protocol atoms', async () => {
-    const result = await repo.find({ target: ['non-existent.ts'] });
+    const result = await repo.find(makeQueryTarget(['non-existent.ts']));
+
     expect(result).toHaveLength(0);
   });
 });

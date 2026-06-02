@@ -4,7 +4,7 @@ import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import type { SearchOptions } from '../../../src/engine/types/query.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeMockGitClient } from '../engine-test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeMockGitClient, makeQueryTarget } from '../engine-test-utils.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 
@@ -26,7 +26,6 @@ describe('AtomRepository Filtering Parity', () => {
     repo = makeAtomRepository({
         gitClient,
         registry: protocolRegistry,
-        pathResolver: new PathResolver('/mock', '/mock'),
         searchFilter: new SearchFilter(protocolRegistry)
     });
   });
@@ -42,11 +41,12 @@ describe('AtomRepository Filtering Parity', () => {
     });
 
     it('should generate correct StorageQuery for author and scope', async () => {
-      const options: SearchOptions = {
+      const options = {
         author: 'alice',
         scope: 'auth',
       };
-      await repo.find(options);
+      await repo.find(undefined, options);
+
       
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
 
@@ -59,7 +59,7 @@ describe('AtomRepository Filtering Parity', () => {
       const options: SearchOptions = {
         has: 'Constraint',
       };
-      await repo.find(options);
+      await repo.find(undefined, options);
       
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
 
@@ -73,7 +73,7 @@ describe('AtomRepository Filtering Parity', () => {
           Confidence: 'high'
         }
       };
-      await repo.find(options);
+      await repo.find(undefined, options);
       
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
 
@@ -84,7 +84,7 @@ describe('AtomRepository Filtering Parity', () => {
       const options: SearchOptions = {
         text: 'bug fix'
       };
-      await repo.find(options);
+      await repo.find(undefined, options);
       
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
 
@@ -93,14 +93,15 @@ describe('AtomRepository Filtering Parity', () => {
 
     it('should escape regex special characters in scope and id (Security)', async () => {
       const options: SearchOptions = {
-        scope: 'ui) | grep (secret',
+        scope: 'auth) | grep (',
       };
-      await repo.find(options);
+      await repo.find(undefined, options);
+
       
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
 
       // Characters should be escaped
-      expect(query.regexPatterns.some((set: string[]) => set.some(p => p.includes('ui\\) \\| grep \\(secret')))).toBe(true);
+      expect(query.regexPatterns.some((set: string[]) => set.some(p => p.includes('auth\\) \\| grep \\(')))).toBe(true);
     });
   });
 
@@ -118,7 +119,7 @@ describe('AtomRepository Filtering Parity', () => {
 
       vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
 
-      const results = await repo.find({ author: 'alice' });
+      const results = await repo.find(undefined, { author: 'alice' });
 
       expect(results).toHaveLength(1);
       expect(results[0].commitHash).toBe('h1');
@@ -126,17 +127,18 @@ describe('AtomRepository Filtering Parity', () => {
 
     it('should correctly refine results for Enums and Has', async () => {
       const commit1: RawCommit = {
-        hash: 'h1', date: '2023-01-01', author: 'a', subject: 's', body: 'b',
-        trailers: `${TEST_ID_KEY}: a1\nConfidence: high`
+        hash: 'h1', date: '2023-01-01', author: 'alice', subject: 's', body: 'b',
+        trailers: `${TEST_ID_KEY}: aaaaaaaa\nConfidence: high`
       };
       const commit2: RawCommit = {
-        hash: 'h2', date: '2023-01-01', author: 'a', subject: 's', body: 'b',
-        trailers: `${TEST_ID_KEY}: a2\nConfidence: low`
+        hash: 'h2', date: '2023-01-01', author: 'alice', subject: 's', body: 'b',
+        trailers: `${TEST_ID_KEY}: bbbbbbbb\nConfidence: low`
       };
 
       vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
 
-      const results = await repo.find({ filters: { Confidence: 'high' } });
+      const results = await repo.find(undefined, { author: 'alice', filters: { Confidence: 'high' } });
+
 
       expect(results).toHaveLength(1);
       expect(results[0].commitHash).toBe('h1');
@@ -144,17 +146,19 @@ describe('AtomRepository Filtering Parity', () => {
 
     it('should correctly refine results for full-text search', async () => {
        const commit1: RawCommit = {
-        hash: 'h1', date: '2023-01-01', author: 'a', subject: 'contains needle', body: 'b',
-        trailers: `${TEST_ID_KEY}: a1`
+        hash: 'h1', date: '2023-01-01', author: 'a', subject: 'target word', body: 'b',
+        trailers: `${TEST_ID_KEY}: aaaaaaaa`
       };
       const commit2: RawCommit = {
-        hash: 'h2', date: '2023-01-01', author: 'a', subject: 'nothing here', body: 'b',
-        trailers: `${TEST_ID_KEY}: a2`
+        hash: 'h2', date: '2023-01-01', author: 'a', subject: 'no match', body: 'b',
+        trailers: `${TEST_ID_KEY}: bbbbbbbb`
       };
+
 
       vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
 
-      const results = await repo.find({ text: 'needle' });
+      const results = await repo.find(undefined, { text: 'target word' });
+
 
       expect(results).toHaveLength(1);
       expect(results[0].commitHash).toBe('h1');
@@ -165,11 +169,11 @@ describe('AtomRepository Filtering Parity', () => {
     it('behaves as an AND operation across different filter types', async () => {
       const commit1: RawCommit = {
         hash: 'h1', date: '2023-01-01', author: 'alice', subject: 'feat(ui): s', body: 'b',
-        trailers: `${TEST_ID_KEY}: a1\nConfidence: high`
+        trailers: `${TEST_ID_KEY}: aaaaaaaa\nConfidence: high`
       };
       const commit2: RawCommit = {
         hash: 'h2', date: '2023-01-01', author: 'alice', subject: 'feat(auth): s', body: 'b',
-        trailers: `${TEST_ID_KEY}: a2\nConfidence: low`
+        trailers: `${TEST_ID_KEY}: bbbbbbbb\nConfidence: low`
       };
 
       vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
@@ -177,7 +181,7 @@ describe('AtomRepository Filtering Parity', () => {
       // Filter by Alice AND scope auth AND Confidence high
       // commit1: Alice, scope ui, high -> FAIL (scope)
       // commit2: Alice, scope auth, low -> FAIL (confidence)
-      const results = await repo.find({ 
+      const results = await repo.find(undefined, { 
         author: 'alice', 
         scope: 'auth',
         filters: { Confidence: 'high' }

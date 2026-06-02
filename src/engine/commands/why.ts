@@ -9,6 +9,8 @@ import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/pat
 import { mergeOptions } from './helpers/merge-options.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
+import type { QueryTargetFactory } from '../services/query-target-factory.js';
+
 /**
  * Register the `why <target>` command.
  * Target must be `file:line` or `file:line-line` format.
@@ -19,6 +21,7 @@ export function registerWhyCommand(
     atomRepository: AtomRepository;
     getFormatter: () => IOutputFormatter;
     protocolRegistry: ProtocolRegistry;
+    targetFactory: QueryTargetFactory;
   },
 ): void {
   const cmd = program
@@ -27,8 +30,8 @@ export function registerWhyCommand(
 
   addPathQueryOptions(cmd);
 
-  cmd.action(async (target: string, _options: PathQueryCommandOptions, command: Command) => {
-    const { atomRepository, getFormatter, protocolRegistry } = deps;
+  cmd.action(async (rawTarget: string, _options: PathQueryCommandOptions, command: Command) => {
+    const { atomRepository, getFormatter, protocolRegistry, targetFactory } = deps;
     
     if (protocolRegistry.getAll().length === 0) {
         throw new ProtocolError('At least one protocol must be registered to run this command.', 1);
@@ -36,9 +39,11 @@ export function registerWhyCommand(
 
     const options = mergeOptions<PathQueryCommandOptions>(command);
 
-    // Step 1: Resolve atoms using high-level Repository API
-    // This encapsulates PathResolver and Git-blame construction.
-    const atoms = await atomRepository.findByLineRange(target, options);
+    // Step 1: Resolve target using the opaque factory
+    const target = targetFactory.create(rawTarget);
+
+    // Step 2: Resolve atoms using high-level Repository API
+    const atoms = await atomRepository.find(target, options);
 
     const totalAtoms = atoms.length;
     
@@ -56,7 +61,7 @@ export function registerWhyCommand(
 
     const result: QueryResult = {
       command: 'why',
-      target,
+      target: target.raw.toString(),
       targetType: 'line-range',
       atoms,
       meta,

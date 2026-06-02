@@ -1,15 +1,15 @@
 import type { IGitClient, RawCommit, StorageQuery } from '../interfaces/git-client.js';
-import type { PathQueryOptions, SearchOptions, QueryIdentity } from '../types/query.js';
+import type { SearchOptions, QueryIdentity } from '../types/query.js';
 import type { Atom } from '../types/domain.js';
 import { GLOBAL_CACHE_KEY } from '../util/constants.js';
 import { ProtocolError } from '../util/errors.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 import type { SearchFilter } from './search-filter.js';
-import type { PathResolver } from './path-resolver.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import { FilterResolver } from './filter-resolver.js';
 import { escapeRegex } from '../util/regex.js';
 import type { AtomHydrator } from './atom-hydrator.js';
+import type { IQueryTarget } from '../interfaces/query-target.js';
 
 /**
  * Retrieves Atoms from git history.
@@ -24,51 +24,38 @@ export class AtomRepository {
     private readonly hydrator: AtomHydrator,
     private readonly protocolRegistry: ProtocolRegistry,
     private readonly searchFilter: SearchFilter,
-    private readonly pathResolver: PathResolver,
     private readonly queryCache: IQueryCache,
-    private readonly isScoped: boolean = false,
+    private readonly baseTarget: IQueryTarget,
   ) {}
 
   /**
    * HIGH-LEVEL: The primary entry point for chronological atom discovery.
-   * Unifies path-scoped, keyword-based, and global history queries.
+   * Unifies path-scoped, multi-path, and global history queries.
    */
-  async find(options: SearchOptions & { target?: string | string[] } = {}): Promise<Atom[]> {
-      const headHash = await this.getHeadHash();
+  async find(target?: IQueryTarget, options: SearchOptions = {}): Promise<Atom[]> {
+      const activeTarget = target || this.baseTarget;
       
-      let paths: string[] = [];
-      let isGlobal = true;
-
-      // 1. Resolve path-based arguments if target provided
-      const target = options.target;
-      if (target) {
-          if (Array.isArray(target)) {
-              if (target.length > 0) {
-                  paths = [...target];
-                  isGlobal = false;
-              }
-          } else if (typeof target === 'string') {
-              const parsedTarget = this.pathResolver.parseTarget(target);
-              paths = [parsedTarget.filePath];
-              isGlobal = false;
-          }
+      if (activeTarget.isBlameTarget()) {
+          return this.findByLineRange(activeTarget);
       }
-
-      return this.internalQuery(paths, options, headHash, isGlobal);
+      
+      const headHash = await this.getHeadHash();
+      return this.internalQuery(activeTarget, options, headHash);
   }
 
   /**
    * BASE: Orchestrates the coarse discovery, fine extraction, and post-filtering passes.
    */
   private async internalQuery(
-    paths: readonly string[],
+    target: IQueryTarget,
     options: SearchOptions,
     headHash?: string,
-    isGlobal: boolean = false,
   ): Promise<Atom[]> {
     const resolvedOptions = await this.resolveOptions(options);
 
     // 1. Try Cache First (Fast Path)
+    const paths = target.getPaths();
+    const isGlobal = target.type === 'global';
     const cacheKey = isGlobal ? [GLOBAL_CACHE_KEY] : paths;
     if (headHash && resolvedOptions.cache !== false) {
       const cachedHashes = await this.queryCache.get(headHash, cacheKey, resolvedOptions);
@@ -125,7 +112,7 @@ export class AtomRepository {
         untilDate: resolvedOptions.untilDate || undefined,
         limit: options.maxCommits || undefined,
         regexPatterns,
-        paths: [...paths, ...this.getPathScope()],
+        paths,
     };
 
     const rawCommits = await this.gitClient.query(storageQuery);
@@ -149,17 +136,16 @@ export class AtomRepository {
   /**
    * Find atoms by specific line ranges using git blame.
    */
-  async findByLineRange(target: string, options: PathQueryOptions): Promise<Atom[]> {
-      const parsedTarget = this.pathResolver.parseTarget(target);
-      if (parsedTarget.type !== 'line-range' || parsedTarget.lineStart === null) {
-        throw new ProtocolError(`Target must be file:line or file:line-line format (got "${target}")`, 1);
+  private async findByLineRange(target: IQueryTarget): Promise<Atom[]> {
+      const range = target.getLineRange();
+      if (!range) {
+        throw new ProtocolError(`Target "${target.raw}" is not a valid line range`, 1);
       }
 
-      const blameArgs = this.pathResolver.toGitBlameArgs(parsedTarget);
       const blameLines = await this.gitClient.blame(
-        blameArgs.file,
-        blameArgs.lineStart,
-        blameArgs.lineEnd,
+        range.file,
+        range.start,
+        range.end,
       );
 
       if (blameLines.length === 0) return [];
@@ -201,7 +187,7 @@ export class AtomRepository {
     
     const rawCommits = await this.gitClient.query({
         regexPatterns: [patterns], // OR-set
-        paths: this.getPathScope()
+        paths: this.baseTarget.getPaths()
     });
     
     const atoms = this.hydrator.hydrate(rawCommits);
@@ -223,7 +209,7 @@ export class AtomRepository {
    * Find a single atom by its commit hash.
    */
   async findByCommitHash(hash: string): Promise<Atom | null> {
-    const rawCommits = await this.gitClient.log(['-1', hash, ...this.getPathScope()]);
+    const rawCommits = await this.gitClient.log(['-1', hash, ...this.baseTarget.getPaths()]);
     const atoms = this.hydrator.hydrate(rawCommits);
     return atoms[0] || null;
   }
@@ -255,7 +241,7 @@ export class AtomRepository {
 
     const rawCommits = await this.gitClient.query({
         regexPatterns: [patterns], // OR-set
-        paths: this.getPathScope()
+        paths: this.baseTarget.getPaths()
         });
 
         const atoms = this.hydrator.hydrate(rawCommits);
@@ -285,7 +271,7 @@ export class AtomRepository {
    * Find atoms by a git revision range.
    */
   async findByRange(range: string): Promise<Atom[]> {
-    const rawCommits = await this.gitClient.log([range, ...this.getPathScope()]);
+    const rawCommits = await this.gitClient.log([range, ...this.baseTarget.getPaths()]);
     return this.hydrator.hydrate(rawCommits);
   }
 
@@ -293,10 +279,10 @@ export class AtomRepository {
   /**
    * Find atoms for a conventional commit scope.
    */
-  async findByScope(scope: string, options: PathQueryOptions, headHash?: string): Promise<Atom[]> {
+  async findByScope(scope: string, options: SearchOptions): Promise<Atom[]> {
     // Conventional commit scope regex: type(scope): description
     const grepPattern = `^[a-zA-Z]+\\(${escapeRegex(scope)}\\):`;
-    return this.find({ ...options, scope: grepPattern } as SearchOptions);
+    return this.find(this.baseTarget, { ...options, scope: grepPattern });
   }
 
   /**
@@ -361,9 +347,5 @@ export class AtomRepository {
     }
 
     return resolved;
-  }
-
-  private getPathScope(): string[] {
-    return this.isScoped ? ['.'] : [];
   }
 }

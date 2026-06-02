@@ -3,7 +3,7 @@ import { AtomRepository } from '../../../src/engine/services/atom-repository.js'
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import type { SearchOptions } from '../../../src/engine/types/query.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeMockGitClient } from '../engine-test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeMockGitClient, makeQueryTarget } from '../engine-test-utils.js';
 
 const TEST_ID_KEY = "Mock-id";
 
@@ -104,7 +104,7 @@ describe('AtomRepository Refinement', () => {
         follow: true,
       } as any;
 
-      let atoms = await repo.find({ target: 'file.ts', ...options });
+      let atoms = await repo.find(makeQueryTarget('file.ts'), options);
       atoms = await repo.resolveFollowLinks(atoms, 1);
 
       expect(atoms).toHaveLength(2);

@@ -3,7 +3,7 @@ import { executePathQuery } from '../../../../src/engine/commands/helpers/path-q
 import type { PathQueryDeps, PathQueryCommandOptions } from '../../../../src/engine/commands/helpers/path-query.js';
 import type { Atom, SupersessionStatus } from '../../../../src/engine/types/domain.js';
 import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, TestLogger } from '../../engine-test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, TestLogger, makeMockTargetFactory } from '../../engine-test-utils.js';
 
 const TEST_ID_KEY = "Mock-id";
 
@@ -79,6 +79,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
       }) as any,
       config: TEST_ENGINE_CONFIG,
       logger,
+      targetFactory: makeMockTargetFactory()
     };
   });
 
@@ -125,8 +126,8 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     const options: PathQueryCommandOptions = { limit: 5, maxCommits: 100 };
     await executePathQuery('src/test.ts', options, deps, 'context', 'all');
 
-    // Verify findByTarget received maxCommits in PathQueryOptions
-    const queryOptions = mockFind.mock.calls[0][0];
+    // Verify find received maxCommits in options (second argument)
+    const queryOptions = mockFind.mock.calls[0][1];
     expect(queryOptions.maxCommits).toBe(100);
     // limit is in the options but should NOT affect git scan (in repository call)
     expect(queryOptions.limit).toBeNull();

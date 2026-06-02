@@ -10,7 +10,9 @@ import {
     TestLogger, 
     makeAtom, 
     makeMockAtomRepository, 
-    makeMockSupersessionResolver 
+    makeMockSupersessionResolver,
+    makeMockTargetFactory,
+    makeQueryTarget
 } from '../engine-test-utils.js';
 import type { ILogger } from '../../../src/engine/interfaces/logger.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
@@ -49,6 +51,8 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
   const program = new Command();
   program.exitOverride();
 
+  const targetFactory = makeMockTargetFactory();
+
   const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
   const protocolRegistry = new ProtocolRegistry();
   protocolRegistry.register(protocol);
@@ -58,6 +62,7 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
     supersessionResolver,
     getFormatter: () => formatter,
     logger,
+    targetFactory,
   });
 
   return { program, capturedResult, repo, logger };
@@ -79,9 +84,8 @@ describe('registerLogCommand (agnostic path arguments)', () => {
     await h.program.parseAsync(['node', 'atom', 'log', 'src/main.ts']);
 
     expect(h.repo.find).toHaveBeenCalledTimes(1);
-    expect(h.repo.find).toHaveBeenCalledWith(
-      expect.objectContaining({ target: ['src/main.ts'] })
-    );
+    const [target] = h.repo.find.mock.calls[0];
+    expect(target.getPaths()).toContain('src/main.ts');
 
     const result = (h.capturedResult.data as { result: { atoms: any[] } }).result;
     expect(result.atoms).toHaveLength(1);
@@ -98,9 +102,8 @@ describe('registerLogCommand (agnostic path arguments)', () => {
     await h.program.parseAsync(['node', 'atom', 'log', '--', 'src/main.ts']);
 
     expect(h.repo.find).toHaveBeenCalledTimes(1);
-    expect(h.repo.find).toHaveBeenCalledWith(
-      expect.objectContaining({ target: ['src/main.ts'] })
-    );
+    const [target] = h.repo.find.mock.calls[0];
+    expect(target.getPaths()).toContain('src/main.ts');
 
     const result = (h.capturedResult.data as { result: { atoms: any[] } }).result;
     expect(result.atoms).toHaveLength(1);
@@ -115,9 +118,8 @@ describe('registerLogCommand (agnostic path arguments)', () => {
     await h.program.parseAsync(['node', 'atom', 'log']);
 
     expect(h.repo.find).toHaveBeenCalledTimes(1);
-    expect(h.repo.find).toHaveBeenCalledWith(
-      expect.objectContaining({ target: [] })
-    );
+    const [target] = h.repo.find.mock.calls[0];
+    expect(target.type).toBe('global');
 
     const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(2);

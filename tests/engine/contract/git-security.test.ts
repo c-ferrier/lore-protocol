@@ -25,7 +25,7 @@ describe('Git Security (Argument Escaping)', () => {
 
   it('should pass author filter to GitClient.query raw (escaping is Client responsibility)', async () => {
     const maliciousAuthor = 'cole (admin) | rm -rf';
-    await repository.find({ author: maliciousAuthor });
+    await repository.find(undefined, { author: maliciousAuthor });
     
     expect(gitClient.query).toHaveBeenCalledWith(expect.objectContaining({
         author: maliciousAuthor
@@ -33,7 +33,7 @@ describe('Git Security (Argument Escaping)', () => {
   });
 
   it('should escape regex characters in scope filter (handled by Repository)', async () => {
-    await repository.find({ scope: 'ui) | grep (secret' });
+    await repository.find(undefined, { scope: 'ui) | grep (secret' });
     
     const query = gitClient.query.mock.calls[0][0];
     const found = query.regexPatterns.some((set: string[]) => 
@@ -54,7 +54,7 @@ describe('Git Security (Argument Escaping)', () => {
   });
 
   it('should escape regex characters in trailer key search (has filter)', async () => {
-    await repository.find({ has: 'Secret: ) | grep' });
+    await repository.find(undefined, { has: 'Secret: ) | grep' });
     
     // The 'has' filter should result in an escaped regex pattern starting with ^
     const query = gitClient.query.mock.calls[0][0];

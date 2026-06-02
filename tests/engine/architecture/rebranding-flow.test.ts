@@ -8,7 +8,7 @@ import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js'
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG, makeMockGitClient } from '../engine-test-utils.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG, makeMockGitClient, makeQueryTarget } from '../engine-test-utils.js';
 import { Validator } from '../../../src/engine/services/validator.js';
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
 
@@ -70,11 +70,11 @@ describe('Engine Protocol Rebranding Flow', () => {
       hydrator,
       registry,
       new SearchFilter(registry),
-      new PathResolver('/mock', '/mock'),
-      new NullQueryCache()
+      new NullQueryCache(),
+      makeQueryTarget()
     );
 
-    const atoms = await repo.find();
+    const atoms = await repo.find(makeQueryTarget());
     expect(atoms).toHaveLength(1);
     const atom = atoms[0];
 

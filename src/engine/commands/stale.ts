@@ -10,6 +10,8 @@ import { STALE_SIGNAL } from '../util/constants.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import type { ILogger } from '../interfaces/logger.js';
 
+import type { QueryTargetFactory } from '../services/query-target-factory.js';
+
 interface StaleCommandOptions {
   readonly olderThan?: string;
   readonly drift?: number;
@@ -29,6 +31,7 @@ export function registerStaleCommand(
     stalenessDetector: StalenessDetector;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
+    targetFactory: QueryTargetFactory;
   },
 ): void {
   program
@@ -36,16 +39,14 @@ export function registerStaleCommand(
     .description('Flag potentially outdated atoms')
     .option('--older-than <duration>', 'Time-based staleness threshold (e.g., 6m, 1y)')
     .option('--drift <n>', 'File drift threshold (commits since atom)', parseInt)
-    .action(async (target: string | undefined, _options: StaleCommandOptions, command: Command) => {
+    .action(async (rawTarget: string | undefined, _options: StaleCommandOptions, command: Command) => {
       const options = mergeOptions<StaleCommandOptions>(command);
-      const { atomRepository, supersessionResolver, stalenessDetector, getFormatter } = deps;
+      const { atomRepository, supersessionResolver, stalenessDetector, getFormatter, targetFactory } = deps;
 
-      // 1. Fetch atoms using high-level Repository API
-      const queryOptions: PathQueryOptions = {
-          scope: null, follow: false, all: false, author: null, limit: null, maxCommits: null, since: null, until: null,
-      };
+      // 1. Resolve target using the opaque factory
+      const target = targetFactory.create(rawTarget);
       
-      const atoms = await atomRepository.find({ target, ...queryOptions });
+      const atoms = await atomRepository.find(target);
 
       // 2. Compute supersession for dependency-orphan detection
       const globalSupersessionMap = supersessionResolver.resolveAll(atoms);

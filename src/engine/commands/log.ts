@@ -10,6 +10,8 @@ import { addPathQueryOptions } from './helpers/path-query.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import type { ILogger } from '../interfaces/logger.js';
 
+import type { QueryTargetFactory } from '../services/query-target-factory.js';
+
 /**
  * Register the log command.
  * Standardizes git-history based surveyor across all protocols.
@@ -21,6 +23,7 @@ export function registerLogCommand(
     supersessionResolver: SupersessionResolver;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
+    targetFactory: QueryTargetFactory;
   },
 ): void {
   const cmd = program
@@ -31,21 +34,14 @@ export function registerLogCommand(
 
   cmd.action(async (paths: string[] | undefined, _options: any, command: Command) => {
     const options = mergeOptions<PathQueryOptions>(command);
-    const { atomRepository, supersessionResolver, getFormatter, logger } = deps;
+    const { atomRepository, supersessionResolver, getFormatter, logger, targetFactory } = deps;
 
-    // Step 1: Query atoms using the high-level repository API
-    // This encapsulates Path resolution, Git-log construction, and Caching.
-    let atoms: Atom[];
-    let targetDisplay: string;
+    // Step 1: Resolve target using the opaque factory
+    const target = options.scope 
+      ? targetFactory.create() // Scopes use the base target logic
+      : targetFactory.create(paths);
 
-    if (options.scope) {
-      atoms = await atomRepository.findByScope(options.scope, options);
-      targetDisplay = `scope:${options.scope}`;
-    } else {
-      atoms = await atomRepository.find({ target: paths, ...options });
-      targetDisplay = (paths && paths.length > 0) ? paths.join(', ') : 'all';
-    }
-
+    const atoms = await atomRepository.find(target, options);
     const totalAtoms = atoms.length;
 
     // Step 2: Compute supersession status
@@ -74,8 +70,8 @@ export function registerLogCommand(
 
     const result: QueryResult = {
       command: 'log',
-      target: targetDisplay,
-      targetType: paths && paths.length > 0 ? 'directory' : 'global',
+      target: target.raw ? target.raw.toString() : 'all',
+      targetType: target.type === 'global' ? 'global' : 'directory',
       atoms: displayAtoms,
       meta: buildQueryMeta(totalAtoms, displayAtoms),
     };

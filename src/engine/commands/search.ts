@@ -10,6 +10,8 @@ import type { SupersessionResolver } from '../services/supersession-resolver.js'
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { ILogger } from '../interfaces/logger.js';
 
+import type { QueryTargetFactory } from '../services/query-target-factory.js';
+
 /**
  * Register the `search` command.
  */
@@ -20,6 +22,7 @@ export function registerSearchCommand(
     supersessionResolver: SupersessionResolver;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
+    targetFactory: QueryTargetFactory;
   },
 ): void {
   const cmd = program
@@ -31,7 +34,7 @@ export function registerSearchCommand(
   addPathQueryOptions(cmd);
 
   cmd.action(async (options: PathQueryCommandOptions & { text?: string; has?: string }, command: Command) => {
-    const { atomRepository, supersessionResolver, getFormatter, logger } = deps;
+    const { atomRepository, supersessionResolver, getFormatter, logger, targetFactory } = deps;
     const mergedOptions = mergeOptions<PathQueryCommandOptions & { text?: string; has?: string }>(command);
 
     const searchOptions = {
@@ -48,8 +51,13 @@ export function registerSearchCommand(
       has: mergedOptions.has ?? null,
     };
 
-    // Step 1: Perform High-Level Search (Encapsulated in Repository)
-    const atoms = await atomRepository.find(searchOptions);
+    // Step 1: Resolve target using the opaque factory
+    const target = searchOptions.scope 
+      ? targetFactory.create() // Scopes use the base target logic
+      : targetFactory.create(); // Default search is global (respects baseTarget)
+
+    // Step 2: Perform High-Level Search (Encapsulated in Repository)
+    const atoms = await atomRepository.find(target, searchOptions);
     const totalAtoms = atoms.length;
 
     // Step 2: Compute supersession

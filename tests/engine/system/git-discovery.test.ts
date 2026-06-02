@@ -9,9 +9,11 @@ import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
+import { QueryTargetFactory } from '../../../src/engine/services/query-target-factory.js';
 import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { makeQueryTarget } from '../engine-test-utils.js';
 
 describe('AtomRepository Git Integration', () => {
   let testDir: string;
@@ -66,14 +68,21 @@ describe('AtomRepository Git Integration', () => {
     const queryCache = new NullQueryCache();
     const hydrator = new AtomHydrator(protocolRegistry);
 
+    const targetFactory = new QueryTargetFactory({
+        cwd: testDir,
+        protocolRoot: testDir,
+        isScoped: false
+    });
+
     repo = new AtomRepository(
       gitClient,
       hydrator,
       protocolRegistry,
       searchFilter,
-      pathResolver,
-      queryCache
+      queryCache,
+      targetFactory.create()
     );
+
   });
 
   afterAll(() => {
@@ -90,39 +99,39 @@ describe('AtomRepository Git Integration', () => {
   });
 
   it('Coarse Filtering: should correctly filter by author at Git level', async () => {
-    const result = await repo.find({ author: 'test@example.com' });
+    const result = await repo.find(undefined, { author: 'test@example.com' });
     expect(result).toHaveLength(2); // Both lore atoms have same email
   });
 
   it('Coarse Filtering: should correctly filter by scope at Git level', async () => {
-    const result = await repo.find({ scope: 'auth' });
+    const result = await repo.find(undefined, { scope: 'auth' });
     expect(result).toHaveLength(1);
   });
 
   it('Coarse Filtering: should handle AND logic (all-match) at Git level', async () => {
-    const result = await repo.find({ author: 'test@example.com', scope: 'auth' });
+    const result = await repo.find(undefined, { author: 'test@example.com', scope: 'auth' });
     expect(result).toHaveLength(1);
   });
 
   it('Coarse Filtering: should handle date-based filtering (since/until)', async () => {
     const all = await repo.find();
     const midPoint = all[0].date;
-    const sinceResult = await repo.find({ since: midPoint.toISOString() });
+    const sinceResult = await repo.find(undefined, { since: midPoint.toISOString() });
     expect(sinceResult.length).toBeGreaterThanOrEqual(1);
   });
 
   it('Coarse Filtering: should handle relative dates (e.g., "1 hour ago")', async () => {
-    const result = await repo.find({ since: '1 hour ago' });
+    const result = await repo.find(undefined, { since: '1 hour ago' });
     expect(result.length).toBeGreaterThanOrEqual(2);
   });
 
   it('Coarse Filtering: should handle commit references (e.g., "HEAD~2")', async () => {
-    const result = await repo.find({ since: 'HEAD~2' });
+    const result = await repo.find(undefined, { since: 'HEAD~2' });
     expect(result.length).toBeGreaterThanOrEqual(1);
   });
 
   it('Coarse Filtering: should handle until filtering with refs (e.g., "HEAD~3")', async () => {
-    const result = await repo.find({ until: 'HEAD~3' });
+    const result = await repo.find(undefined, { until: 'HEAD~3' });
     // HEAD~3 is the first commit (#1). HEAD~2 is #2, HEAD~1 is #3.
     // until=HEAD~3 includes only #1.
     expect(result).toHaveLength(1);
@@ -132,13 +141,13 @@ describe('AtomRepository Git Integration', () => {
   it('Coarse Filtering: should handle commit hashes', async () => {
     const all = await repo.find();
     const hash = all[0].commitHash;
-    const result = await repo.find({ until: hash, maxCommits: 1 });
+    const result = await repo.find(undefined, { until: hash, maxCommits: 1 });
     expect(result).toHaveLength(1);
     expect(result[0].commitHash).toBe(hash);
   });
 
   it('Coarse Filtering: should handle garbage date strings gracefully', async () => {
-    const result = await repo.find({ since: 'not-a-date' });
+    const result = await repo.find(undefined, { since: 'not-a-date' });
     expect(Array.isArray(result)).toBe(true);
   });
 });

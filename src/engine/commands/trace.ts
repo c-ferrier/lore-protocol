@@ -9,6 +9,8 @@ import type { IProtocol } from '../interfaces/protocol.js';
 import type { ILogger } from '../interfaces/logger.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
+import type { QueryTargetFactory } from '../services/query-target-factory.js';
+
 /**
  * Register the ` trace <id>` command.
  * Finds an atom by its identity key, then BFS through all references to build
@@ -25,6 +27,7 @@ export function registerTraceCommand(
     getFormatter: () => IOutputFormatter;
     protocolRegistry: ProtocolRegistry;
     logger: ILogger;
+    targetFactory: QueryTargetFactory;
   },
 ): void {
   program

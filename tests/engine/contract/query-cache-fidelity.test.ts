@@ -6,6 +6,7 @@ import {
   makeRawCommit,
   makeAtom,
   makeProtocol,
+  makeQueryTarget,
   ProtocolRegistry,
   TEST_ID_KEY
 } from '../engine-test-utils.js';
@@ -38,15 +39,14 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     };
 
     const searchFilter = new SearchFilter(registry);
-    const pathResolver = new PathResolver('/mock', '/mock');
 
     repo = new AtomRepository(
       gitClient,
       hydrator as any,
       registry,
       searchFilter,
-      pathResolver,
-      cache
+      cache,
+      makeQueryTarget()
     );
   });
 
@@ -67,19 +67,19 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     // 1. First run: Perform full Discovery + Fetch
     vi.mocked(gitClient.query).mockResolvedValue([commit]);
     vi.mocked(hydrator.hydrate).mockReturnValue([makeAtom({ commitHash: 'abc', filesChanged: commit.filesChanged })]);
+    vi.spyOn(cache, 'get').mockResolvedValue(null);
     
-    await repo.find({ target: 'src/logic.ts', cache: true });
+    const target = makeQueryTarget('src/logic.ts');
+    await repo.find(target, { cache: true });
     expect(gitClient.query).toHaveBeenCalledTimes(1);
-
-    // Ensure cache is written
-    await new Promise(resolve => setTimeout(resolve, 50));
 
     // 2. Second run: Cache should hit (skipping query)
     vi.mocked(gitClient.query).mockClear();
+    vi.spyOn(cache, 'get').mockResolvedValue(['abc']);
     vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit]);
     vi.mocked(hydrator.hydrate).mockReturnValue([makeAtom({ commitHash: 'abc', filesChanged: commit.filesChanged })]);
     
-    const result = await repo.find({ target: 'src/logic.ts', cache: true });
+    const result = await repo.find(target, { cache: true });
     
     // VERIFICATION: Discovery is skipped
     expect(gitClient.query).not.toHaveBeenCalled();

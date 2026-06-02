@@ -3,11 +3,11 @@ import { join } from 'node:path';
 import { ProtocolRegistry } from './protocol-registry.js';
 import { Protocol } from './protocol.js';
 import { TrailerParser } from './trailer-parser.js';
-import { PathResolver } from './path-resolver.js';
 import { SearchFilter } from './search-filter.js';
 import { AtomRepository } from './atom-repository.js';
 import { AtomHydrator } from './atom-hydrator.js';
 import { QueryCache } from './query-cache.js';
+import { QueryTargetFactory } from './query-target-factory.js';
 import { IdGenerator } from './id-generator.js';
 import { SupersessionResolver } from './supersession-resolver.js';
 import { LogLevel } from '../interfaces/logger.js';
@@ -132,7 +132,6 @@ export class EngineBootstrapper {
     }
     
     const trailerParser = new TrailerParser();
-    const pathResolver = new PathResolver(cwd, activeRoot);
     const searchFilter = new SearchFilter(protocolRegistry);
     
     const queryCache: IQueryCache = new QueryCache(
@@ -145,14 +144,21 @@ export class EngineBootstrapper {
       protocolRegistry,
     );
 
+    const targetFactory = new QueryTargetFactory({
+      cwd,
+      protocolRoot: activeRoot,
+      isScoped
+    });
+
+    const baseTarget = targetFactory.create();
+
     const atomRepository = new AtomRepository(
       gitClient,
       atomHydrator,
       protocolRegistry,
       searchFilter,
-      pathResolver,
       queryCache,
-      isScoped,
+      baseTarget,
     );
 
     const idGenerator = new IdGenerator();
@@ -200,10 +206,10 @@ export class EngineBootstrapper {
       validator,
       supersessionResolver,
       stalenessDetector,
-      pathResolver,
+      targetFactory,
+      baseTarget,
       searchFilter,
       configLoader: engineConfigLoader as any,
-      isScoped,
       protocolRoot: protocolRoot || activeRoot,
       gitRoot: gitRoot || activeRoot,
       engineDirName: this.options.engineDirName,

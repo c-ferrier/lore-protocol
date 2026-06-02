@@ -34,13 +34,15 @@ import {
     makeStubProtocolRegistry,
     makeStubAtomHydrator,
     makeStubAtomRepository,
+    makeStubTargetFactory,
     makeStubSupersessionResolver,
     makeStubHeadIdReader,
     makeStubCommitBuilder,
     makeStubValidator,
     makeStubStalenessDetector,
     makeRawCommit,
-    makeProtocolConfig
+    makeProtocolConfig,
+    makeQueryTarget
 } from '../../src/engine/testing.js';
 
 // SOURCE EVERYTHING FROM THE TESTING GATEWAY
@@ -254,6 +256,14 @@ export function makeMockValidator(overrides: any = {}): any {
     return {
         ...stub,
         validate: vi.fn(stub.validate)
+    };
+}
+
+/** Factory: Create a PURE MOCK QueryTargetFactory (vi.fn() object). */
+export function makeMockTargetFactory(overrides: any = {}): any {
+    const stub = makeStubTargetFactory(overrides);
+    return {
+        create: vi.fn(stub.create)
     };
 }
 

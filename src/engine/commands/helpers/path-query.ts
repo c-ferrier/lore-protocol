@@ -10,6 +10,8 @@ import { buildQueryMeta } from './build-query-meta.js';
 import type { ILogger } from '../../interfaces/logger.js';
 import { ProtocolError } from '../../util/errors.js';
 
+import type { QueryTargetFactory } from '../../services/query-target-factory.js';
+
 /** Parse a CLI value as a strict positive integer; rejects non-numeric trailing chars. */
 export function parsePositiveInt(value: string): number {
   if (!/^\d+$/.test(value)) {
@@ -28,6 +30,7 @@ export interface PathQueryDeps {
   readonly getFormatter: () => IOutputFormatter;
   readonly config: EngineConfig;
   readonly logger: ILogger;
+  readonly targetFactory: QueryTargetFactory;
 }
 
 export interface PathQueryCommandOptions {
@@ -50,15 +53,15 @@ export interface PathQueryCommandOptions {
  * GoF: Template Method (via composition, not inheritance).
  */
 export async function executePathQuery(
-  target: string,
+  rawTarget: string,
   options: PathQueryCommandOptions,
   deps: PathQueryDeps,
   commandName: string,
   visibleTrailers: readonly string[] | 'all',
 ): Promise<void> {
-  const { atomRepository, supersessionResolver, getFormatter, config, logger } = deps;
+  const { atomRepository, supersessionResolver, getFormatter, config, logger, targetFactory } = deps;
 
-  const queryOptions: PathQueryOptions = {
+  const queryOptions = {
     filters: options.filter && options.filter.length > 0 ? options.filter : undefined,
     scope: options.scope ?? null,
     follow: options.follow ?? false,
@@ -70,21 +73,12 @@ export async function executePathQuery(
     until: options.until ?? null,
   };
 
-  // Step 1: Resolve target or use --scope using high-level Repository API
-  let atoms: Atom[];
-  let targetType: TargetType | 'search' | 'global';
-  let targetDisplay: string;
+  // Step 1: Resolve target using the opaque factory
+  const target = queryOptions.scope 
+    ? targetFactory.create() // Scopes use the base target logic
+    : targetFactory.create(rawTarget);
 
-  if (queryOptions.scope) {
-    atoms = await atomRepository.findByScope(queryOptions.scope, { ...queryOptions, limit: null });
-    targetType = 'global';
-    targetDisplay = `scope:${queryOptions.scope}`;
-  } else {
-    // Encapsulates path resolution
-    atoms = await atomRepository.find({ target, ...queryOptions, limit: null });
-    targetType = 'directory'; 
-    targetDisplay = target;
-  }
+  let atoms = await atomRepository.find(target, { ...queryOptions, limit: null });
 
   // Step 2: Follow links if requested
   if (queryOptions.follow && atoms.length > 0) {
@@ -120,8 +114,8 @@ export async function executePathQuery(
   // Step 5: Build QueryResult
   const result: QueryResult = {
     command: commandName,
-    target: targetDisplay,
-    targetType,
+    target: target.raw.toString(),
+    targetType: target.type === 'line-range' ? 'line-range' : 'directory',
     atoms: displayAtoms,
     meta: buildQueryMeta(totalAtoms, displayAtoms),
   };

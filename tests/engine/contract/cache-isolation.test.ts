@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import type { IQueryCache } from '../../../src/engine/interfaces/query-cache.js';
-import { makeAtomRepository, makeMockGitClient, makeMockQueryCache } from '../engine-test-utils.js';
+import { makeAtomRepository, makeMockGitClient, makeMockQueryCache, makeQueryTarget } from '../engine-test-utils.js';
 import { GLOBAL_CACHE_KEY } from '../../../src/engine/util/constants.js';
 
 describe('AtomRepository Cache Isolation', () => {
@@ -21,14 +21,12 @@ describe('AtomRepository Cache Isolation', () => {
     await repo.find();
     expect(queryCache.get).toHaveBeenCalledWith('head-hash', [GLOBAL_CACHE_KEY], expect.any(Object));
 
-    await repo.find({ target: 'src/main.ts' });
-    // PathResolver translates 'src/main.ts' into 'src/main.ts' filePath.
-    // The repository uses [filePath] as the cache key.
+    await repo.find(makeQueryTarget('src/main.ts'));
     expect(queryCache.get).toHaveBeenCalledWith('head-hash', ['src/main.ts'], expect.any(Object));
   });
 
   it(`search (find with text) should also use "${GLOBAL_CACHE_KEY}" key`, async () => {
-    await repo.find({ text: 'query' });
+    await repo.find(undefined, { text: 'query' });
     expect(queryCache.get).toHaveBeenCalledWith('head-hash', [GLOBAL_CACHE_KEY], expect.any(Object));
   });
 });

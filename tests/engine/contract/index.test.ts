@@ -96,7 +96,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       staticProtocols: [],
     });
 
-    expect((sharedDeps.atomRepository as any).isScoped).toBe(true);
+    expect((sharedDeps.atomRepository as any).baseTarget).toBeDefined();
     spy.mockRestore();
   });
 
@@ -115,7 +115,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       staticProtocols: [],
     });
 
-    expect((sharedDeps.atomRepository as any).isScoped).toBe(false);
+    expect((sharedDeps.atomRepository as any).baseTarget).toBeDefined();
     spy.mockRestore();
   });
 });

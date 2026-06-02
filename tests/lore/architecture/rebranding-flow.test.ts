@@ -3,13 +3,13 @@ import { Protocol, ProtocolRegistry, type ProtocolDefinition } from '../../../sr
 import { 
   AtomRepository, 
   AtomHydrator, 
-  PathResolver, 
   TrailerParser, 
   SearchFilter, 
   NullQueryCache,
   TEST_ENGINE_CONFIG, 
   TEST_PROTOCOL_CONFIG, 
-  makeMockGitClient 
+  makeMockGitClient,
+  makeQueryTarget
 } from '../../engine/engine-test-utils.js';
 import { LoreJsonFormatter } from '../../../src/lore/formatters/lore-json-formatter.js';
 
@@ -58,11 +58,11 @@ describe('Lore Wrapper Rebranding Flow', () => {
       hydrator,
       registry,
       new SearchFilter(registry),
-      new PathResolver('/mock', '/mock'),
-      new NullQueryCache()
+      new NullQueryCache(),
+      makeQueryTarget()
     );
 
-    const atoms = await repo.find();
+    const atoms = await repo.find(makeQueryTarget());
     const atom = atoms[0];
 
     // 4. Format using the Lore-specific formatter

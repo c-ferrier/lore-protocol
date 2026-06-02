@@ -11,6 +11,8 @@ import {
     makeMockGitClient,
     makeRawCommit,
     makeQueryOptions,
+    makeQueryTarget,
+    NullQueryCache,
 } from '../engine-test-utils.js';
 import { ProtocolError } from '../../../src/engine/util/errors.js';
 
@@ -37,7 +39,7 @@ describe('AtomRepository', () => {
       const commit = makeRawCommit({ id: 'a1b2c3d4', filesChanged: ['src/auth.ts'] });
       vi.mocked(gitClient.query).mockResolvedValue([commit]);
 
-      const result = await repo.find({ target: 'src/auth.ts' });
+      const result = await repo.find(makeQueryTarget('src/auth.ts'));
 
       expect(result).toHaveLength(1);
       expect(result[0].protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe('a1b2c3d4');
@@ -48,7 +50,7 @@ describe('AtomRepository', () => {
 
     it('should resolve date strings before querying', async () => {
         vi.mocked(gitClient.query).mockResolvedValue([]);
-        await repo.find({ since: '2025-01-01' });
+        await repo.find(makeQueryTarget(), { since: '2025-01-01' });
         expect(gitClient.resolveDate).toHaveBeenCalledWith('2025-01-01');
     });
 
@@ -65,7 +67,7 @@ describe('AtomRepository', () => {
 
       vi.mocked(gitClient.query).mockResolvedValue([mockCommit, nonMockCommit]);
 
-      const result = await repo.find({ target: 'src/auth.ts' });
+      const result = await repo.find(makeQueryTarget('src/auth.ts'));
 
       expect(result).toHaveLength(1);
       expect(result[0].protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe('a1b2c3d4');
@@ -74,7 +76,7 @@ describe('AtomRepository', () => {
     it('should pass author filter to GitClient.query', async () => {
       vi.mocked(gitClient.query).mockResolvedValue([]);
       const options = makeQueryOptions({ author: 'alice@example.com' });
-      await repo.find({ target: 'src/auth.ts', ...options });
+      await repo.find(makeQueryTarget('src/auth.ts'), options);
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
       expect(query.author).toBe('alice@example.com');
     });
@@ -85,7 +87,7 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
 
       const options = makeQueryOptions({ author: 'alice' });
-      const result = await repo.find({ target: 'src/auth.ts', ...options });
+      const result = await repo.find(makeQueryTarget('src/auth.ts'), options);
 
       expect(result).toHaveLength(1);
       expect(result[0].author).toBe('alice@example.com');
@@ -112,14 +114,14 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.query).mockResolvedValue(commits);
 
       const options = makeQueryOptions({ limit: 2 });
-      const result = await repo.find({ target: 'src/auth.ts', ...options });
+      const result = await repo.find(makeQueryTarget('src/auth.ts'), options);
 
       expect(result).toHaveLength(3);
     });
 
     it('should return empty array when no commits match', async () => {
       vi.mocked(gitClient.query).mockResolvedValue([]);
-      const result = await repo.find({ target: 'src/auth.ts' });
+      const result = await repo.find(makeQueryTarget('src/auth.ts'));
       expect(result).toEqual([]);
     });
 
@@ -128,7 +130,7 @@ describe('AtomRepository', () => {
       const commit2 = makeRawCommit({ hash: 'h2', id: 'bbbb2222' });
       vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
 
-      const result = await repo.find({ target: ['file1.ts', 'file2.ts'] });
+      const result = await repo.find(makeQueryTarget(['file1.ts', 'file2.ts']));
 
       expect(result).toHaveLength(2);
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
@@ -143,7 +145,7 @@ describe('AtomRepository', () => {
       vi.mocked(gitClient.blame).mockResolvedValue([{ commitHash: commit.hash, lineNumber: 10, content: 'code' }]);
       vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit]);
 
-      const result = await repo.findByLineRange('src/auth.ts:10-20', {});
+      const result = await repo.find(makeQueryTarget('src/auth.ts:10-20'));
 
       expect(result).toHaveLength(1);
       expect(result[0].commitHash).toBe(commit.hash);
@@ -160,14 +162,10 @@ describe('AtomRepository', () => {
       ]);
       vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit1, commit2]);
 
-      const result = await repo.findByLineRange('src/auth.ts:10-20', {});
+      const result = await repo.find(makeQueryTarget('src/auth.ts:10-20'));
 
       expect(result).toHaveLength(1); // Deduplicated
       expect(result[0].protocols.get('mock')?.trailers[TEST_ID_KEY]).toEqual(['aaaa1111']);
-    });
-
-    it('should throw error for non-line-range target', async () => {
-        await expect(repo.findByLineRange('src/auth.ts', {})).rejects.toThrow(ProtocolError);
     });
   });
 
@@ -287,21 +285,21 @@ describe('AtomRepository', () => {
 
     it('should pass since option to GitClient.query', async () => {
       vi.mocked(gitClient.query).mockResolvedValue([]);
-      await repo.find({ since: '2025-01-01' });
+      await repo.find(undefined, { since: '2025-01-01' });
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
       expect(query.sinceDate).toBeDefined();
     });
 
     it('should pass until option to GitClient.query', async () => {
       vi.mocked(gitClient.query).mockResolvedValue([]);
-      await repo.find({ until: '2025-06-01' });
+      await repo.find(undefined, { until: '2025-06-01' });
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
       expect(query.untilDate).toBeDefined();
     });
 
     it('should pass maxCommits option to GitClient.query', async () => {
       vi.mocked(gitClient.query).mockResolvedValue([]);
-      await repo.find({ maxCommits: 50 });
+      await repo.find(undefined, { maxCommits: 50 });
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
       expect(query.limit).toBe(50);
     });
@@ -446,6 +444,34 @@ describe('AtomRepository', () => {
       
       await scopedRepo.findByRange('main..HEAD');
       expect(gitClient.log).toHaveBeenCalledWith(['main..HEAD', '.']);
+    });
+  });
+
+  describe('Base Target Fallback', () => {
+    it('should use baseTarget when no target is provided', async () => {
+        const baseTarget = makeQueryTarget(['src/scoped']);
+        const repoWithBase = new AtomRepository(
+            gitClient, (repo as any).hydrator, protocolRegistry, (repo as any).searchFilter, new NullQueryCache(), baseTarget
+        );
+
+        vi.mocked(gitClient.query).mockResolvedValue([]);
+        await repoWithBase.find();
+
+        const query = vi.mocked(gitClient.query).mock.calls[0][0];
+        expect(query.paths).toEqual(['src/scoped']);
+    });
+
+    it('should override baseTarget when explicit target is provided', async () => {
+        const baseTarget = makeQueryTarget(['src/scoped']);
+        const repoWithBase = new AtomRepository(
+            gitClient, (repo as any).hydrator, protocolRegistry, (repo as any).searchFilter, new NullQueryCache(), baseTarget
+        );
+
+        vi.mocked(gitClient.query).mockResolvedValue([]);
+        await repoWithBase.find(makeQueryTarget('override.ts'));
+
+        const query = vi.mocked(gitClient.query).mock.calls[0][0];
+        expect(query.paths).toEqual(['override.ts']);
     });
   });
 });

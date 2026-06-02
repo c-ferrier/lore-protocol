@@ -11,6 +11,7 @@ import { SearchFilter } from './services/search-filter.js';
 import { PathResolver } from './services/path-resolver.js';
 import { TrailerParser } from './services/trailer-parser.js';
 import { NullQueryCache } from './services/query-cache.js';
+import { QueryTargetFactory } from './services/query-target-factory.js';
 import { InMemoryLogger } from './services/in-memory-logger.js';
 import { TerminalLogger } from './services/terminal-logger.js';
 import { CommitBuilder } from './services/commit-builder.js';
@@ -33,9 +34,11 @@ import type { ProtocolDefinition } from './interfaces/protocol-definition.js';
 import type { EngineConfig, ProtocolConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition } from './types/config.js';
 import type { CommitInput } from './types/commit.js';
 import type { ValidationIssue, FormattableTrailerDefinition } from './types/output.js';
-import type { QualifiedFilter } from './types/query.js';
+import type { QualifiedFilter, SearchOptions } from './types/query.js';
 import type { QueryIdentity } from './types/query.js';
+import type { IQueryTarget } from './interfaces/query-target.js';
 import type { IConfigLoader } from './interfaces/config-loader.js';
+
 import type { IPrompt } from './interfaces/prompt.js';
 import type { ICommitInputReader } from './interfaces/commit-input-reader.js';
 
@@ -65,6 +68,7 @@ export {
     SearchFilter, 
     PathResolver, 
     TrailerParser,
+    QueryTargetFactory,
     NullQueryCache,
     InMemoryLogger,
     TerminalLogger,
@@ -232,19 +236,29 @@ export function makeAtomHydrator(options: {
 
 /** Factory: Create a REAL functional AtomRepository with mocked dependencies. */
 export function makeAtomRepository(options: {
-    gitClient?: any; registry?: ProtocolRegistry; isScoped?: boolean; pathResolver?: PathResolver; searchFilter?: SearchFilter; hydrator?: AtomHydrator;
+    gitClient?: any; registry?: ProtocolRegistry; isScoped?: boolean; searchFilter?: SearchFilter; hydrator?: AtomHydrator;
 } = {}): AtomRepository {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
     const gitClient = options.gitClient || makeStubGitClient();
     const hydrator = options.hydrator || makeAtomHydrator({ registry });
+    const baseTarget = makeQueryTarget(undefined, options.isScoped ?? false);
     
     return new AtomRepository(
         gitClient, hydrator, registry,
         options.searchFilter || new SearchFilter(registry),
-        options.pathResolver || new PathResolver('/mock', '/mock'),
         new NullQueryCache(),
-        options.isScoped ?? false
+        baseTarget
     );
+}
+
+/** Helper: Create a functional IQueryTarget for testing. */
+export function makeQueryTarget(input?: string | string[], isScoped: boolean = false): IQueryTarget {
+    const factory = new QueryTargetFactory({
+        cwd: '/mock',
+        protocolRoot: '/mock',
+        isScoped
+    });
+    return factory.create(input);
 }
 
 // --- Pure Mock Stubs (THE BRAIN) ---
@@ -438,19 +452,30 @@ export function makeStubAtomHydrator(overrides: any = {}): any {
 
 /** Stub: Create a functional AtomRepository stub. */
 export function makeStubAtomRepository(overrides: any = {}): any {
+    return { find: async () => [], findAll: async () => [], findById: async () => null, findByIds: async () => [], findByRange: async () => [], findByCommitHash: async () => null, findByScope: async () => [], resolveFollowLinks: async (atoms: any) => atoms, extractReferenceIds: () => [], ...overrides };
+}
+
+/** Stub: Create a strictly-typed stubbed QueryTargetFactory. */
+export function makeStubTargetFactory(overrides: any = {}): any {
+    const isScoped = overrides.isScoped ?? false;
     return {
-        find: async () => [],
-        findAll: async () => [],
-        findById: async () => null,
-        findByIds: async () => [],
-        findByRange: async () => [],
-        findByCommitHash: async () => null,
-        findByScope: async () => [],
-        resolveFollowLinks: async (atoms: any) => atoms,
-        extractReferenceIds: () => [],
-        ...overrides
+        create: (input?: any) => {
+            const isEmpty = !input || (Array.isArray(input) && input.length === 0);
+            return {
+                raw: input || '',
+                type: input?.includes?.(':') ? 'line-range' : (isEmpty ? 'global' : 'path'),
+                getPaths: () => {
+                    if (!isEmpty) return Array.isArray(input) ? input : [input];
+                    return isScoped ? ['.'] : [];
+                },
+                getLineRange: () => null,
+                isBlameTarget: () => input?.includes?.(':') || false,
+                ...overrides
+            };
+        }
     };
 }
+
 
 // --- Data Object Factories ---
 
