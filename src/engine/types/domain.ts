@@ -28,6 +28,8 @@ export interface ProtocolState {
   readonly trailers: Trailers;
   /** Trailers that were associated with this protocol but not authorized by schema */
   readonly unauthorized: Trailers;
+  /** Internalized supersession status (attached by the repository during discovery) */
+  supersession?: SupersessionStatus;
 }
 
 /**
@@ -48,9 +50,14 @@ export interface Atom {
   readonly protocols: ProtocolMap<ProtocolState>;
 }
 
+/**
+ * Calculated supersession metadata for a protocol interpretation.
+ * PROJECTED: Attached by the repository during discovery.
+ */
 export interface SupersessionStatus {
   readonly superseded: boolean;
-  readonly supersededBy: AtomId | null;
+  /** Identities of atoms that supersede this one (0..n) */
+  readonly supersededBy: readonly string[];
 }
 
 /** A single staleness signal identified for an atom. */

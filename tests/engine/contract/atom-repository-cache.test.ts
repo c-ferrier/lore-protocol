@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeMockAtomHydrator, makeMockGitClient } from '../engine-test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeMockAtomHydrator, makeMockGitClient, makeAtom, makeQueryTarget } from '../engine-test-utils.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 
@@ -42,7 +42,7 @@ describe('AtomRepository Cache Interaction', () => {
 
   it('should delegate hydration to AtomHydrator', async () => {
     vi.mocked(gitClient.query).mockResolvedValue([mockCommit]);
-    const mockAtoms = [{ commitHash: mockCommit.hash } as any];
+    const mockAtoms = [makeAtom({ commitHash: mockCommit.hash })];
     vi.mocked(hydrator.hydrate).mockReturnValue(mockAtoms);
 
     const result = await repo.find();

@@ -198,12 +198,14 @@ export class ProtocolInterpreter implements IProtocolInterpreter {
             // Identity awareness logic:
             // 1. If it's a cross-protocol reference, we skip the self-exclusion check (can't supersede yourself in another protocol).
             // 2. If it's local, we check if the target was superseded by someone OTHER THAN the current atom.
-            const isBySomeoneElse = !isLocal || (status.supersededBy !== currentId && status.supersededBy !== `${targetPName}/${currentId}`);
+            const isBySomeoneElse = !isLocal || 
+                (!status.supersededBy.includes(currentId || '') && 
+                 !status.supersededBy.includes(`${targetPName}/${currentId}`));
 
             if (isBySomeoneElse) {
                 return {
                     signal: condition.signal || STALE_SIGNAL.ORPHANED_DEP,
-                    description: `[${this.protocol.name}] Dependency "${value}" (in ${key}) has been superseded by ${status.supersededBy}`,
+                    description: `[${this.protocol.name}] Dependency "${value}" (in ${key}) has been superseded by ${status.supersededBy.join(', ')}`,
                 };
             }
           }

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol } from '../engine-test-utils.js';
+import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
 import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
 
 const TEST_ID_KEY = "Mock-id";
@@ -59,7 +60,7 @@ describe('SupersessionResolver', () => {
       expect(result.size).toBe(3);
       for (const [, status] of result) {
         expect(status.superseded).toBe(false);
-        expect(status.supersededBy).toBeNull();
+        expect(status.supersededBy).toEqual([]);
       }
     });
 
@@ -74,7 +75,7 @@ describe('SupersessionResolver', () => {
 
       expect(result.get('aaaa1111')!.superseded).toBe(false);
       expect(result.get('bbbb2222')!.superseded).toBe(true);
-      expect(result.get('bbbb2222')!.supersededBy).toBe('aaaa1111');
+      expect(result.get('bbbb2222')!.supersededBy).toEqual(['aaaa1111']);
     });
 
     it('should handle multiple atoms superseded by one', () => {
@@ -89,9 +90,9 @@ describe('SupersessionResolver', () => {
 
       expect(result.get('aaaa1111')!.superseded).toBe(false);
       expect(result.get('bbbb2222')!.superseded).toBe(true);
-      expect(result.get('bbbb2222')!.supersededBy).toBe('aaaa1111');
+      expect(result.get('bbbb2222')!.supersededBy).toEqual(['aaaa1111']);
       expect(result.get('cccc3333')!.superseded).toBe(true);
-      expect(result.get('cccc3333')!.supersededBy).toBe('aaaa1111');
+      expect(result.get('cccc3333')!.supersededBy).toEqual(['aaaa1111']);
     });
 
     it('should handle transitive chains: A supersedes B, B supersedes C', () => {

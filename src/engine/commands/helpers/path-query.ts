@@ -1,6 +1,5 @@
 import type { Command } from 'commander';
 import type { AtomRepository } from '../../services/atom-repository.js';
-import type { SupersessionResolver } from '../../services/supersession-resolver.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { EngineConfig } from '../../types/config.js';
 import type { Atom, SupersessionStatus } from '../../types/domain.js';
@@ -26,7 +25,6 @@ export function parsePositiveInt(value: string): number {
 
 export interface PathQueryDeps {
   readonly atomRepository: AtomRepository;
-  readonly supersessionResolver: SupersessionResolver;
   readonly getFormatter: () => IOutputFormatter;
   readonly config: EngineConfig;
   readonly logger: ILogger;
@@ -59,7 +57,7 @@ export async function executePathQuery(
   commandName: string,
   visibleTrailers: readonly string[] | 'all',
 ): Promise<void> {
-  const { atomRepository, supersessionResolver, getFormatter, config, logger, targetFactory } = deps;
+  const { atomRepository, getFormatter, config, logger, targetFactory } = deps;
 
   const queryOptions = {
     filters: options.filter && options.filter.length > 0 ? options.filter : undefined,
@@ -87,23 +85,19 @@ export async function executePathQuery(
 
   const totalAtoms = atoms.length;
 
-  // Step 3: Compute supersession
-  const globalSupersessionMap = supersessionResolver.resolveAll(atoms);
-
-  // Flatten global map into a single map for the formatter
-  const flatSupersessionMap = new Map<string, SupersessionStatus>();
-  for (const statusMap of globalSupersessionMap.values()) {
-      for (const [id, status] of statusMap) {
-          flatSupersessionMap.set(id, status);
-      }
-  }
-
-  // Step 4: Filter superseded atoms unless --all
+  // Step 3: Filter superseded atoms unless --all (Active Truth)
+  // We use the internalized status for high-speed filtering.
   let displayAtoms: readonly Atom[];
   if (queryOptions.all) {
     displayAtoms = atoms;
   } else {
-    displayAtoms = supersessionResolver.filterActive(atoms, globalSupersessionMap);
+    displayAtoms = atoms.filter(atom => {
+        // Find ANY protocol interpretation that is superseded
+        for (const state of atom.protocols.values()) {
+            if (state.supersession?.superseded) return false;
+        }
+        return true;
+    });
   }
 
   // Step 4b: Apply result limit (--limit) after supersession filtering
@@ -122,7 +116,6 @@ export async function executePathQuery(
 
   const formattable: FormattableQueryResult = {
     result,
-    supersessionMap: flatSupersessionMap,
     visibleTrailers,
   };
 

@@ -151,6 +151,7 @@ export class EngineBootstrapper {
     });
 
     const baseTarget = targetFactory.create();
+    const supersessionResolver = new SupersessionResolver(protocolRegistry);
 
     const atomRepository = new AtomRepository(
       gitClient,
@@ -159,10 +160,10 @@ export class EngineBootstrapper {
       searchFilter,
       queryCache,
       baseTarget,
+      supersessionResolver,
     );
 
     const idGenerator = new IdGenerator();
-    const supersessionResolver = new SupersessionResolver(protocolRegistry);
     const stalenessDetector = new StalenessDetector(gitClient, config, protocolRegistry);
     const commitBuilder = new CommitBuilder(trailerParser, idGenerator, config, protocolRegistry);
     const squashMerger = new SquashMerger(idGenerator, protocolRegistry);

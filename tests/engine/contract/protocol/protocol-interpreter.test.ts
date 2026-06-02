@@ -173,7 +173,7 @@ describe('ProtocolInterpreter', () => {
       const interpreter = new ProtocolInterpreter(protocol, parser);
 
       const globalMap = new Map([
-          ['mock', new Map([['deadbeef', { superseded: true, supersededBy: 'new-id' }]])]
+          ['mock', new Map([['deadbeef', { superseded: true, supersededBy: ['new-id'] }]])]
       ]);
 
       const atom: any = {
@@ -199,7 +199,7 @@ describe('ProtocolInterpreter', () => {
       const interpreter = new ProtocolInterpreter(protocol, parser);
 
       const globalMap = new Map([
-          ['mock', new Map([['deadbeef', { superseded: true, supersededBy: 'a1b2c3d4' }]])]
+          ['mock', new Map([['deadbeef', { superseded: true, supersededBy: ['a1b2c3d4'] }]])]
       ]);
 
       const atom: any = {

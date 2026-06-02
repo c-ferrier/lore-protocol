@@ -11,6 +11,8 @@ export * from './types/output.js';
 export * from './types/commit.js';
 
 // --- Primary Public Interfaces ---
+// --- Domain Types ---
+export type { Atom, ProtocolState, SupersessionStatus } from './types/domain.js';
 export type { IGitClient, RawCommit } from './interfaces/git-client.js';
 export type { IProtocol } from './interfaces/protocol.js';
 export type { ProtocolDefinition } from './interfaces/protocol-definition.js';
@@ -20,6 +22,7 @@ export type { IOutputFormatter, ErrorMessage } from './interfaces/output-formatt
 
 // --- Orchestrating Services (Runtime) ---
 export { ProtocolRegistry } from './services/protocol-registry.js';
+export { SupersessionResolver } from './services/supersession-resolver.js';
 export { Protocol } from './services/protocol.js';
 export { ProtocolHydrator } from './services/protocol-hydrator.js';
 export { InMemoryLogger } from './services/in-memory-logger.js';

@@ -29,14 +29,12 @@ export class JsonFormatter implements IOutputFormatter {
   }
 
   formatQueryResult(data: FormattableQueryResult): string {
-    const { result, supersessionMap, visibleTrailers } = data;
+    const { result, visibleTrailers } = data;
     const rootProtocol = this.protocolRegistry.getRoot() || this.protocolRegistry.getAll()[0];
     const subjectKey = this.getSubjectKey();
 
     const results = result.atoms.map((atom) => {
       const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
-      const primaryId = rootProtocol?.getIdentity(primaryState);
-      const supersession = primaryId ? supersessionMap.get(primaryId) : undefined;
 
       return {
         commit: atom.commitHash,
@@ -46,8 +44,8 @@ export class JsonFormatter implements IOutputFormatter {
         body: atom.body,
         protocols: this.serializeProtocols(atom, visibleTrailers),
         files_changed: [...atom.filesChanged],
-        superseded: supersession?.superseded ?? false,
-        superseded_by: supersession?.supersededBy ?? null,
+        superseded: primaryState?.supersession?.superseded ?? false,
+        superseded_by: primaryState?.supersession?.supersededBy || [],
       };
     });
 

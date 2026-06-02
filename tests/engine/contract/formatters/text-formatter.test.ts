@@ -118,10 +118,15 @@ describe('TextFormatter', () => {
     });
 
     it('should show supersession info for superseded atoms', () => {
-      const atom = makeAtom();
-      const supersessionMap = new Map<string, SupersessionStatus>([
-        ['a1b2c3d4', { superseded: true, supersededBy: 'e5f6a7b8' }],
-      ]);
+      const atom = makeAtom({
+          protocols: new Map([
+              ['mock', {
+                  trailers: { [TEST_ID_KEY]: ['a1b2c3d4'] },
+                  unauthorized: {},
+                  supersession: { superseded: true, supersededBy: ['e5f6a7b8'] }
+              }]
+          ])
+      });
 
       const data: FormattableQueryResult = {
         result: {
@@ -131,7 +136,6 @@ describe('TextFormatter', () => {
           atoms: [atom],
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
         },
-        supersessionMap,
         visibleTrailers: 'all',
       };
 

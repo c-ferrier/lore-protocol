@@ -6,6 +6,7 @@ import {
   TrailerParser, 
   SearchFilter, 
   NullQueryCache,
+  SupersessionResolver,
   TEST_ENGINE_CONFIG, 
   TEST_PROTOCOL_CONFIG, 
   makeMockGitClient,
@@ -53,13 +54,15 @@ describe('Lore Wrapper Rebranding Flow', () => {
     // 3. Setup Repository
     const trailerParser = new TrailerParser();
     const hydrator = new AtomHydrator(registry);
+    const supersessionResolver = new SupersessionResolver(registry);
     const repo = new AtomRepository(
       mockGit as any,
       hydrator,
       registry,
       new SearchFilter(registry),
       new NullQueryCache(),
-      makeQueryTarget()
+      makeQueryTarget(),
+      supersessionResolver
     );
 
     const atoms = await repo.find(makeQueryTarget());

@@ -74,14 +74,13 @@ export function registerWhyCommand(
       if (id) {
         supersessionMap.set(id, {
           superseded: false,
-          supersededBy: null,
+          supersededBy: [],
         });
       }
     }
 
     const formattable: FormattableQueryResult = {
       result,
-      supersessionMap,
       visibleTrailers: 'all',
     };
 

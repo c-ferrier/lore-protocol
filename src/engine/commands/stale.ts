@@ -1,6 +1,5 @@
 import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
-import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { StalenessDetector } from '../services/staleness-detector.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { Atom } from '../types/domain.js';
@@ -27,7 +26,6 @@ export function registerStaleCommand(
   program: Command,
   deps: {
     atomRepository: AtomRepository;
-    supersessionResolver: SupersessionResolver;
     stalenessDetector: StalenessDetector;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
@@ -40,24 +38,26 @@ export function registerStaleCommand(
     .option('--older-than <duration>', 'Time-based staleness threshold (e.g., 6m, 1y)')
     .option('--drift <n>', 'File drift threshold (commits since atom)', parseInt)
     .action(async (rawTarget: string | undefined, _options: StaleCommandOptions, command: Command) => {
-      const options = mergeOptions<StaleCommandOptions>(command);
-      const { atomRepository, supersessionResolver, stalenessDetector, getFormatter, targetFactory } = deps;
+      const options = mergeOptions<StaleCommandOptions & PathQueryOptions>(command);
+      const { atomRepository, stalenessDetector, getFormatter, targetFactory } = deps;
 
       // 1. Resolve target using the opaque factory
       const target = targetFactory.create(rawTarget);
       
       const atoms = await atomRepository.find(target);
 
-      // 2. Compute supersession for dependency-orphan detection
-      const globalSupersessionMap = supersessionResolver.resolveAll(atoms);
+      // 2. Filter to active atoms only (stale check on superseded atoms is not useful)
+      const activeAtoms = atoms.filter(atom => {
+          for (const state of atom.protocols.values()) {
+              if (state.supersession?.superseded) return false;
+          }
+          return true;
+      });
 
-      // 3. Filter to active atoms only (stale check on superseded atoms is not useful)
-      const activeAtoms = supersessionResolver.filterActive(atoms, globalSupersessionMap);
-
-      // 4. Run staleness analysis
+      // 3. Run staleness analysis
       let reports = await stalenessDetector.analyze(
         activeAtoms,
-        globalSupersessionMap,
+        new Map(),
       );
 
       // 5. Apply additional CLI-level filters: keep reports that match ANY active signal

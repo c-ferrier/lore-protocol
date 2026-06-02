@@ -3,6 +3,7 @@ import { SupersessionResolver } from '../../../src/engine/services/supersession-
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, TEST_ENGINE_CONFIG, makeProtocol } from '../engine-test-utils.js';
+import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
 import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
 
 const TEST_ID_KEY = "Mock-id";
@@ -63,7 +64,7 @@ describe('SupersessionResolver Cross-Protocol', () => {
     // Check Mock status
     const mockStatus = globalResult.get('mock')!;
     expect(mockStatus.get('bbbb2222')?.superseded).toBe(true);
-    expect(mockStatus.get('bbbb2222')?.supersededBy).toBe('lore/aaaa1111');
+    expect(mockStatus.get('bbbb2222')?.supersededBy).toEqual(['lore/aaaa1111']);
     
     // Check Lore status
     const loreStatus = globalResult.get('lore')!;
@@ -94,7 +95,7 @@ describe('SupersessionResolver Cross-Protocol', () => {
     const globalResult = resolver.resolveAll(atoms);
     
     expect(globalResult.get('lore')?.get('deadbeef')?.superseded).toBe(true);
-    expect(globalResult.get('lore')?.get('deadbeef')?.supersededBy).toBe('12345678');
+    expect(globalResult.get('lore')?.get('deadbeef')?.supersededBy).toEqual(['12345678']);
     
     expect(globalResult.get('lore')?.get('12345678')?.superseded).toBe(false);
     expect(globalResult.get('mock')?.get('12345678')?.superseded).toBe(false);
@@ -110,6 +111,6 @@ describe('SupersessionResolver Cross-Protocol', () => {
     
     // Should still resolve the valid part of the chain
     expect(globalResult.get('mock')?.get('bbbb2222')?.superseded).toBe(true);
-    expect(globalResult.get('mock')?.get('bbbb2222')?.supersededBy).toBe('lore/aaaa1111');
+    expect(globalResult.get('mock')?.get('bbbb2222')?.supersededBy).toEqual(['lore/aaaa1111']);
   });
 });

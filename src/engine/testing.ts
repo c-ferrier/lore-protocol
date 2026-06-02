@@ -16,6 +16,7 @@ import { InMemoryLogger } from './services/in-memory-logger.js';
 import { TerminalLogger } from './services/terminal-logger.js';
 import { CommitBuilder } from './services/commit-builder.js';
 import { IdGenerator } from './services/id-generator.js';
+import { SupersessionResolver } from './services/supersession-resolver.js';
 
 import type { 
     Atom, 
@@ -63,6 +64,7 @@ export {
     ProtocolLoader, 
     AtomHydrator, 
     AtomRepository, 
+    SupersessionResolver,
     Validator, 
     StalenessDetector, 
     SearchFilter, 
@@ -145,12 +147,13 @@ export const TEST_PROTOCOL_DEFINITION: ProtocolDefinition = {
       ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       prompt: { order: 200 }
     },
+    'Supersedes': {
+      description: 'Superseded reference.', multivalue: true, validation: 'reference', isCore: true,
+      ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
+      prompt: { order: 210 }
+    },
     'Ref': {
         description: 'Generic reference.', multivalue: true, validation: 'reference', isCore: true,
-        ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
-    },
-    'Supersedes': {
-        description: 'Supersedes reference.', multivalue: true, validation: 'reference', isCore: true,
         ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
     },
     'Depends-on': {
@@ -242,12 +245,14 @@ export function makeAtomRepository(options: {
     const gitClient = options.gitClient || makeStubGitClient();
     const hydrator = options.hydrator || makeAtomHydrator({ registry });
     const baseTarget = makeQueryTarget(undefined, options.isScoped ?? false);
+    const supersessionResolver = new SupersessionResolver(registry);
     
     return new AtomRepository(
         gitClient, hydrator, registry,
         options.searchFilter || new SearchFilter(registry),
         new NullQueryCache(),
-        baseTarget
+        baseTarget,
+        supersessionResolver
     );
 }
 
@@ -500,8 +505,17 @@ export function makeCommitInput(overrides: Partial<CommitInput> = {}): CommitInp
 export function makeAtom(overrides: Partial<Atom & { trailers: Trailers; id: string }> = {}): Atom {
   const id = overrides.id ?? 'a1b2c3d4';
   const trailers = overrides.trailers || { [TEST_ID_KEY]: [id] };
-  const protocols = overrides.protocols ?? new ProtocolMap<ProtocolState>();
-  if (!overrides.protocols) protocols.set('mock', { trailers, unauthorized: {} });
+  
+  // Force normalization to ProtocolMap
+  let protocols: ProtocolMap<ProtocolState>;
+  if (overrides.protocols) {
+      protocols = (overrides.protocols instanceof ProtocolMap)
+        ? overrides.protocols
+        : new ProtocolMap<ProtocolState>(Array.from((overrides.protocols as any).entries()));
+  } else {
+      protocols = new ProtocolMap<ProtocolState>();
+      protocols.set('mock', { trailers, unauthorized: {} });
+  }
   
   return {
     commitHash: overrides.commitHash ?? 'abc12345',

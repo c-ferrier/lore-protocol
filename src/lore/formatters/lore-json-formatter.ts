@@ -35,7 +35,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
     const results = data.result.atoms.map((atom) => {
       const loreState = atom.protocols.get('lore');
       const loreId = loreState ? loreProtocol?.getIdentity(loreState) : null;
-      const status = loreId ? (data.supersessionMap.get(loreId) || { superseded: false, supersededBy: null }) : { superseded: false, supersededBy: null };
+      const status = loreId ? (loreState?.supersession || { superseded: false, supersededBy: [] }) : { superseded: false, supersededBy: [] };
 
       const trailers: Record<string, any> = {};
       if (loreState) {
@@ -60,7 +60,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
         trailers,
         files_changed: [...atom.filesChanged],
         superseded: status.superseded,
-        superseded_by: status.supersededBy,
+        superseded_by: status.supersededBy?.[0] ?? null,
       };
     });
 

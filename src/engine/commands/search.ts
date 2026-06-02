@@ -6,7 +6,6 @@ import { buildQueryMeta } from './helpers/build-query-meta.js';
 import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/path-query.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import type { AtomRepository } from '../services/atom-repository.js';
-import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { ILogger } from '../interfaces/logger.js';
 
@@ -19,7 +18,6 @@ export function registerSearchCommand(
   program: Command,
   deps: {
     atomRepository: AtomRepository;
-    supersessionResolver: SupersessionResolver;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
     targetFactory: QueryTargetFactory;
@@ -34,7 +32,7 @@ export function registerSearchCommand(
   addPathQueryOptions(cmd);
 
   cmd.action(async (options: PathQueryCommandOptions & { text?: string; has?: string }, command: Command) => {
-    const { atomRepository, supersessionResolver, getFormatter, logger, targetFactory } = deps;
+    const { atomRepository, getFormatter, logger, targetFactory } = deps;
     const mergedOptions = mergeOptions<PathQueryCommandOptions & { text?: string; has?: string }>(command);
 
     const searchOptions = {
@@ -56,27 +54,20 @@ export function registerSearchCommand(
       ? targetFactory.create() // Scopes use the base target logic
       : targetFactory.create(); // Default search is global (respects baseTarget)
 
-    // Step 2: Perform High-Level Search (Encapsulated in Repository)
     const atoms = await atomRepository.find(target, searchOptions);
     const totalAtoms = atoms.length;
 
-    // Step 2: Compute supersession
-    const globalSupersessionMap = supersessionResolver.resolveAll(atoms);
-
-    // Flatten global map for formatter
-    const flatSupersessionMap = new Map<string, SupersessionStatus>();
-    for (const statusMap of globalSupersessionMap.values()) {
-        for (const [id, status] of statusMap) {
-            flatSupersessionMap.set(id, status);
-        }
-    }
-
-    // Step 3: Filter superseded atoms unless --all
+    // Step 3: Filter superseded atoms unless --all (Active Truth)
     let displayAtoms: readonly Atom[];
     if (searchOptions.all) {
       displayAtoms = atoms;
     } else {
-      displayAtoms = supersessionResolver.filterActive(atoms, globalSupersessionMap);
+      displayAtoms = atoms.filter(atom => {
+          for (const state of atom.protocols.values()) {
+              if (state.supersession?.superseded) return false;
+          }
+          return true;
+      });
     }
 
     // Step 4: Apply result limit
@@ -94,7 +85,6 @@ export function registerSearchCommand(
 
     const formattable: FormattableQueryResult = {
       result,
-      supersessionMap: flatSupersessionMap,
       visibleTrailers: 'all',
     };
 

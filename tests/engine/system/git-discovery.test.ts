@@ -14,6 +14,7 @@ import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { makeQueryTarget } from '../engine-test-utils.js';
+import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
 
 describe('AtomRepository Git Integration', () => {
   let testDir: string;
@@ -67,6 +68,7 @@ describe('AtomRepository Git Integration', () => {
     const pathResolver = new PathResolver(testDir, testDir);
     const queryCache = new NullQueryCache();
     const hydrator = new AtomHydrator(protocolRegistry);
+    const supersessionResolver = new SupersessionResolver(protocolRegistry);
 
     const targetFactory = new QueryTargetFactory({
         cwd: testDir,
@@ -80,7 +82,8 @@ describe('AtomRepository Git Integration', () => {
       protocolRegistry,
       searchFilter,
       queryCache,
-      targetFactory.create()
+      targetFactory.create(),
+      supersessionResolver
     );
 
   });

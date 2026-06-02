@@ -53,7 +53,7 @@ export class LoreTextFormatter implements IOutputFormatter {
    * Lore 0.5.0 Parity: Remove the [Lore] prefix and hide redundant subject lines.
    */
   formatQueryResult(data: FormattableQueryResult): string {
-    const { result, supersessionMap } = data;
+    const { result } = data;
     const lines: string[] = [];
 
     if (result.atoms.length === 0) {
@@ -69,13 +69,13 @@ export class LoreTextFormatter implements IOutputFormatter {
         ? (loreProtocol.getIdentity(loreState) || atom.commitHash.slice(0, 8))
         : atom.commitHash.slice(0, 8);
 
-      const status = id ? (supersessionMap.get(id) || { superseded: false, supersededBy: null }) : { superseded: false, supersededBy: null };
+      const status = id ? (loreState?.supersession || { superseded: false, supersededBy: [] }) : { superseded: false, supersededBy: [] };
 
       const header = this.formatAtomHeader(atom, id, status.superseded);
       lines.push(header);
 
-      if (status.superseded && status.supersededBy) {
-          lines.push(`  ${this.c.dim(`(superseded by ${status.supersededBy})`)}`);
+      if (status.superseded && status.supersededBy?.[0]) {
+          lines.push(`  ${this.c.dim(`(superseded by ${status.supersededBy[0]})`)}`);
       }
 
       if (atom.body) {

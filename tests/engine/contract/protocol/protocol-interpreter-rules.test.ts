@@ -83,7 +83,7 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
 
     // Global map showing a security atom being superseded
     const globalMap = new Map([
-        ['sec', new Map([['cve-1234', { superseded: true, supersededBy: 'sec/cve-5678' }]])]
+        ['sec', new Map([['cve-1234', { superseded: true, supersededBy: ['sec/cve-5678'] }]])]
     ]);
 
     const atom: any = {

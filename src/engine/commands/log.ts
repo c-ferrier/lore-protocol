@@ -1,6 +1,5 @@
 import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
-import type { SupersessionResolver } from '../services/supersession-resolver.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { Atom, SupersessionStatus } from '../types/domain.js';
 import type { PathQueryOptions, QueryResult } from '../types/query.js';
@@ -20,7 +19,6 @@ export function registerLogCommand(
   program: Command,
   deps: {
     atomRepository: AtomRepository;
-    supersessionResolver: SupersessionResolver;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
     targetFactory: QueryTargetFactory;
@@ -34,7 +32,7 @@ export function registerLogCommand(
 
   cmd.action(async (paths: string[] | undefined, _options: any, command: Command) => {
     const options = mergeOptions<PathQueryOptions>(command);
-    const { atomRepository, supersessionResolver, getFormatter, logger, targetFactory } = deps;
+    const { atomRepository, getFormatter, logger, targetFactory } = deps;
 
     // Step 1: Resolve target using the opaque factory
     const target = options.scope 
@@ -44,26 +42,8 @@ export function registerLogCommand(
     const atoms = await atomRepository.find(target, options);
     const totalAtoms = atoms.length;
 
-    // Step 2: Compute supersession status
-    const globalSupersessionMap = supersessionResolver.resolveAll(atoms);
-    
-    // Flatten global map into a single map for the formatter (legacy text UI parity)
-    const flatSupersessionMap = new Map<string, SupersessionStatus>();
-    for (const statusMap of globalSupersessionMap.values()) {
-        for (const [id, status] of statusMap) {
-            flatSupersessionMap.set(id, status);
-        }
-    }
-
-    // Step 3: Filter superseded atoms unless --all
-    let displayAtoms: readonly Atom[];
-    if (options.all === false) {
-      displayAtoms = supersessionResolver.filterActive(atoms, globalSupersessionMap);
-    } else {
-      displayAtoms = atoms;
-    }
-
-    // Step 4: Apply the display-level limit
+    // Step 2: Apply the display-level limit
+    let displayAtoms = atoms;
     if (options.limit !== null && options.limit !== undefined && options.limit > 0) {
       displayAtoms = displayAtoms.slice(0, options.limit);
     }
@@ -78,7 +58,6 @@ export function registerLogCommand(
 
     const formattable: FormattableQueryResult = {
       result,
-      supersessionMap: flatSupersessionMap,
       visibleTrailers: 'all',
     };
 

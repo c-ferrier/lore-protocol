@@ -10,6 +10,7 @@ import {
     makeProtocolRegistry,
     makeMockGitClient,
     makeRawCommit,
+    makeAtom,
     makeQueryOptions,
     makeQueryTarget,
     NullQueryCache,
@@ -445,13 +446,68 @@ describe('AtomRepository', () => {
       await scopedRepo.findByRange('main..HEAD');
       expect(gitClient.log).toHaveBeenCalledWith(['main..HEAD', '.']);
     });
+    it('should correctly project multiple successors in a branching scenario', async () => {
+      const p1 = makeAtom({ 
+          commitHash: 'h1', 
+          protocols: new Map([['Mock', { trailers: { [TEST_ID_KEY]: ['aaaaaaaa'] }, unauthorized: {} }]])
+      });
+      const c1 = makeAtom({ 
+          commitHash: 'h2', 
+          protocols: new Map([['Mock', { trailers: { [TEST_ID_KEY]: ['bbbbbbbb'], 'Supersedes': ['aaaaaaaa'] }, unauthorized: {} }]])
+      });
+      const c2 = makeAtom({ 
+          commitHash: 'h3', 
+          protocols: new Map([['Mock', { trailers: { [TEST_ID_KEY]: ['cccccccc'], 'Supersedes': ['aaaaaaaa'] }, unauthorized: {} }]])
+      });
+
+      vi.mocked(gitClient.query).mockResolvedValue([
+          makeRawCommit({ hash: 'h1' }), 
+          makeRawCommit({ hash: 'h2' }), 
+          makeRawCommit({ hash: 'h3' })
+      ]);
+      vi.spyOn((repo as any).hydrator, 'hydrate').mockReturnValue([p1, c1, c2]);
+      
+      const atoms = await repo.find(makeQueryTarget(), { all: true });
+      
+      const parentAtom = atoms.find(a => a.commitHash === 'h1');
+      const status = parentAtom?.protocols.get('Mock')?.supersession;
+
+      expect(status?.superseded).toBe(true);
+      expect(status?.supersededBy).toContain('bbbbbbbb');
+      expect(status?.supersededBy).toContain('cccccccc');
+    });
+    it('should demonstrate Contextual Truth Blindness (only sees truth for provided IDs)', async () => {
+      // Atom A is superseded by Atom B in the real world
+      const atomA = makeAtom({ 
+          commitHash: 'h1', id: 'aaaa1111', 
+          protocols: new Map([['Mock', { trailers: { [TEST_ID_KEY]: ['aaaa1111'] }, unauthorized: {} }]])
+      });
+      const atomB = makeAtom({ 
+          commitHash: 'h2', id: 'bbbb2222', 
+          protocols: new Map([['Mock', { trailers: { [TEST_ID_KEY]: ['bbbb2222'], 'Supersedes': ['aaaa1111'] }, unauthorized: {} }]])
+      });
+
+      // CASE 1: Query only for A. Repository doesn't see B, so it says A is NOT superseded.
+      vi.mocked(gitClient.query).mockResolvedValueOnce([makeRawCommit({ hash: 'h1' })]);
+      vi.spyOn((repo as any).hydrator, 'hydrate').mockReturnValueOnce([atomA]);
+      
+      const results1 = await repo.findByIds([{ id: 'aaaa1111' }]);
+      expect(results1[0].protocols.get('Mock')?.supersession?.superseded).toBe(false);
+
+      // CASE 2: Query for A AND B. Repository sees the link, so it says A IS superseded.
+      vi.mocked(gitClient.query).mockResolvedValueOnce([makeRawCommit({ hash: 'h1' }), makeRawCommit({ hash: 'h2' })]);
+      vi.spyOn((repo as any).hydrator, 'hydrate').mockReturnValueOnce([atomA, atomB]);
+      
+      const results2 = await repo.findByIds([{ id: 'aaaa1111' }, { id: 'bbbb2222' }]);
+      expect(results2.find(a => a.commitHash === 'h1')?.protocols.get('Mock')?.supersession?.superseded).toBe(true);
+    });
   });
 
   describe('Base Target Fallback', () => {
     it('should use baseTarget when no target is provided', async () => {
         const baseTarget = makeQueryTarget(['src/scoped']);
         const repoWithBase = new AtomRepository(
-            gitClient, (repo as any).hydrator, protocolRegistry, (repo as any).searchFilter, new NullQueryCache(), baseTarget
+            gitClient, (repo as any).hydrator, protocolRegistry, (repo as any).searchFilter, new NullQueryCache(), baseTarget, (repo as any).supersessionResolver
         );
 
         vi.mocked(gitClient.query).mockResolvedValue([]);
@@ -464,7 +520,7 @@ describe('AtomRepository', () => {
     it('should override baseTarget when explicit target is provided', async () => {
         const baseTarget = makeQueryTarget(['src/scoped']);
         const repoWithBase = new AtomRepository(
-            gitClient, (repo as any).hydrator, protocolRegistry, (repo as any).searchFilter, new NullQueryCache(), baseTarget
+            gitClient, (repo as any).hydrator, protocolRegistry, (repo as any).searchFilter, new NullQueryCache(), baseTarget, (repo as any).supersessionResolver
         );
 
         vi.mocked(gitClient.query).mockResolvedValue([]);

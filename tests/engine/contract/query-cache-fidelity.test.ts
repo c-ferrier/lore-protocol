@@ -7,6 +7,7 @@ import {
   makeAtom,
   makeProtocol,
   makeQueryTarget,
+  SupersessionResolver,
   ProtocolRegistry,
   TEST_ID_KEY
 } from '../engine-test-utils.js';
@@ -46,7 +47,8 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
       registry,
       searchFilter,
       cache,
-      makeQueryTarget()
+      makeQueryTarget(),
+      new SupersessionResolver(registry)
     );
   });
 
@@ -81,13 +83,16 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     
     const result = await repo.find(target, { cache: true });
     
-    // VERIFICATION: Discovery is skipped
-    expect(gitClient.query).not.toHaveBeenCalled();
-    
-    // VERIFICATION: Fetch is still performed to get the full records (including files)
-    expect(gitClient.getCommitsByHashes).toHaveBeenCalledWith(['abc']);
-    
+    // VERIFICATION A: Physical Integrity
+    // Discovery is skipped, but FETCH still gets full records (including files)
     expect(result).toHaveLength(1);
+    expect(gitClient.query).not.toHaveBeenCalled();
+    expect(gitClient.getCommitsByHashes).toHaveBeenCalledWith(['abc']);
     expect(result[0].filesChanged).toEqual(['src/logic.ts']);
+    
+    // VERIFICATION B: Logical Truth
+    // 'Smart Atom' projection must still happen even on cache hit
+    expect(result[0].protocols.get('mock')?.supersession).toBeDefined();
+    expect(result[0].protocols.get('mock')?.supersession?.superseded).toBe(false);
   });
 });

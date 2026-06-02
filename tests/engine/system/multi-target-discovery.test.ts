@@ -14,6 +14,7 @@ import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { makeQueryTarget } from '../engine-test-utils.js';
+import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
 
 describe('Multi-Target Atom Discovery', () => {
   let testDir: string;
@@ -60,6 +61,7 @@ describe('Multi-Target Atom Discovery', () => {
     registry.register(new Protocol(LoreProtocolDefinition));
     const trailerParser = new TrailerParser();
     const hydrator = new AtomHydrator(registry);
+    const supersessionResolver = new SupersessionResolver(registry);
     const targetFactory = new QueryTargetFactory({
         cwd: testDir,
         protocolRoot: testDir,
@@ -72,7 +74,8 @@ describe('Multi-Target Atom Discovery', () => {
       registry,
       new SearchFilter(registry),
       new NullQueryCache(),
-      targetFactory.create()
+      targetFactory.create(),
+      supersessionResolver
     );
   });
 

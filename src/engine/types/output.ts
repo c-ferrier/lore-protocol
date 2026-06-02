@@ -4,7 +4,6 @@ import type { ValueDefinition, TrailerUiKind, TrailerUiColor } from './config.js
 
 export interface FormattableQueryResult {
   readonly result: QueryResult;
-  readonly supersessionMap: ReadonlyMap<string, SupersessionStatus>;
   readonly visibleTrailers: readonly string[] | 'all';
 }
 

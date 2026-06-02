@@ -41,7 +41,7 @@ describe('LoreProtocolDefinition Declarative Triggers', () => {
     it('should flag "orphaned-dep" when a dependency is superseded', () => {
       const atom = makeMockAtom({ 'Depends-on': ['old-id'] });
       const statusMap = new Map<string, SupersessionStatus>([
-          ['old-id', { superseded: true, supersededBy: 'new-id' }]
+          ['old-id', { superseded: true, supersededBy: ['new-id'] }]
       ]);
       const globalStatusMap = new Map([
           ['lore', statusMap]
@@ -55,7 +55,7 @@ describe('LoreProtocolDefinition Declarative Triggers', () => {
     it('should flag "orphaned-dep" when a cross-protocol dependency is superseded', () => {
       const atom = makeMockAtom({ 'Depends-on': ['sec/cve-123'] });
       const statusMap = new Map<string, SupersessionStatus>([
-          ['cve-123', { superseded: true, supersededBy: 'sec/cve-456' }]
+          ['cve-123', { superseded: true, supersededBy: ['sec/cve-456'] }]
       ]);
       const globalStatusMap = new Map([
           ['sec', statusMap]

@@ -30,9 +30,17 @@ function createDefaultConfig(overrides: Partial<EngineConfig['stale']> = {}): En
   };
 }
 
-function makeGlobalSupersessionMap(entries: Array<[string, { superseded: boolean; supersededBy: string | null }]>): Map<string, Map<string, SupersessionStatus>> {
-  const statusMap = new Map(entries);
-  return new Map([['mock', statusMap]]);
+function makeGlobalSupersessionMap(entries: Array<[string, { superseded: boolean; supersededBy: any }]>): Map<string, Map<string, ProtocolStatus>> {
+  const map = new Map<string, ProtocolStatus>();
+  for (const [id, status] of entries) {
+    map.set(id, {
+        superseded: status.superseded,
+        supersededBy: Array.isArray(status.supersededBy) 
+            ? status.supersededBy 
+            : (status.supersededBy ? [status.supersededBy] : [])
+    });
+  }
+  return new Map([['mock', map]]);
 }
 
 describe('StalenessDetector', () => {

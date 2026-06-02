@@ -9,6 +9,7 @@ import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG, makeMockGitClient, makeQueryTarget } from '../engine-test-utils.js';
+import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
 import { Validator } from '../../../src/engine/services/validator.js';
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
 
@@ -65,13 +66,15 @@ describe('Engine Protocol Rebranding Flow', () => {
     // 3. Setup Repository
     const trailerParser = new TrailerParser();
     const hydrator = new AtomHydrator(registry);
+    const supersessionResolver = new SupersessionResolver(registry);
     const repo = new AtomRepository(
       mockGit as any,
       hydrator,
       registry,
       new SearchFilter(registry),
       new NullQueryCache(),
-      makeQueryTarget()
+      makeQueryTarget(),
+      supersessionResolver
     );
 
     const atoms = await repo.find(makeQueryTarget());

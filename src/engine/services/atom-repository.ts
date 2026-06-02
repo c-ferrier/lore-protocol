@@ -10,6 +10,7 @@ import { FilterResolver } from './filter-resolver.js';
 import { escapeRegex } from '../util/regex.js';
 import type { AtomHydrator } from './atom-hydrator.js';
 import type { IQueryTarget } from '../interfaces/query-target.js';
+import type { SupersessionResolver } from './supersession-resolver.js';
 
 /**
  * Retrieves Atoms from git history.
@@ -26,6 +27,7 @@ export class AtomRepository {
     private readonly searchFilter: SearchFilter,
     private readonly queryCache: IQueryCache,
     private readonly baseTarget: IQueryTarget,
+    private readonly supersessionResolver: SupersessionResolver,
   ) {}
 
   /**
@@ -61,7 +63,8 @@ export class AtomRepository {
       const cachedHashes = await this.queryCache.get(headHash, cacheKey, resolvedOptions);
       if (cachedHashes) {
         const rawCommits = await this.gitClient.getCommitsByHashes(cachedHashes);
-        return this.hydrator.hydrate(rawCommits);
+        const atoms = this.hydrator.hydrate(rawCommits);
+        return this.postProcessAtoms(atoms, resolvedOptions);
       }
     }
 
@@ -118,18 +121,54 @@ export class AtomRepository {
     const rawCommits = await this.gitClient.query(storageQuery);
 
     // 3. Fine Extraction & Parsing Pass (Delegated)
-    let atoms = this.hydrator.hydrate(rawCommits);
+    const hydratedAtoms = this.hydrator.hydrate(rawCommits);
 
     // 4. Post-filter (Authoritative pass using resolved dates)
-    atoms = this.searchFilter.filter(atoms, resolvedOptions);
+    const filteredAtoms = this.searchFilter.filter(hydratedAtoms, resolvedOptions);
 
-    // 5. Update Cache (Background)
+    // 5. Internalize Supersession (The "Truth" Pass)
+    const atoms = this.postProcessAtoms(filteredAtoms, resolvedOptions);
+
+    // 6. Update Cache (Background)
     if (headHash && resolvedOptions.cache !== false) {
       const hashes = atoms.map(a => a.commitHash);
       this.queryCache.set(headHash, cacheKey, resolvedOptions, hashes).catch(() => {});
     }
 
+    return atoms;
+  }
 
+  /**
+   * Post-Processor: Orchestrates supersession logic and attaches it to the atoms.
+   */
+  private postProcessAtoms(atoms: Atom[], options: SearchOptions): Atom[] {
+    if (atoms.length === 0) return [];
+
+    // a. Resolve global status map for all protocols involved
+    const statusMap = this.supersessionResolver.resolveAll(atoms);
+    
+    // b. "Internalize": Direct projection of status into the atom state
+    for (const atom of atoms) {
+        for (const [pName, state] of atom.protocols) {
+            const protocol = this.protocolRegistry.get(pName);
+            if (!protocol) continue;
+            
+            const id = protocol.getIdentity(state);
+            const status = statusMap.get(pName.toLowerCase())?.get(id || '') as any;
+            
+            if (status) {
+                // Attach the status result to the interpretation
+                state.supersession = {
+                    superseded: status.superseded,
+                    supersededBy: status.supersededBy
+                };
+            }
+        }
+    }
+
+    // c. Return processed list (Unfiltered by default)
+    // We return everything so that formatters can show status labels.
+    // If specific filtering is needed (e.g. search), the command layer handles it.
     return atoms;
   }
 
@@ -154,18 +193,19 @@ export class AtomRepository {
       
       // Fetch commits and hydrate
       const rawCommits = await this.gitClient.getCommitsByHashes(commitHashes);
-      let atoms = this.hydrator.hydrate(rawCommits);
+      const hydratedAtoms = this.hydrator.hydrate(rawCommits);
 
       // Deduplicate by primary identity
       const seenIds = new Set<string>();
-      atoms = atoms.filter(a => {
+      const uniqueAtoms = hydratedAtoms.filter(a => {
           const id = this.protocolRegistry.getIdentity(a);
           if (!id || seenIds.has(id)) return false;
           seenIds.add(id);
           return true;
       });
 
-      return atoms;
+      // Internalize Truth (Calculated metadata projection)
+      return this.postProcessAtoms(uniqueAtoms, {});
   }
 
   /**
@@ -244,27 +284,29 @@ export class AtomRepository {
         paths: this.baseTarget.getPaths()
         });
 
-        const atoms = this.hydrator.hydrate(rawCommits);
+        const hydratedAtoms = this.hydrator.hydrate(rawCommits);
 
         // Verify exact ID matches against the requested identities
-
-    return atoms.filter(a => {
-      for (const { id, protocol: protocolName } of identities) {
-        if (protocolName) {
-          const state = a.protocols.get(protocolName);
-          const p = this.protocolRegistry.get(protocolName);
-          const atomId = (state as any)?.trailers[p?.identityKey || '']?.[0];
-          if (atomId === id) return true;
-        } else {
-          for (const [pName, state] of a.protocols) {
-            const p = this.protocolRegistry.get(pName);
-            const atomId = (state as any)?.trailers[p?.identityKey || '']?.[0];
-            if (atomId === id) return true;
+        const atoms = hydratedAtoms.filter(a => {
+          for (const { id, protocol: protocolName } of identities) {
+            if (protocolName) {
+              const state = a.protocols.get(protocolName);
+              const p = this.protocolRegistry.get(protocolName);
+              const atomId = (state as any)?.trailers[p?.identityKey || '']?.[0];
+              if (atomId === id) return true;
+            } else {
+              for (const [pName, state] of a.protocols) {
+                const p = this.protocolRegistry.get(pName);
+                const atomId = (state as any)?.trailers[p?.identityKey || '']?.[0];
+                if (atomId === id) return true;
+              }
+            }
           }
-        }
-      }
-      return false;
-    });
+          return false;
+        });
+
+        // Internalize Truth
+        return this.postProcessAtoms(atoms, { all: true });
   }
 
   /**

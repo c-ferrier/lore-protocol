@@ -30,7 +30,7 @@ export class TextFormatter implements IOutputFormatter {
   }
 
   formatQueryResult(data: FormattableQueryResult): string {
-    const { result, supersessionMap, visibleTrailers } = data;
+    const { result, visibleTrailers } = data;
     const lines: string[] = [];
 
     if (result.atoms.length === 0) {
@@ -57,14 +57,14 @@ export class TextFormatter implements IOutputFormatter {
       const displayId = id || atom.commitHash.slice(0, 8);
 
       // Determine supersession for the displayId
-      const supersession = id ? supersessionMap.get(id) : undefined;
-      const isSuperseded = supersession?.superseded ?? false;
+      const isSuperseded = primaryState?.supersession?.superseded ?? false;
 
       const header = this.formatAtomHeader(atom, displayId, isSuperseded);
       lines.push(header);
 
-      if (isSuperseded && supersession?.supersededBy) {
-        lines.push(this.c.dim(`  (superseded by ${supersession.supersededBy})`));
+      if (isSuperseded && primaryState?.supersession?.supersededBy?.length) {
+        const successors = primaryState.supersession.supersededBy.join(', ');
+        lines.push(this.c.dim(`  (superseded by ${successors})`));
       }
 
       // Always show the subject line
