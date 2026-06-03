@@ -8,12 +8,13 @@ import type { IProtocol } from '../interfaces/protocol.js';
 
 import type { ProtocolRegistry } from './protocol-registry.js';
 import { parseTrailers } from '../logic/trailers.js';
+import { evaluateHygiene, evaluateProtocolSchema, evaluateTrailerHygiene } from '../logic/validation.js';
 
 /**
  * Validates existing git commits for protocol compliance.
  * Supports multiple protocols via the ProtocolRegistry.
  * 
- * SOLID: SRP -- focused purely on domain validation rules.
+ * SOLID: SRP -- focused on orchestrating validation passes (Logic + History I/O).
  */
 export class Validator {
   constructor(
@@ -30,7 +31,7 @@ export class Validator {
     const claimedKeys = this.protocolRegistry.getClaimedKeys();
 
     return Promise.all(rawCommits.map(async (raw) => {
-      const issues: ValidationIssue[] = [];
+      let issues: ValidationIssue[] = [];
       let trailers: Trailers;
 
       try {
@@ -49,20 +50,20 @@ export class Validator {
         };
       }
 
-      // 1. Structural Hygiene (Generic)
-      this.validateHygiene(raw, issues);
+      // 1. Structural Hygiene (Generic Logic)
+      issues.push(...evaluateHygiene(raw.subject, raw.body, this.config));
 
       // 2. Multi-Protocol Validation
       for (const protocol of protocols) {
         // Validation needs to see everything (even invalid values) to report errors
         const state = protocol.parse(raw.trailers, claimedKeys, true);
         
-        this.validateProtocolSchema(protocol, state, issues);
+        issues.push(...evaluateProtocolSchema(protocol, state));
         await this.validateReferenceExistence(protocol, state.trailers, issues);
       }
 
-      // 3. Generic Trailer Hygiene
-      this.validateTrailerHygiene(trailers, issues);
+      // 3. Generic Trailer Hygiene (Logic)
+      issues.push(...evaluateTrailerHygiene(trailers));
 
       // Final ID for UI parity (prefer root namespace or first protocol)
       const primary = this.protocolRegistry.getRoot() || protocols[0];
@@ -79,65 +80,8 @@ export class Validator {
   }
 
   /**
-   * Basic commit message structural hygiene.
-   */
-  private validateHygiene(raw: RawCommit, issues: ValidationIssue[]): void {
-    if (!raw.subject.trim()) {
-      issues.push({
-        severity: 'error',
-        rule: 'subject-required',
-        message: 'Commit subject line is required',
-      });
-    }
-
-    if (raw.subject.length > this.config.validation.subjectMaxLength) {
-      issues.push({
-        severity: 'warning',
-        rule: 'subject-length',
-        message: `Subject exceeds ${this.config.validation.subjectMaxLength} characters (got ${raw.subject.length})`,
-      });
-    }
-
-    const lines = raw.body.split('\n');
-    if (lines.length > this.config.validation.maxMessageLines) {
-      issues.push({
-        severity: 'warning',
-        rule: 'message-length',
-        message: `Commit message is very long (${lines.length} lines). Consider condensing narrative or splitting changes.`,
-      });
-    }
-  }
-
-  /**
-   * Validate a trailer collection against a specific protocol schema.
-   */
-  private validateProtocolSchema(
-    protocol: IProtocol,
-    state: ProtocolState,
-    issues: ValidationIssue[],
-  ): void {
-    issues.push(...protocol.validateState(state));
-  }
-
-  /**
-   * Generic trailer hygiene (unrelated to specific protocols).
-   */
-  private validateTrailerHygiene(trailers: Trailers, issues: ValidationIssue[]): void {
-    // Flag keys that appear a suspiciously high number of times
-    for (const [key, values] of Object.entries(trailers)) {
-      if (values.length > 5) {
-        issues.push({
-          severity: 'warning',
-          rule: 'trailer-count',
-          field: key,
-          message: `High count of "${key}" trailers (${values.length}). Multiple commits or atoms might be better.`,
-        });
-      }
-    }
-  }
-
-  /**
    * Checks if referenced IDs actually exist in the repository history.
+   * This is the only part of validation that requires I/O (AtomRepository).
    */
   private async validateReferenceExistence(
     protocol: IProtocol,
