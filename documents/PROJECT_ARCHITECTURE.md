@@ -354,87 +354,87 @@ No command or service instantiates its own dependencies. All wiring is centraliz
 
 ### Commands Layer
 
-#### `src/commands/helpers/path-query.ts`
+#### `src/engine/cli/commands/helpers/path-query.ts`
 - **Contains**: `PathQueryDeps` interface, `PathQueryCommandOptions` interface, `executePathQuery()` function, `addPathQueryOptions()` function.
 - **Single Responsibility**: Shared pipeline for path-scoped query commands. Implements a resolve -> query -> follow -> supersession -> filter -> format pipeline. Parameterized by `visibleTrailers` to control which trailers each command shows.
 - **Dependencies**: `AtomRepository`, `SupersessionResolver`, `PathResolver`, `IOutputFormatter`, `LoreConfig`, types.
 - **Dependents**: `context.ts`, `constraints.ts`, `rejected.ts`, `directives.ts`, `tested.ts`.
 
-#### `src/commands/config.ts`
+#### `src/engine/cli/commands/config.ts`
 - **Contains**: `registerConfigCommand()` function.
 - **Single Responsibility**: Outputs the effective configuration and trailer definitions (core and custom) for the current path. Performs runtime parsing of directives and normalization of values.
 
-#### `src/commands/init.ts`
+#### `src/engine/cli/commands/init.ts`
 - **Contains**: `registerInitCommand()` function.
 - **Single Responsibility**: Creates `.lore/config.toml` with default content. Shows existing config if already present.
 - **Dependencies**: `IOutputFormatter`, `constants.ts`, Node.js `fs`.
 
-#### `src/commands/context.ts`
+#### `src/engine/cli/commands/context.ts`
 - **Contains**: `registerContextCommand()` function.
 - **Single Responsibility**: Full lore summary showing ALL trailer types. Delegates to `executePathQuery()` with `visibleTrailers: 'all'`.
 - **Dependencies**: `path-query.ts`.
 
-#### `src/commands/constraints.ts`
+#### `src/engine/cli/commands/constraints.ts`
 - **Contains**: `registerConstraintsCommand()` function.
 - **Single Responsibility**: Shows only `Constraint` trailers. Delegates to `executePathQuery()` with `visibleTrailers: ['Constraint']`.
 - **Dependencies**: `path-query.ts`.
 
-#### `src/commands/rejected.ts`
+#### `src/engine/cli/commands/rejected.ts`
 - **Contains**: `registerRejectedCommand()` function.
 - **Single Responsibility**: Shows only `Rejected` trailers. Delegates to `executePathQuery()` with `visibleTrailers: ['Rejected']`.
 - **Dependencies**: `path-query.ts`.
 
-#### `src/commands/directives.ts`
+#### `src/engine/cli/commands/directives.ts`
 - **Contains**: `registerDirectivesCommand()` function.
 - **Single Responsibility**: Shows only `Directive` trailers. Delegates to `executePathQuery()` with `visibleTrailers: ['Directive']`.
 - **Dependencies**: `path-query.ts`.
 
-#### `src/commands/tested.ts`
+#### `src/engine/cli/commands/tested.ts`
 - **Contains**: `registerTestedCommand()` function.
 - **Single Responsibility**: Shows `Tested` and `Not-tested` trailers. Delegates to `executePathQuery()` with `visibleTrailers: ['Tested', 'Not-tested']`.
 - **Dependencies**: `path-query.ts`.
 
-#### `src/commands/why.ts`
+#### `src/engine/cli/commands/why.ts`
 - **Contains**: `registerWhyCommand()` function.
 - **Single Responsibility**: Decision context for a specific line/range. Uses `git blame` to find commits touching those lines, then extracts Lore trailers from each unique blame commit.
 - **Dependencies**: `TrailerParser`, `IGitClient`, `PathResolver`, `IOutputFormatter`, `constants.ts`, `errors.ts`.
 
-#### `src/commands/search.ts`
+#### `src/engine/cli/commands/search.ts`
 - **Contains**: `registerSearchCommand()` function, `applySearchFilters()`, `atomHasTrailer()`, `atomMatchesText()`, `buildSearchTargetDescription()` helper functions.
 - **Single Responsibility**: Cross-cutting search across all Lore atoms with filters (confidence, scope-risk, reversibility, has-trailer, author, scope, text, date range).
 - **Dependencies**: `AtomRepository`, `SupersessionResolver`, `IOutputFormatter`, types, `constants.ts`.
 
-#### `src/commands/log.ts`
+#### `src/engine/cli/commands/log.ts`
 - **Contains**: `registerLogCommand()` function.
 - **Single Responsibility**: Lore-enriched git log. Shows all Lore-enriched commits, optionally filtered by path (passed after `--`).
 - **Dependencies**: `AtomRepository`, `IOutputFormatter`, types.
 
-#### `src/commands/stale.ts`
+#### `src/engine/cli/commands/stale.ts`
 - **Contains**: `registerStaleCommand()` function.
 - **Single Responsibility**: Orchestrates staleness detection. Optionally scoped to a target path. Filters by CLI-level staleness signal options.
 - **Dependencies**: `AtomRepository`, `SupersessionResolver`, `StalenessDetector`, `PathResolver`, `IOutputFormatter`, types.
 
-#### `src/commands/trace.ts`
+#### `src/engine/cli/commands/trace.ts`
 - **Contains**: `registerTraceCommand()` function.
 - **Single Responsibility**: BFS traversal of the decision chain starting from a Lore-id, following `Supersedes`, `Depends-on`, and `Related` references.
 - **Dependencies**: `AtomRepository`, `IOutputFormatter`, `errors.ts`, `constants.ts`.
 
-#### `src/commands/commit.ts`
+#### `src/engine/cli/commands/commit.ts`
 - **Contains**: `registerCommitCommand()` function plus input-parsing and interactive-collection helpers.
 - **Single Responsibility**: Creates Lore-enriched commits. Supports four input modes: stdin JSON (default), file JSON, CLI flags, and interactive prompts.
 - **Dependencies**: `CommitBuilder`, `IGitClient`, `IOutputFormatter`, `IPrompt`, `errors.ts`, `constants.ts`.
 
-#### `src/commands/validate.ts`
+#### `src/engine/cli/commands/validate.ts`
 - **Contains**: `registerValidateCommand()` function.
 - **Single Responsibility**: Validates commits for Lore protocol compliance. Supports revision range, `--since`, `--last`, and `--strict` modes.
 - **Dependencies**: `Validator`, `IGitClient`, `IOutputFormatter`, types.
 
-#### `src/commands/squash.ts`
+#### `src/engine/cli/commands/squash.ts`
 - **Contains**: `registerSquashCommand()` function.
 - **Single Responsibility**: Takes a git revision range, gets all Lore atoms, and outputs a merged commit message via `SquashMerger`.
 - **Dependencies**: `AtomRepository`, `SquashMerger`, `IOutputFormatter`, `errors.ts`.
 
-#### `src/commands/doctor.ts`
+#### `src/engine/cli/commands/doctor.ts`
 - **Contains**: `registerDoctorCommand()` function plus health-check helpers.
 - **Single Responsibility**: Runs four health checks: config validity, Lore-id uniqueness, reference resolution, and orphaned dependencies.
 - **Dependencies**: `AtomRepository`, `IConfigLoader`, `IOutputFormatter`, `constants.ts`.
