@@ -11,7 +11,6 @@ import {
   TEST_ID_KEY
 } from '../engine-test-utils.js';
 import { QueryCache } from '../../../src/engine/services/query-cache.js';
-import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { rmSync, mkdirSync } from 'node:fs';
 
@@ -33,15 +32,12 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     registry.register(makeProtocol());
     
     cache = new QueryCache(testDir, 100, 'test-fingerprint');
-    
-    const searchFilter = new SearchFilter(registry);
 
     const targetFactory = makeMockTargetFactory();
 
     repo = new AtomRepository(
       gitClient,
       registry,
-      searchFilter,
       cache,
       makeQueryTarget(),
       targetFactory

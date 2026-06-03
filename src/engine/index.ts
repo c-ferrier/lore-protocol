@@ -20,10 +20,14 @@ export type { ILogger } from './interfaces/logger.js';
 export { LogLevel } from './interfaces/logger.js';
 export type { IOutputFormatter, ErrorMessage } from './interfaces/output-formatter.js';
 
-// --- Pure Logic Modules ---
+// --- Pure Logic Modules (@experimental) ---
+// These modules represent the internal "Brains" of the engine.
+// While they are pure and safe to use, their exact signatures are NOT 
+// guaranteed by semantic versioning until Engine v1.0.
 export * from './logic/hydration.js';
 export * from './logic/supersession.js';
 export * from './logic/identity.js';
+export * from './logic/trailers.js';
 
 // --- Orchestrating Services (Runtime) ---
 export { ProtocolRegistry } from './services/protocol-registry.js';

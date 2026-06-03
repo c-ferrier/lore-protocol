@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import type { SearchOptions } from '../../../src/engine/types/query.js';
@@ -26,7 +25,6 @@ describe('AtomRepository Filtering Parity', () => {
     repo = makeAtomRepository({
         gitClient,
         registry: protocolRegistry,
-        searchFilter: new SearchFilter(protocolRegistry)
     });
   });
 

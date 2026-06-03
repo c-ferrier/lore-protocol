@@ -2,7 +2,6 @@ import { Command } from 'commander';
 import { join } from 'node:path';
 import { ProtocolRegistry } from './protocol-registry.js';
 import { Protocol } from './protocol.js';
-import { SearchFilter } from './search-filter.js';
 import { AtomRepository } from './atom-repository.js';
 import { QueryCache } from './query-cache.js';
 import { QueryTargetFactory } from './query-target-factory.js';
@@ -127,8 +126,6 @@ export class EngineBootstrapper {
       protocolRegistry.register(new Protocol(def));
     }
     
-    const searchFilter = new SearchFilter(protocolRegistry);
-    
     const queryCache: IQueryCache = new QueryCache(
       join(activeRoot, this.options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
       config.cli.queryCachePruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
@@ -146,7 +143,6 @@ export class EngineBootstrapper {
     const atomRepository = new AtomRepository(
       gitClient,
       protocolRegistry,
-      searchFilter,
       queryCache,
       baseTarget,
       targetFactory,
@@ -195,7 +191,6 @@ export class EngineBootstrapper {
       stalenessDetector,
       targetFactory,
       baseTarget,
-      searchFilter,
       configLoader: engineConfigLoader as any,
       protocolRoot: protocolRoot || activeRoot,
       gitRoot: gitRoot || activeRoot,

@@ -4,9 +4,7 @@ import type { Atom } from '../types/domain.js';
 import { GLOBAL_CACHE_KEY } from '../util/constants.js';
 import { ProtocolError } from '../util/errors.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
-import type { SearchFilter } from './search-filter.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
-import { FilterResolver } from './filter-resolver.js';
 import { escapeRegex } from '../util/regex.js';
 import type { IQueryTarget, QueryIdentity } from '../interfaces/query-target.js';
 import type { QueryTargetFactory } from './query-target-factory.js';
@@ -14,6 +12,7 @@ import type { QueryTargetFactory } from './query-target-factory.js';
 // Pure Logic Modules
 import { hydrateAtoms, extractReferenceIds } from '../logic/hydration.js';
 import { resolveSupersession } from '../logic/supersession.js';
+import { filterAtoms, resolveFilters } from '../logic/filtering.js';
 
 /**
  * Retrieves Atoms from git history.
@@ -23,7 +22,6 @@ export class AtomRepository {
   constructor(
     private readonly gitClient: IGitClient,
     private readonly protocolRegistry: ProtocolRegistry,
-    private readonly searchFilter: SearchFilter,
     private readonly queryCache: IQueryCache,
     private readonly baseTarget: IQueryTarget,
     private readonly targetFactory: QueryTargetFactory,
@@ -180,7 +178,7 @@ export class AtomRepository {
     });
 
     const atoms = hydrateAtoms(rawCommits, this.protocolRegistry);
-    return this.searchFilter.filter(atoms, options);
+    return filterAtoms(atoms, options, this.protocolRegistry);
   }
 
   /**
@@ -412,7 +410,7 @@ export class AtomRepository {
     const resolved = { ...options };
     (resolved as any).filters = Array.isArray(options.filters)
       ? options.filters
-      : FilterResolver.resolve(options.filters || {}, this.protocolRegistry);
+      : resolveFilters(options.filters || {}, this.protocolRegistry);
 
     if (options.since && !options.sinceDate) {
       (resolved as any).sinceDate = await this.gitClient.resolveDate(options.since);

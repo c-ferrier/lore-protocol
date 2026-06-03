@@ -6,7 +6,6 @@ import { ProtocolLoader } from './services/protocol/protocol-loader.js';
 import { AtomRepository } from './services/atom-repository.js';
 import { Validator } from './services/validator.js';
 import { StalenessDetector } from './services/staleness-detector.js';
-import { SearchFilter } from './services/search-filter.js';
 import { PathResolver } from './services/path-resolver.js';
 import { NullQueryCache } from './services/query-cache.js';
 import { QueryTargetFactory } from './services/query-target-factory.js';
@@ -60,7 +59,6 @@ export {
     AtomRepository, 
     Validator, 
     StalenessDetector, 
-    SearchFilter, 
     PathResolver, 
     QueryTargetFactory,
     NullQueryCache,
@@ -225,7 +223,7 @@ import { resolveSupersession } from './logic/supersession.js';
 
 /** Factory: Create a REAL functional AtomRepository with mocked dependencies. */
 export function makeAtomRepository(options: {
-    gitClient?: any; registry?: ProtocolRegistry; isScoped?: boolean; searchFilter?: SearchFilter;
+    gitClient?: any; registry?: ProtocolRegistry; isScoped?: boolean;
     queryCache?: IQueryCache;
 } = {}): AtomRepository {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
@@ -235,7 +233,6 @@ export function makeAtomRepository(options: {
     
     return new AtomRepository(
         gitClient, registry,
-        options.searchFilter || new SearchFilter(registry),
         options.queryCache || new NullQueryCache(),
         baseTarget,
         targetFactory as any

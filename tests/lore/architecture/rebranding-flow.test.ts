@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { Protocol, ProtocolRegistry, type ProtocolDefinition } from '../../../src/engine/index.js';
 import { 
   AtomRepository, 
-  SearchFilter, 
   NullQueryCache,
   TEST_ENGINE_CONFIG, 
   TEST_PROTOCOL_CONFIG, 
@@ -54,7 +53,6 @@ describe('Lore Wrapper Rebranding Flow', () => {
     const repo = new AtomRepository(
       mockGit as any,
       registry,
-      new SearchFilter(registry),
       new NullQueryCache(),
       makeQueryTarget(),
       targetFactory

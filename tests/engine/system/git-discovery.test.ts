@@ -6,7 +6,6 @@ import { AtomRepository } from '../../../src/engine/services/atom-repository.js'
 import { GitClient } from '../../../src/engine/services/git-client.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { QueryTargetFactory } from '../../../src/engine/services/query-target-factory.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
@@ -58,7 +57,6 @@ describe('AtomRepository Git Integration', () => {
     gitClient = new GitClient(testDir);
     const protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(new Protocol(LoreProtocolDefinition));
-    const searchFilter = new SearchFilter(protocolRegistry);
     const queryCache = new NullQueryCache();
 
     const targetFactory = new QueryTargetFactory({
@@ -72,7 +70,6 @@ describe('AtomRepository Git Integration', () => {
     repo = new AtomRepository(
       gitClient,
       protocolRegistry,
-      searchFilter,
       queryCache,
       baseTarget,
       targetFactory

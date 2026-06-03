@@ -3,7 +3,6 @@ import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
-import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { 
   TEST_ENGINE_CONFIG, 
@@ -70,7 +69,6 @@ describe('Engine Protocol Rebranding Flow', () => {
     const repo = new AtomRepository(
       mockGit as any,
       registry,
-      new SearchFilter(registry),
       new NullQueryCache(),
       makeQueryTarget(),
       targetFactory

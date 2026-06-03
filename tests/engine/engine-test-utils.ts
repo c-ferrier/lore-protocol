@@ -11,7 +11,6 @@ import {
     StalenessDetector,
     AtomRepository,
     PathResolver,
-    SearchFilter,
     Protocol,
     ProtocolLoader,
     CommitBuilder,

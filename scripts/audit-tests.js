@@ -11,7 +11,7 @@
  */
 
 import { execSync } from 'child_process';
-import { readFileSync, lstatSync, readdirSync } from 'fs';
+import { readFileSync, lstatSync, readdirSync, existsSync } from 'fs';
 import { join, relative } from 'path';
 
 const [,, baseline, inputPath] = process.argv;
@@ -21,21 +21,31 @@ if (!baseline || !inputPath) {
   process.exit(1);
 }
 
-function getFiles(dir) {
+function getCurrentFiles(dir) {
+  if (!existsSync(dir)) return [];
   const stats = lstatSync(dir);
-  if (stats.isFile()) return [dir];
+  if (stats.isFile()) return [relative(process.cwd(), dir)];
   
   const files = [];
   const entries = readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const fullPath = join(dir, entry.name);
     if (entry.isDirectory()) {
-      files.push(...getFiles(fullPath));
+      files.push(...getCurrentFiles(fullPath));
     } else if (entry.name.endsWith('.test.ts') || entry.name.endsWith('.test.js')) {
-      files.push(fullPath);
+      files.push(relative(process.cwd(), fullPath));
     }
   }
   return files;
+}
+
+function getBaselineFiles(ref, targetPath) {
+  try {
+    const output = execSync(`git ls-tree -r --name-only ${ref} ${targetPath}`, { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return output.split('\n').filter(f => f.trim() !== '' && (f.endsWith('.test.ts') || f.endsWith('.test.js')));
+  } catch {
+    return [];
+  }
 }
 
 function extractTestMap(content) {
@@ -70,18 +80,38 @@ function getBaselineContent(ref, path) {
   }
 }
 
-const files = getFiles(inputPath);
+const currentFiles = getCurrentFiles(inputPath);
+const baselineFiles = getBaselineFiles(baseline, inputPath);
+
+const allFiles = Array.from(new Set([...currentFiles, ...baselineFiles])).sort();
+
 let hasGaps = false;
 
 console.log(`\n🔍 AUDIT: Comparing [${inputPath}] against baseline [${baseline}]\n`);
 
-for (const file of files) {
-  const relPath = relative(process.cwd(), file);
-  const currentContent = readFileSync(file, 'utf-8');
+for (const relPath of allFiles) {
+  const fileExists = existsSync(join(process.cwd(), relPath));
+  const currentContent = fileExists ? readFileSync(join(process.cwd(), relPath), 'utf-8') : null;
   const baselineContent = getBaselineContent(baseline, relPath);
 
-  if (baselineContent === null) {
+  if (baselineContent === null && currentContent !== null) {
     console.log(`🆕 NEW FILE: ${relPath}`);
+    const currentMap = extractTestMap(currentContent);
+    if (currentMap.length > 0) {
+      console.log('  ✅ ADDED TESTS:');
+      currentMap.forEach(a => console.log(`     + ${a.trim()}`));
+    }
+    console.log('');
+    continue;
+  }
+
+  if (currentContent === null && baselineContent !== null) {
+    hasGaps = true;
+    console.log(`🗑️  DELETED FILE: ${relPath}`);
+    const baselineMap = extractTestMap(baselineContent);
+    console.log('  ❌ LOST TESTS:');
+    baselineMap.forEach(l => console.log(`     - ${l.trim()}`));
+    console.log('');
     continue;
   }
 
