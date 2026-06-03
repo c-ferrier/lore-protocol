@@ -2,10 +2,9 @@ import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { HeadIdReader } from '../../../src/engine/services/head-id-reader.js';
 
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, TEST_ENGINE_CONFIG, makeProtocol } from '../engine-test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol } from '../engine-test-utils.js';
 
 const TEST_ID_KEY = "Mock-id";
 
@@ -32,12 +31,10 @@ function createMockGitClient(headMessage: string): IGitClient {
 }
 
 describe('HeadIdReader', () => {
-  let trailerParser: TrailerParser;
   let protocolRegistry: ProtocolRegistry;
   let protocol: Protocol;
 
   beforeEach(() => {
-    trailerParser = new TrailerParser();
     protocolRegistry = new ProtocolRegistry();
     protocol = makeProtocol();
     protocolRegistry.register(protocol);
@@ -52,7 +49,7 @@ describe('HeadIdReader', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
+    const reader = new HeadIdReader(gitClient, protocolRegistry);
 
     const result = await reader.read();
 
@@ -63,7 +60,7 @@ describe('HeadIdReader', () => {
     const message = 'feat: simple commit with no trailers';
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
+    const reader = new HeadIdReader(gitClient, protocolRegistry);
 
     const result = await reader.read();
 
@@ -78,7 +75,7 @@ describe('HeadIdReader', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
+    const reader = new HeadIdReader(gitClient, protocolRegistry);
 
     const result = await reader.read();
 
@@ -87,7 +84,7 @@ describe('HeadIdReader', () => {
 
   it('should handle empty commit message', async () => {
     const gitClient = createMockGitClient('');
-    const reader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
+    const reader = new HeadIdReader(gitClient, protocolRegistry);
 
     const result = await reader.read();
 
@@ -105,7 +102,7 @@ describe('HeadIdReader', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
+    const reader = new HeadIdReader(gitClient, protocolRegistry);
 
     const result = await reader.read();
 
@@ -120,7 +117,7 @@ describe('HeadIdReader', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
+    const reader = new HeadIdReader(gitClient, protocolRegistry);
 
     const result = await reader.read();
 

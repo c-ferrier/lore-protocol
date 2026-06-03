@@ -1,10 +1,10 @@
 import type { IProtocolInterpreter } from '../../interfaces/protocol/protocol-interpreter.js';
 import { type ProtocolState, type Atom, type SupersessionStatus, type StaleReason, type Trailers, ProtocolMap } from '../../types/domain.js';
 import type { IProtocol } from '../../interfaces/protocol.js';
-import type { TrailerParser } from '../trailer-parser.js';
 import type { StaleIfCondition } from '../../types/config.js';
 import { TriggerParser, parseTriggerHints } from '../../util/trigger-parser.js';
 import { STALE_SIGNAL } from '../../util/constants.js';
+import { parseTrailers } from '../../logic/trailers.js';
 
 /**
  * Implementation of the Protocol Interpreter capability.
@@ -14,12 +14,11 @@ import { STALE_SIGNAL } from '../../util/constants.js';
  */
 export class ProtocolInterpreter implements IProtocolInterpreter {
   constructor(
-    private readonly protocol: IProtocol,
-    private readonly parser: TrailerParser
+    private readonly protocol: IProtocol
   ) {}
 
-  parse(rawTrailers: string, claimedKeys?: Set<string>): ProtocolState {
-    const rawMap = this.parser.parse(rawTrailers);
+  parse(rawTrailers: string, claimedKeys?: Set<string>, includeInvalid?: boolean): ProtocolState {
+    const rawMap = parseTrailers(rawTrailers);
     return this.normalize(rawMap, claimedKeys);
   }
 

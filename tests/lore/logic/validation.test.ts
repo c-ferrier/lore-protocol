@@ -3,7 +3,6 @@ import { Protocol, ProtocolRegistry, type RawCommit } from '../../../src/engine/
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { 
   Validator, 
-  TrailerParser, 
   TEST_ENGINE_CONFIG, 
   TEST_PROTOCOL_CONFIG, 
   makeRawCommit, 
@@ -14,18 +13,15 @@ describe('Lore Protocol Validation Contract', () => {
   let validator: Validator;
   let registry: ProtocolRegistry;
   let protocol: Protocol;
-  let trailerParser: TrailerParser;
   let mockAtomRepo: any;
 
   beforeEach(() => {
     protocol = new Protocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
     registry = new ProtocolRegistry();
     registry.register(protocol);
-    trailerParser = new TrailerParser();
     mockAtomRepo = makeMockAtomRepository();
 
     validator = new Validator(
-      trailerParser,
       mockAtomRepo,
       TEST_ENGINE_CONFIG,
       registry

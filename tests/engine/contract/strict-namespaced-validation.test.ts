@@ -10,16 +10,13 @@ import {
     makeCommitInput
 } from '../engine-test-utils.js';
 import { CommitBuilder } from '../../../src/engine/services/commit-builder.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { IdGenerator } from '../../../src/engine/services/id-generator.js';
 import type { CommitInput } from '../../../src/engine/types/commit.js';
 
 describe('Strict Namespaced Validation', () => {
-  let parser: TrailerParser;
   let idGen: IdGenerator;
 
   beforeEach(() => {
-    parser = new TrailerParser();
     idGen = new IdGenerator();
   });
 
@@ -31,7 +28,7 @@ describe('Strict Namespaced Validation', () => {
     );
     const registry = makeProtocolRegistry([strictProtocol]);
     
-    const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
+    const builder = new CommitBuilder(idGen, TEST_ENGINE_CONFIG, registry);
 
     // 2. Input with an orphan trailer in "fred" namespace
     const input = makeCommitInput({
@@ -60,7 +57,7 @@ describe('Strict Namespaced Validation', () => {
     );
     const registry = makeProtocolRegistry([strictProtocol]);
     
-    const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
+    const builder = new CommitBuilder(idGen, TEST_ENGINE_CONFIG, registry);
 
     const input = makeCommitInput({
       subject: 'feat: add feature',
@@ -97,7 +94,7 @@ describe('Strict Namespaced Validation', () => {
     );
 
     const registry = makeProtocolRegistry([strictProtocol]);
-    const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
+    const builder = new CommitBuilder(idGen, TEST_ENGINE_CONFIG, registry);
 
     const input = makeCommitInput({
       subject: 'feat: add feature',
@@ -123,7 +120,7 @@ describe('Strict Namespaced Validation', () => {
         { strict: true, permissive: false }
     );
     const registry = makeProtocolRegistry([strictProtocol]);
-    const builder = new CommitBuilder(parser, idGen, TEST_ENGINE_CONFIG, registry);
+    const builder = new CommitBuilder(idGen, TEST_ENGINE_CONFIG, registry);
 
     const input = makeCommitInput({
       subject: 'feat: add feature',

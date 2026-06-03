@@ -3,7 +3,6 @@ import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { 
@@ -67,7 +66,6 @@ describe('Engine Protocol Rebranding Flow', () => {
     vi.mocked(mockGit.getFilesChanged).mockResolvedValue(new Map([['abc12345', ['src/fred.ts']]]));
 
     // 3. Setup Repository
-    const trailerParser = new TrailerParser();
     const targetFactory = makeMockTargetFactory();
     const repo = new AtomRepository(
       mockGit as any,
@@ -107,7 +105,7 @@ describe('Engine Protocol Rebranding Flow', () => {
     expect(json.results[0].protocols.fred.trailers.Status).toBe('active');
 
     // 7. Validation Integration (Ensures Validator respects custom definition)
-    const validator = new Validator(trailerParser, repo, TEST_ENGINE_CONFIG, registry);
+    const validator = new Validator(repo, TEST_ENGINE_CONFIG, registry);
     const results = await validator.validate([rawFredCommit]);
     expect(results[0].issues).toHaveLength(0);
 

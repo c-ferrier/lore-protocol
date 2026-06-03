@@ -1,4 +1,3 @@
-import type { TrailerParser } from './trailer-parser.js';
 import type { IdGenerator } from './id-generator.js';
 import type { EngineConfig } from '../types/config.js';
 import type { AtomId } from '../types/domain.js';
@@ -6,6 +5,7 @@ import type { CommitInput } from '../types/commit.js';
 import type { ValidationIssue } from '../types/output.js';
 import { ProtocolError } from '../util/errors.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
+import { serializeTrailers } from '../logic/trailers.js';
 
 /**
  * Builds and validates git commit messages enriched with decision context.
@@ -13,7 +13,6 @@ import type { ProtocolRegistry } from './protocol-registry.js';
  */
 export class CommitBuilder {
   constructor(
-    private readonly trailerParser: TrailerParser,
     private readonly idGenerator: IdGenerator,
     private readonly config: EngineConfig,
     private readonly protocolRegistry: ProtocolRegistry,
@@ -101,7 +100,7 @@ export class CommitBuilder {
         }
     }
 
-    const trailerBlock = this.trailerParser.serialize(serializedTrailers, displayOrder);
+    const trailerBlock = serializeTrailers(serializedTrailers, displayOrder);
 
     let message = input.subject;
     if (input.body && input.body.trim()) {

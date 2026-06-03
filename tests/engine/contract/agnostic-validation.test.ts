@@ -18,7 +18,6 @@ describe('Agnostic Validation (Zero Protocols)', () => {
 
   beforeEach(() => {
     validator = new Validator(
-      { parse: vi.fn().mockReturnValue({}) } as any,
       {} as any,
       TEST_ENGINE_CONFIG,
       new ProtocolRegistry() // Empty

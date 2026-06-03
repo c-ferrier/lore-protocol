@@ -11,7 +11,6 @@ import {
     makeProtocolRegistry,
     makeMockProtocol,
     makeCommitInput,
-    makeMockTrailerParser,
     makeMockIdGenerator
 } from '../engine-test-utils.js';
 import type { CommitInput } from '../../../src/engine/types/commit.js';
@@ -21,20 +20,18 @@ const TEST_ID_KEY = "Mock-id";
 
 describe('CommitBuilder', () => {
   let builder: CommitBuilder;
-  let mockParser: any;
   let mockIdGen: any;
   let engineConfig: EngineConfig;
   let protocolRegistry: ProtocolRegistry;
 
   beforeEach(() => {
-    mockParser = makeMockTrailerParser();
     mockIdGen = makeMockIdGenerator();
     engineConfig = { ...TEST_ENGINE_CONFIG };
 
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION));
 
-    builder = new CommitBuilder(mockParser as any, mockIdGen as any, engineConfig, protocolRegistry);
+    builder = new CommitBuilder(mockIdGen as any, engineConfig, protocolRegistry);
   });
 
   describe('build', () => {
@@ -115,19 +112,6 @@ describe('CommitBuilder', () => {
       expect(protocols.mock.id).toBe('a1b2c3d4');
     });
 
-    it('should pass correct trailers to serialize', () => {
-      const input = makeCommitInput({
-        subject: 'test',
-        trailers: { 'mock': { Confidence: ['medium'] } },
-      });
-
-      builder.build(input);
-
-      const passedTrailers = mockParser.serialize.mock.calls[0][0] as Record<string, string[]>;
-      expect(passedTrailers[TEST_ID_KEY]).toEqual(['a1b2c3d4']);
-      expect(passedTrailers.Confidence).toEqual(['medium']);
-    });
-
     it('should correctly resolve trailer ownership between explicit and permissive protocols', () => {
       const mixedRegistry = new ProtocolRegistry();
       
@@ -143,7 +127,7 @@ describe('CommitBuilder', () => {
       mixedRegistry.register(fredProtocol);
       mixedRegistry.register(rootProtocol);
 
-      const mixedBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, TEST_ENGINE_CONFIG, mixedRegistry);
+      const mixedBuilder = new CommitBuilder(mockIdGen as any, TEST_ENGINE_CONFIG, mixedRegistry);
       mockIdGen.generate.mockReturnValueOnce('l1').mockReturnValueOnce('f1');
 
       const input = makeCommitInput({
@@ -258,7 +242,7 @@ describe('CommitBuilder', () => {
       );
       requiredRegistry.register(requiredProtocol);
 
-      const requiredBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, engineConfig, requiredRegistry);
+      const requiredBuilder = new CommitBuilder(mockIdGen as any, engineConfig, requiredRegistry);
       
       const input = makeCommitInput({
         subject: 'test',
@@ -281,7 +265,7 @@ describe('CommitBuilder', () => {
       const strictRegistry = new ProtocolRegistry();
       strictRegistry.register(strictProtocol);
 
-      const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, TEST_ENGINE_CONFIG, strictRegistry);
+      const strictBuilder = new CommitBuilder(mockIdGen as any, TEST_ENGINE_CONFIG, strictRegistry);
       const input = makeCommitInput({ subject: 'test', trailers: { 'mock': { [TEST_ID_KEY]: ['a1b2c3d4'] } } });
 
       const issues = strictBuilder.validate(input);
@@ -317,7 +301,7 @@ describe('CommitBuilder', () => {
           trailers: { Confidence: { description: 'c', multivalue: false, validation: 'none', required: true } } 
       }));
 
-      const requiredBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, requiredConfig, requiredRegistry);
+      const requiredBuilder = new CommitBuilder(mockIdGen as any, requiredConfig, requiredRegistry);
       const input = makeCommitInput({ 
           subject: 'test', 
           trailers: { 'mock': { Confidence: ['high'] } } 
@@ -338,7 +322,7 @@ describe('CommitBuilder', () => {
       const customRegistry = new ProtocolRegistry();
       customRegistry.register(customProtocol);
 
-      const customBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, TEST_ENGINE_CONFIG, customRegistry);
+      const customBuilder = new CommitBuilder(mockIdGen as any, TEST_ENGINE_CONFIG, customRegistry);
       const input = makeCommitInput({
  subject: 'test', trailers: { 'mock': { [TEST_ID_KEY]: ['a1b2c3d4'] } } });
 
@@ -354,7 +338,7 @@ describe('CommitBuilder', () => {
         );
         strictRegistry.register(strictProtocol);
 
-        const strictBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, TEST_ENGINE_CONFIG, strictRegistry);
+        const strictBuilder = new CommitBuilder(mockIdGen as any, TEST_ENGINE_CONFIG, strictRegistry);
 
         const input = makeCommitInput({
             subject: 'test',
@@ -379,7 +363,7 @@ describe('CommitBuilder', () => {
       const registry = new ProtocolRegistry();
       registry.register(protocolWithGen);
 
-      const genBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, TEST_ENGINE_CONFIG, registry);
+      const genBuilder = new CommitBuilder(mockIdGen as any, TEST_ENGINE_CONFIG, registry);
       const input = makeCommitInput({ 
           subject: 'test', 
           trailers: { 'gen': { 'Other': ['val'] } } 
@@ -403,7 +387,7 @@ describe('CommitBuilder', () => {
       const registry = new ProtocolRegistry();
       registry.register(protocolNoGen);
 
-      const manualBuilder = new CommitBuilder(mockParser as any, mockIdGen as any, TEST_ENGINE_CONFIG, registry);
+      const manualBuilder = new CommitBuilder(mockIdGen as any, TEST_ENGINE_CONFIG, registry);
       const input = makeCommitInput({
  subject: 'test', trailers: { 'manual': {} } });
 

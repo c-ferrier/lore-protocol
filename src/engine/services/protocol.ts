@@ -6,7 +6,6 @@ import { type IProtocol, type ActiveTrailer } from '../interfaces/protocol.js';
 import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 
-import { TrailerParser } from './trailer-parser.js';
 import { ProtocolHydrator } from './protocol-hydrator.js';
 
 import { ProtocolSchema } from './protocol/protocol-schema.js';
@@ -25,7 +24,6 @@ import { ProtocolQueryAdapter } from './protocol/protocol-query-adapter.js';
 export class Protocol implements IProtocol {
   private readonly definitions = new Map<string, ActiveTrailer>();
   private readonly caseMap = new Map<string, string>();
-  private readonly parser = new TrailerParser();
   private readonly normalizedDefinition: ProtocolDefinition;
   private registry?: ProtocolRegistry;
 
@@ -45,7 +43,7 @@ export class Protocol implements IProtocol {
 
     // Instantiate Delegates (Composition)
     this.schema = new ProtocolSchema(this.definitions, this.caseMap, this.permissive);
-    this.interpreter = new ProtocolInterpreter(this, this.parser);
+    this.interpreter = new ProtocolInterpreter(this);
     this.validator = new ProtocolValidator(this);
     this.queryAdapter = new ProtocolQueryAdapter(this);
   }
@@ -137,8 +135,8 @@ export class Protocol implements IProtocol {
 
   // --- IProtocolInterpreter Delegation ---
 
-  parse(rawTrailers: string, claimedKeys?: Set<string>): ProtocolState {
-    return this.interpreter.parse(rawTrailers, claimedKeys);
+  parse(rawTrailers: string, claimedKeys?: Set<string>, includeInvalid?: boolean): ProtocolState {
+    return this.interpreter.parse(rawTrailers, claimedKeys, includeInvalid);
   }
 
   normalize(rawMap: Trailers, claimedKeys?: Set<string>): ProtocolState {

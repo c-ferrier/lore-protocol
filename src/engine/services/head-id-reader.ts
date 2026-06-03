@@ -1,7 +1,7 @@
 import type { IGitClient } from '../interfaces/git-client.js';
-import type { TrailerParser } from './trailer-parser.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 import type { AtomId } from '../types/domain.js';
+import { parseTrailers } from '../logic/trailers.js';
 
 /**
  * Utility to read protocol identities from the HEAD commit.
@@ -12,7 +12,6 @@ import type { AtomId } from '../types/domain.js';
 export class HeadIdReader {
   constructor(
     private readonly gitClient: IGitClient,
-    private readonly trailerParser: TrailerParser,
     private readonly protocolRegistry: ProtocolRegistry,
   ) {}
 
@@ -24,7 +23,7 @@ export class HeadIdReader {
       const log = await this.gitClient.log(['-1']);
       if (log.length === 0) return {};
 
-      const trailers = this.trailerParser.parse(log[0].trailers);
+      const trailers = parseTrailers(log[0].trailers);
       const results: Record<string, AtomId> = {};
 
       for (const protocol of this.protocolRegistry.getAll()) {

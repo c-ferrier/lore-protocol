@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
+import { serializeTrailers } from '../../../src/engine/logic/trailers.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../engine-test-utils.js';
@@ -18,8 +18,6 @@ describe('Flat Protocol Boundaries', () => {
   describe('Canonical Ordering', () => {
     it('should always serialize in protocol-defined order regardless of insertion order', () => {
       const protocol = new Protocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
-      const parser = new TrailerParser();
-
       // Input in "wrong" order
       const trailers = {
         'Tested': ['T1'],
@@ -29,7 +27,7 @@ describe('Flat Protocol Boundaries', () => {
         'My-Custom': ['Val']
       } as any;
 
-      const output = parser.serialize(trailers, protocol.getAuthorizedKeys());
+      const output = serializeTrailers(trailers, protocol.getAuthorizedKeys());
       const lines = output.split('\n');
 
       // Canonical order from core-definitions.ts: 
@@ -96,8 +94,6 @@ describe('Flat Protocol Boundaries', () => {
           'Authorized': { description: '', multivalue: true, validation: 'none' } 
         }
       });
-      const parser = new TrailerParser();
-
       const raw = `${LORE_ID_KEY}: abc\nAuthorized: yes\nUnauthorized: no`;
       const result = protocol.parse(raw);
       const parsed = result.trailers;
@@ -105,7 +101,7 @@ describe('Flat Protocol Boundaries', () => {
       expect(parsed['Authorized']).toEqual(['yes']);
       expect(parsed['Unauthorized']).toBeUndefined();
       
-      const serialized = parser.serialize(parsed, protocol.getAuthorizedKeys());
+      const serialized = serializeTrailers(parsed, protocol.getAuthorizedKeys());
       expect(serialized).not.toContain('Unauthorized');
     });
   });
@@ -113,7 +109,6 @@ describe('Flat Protocol Boundaries', () => {
   describe('Key Case Resilience', () => {
     it('should treat trailers as case-insensitive for core mapping', () => {
       const protocol = new Protocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
-      const parser = new TrailerParser();
 
       // User provides lowercase 'confidence'
       const raw = `${LORE_ID_KEY}: abc\nconfidence: low`;
@@ -123,7 +118,7 @@ describe('Flat Protocol Boundaries', () => {
       // Should be mapped to the canonical PascalCase key
       expect(parsed['Confidence']).toEqual(['low']);
       
-      const serialized = parser.serialize(parsed, protocol.getAuthorizedKeys());
+      const serialized = serializeTrailers(parsed, protocol.getAuthorizedKeys());
       expect(serialized).toContain('Confidence: low');
       expect(serialized).not.toContain('confidence:');
     });

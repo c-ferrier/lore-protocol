@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { Protocol, ProtocolRegistry, type ProtocolDefinition } from '../../../src/engine/index.js';
 import { 
   AtomRepository, 
-  TrailerParser, 
   SearchFilter, 
   NullQueryCache,
   TEST_ENGINE_CONFIG, 
@@ -51,7 +50,6 @@ describe('Lore Wrapper Rebranding Flow', () => {
     vi.mocked(mockGit.query).mockResolvedValue([rawCommit]);
 
     // 3. Setup Repository
-    const trailerParser = new TrailerParser();
     const targetFactory = makeMockTargetFactory();
     const repo = new AtomRepository(
       mockGit as any,

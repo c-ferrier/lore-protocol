@@ -1,4 +1,3 @@
-import type { TrailerParser } from './trailer-parser.js';
 import type { AtomRepository } from './atom-repository.js';
 import type { EngineConfig } from '../types/config.js';
 import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
@@ -8,6 +7,7 @@ import type { QueryIdentity } from '../interfaces/query-target.js';
 import type { IProtocol } from '../interfaces/protocol.js';
 
 import type { ProtocolRegistry } from './protocol-registry.js';
+import { parseTrailers } from '../logic/trailers.js';
 
 /**
  * Validates existing git commits for protocol compliance.
@@ -17,7 +17,6 @@ import type { ProtocolRegistry } from './protocol-registry.js';
  */
 export class Validator {
   constructor(
-    private readonly trailerParser: TrailerParser,
     private readonly atomRepository: AtomRepository,
     private readonly config: EngineConfig,
     private readonly protocolRegistry: ProtocolRegistry,
@@ -35,7 +34,7 @@ export class Validator {
       let trailers: Trailers;
 
       try {
-        trailers = this.trailerParser.parse(raw.trailers);
+        trailers = parseTrailers(raw.trailers);
       } catch (err) {
         issues.push({
           severity: 'error',

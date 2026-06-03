@@ -1,10 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ProtocolInterpreter } from '../../../../src/engine/services/protocol/protocol-interpreter.js';
-import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
 import { makeMockProtocol } from '../../engine-test-utils.js';
 
 describe('ProtocolInterpreter', () => {
-  const parser = new TrailerParser();
 
   it('should normalize raw trailers into authorized and unauthorized buckets', () => {
     const protocol = makeMockProtocol({ 
@@ -12,7 +10,7 @@ describe('ProtocolInterpreter', () => {
         owns: vi.fn((key: string) => key === 'Mock-id'),
         authorize: vi.fn((key: string) => key === 'Mock-id' ? 'Mock-id' : null),
     });
-    const interpreter = new ProtocolInterpreter(protocol, parser);
+    const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
       'Mock-id': ['a1b2c3d4'],
@@ -26,7 +24,7 @@ describe('ProtocolInterpreter', () => {
 
   it('should ingest unknown trailers in permissive mode', () => {
     const protocol = makeMockProtocol({ permissive: true });
-    const interpreter = new ProtocolInterpreter(protocol, parser);
+    const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
       'Unknown': ['value']
@@ -46,7 +44,7 @@ describe('ProtocolInterpreter', () => {
         authorize: vi.fn((key: string) => key.toLowerCase() === 'id' ? 'id' : null),
         permissive: false
     });
-    const interpreter = new ProtocolInterpreter(protocol, parser);
+    const interpreter = new ProtocolInterpreter(protocol);
 
     const raw = {
         'project': ['id: 12345678', 'team: backend']
@@ -59,7 +57,7 @@ describe('ProtocolInterpreter', () => {
 
   it('should extract identity from protocol state', () => {
     const protocol = makeMockProtocol({ identityKey: 'Lore-id' });
-    const interpreter = new ProtocolInterpreter(protocol, parser);
+    const interpreter = new ProtocolInterpreter(protocol);
 
     const state = {
         trailers: { 'Lore-id': ['a1b2c3d4'] },
@@ -78,7 +76,7 @@ describe('ProtocolInterpreter', () => {
         owns: vi.fn((key: string) => key.toLowerCase() === 'project'),
         permissive: false
     });
-    const interpreter = new ProtocolInterpreter(protocol, parser);
+    const interpreter = new ProtocolInterpreter(protocol);
 
     const raw = {
         'project': ['this is not a key-value pair']
@@ -90,7 +88,7 @@ describe('ProtocolInterpreter', () => {
 
   it('should respect claimed keys in permissive mode', () => {
     const protocol = makeMockProtocol({ permissive: true });
-    const interpreter = new ProtocolInterpreter(protocol, parser);
+    const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
       'Owned-By-Other': ['secret']
@@ -106,7 +104,7 @@ describe('ProtocolInterpreter', () => {
         authorize: vi.fn((key: string) => key.toLowerCase() === 'confidence' ? 'Confidence' : null),
         owns: vi.fn((key: string) => key.toLowerCase() === 'confidence')
     });
-    const interpreter = new ProtocolInterpreter(protocol, parser);
+    const interpreter = new ProtocolInterpreter(protocol);
 
     const raw = {
         'CONFIDENCE': ['high'],
@@ -127,7 +125,7 @@ describe('ProtocolInterpreter', () => {
             stale_if: { kind: 'value-equals', value: 'low', signal: 'low-conf' }
         } as any)
       });
-      const interpreter = new ProtocolInterpreter(protocol, parser);
+      const interpreter = new ProtocolInterpreter(protocol);
 
       const atom: any = {
         protocols: new Map([['mock', { trailers: { Confidence: ['low'] }, unauthorized: {} }]])
@@ -148,7 +146,7 @@ describe('ProtocolInterpreter', () => {
             stale_if: { kind: 'date-expired' }
         } as any)
       });
-      const interpreter = new ProtocolInterpreter(protocol, parser);
+      const interpreter = new ProtocolInterpreter(protocol);
 
       const later = new Date(2000, 1, 1); // Feb 1 2000
       const atom: any = {
@@ -170,7 +168,7 @@ describe('ProtocolInterpreter', () => {
             stale_if: { kind: 'reference-superseded' }
         } as any)
       });
-      const interpreter = new ProtocolInterpreter(protocol, parser);
+      const interpreter = new ProtocolInterpreter(protocol);
 
       const globalMap = new Map([
           ['mock', new Map([['deadbeef', { superseded: true, supersededBy: ['new-id'] }]])]
@@ -196,7 +194,7 @@ describe('ProtocolInterpreter', () => {
             stale_if: { kind: 'reference-superseded' }
         } as any)
       });
-      const interpreter = new ProtocolInterpreter(protocol, parser);
+      const interpreter = new ProtocolInterpreter(protocol);
 
       const globalMap = new Map([
           ['mock', new Map([['deadbeef', { superseded: true, supersededBy: ['a1b2c3d4'] }]])]

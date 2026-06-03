@@ -1,12 +1,10 @@
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { describe, it, expect, vi } from 'vitest';
 import { CommitBuilder } from '../../../src/engine/services/commit-builder.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol, makeCommitInput } from '../engine-test-utils.js';
 import type { CommitInput } from '../../../src/engine/types/commit.js';
 
 describe('CommitBuilder Namespacing', () => {
-  const mockParser = new TrailerParser();
   const mockIdGen = { generate: vi.fn() };
 
   it('should include namespaced trailers in the built message', () => {
@@ -25,7 +23,7 @@ describe('CommitBuilder Namespacing', () => {
     registry.register(fredProtocol);
     registry.register(jiraProtocol);
 
-    const builder = new CommitBuilder(mockParser, mockIdGen as any, TEST_ENGINE_CONFIG, registry);
+    const builder = new CommitBuilder(mockIdGen as any, TEST_ENGINE_CONFIG, registry);
     mockIdGen.generate.mockReturnValueOnce('mock123').mockReturnValueOnce('fred456').mockReturnValueOnce('PROJ-123');
 
     const input = makeCommitInput({
@@ -53,7 +51,7 @@ describe('CommitBuilder Namespacing', () => {
     );
     registry.register(fredProtocol);
 
-    const builder = new CommitBuilder(mockParser, mockIdGen as any, TEST_ENGINE_CONFIG, registry);
+    const builder = new CommitBuilder(mockIdGen as any, TEST_ENGINE_CONFIG, registry);
 
     const input = makeCommitInput({
       subject: 'feat: add feature',

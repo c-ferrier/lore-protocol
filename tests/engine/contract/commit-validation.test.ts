@@ -11,7 +11,6 @@ import {
     makeMockInputResolver, 
     makeMockHeadIdReader 
 } from '../engine-test-utils.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 
 function createDeps(overrides: any = {}) {
   const protocol = makeProtocol();
@@ -26,7 +25,6 @@ function createDeps(overrides: any = {}) {
     config: TEST_ENGINE_CONFIG,
     protocol,
     protocolRegistry,
-    trailerParser: new TrailerParser(),
     ...overrides
   };
 }

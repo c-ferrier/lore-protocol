@@ -2,7 +2,6 @@ import { Command } from 'commander';
 import { join } from 'node:path';
 import { ProtocolRegistry } from './protocol-registry.js';
 import { Protocol } from './protocol.js';
-import { TrailerParser } from './trailer-parser.js';
 import { SearchFilter } from './search-filter.js';
 import { AtomRepository } from './atom-repository.js';
 import { QueryCache } from './query-cache.js';
@@ -129,7 +128,6 @@ export class EngineBootstrapper {
       protocolRegistry.register(new Protocol(def));
     }
     
-    const trailerParser = new TrailerParser();
     const searchFilter = new SearchFilter(protocolRegistry);
     
     const queryCache: IQueryCache = new QueryCache(
@@ -157,12 +155,12 @@ export class EngineBootstrapper {
 
     const idGenerator = new IdGenerator();
     const stalenessDetector = new StalenessDetector(gitClient, config, protocolRegistry);
-    const commitBuilder = new CommitBuilder(trailerParser, idGenerator, config, protocolRegistry);
+    const commitBuilder = new CommitBuilder(idGenerator, config, protocolRegistry);
     const squashMerger = new SquashMerger(idGenerator, protocolRegistry);
-    const validator = new Validator(trailerParser, atomRepository, config, protocolRegistry);
+    const validator = new Validator(atomRepository, config, protocolRegistry);
     const prompt = new TerminalPrompt();
     const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry);
-    const headIdReader = new HeadIdReader(gitClient, trailerParser, protocolRegistry);
+    const headIdReader = new HeadIdReader(gitClient, protocolRegistry);
 
     // 6. Formatter factory
     let cachedFormatter: IOutputFormatter | null = null;
@@ -193,7 +191,6 @@ export class EngineBootstrapper {
       config: config as any,
       logger,
       protocolRegistry,
-      trailerParser,
       commitBuilder,
       squashMerger,
       validator,

@@ -8,7 +8,6 @@ import { Validator } from './services/validator.js';
 import { StalenessDetector } from './services/staleness-detector.js';
 import { SearchFilter } from './services/search-filter.js';
 import { PathResolver } from './services/path-resolver.js';
-import { TrailerParser } from './services/trailer-parser.js';
 import { NullQueryCache } from './services/query-cache.js';
 import { QueryTargetFactory } from './services/query-target-factory.js';
 import { InMemoryLogger } from './services/in-memory-logger.js';
@@ -64,7 +63,6 @@ export {
     StalenessDetector, 
     SearchFilter, 
     PathResolver, 
-    TrailerParser,
     QueryTargetFactory,
     NullQueryCache,
     InMemoryLogger,

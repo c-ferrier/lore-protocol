@@ -1,10 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ProtocolInterpreter } from '../../../../src/engine/services/protocol/protocol-interpreter.js';
-import { TrailerParser } from '../../../../src/engine/services/trailer-parser.js';
 import type { IProtocol } from '../../../../src/engine/interfaces/protocol.js';
 
 describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
-  const parser = new TrailerParser();
   
   const createMockProtocol = (overrides: Partial<IProtocol> = {}) => ({
     name: 'Mock',
@@ -30,7 +28,7 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
           ]
       } as any)
     });
-    const interpreter = new ProtocolInterpreter(protocol, parser);
+    const interpreter = new ProtocolInterpreter(protocol);
 
     const now = new Date(2025, 0, 1);
     const atom: any = {
@@ -55,7 +53,7 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
           stale_if: { kind: 'value-equals', value: 'stale-tag' }
       } as any)
     });
-    const interpreter = new ProtocolInterpreter(protocol, parser);
+    const interpreter = new ProtocolInterpreter(protocol);
 
     const atom: any = {
       protocols: new Map([['mock', { 
@@ -79,7 +77,7 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
           stale_if: { kind: 'reference-superseded' }
       } as any)
     });
-    const interpreter = new ProtocolInterpreter(protocol, parser);
+    const interpreter = new ProtocolInterpreter(protocol);
 
     // Global map showing a security atom being superseded
     const globalMap = new Map([
@@ -109,7 +107,7 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
           stale_if: { kind: 'reference-superseded' }
       } as any)
     });
-    const interpreter = new ProtocolInterpreter(protocol, parser);
+    const interpreter = new ProtocolInterpreter(protocol);
 
     const globalMap = new Map([
         ['mock', new Map([['deadbeef', { superseded: true, supersededBy: 'mock/a1b2c3d4' }]])]
@@ -135,7 +133,7 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
           stale_if: { kind: 'value-equals', value: 'stale' }
       } as any)
     });
-    const interpreter = new ProtocolInterpreter(protocol, parser);
+    const interpreter = new ProtocolInterpreter(protocol);
 
     const atom: any = {
       protocols: new Map([['mock', { 

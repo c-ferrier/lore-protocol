@@ -10,7 +10,6 @@ import type { ILogger } from '../interfaces/logger.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import type { AtomId } from '../types/domain.js';
 import { ProtocolRegistry } from '../services/protocol-registry.js';
-import { TrailerParser } from '../services/trailer-parser.js';
 import { slugify } from '../util/string.js';
 
 /**
@@ -42,7 +41,6 @@ export function registerCommitCommand(
     headIdReader: HeadIdReader;
     getFormatter: () => IOutputFormatter;
     protocolRegistry: ProtocolRegistry;
-    trailerParser: TrailerParser;
     logger: ILogger;
   },
 ): void {

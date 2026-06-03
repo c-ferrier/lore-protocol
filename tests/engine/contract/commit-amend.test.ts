@@ -8,7 +8,6 @@ import type { CommitInputResolver } from '../../../src/engine/services/commit-in
 import type { HeadIdReader } from '../../../src/engine/services/head-id-reader.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { 
     TEST_ID_KEY,
     TEST_PROTOCOL_DEFINITION, 
@@ -43,7 +42,6 @@ function createDeps(overrides: any = {}) {
     config: TEST_ENGINE_CONFIG,
     protocol,
     protocolRegistry,
-    trailerParser: new TrailerParser(),
     ...overrides
   };
 }

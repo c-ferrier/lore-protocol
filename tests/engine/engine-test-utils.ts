@@ -6,7 +6,6 @@ import {
     type HierarchicalTrailers,
     ProtocolRegistry,
     InMemoryLogger,
-    TrailerParser,
     NullQueryCache,
     Validator,
     StalenessDetector,
@@ -153,17 +152,6 @@ export function makeMockAtomRepository(overrides: any = {}): any {
         findByScope: vi.fn(stub.findByScope),
         resolveFollowLinks: vi.fn(stub.resolveFollowLinks),
         extractReferenceIds: vi.fn(stub.extractReferenceIds)
-    };
-}
-
-/** Factory: Create a HIGH-FIDELITY MOCK TrailerParser (vi.fn() object). */
-export function makeMockTrailerParser(overrides: any = {}): any {
-    const realParser = new TrailerParser();
-    return {
-        parse: vi.fn((t) => realParser.parse(t)),
-        serialize: vi.fn((t, o) => realParser.serialize(t, o)),
-        extractTrailerBlock: vi.fn((m) => realParser.extractTrailerBlock(m)),
-        ...overrides
     };
 }
 

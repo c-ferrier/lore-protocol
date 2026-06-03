@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { Validator } from '../../../src/engine/services/validator.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { TEST_ENGINE_CONFIG, makeProtocolConfig, makeMockGitClient } from '../engine-test-utils.js';
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
 
@@ -46,7 +45,7 @@ describe('Cross-Protocol Reference Validation', () => {
       findByIds: vi.fn(async () => []),
     } as any;
 
-    validator = new Validator(new TrailerParser(), mockRepo, TEST_ENGINE_CONFIG, registry);
+    validator = new Validator(mockRepo, TEST_ENGINE_CONFIG, registry);
   });
 
   it('should allow valid cross-protocol references', async () => {
