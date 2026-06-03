@@ -1,9 +1,14 @@
 import type { Command } from 'commander';
 import type { AtomRepository } from '../services/atom-repository.js';
-import type { SquashMerger } from '../services/squash-merger.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import { ProtocolError } from '../util/errors.js';
 import type { ILogger } from '../interfaces/logger.js';
+import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import type { EngineConfig } from '../types/config.js';
+
+// Pure Logic Modules
+import { squashAtoms } from '../logic/squashing.js';
+import { formatCommit } from '../logic/commit-formatting.js';
 
 interface SquashCommandOptions {
   readonly subject?: string;
@@ -13,13 +18,14 @@ interface SquashCommandOptions {
 /**
  * Register the `squash <range>` command.
  * Takes a git revision range, gets all atoms in that range,
- * merges them via SquashMerger, and outputs the merged message to stdout.
+ * merges them via squashAtoms, and outputs the merged message to stdout.
  */
 export function registerSquashCommand(
   program: Command,
   deps: {
     atomRepository: AtomRepository;
-    squashMerger: SquashMerger;
+    protocolRegistry: ProtocolRegistry;
+    config: EngineConfig;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
   },
@@ -30,7 +36,7 @@ export function registerSquashCommand(
     .option('--subject <text>', 'Override the subject line of the merged message')
     .option('--body <text>', 'Override the body of the merged message')
     .action(async (range: string, options: SquashCommandOptions) => {
-      const { atomRepository, squashMerger, logger } = deps;
+      const { atomRepository, protocolRegistry, config, logger } = deps;
 
       const atoms = await atomRepository.findByRange(range);
 
@@ -38,10 +44,12 @@ export function registerSquashCommand(
         throw new ProtocolError('No atoms found in the specified range.', 1);
       }
 
-      const { message } = squashMerger.merge(atoms, {
+      const input = squashAtoms(atoms, {
         subject: options.subject,
         body: options.body,
-      });
+      }, protocolRegistry);
+
+      const { message } = formatCommit(input, config, protocolRegistry);
 
       // Output to stdout (raw message, not formatted)
       logger.result(message);

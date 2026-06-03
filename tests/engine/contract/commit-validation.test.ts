@@ -3,21 +3,19 @@ import { Command } from 'commander';
 import { registerCommitCommand } from '../../../src/engine/commands/commit.js';
 import { 
     TEST_ENGINE_CONFIG, 
-    makeProtocol, 
+    makeMockProtocol,
     makeProtocolRegistry, 
     makeMockGitClient, 
     makeMockFormatter, 
-    makeMockCommitBuilder, 
     makeMockInputResolver, 
     makeMockHeadIdReader 
 } from '../engine-test-utils.js';
 
 function createDeps(overrides: any = {}) {
-  const protocol = makeProtocol();
+  const protocol = makeMockProtocol();
   const protocolRegistry = makeProtocolRegistry([protocol]);
 
   return {
-    commitBuilder: makeMockCommitBuilder(),
     gitClient: makeMockGitClient(),
     getFormatter: () => makeMockFormatter(),
     commitInputResolver: makeMockInputResolver(),
@@ -25,6 +23,7 @@ function createDeps(overrides: any = {}) {
     config: TEST_ENGINE_CONFIG,
     protocol,
     protocolRegistry,
+    logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
     ...overrides
   };
 }
@@ -37,14 +36,14 @@ describe('atom commit (validation logic)', () => {
 
   it('should abort commit if validation returns errors', async () => {
     const gitClient = makeMockGitClient();
-    const commitBuilder = makeMockCommitBuilder({
-        validate: vi.fn().mockReturnValue([{ severity: 'error', rule: 'test-err', message: 'Fatal issue' }])
+    const protocol = makeMockProtocol({
+        validateState: vi.fn().mockReturnValue([{ severity: 'error', rule: 'test-err', message: 'Fatal issue' }])
     });
-    const deps = createDeps({ gitClient, commitBuilder });
+    const deps = createDeps({ gitClient, protocol, protocolRegistry: makeProtocolRegistry([protocol]) });
 
     const program = new Command();
     program.exitOverride();
-    registerCommitCommand(program, deps);
+    registerCommitCommand(program, deps as any);
 
     await expect(
         program.parseAsync(['node', 'atom', 'commit', '--subject', 'test'])
@@ -56,14 +55,14 @@ describe('atom commit (validation logic)', () => {
   it('should proceed with commit but log warnings if validation returns warnings only', async () => {
     const gitClient = makeMockGitClient();
     const logger = { warn: vi.fn(), info: vi.fn(), error: vi.fn() } as any;
-    const commitBuilder = makeMockCommitBuilder({
-        validate: vi.fn().mockReturnValue([{ severity: 'warning', rule: 'test-warn', message: 'Hygiene issue' }])
+    const protocol = makeMockProtocol({
+        validateState: vi.fn().mockReturnValue([{ severity: 'warning', rule: 'test-warn', message: 'Hygiene issue' }])
     });
-    const deps = createDeps({ gitClient, commitBuilder, logger });
+    const deps = createDeps({ gitClient, protocol, protocolRegistry: makeProtocolRegistry([protocol]), logger });
 
     const program = new Command();
     program.exitOverride();
-    registerCommitCommand(program, deps);
+    registerCommitCommand(program, deps as any);
 
     await program.parseAsync(['node', 'atom', 'commit', '--subject', 'test']);
 

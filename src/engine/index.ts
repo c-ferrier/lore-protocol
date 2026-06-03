@@ -28,6 +28,9 @@ export * from './logic/hydration.js';
 export * from './logic/supersession.js';
 export * from './logic/identity.js';
 export * from './logic/trailers.js';
+export * from './logic/filtering.js';
+export * from './logic/squashing.js';
+export * from './logic/commit-formatting.js';
 
 // --- Orchestrating Services (Runtime) ---
 export { ProtocolRegistry } from './services/protocol-registry.js';

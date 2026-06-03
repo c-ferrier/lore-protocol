@@ -13,7 +13,6 @@ import {
     PathResolver,
     Protocol,
     ProtocolLoader,
-    CommitBuilder,
     TEST_ID_KEY,
     TEST_ENGINE_CONFIG,
     TEST_PROTOCOL_DEFINITION,
@@ -31,7 +30,6 @@ import {
     makeStubAtomRepository,
     makeStubTargetFactory,
     makeStubHeadIdReader,
-    makeStubCommitBuilder,
     makeStubValidator,
     makeStubStalenessDetector,
     makeRawCommit,
@@ -173,16 +171,6 @@ export function makeMockHeadIdReader(overrides: any = {}): any {
         ...stub,
         read: vi.fn(stub.read),
         readIds: vi.fn(stub.readIds)
-    };
-}
-
-/** Factory: Create a PURE MOCK CommitBuilder (vi.fn() object). */
-export function makeMockCommitBuilder(overrides: any = {}): any {
-    const stub = makeStubCommitBuilder(overrides);
-    return {
-        ...stub,
-        build: vi.fn(stub.build),
-        validate: vi.fn(stub.validate)
     };
 }
 

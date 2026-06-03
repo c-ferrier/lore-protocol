@@ -1,8 +1,7 @@
 import { Command } from 'commander';
-import type { CommitBuilder } from '../services/commit-builder.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { TrailerDefinition } from '../types/config.js';
+import type { EngineConfig, TrailerDefinition } from '../types/config.js';
 import { ProtocolError } from '../util/errors.js';
 import type { CommitInputResolver } from '../services/commit-input-resolver.js';
 import type { HeadIdReader } from '../services/head-id-reader.js';
@@ -11,6 +10,9 @@ import { mergeOptions } from './helpers/merge-options.js';
 import type { AtomId } from '../types/domain.js';
 import { ProtocolRegistry } from '../services/protocol-registry.js';
 import { slugify } from '../util/string.js';
+
+// Pure Logic Modules
+import { formatCommit, validateFormatting } from '../logic/commit-formatting.js';
 
 /**
  * CLI Options for the commit command.
@@ -35,16 +37,16 @@ interface CommitCommandOptions {
 export function registerCommitCommand(
   program: Command,
   deps: {
-    commitBuilder: CommitBuilder;
     gitClient: IGitClient;
     commitInputResolver: CommitInputResolver;
     headIdReader: HeadIdReader;
     getFormatter: () => IOutputFormatter;
     protocolRegistry: ProtocolRegistry;
+    config: EngineConfig;
     logger: ILogger;
   },
 ): void {
-  const { protocolRegistry, logger } = deps;
+  const { protocolRegistry, logger, config } = deps;
   const cmd = program
     .command('commit')
     .description('Create a decision-enriched commit')
@@ -60,7 +62,7 @@ export function registerCommitCommand(
     }, []);
 
   cmd.action(async (_options: CommitCommandOptions, command: Command) => {
-    const { gitClient, getFormatter, commitInputResolver, headIdReader, commitBuilder } = deps;
+    const { gitClient, getFormatter, commitInputResolver, headIdReader } = deps;
     const options = mergeOptions<CommitCommandOptions>(command);
     
     const isNoEdit = options.edit === false;
@@ -114,22 +116,22 @@ if (!options.amend) {
     throw new ProtocolError('No staged changes to commit. Use `git add` to stage files.', 3);
   }
 }
-const input = await commitInputResolver.read(options);
+    const input = await commitInputResolver.read(options);
 
-// Validate input before building
-const validationIssues = commitBuilder.validate(input);
-const errors = validationIssues.filter(i => i.severity === 'error');
-if (errors.length > 0) {
-    throw new ProtocolError(`Validation failed:\n${errors.map(e => `  - ${e.message}`).join('\n')}`, 1);
-}
+    // Validate input before building
+    const validationIssues = await validateFormatting(input, config, protocolRegistry);
+    const errors = validationIssues.filter(i => i.severity === 'error');
+    if (errors.length > 0) {
+        throw new ProtocolError(`Validation failed:\n${errors.map(e => `  - ${e.message}`).join('\n')}`, 1);
+    }
 
-let existingIds: Record<string, AtomId> | undefined;
-if (options.amend) {
-  existingIds = await headIdReader.readIds();
-}
+    let existingIds: Record<string, AtomId> | undefined;
+    if (options.amend) {
+      existingIds = await headIdReader.readIds();
+    }
 
-const { message, protocols } = commitBuilder.build(input, existingIds);
-const result = await gitClient.commit(message, { amend: options.amend });
+    const { message, protocols } = formatCommit(input, config, protocolRegistry, existingIds);
+    const result = await gitClient.commit(message, { amend: options.amend });
 
 // Log warnings if any (non-fatal)
 const warnings = validationIssues.filter(i => i.severity === 'warning');

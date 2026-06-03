@@ -3,14 +3,9 @@ import {
     TEST_ENGINE_CONFIG, 
     makeProtocol, 
     makeProtocolRegistry, 
-    makeMockGitClient, 
-    makeMockAtomRepository, 
-    makeRawCommit, 
-    makeValidator,
     makeCommitInput
 } from '../engine-test-utils.js';
-import { CommitBuilder } from '../../../src/engine/services/commit-builder.js';
-import type { CommitInput } from '../../../src/engine/types/commit.js';
+import { validateFormatting } from '../../../src/engine/logic/commit-formatting.js';
 
 describe('Strict Namespaced Validation', () => {
 
@@ -25,8 +20,6 @@ describe('Strict Namespaced Validation', () => {
     );
     const registry = makeProtocolRegistry([strictProtocol]);
     
-    const builder = new CommitBuilder(TEST_ENGINE_CONFIG, registry);
-
     // 2. Input with an orphan trailer in "fred" namespace
     const input = makeCommitInput({
       subject: 'feat: add feature',
@@ -38,11 +31,8 @@ describe('Strict Namespaced Validation', () => {
       },
     });
 
-    const issues = builder.validate(input);
+    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
     
-    // console.log('DEBUG: protocol.permissive =', strictProtocol.permissive);
-    // console.log('DEBUG: issues =', JSON.stringify(issues, null, 2));
-
     // Should report that 'Orphan' is not allowed
     expect(issues.some(i => i.severity === 'error' && i.message.includes('not recognized'))).toBe(true);
   });
@@ -54,8 +44,6 @@ describe('Strict Namespaced Validation', () => {
     );
     const registry = makeProtocolRegistry([strictProtocol]);
     
-    const builder = new CommitBuilder(TEST_ENGINE_CONFIG, registry);
-
     const input = makeCommitInput({
       subject: 'feat: add feature',
       trailers: {
@@ -65,13 +53,13 @@ describe('Strict Namespaced Validation', () => {
       },
     });
 
-    const issues = builder.validate(input);
+    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
     const errors = issues.filter(i => i.severity === 'error');
     if (errors.length !== 0) console.log('ERRORS (Strict):', errors);
     expect(errors).toHaveLength(0);
   });
 
-  it('should report missing required trailers in a strict namespaced protocol', () => {
+  it('should report missing required trailers in a strict namespaced protocol', async () => {
     const strictProtocol = makeProtocol(
         { 
             name: 'Fred', 
@@ -91,7 +79,6 @@ describe('Strict Namespaced Validation', () => {
     );
 
     const registry = makeProtocolRegistry([strictProtocol]);
-    const builder = new CommitBuilder(TEST_ENGINE_CONFIG, registry);
 
     const input = makeCommitInput({
       subject: 'feat: add feature',
@@ -103,11 +90,7 @@ describe('Strict Namespaced Validation', () => {
       },
     });
 
-
-    const issues = builder.validate(input);
-    if (issues.length === 0 || !issues.some(i => i.rule === 'fred-id-present' && i.field === 'fred:Fred-id')) {
-        console.log('DEBUG (Missing Required):', JSON.stringify(issues, null, 2));
-    }
+    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
     expect(issues.some(i => i.rule === 'fred-id-present' && i.field === 'fred:Fred-id')).toBe(true);
   });
 
@@ -117,7 +100,6 @@ describe('Strict Namespaced Validation', () => {
         { strict: true, permissive: false }
     );
     const registry = makeProtocolRegistry([strictProtocol]);
-    const builder = new CommitBuilder(TEST_ENGINE_CONFIG, registry);
 
     const input = makeCommitInput({
       subject: 'feat: add feature',
@@ -129,10 +111,7 @@ describe('Strict Namespaced Validation', () => {
       },
     });
 
-    const issues = builder.validate(input);
-    if (issues.length === 0 || !issues.some(i => i.rule === 'unauthorized-trailer' && i.field === 'fred:Unknown-key')) {
-        console.log('DEBUG (Unauthorized Key):', JSON.stringify(issues, null, 2));
-    }
+    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
     expect(issues.some(i => i.rule === 'unauthorized-trailer' && i.field === 'fred:Unknown-key')).toBe(true);
   });
 });

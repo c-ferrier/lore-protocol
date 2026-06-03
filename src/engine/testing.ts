@@ -11,7 +11,6 @@ import { NullQueryCache } from './services/query-cache.js';
 import { QueryTargetFactory } from './services/query-target-factory.js';
 import { InMemoryLogger } from './services/in-memory-logger.js';
 import { TerminalLogger } from './services/terminal-logger.js';
-import { CommitBuilder } from './services/commit-builder.js';
 
 import type { 
     Atom, 
@@ -64,7 +63,6 @@ export {
     NullQueryCache,
     InMemoryLogger,
     TerminalLogger,
-    CommitBuilder,
     ProtocolMap,
     type ProtocolName,
     type Atom,
@@ -372,15 +370,6 @@ export function makeStubHeadIdReader(overrides: any = {}): any {
     return {
         read: async () => null,
         readIds: async () => ({}),
-        ...overrides
-    };
-}
-
-/** Stub: Create a strictly-typed stubbed CommitBuilder. */
-export function makeStubCommitBuilder(overrides: any = {}): any {
-    return {
-        build: () => ({ message: 'built', protocols: {} }),
-        validate: () => [],
         ...overrides
     };
 }

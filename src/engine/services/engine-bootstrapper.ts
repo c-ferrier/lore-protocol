@@ -9,8 +9,6 @@ import { LogLevel } from '../interfaces/logger.js';
 import { TerminalLogger } from './terminal-logger.js';
 import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, QUERY_CACHE_DIR, PROTOCOLS_DIR_NAME } from '../util/constants.js';
 import { StalenessDetector } from './staleness-detector.js';
-import { CommitBuilder } from './commit-builder.js';
-import { SquashMerger } from './squash-merger.js';
 import { Validator } from './validator.js';
 import { TerminalPrompt } from './terminal-prompt.js';
 import { CommitInputResolver } from './commit-input-resolver.js';
@@ -149,8 +147,6 @@ export class EngineBootstrapper {
     );
 
     const stalenessDetector = new StalenessDetector(gitClient, config, protocolRegistry);
-    const commitBuilder = new CommitBuilder(config, protocolRegistry);
-    const squashMerger = new SquashMerger(protocolRegistry);
     const validator = new Validator(atomRepository, config, protocolRegistry);
     const prompt = new TerminalPrompt();
     const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry);
@@ -185,8 +181,6 @@ export class EngineBootstrapper {
       config: config as any,
       logger,
       protocolRegistry,
-      commitBuilder,
-      squashMerger,
       validator,
       stalenessDetector,
       targetFactory,

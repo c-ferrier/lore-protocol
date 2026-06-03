@@ -1,26 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 import { registerCommitCommand } from '../../../src/engine/commands/commit.js';
-import type { CommitBuilder } from '../../../src/engine/services/commit-builder.js';
 import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import type { IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
 import type { CommitInputResolver } from '../../../src/engine/services/commit-input-resolver.js';
 import type { HeadIdReader } from '../../../src/engine/services/head-id-reader.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { 
     TEST_ID_KEY,
-    TEST_PROTOCOL_DEFINITION, 
     TEST_ENGINE_CONFIG, 
     makeProtocol, 
     makeProtocolRegistry, 
     makeMockGitClient, 
     makeMockFormatter, 
-    makeMockCommitBuilder, 
     makeMockInputResolver, 
     makeMockHeadIdReader,
     makeCommitInput
 } from '../engine-test-utils.js';
+
+import * as FormattingLogic from '../../../src/engine/logic/commit-formatting.js';
+
+vi.mock('../../../src/engine/logic/commit-formatting.js', async (importOriginal) => {
+    const actual = await importOriginal<any>();
+    return {
+        ...actual,
+        formatCommit: vi.fn(actual.formatCommit),
+        validateFormatting: vi.fn().mockResolvedValue([])
+    };
+});
 
 async function runCommitCommand(args: string[], deps: any): Promise<void> {
   const program = new Command();
@@ -34,7 +41,6 @@ function createDeps(overrides: any = {}) {
   const protocolRegistry = makeProtocolRegistry([protocol]);
 
   return {
-    commitBuilder: makeMockCommitBuilder(),
     gitClient: makeMockGitClient(),
     getFormatter: () => makeMockFormatter(),
     commitInputResolver: makeMockInputResolver(),
@@ -42,6 +48,7 @@ function createDeps(overrides: any = {}) {
     config: TEST_ENGINE_CONFIG,
     protocol,
     protocolRegistry,
+    logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
     ...overrides
   };
 }
@@ -50,6 +57,7 @@ describe('atom commit --amend', () => {
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.clearAllMocks();
   });
 
   it('should skip staged-changes guard when --amend is used', async () => {
@@ -61,7 +69,7 @@ describe('atom commit --amend', () => {
     expect(gitClient.hasStagedChanges).not.toHaveBeenCalled();
   });
 
-  it(`should pass existing ${TEST_ID_KEY} to commitBuilder.build when amending`, async () => {
+  it(`should pass existing ${TEST_ID_KEY} to formatCommit when amending`, async () => {
     const headIdReader = makeMockHeadIdReader({ 
         readIds: vi.fn().mockResolvedValue({ mock: 'cafebabe' }) 
     });
@@ -73,8 +81,10 @@ describe('atom commit --amend', () => {
     await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
 
     expect(headIdReader.readIds).toHaveBeenCalledOnce();
-    expect(deps.commitBuilder.build).toHaveBeenCalledWith(
+    expect(FormattingLogic.formatCommit).toHaveBeenCalledWith(
       expect.objectContaining({ subject: 'amend test' }),
+      expect.anything(),
+      expect.anything(),
       { mock: 'cafebabe' }
     );
   });
@@ -85,7 +95,7 @@ describe('atom commit --amend', () => {
     await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
 
     expect(deps.gitClient.commit).toHaveBeenCalledWith(
-      'built',
+      expect.stringContaining('Mock-id:'),
       { amend: true },
     );
   });
@@ -96,8 +106,7 @@ describe('atom commit --amend', () => {
     await runCommitCommand(['--amend', '--no-edit'], deps);
 
     expect(deps.commitInputResolver.read).not.toHaveBeenCalled();
-    expect(deps.commitBuilder.build).not.toHaveBeenCalled();
-    expect(deps.commitBuilder.validate).not.toHaveBeenCalled();
+    expect(FormattingLogic.formatCommit).not.toHaveBeenCalled();
     expect(deps.gitClient.commit).toHaveBeenCalledWith(
       '',
       { amend: true, noEdit: true },
@@ -165,7 +174,9 @@ describe('atom commit --amend', () => {
     await runCommitCommand(['--amend', '--subject', 'amend non-mock'], deps);
 
     expect(headIdReader.readIds).toHaveBeenCalledOnce();
-    expect(deps.commitBuilder.build).toHaveBeenCalledWith(
+    expect(FormattingLogic.formatCommit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
       expect.anything(),
       {},
     );
@@ -178,7 +189,9 @@ describe('atom commit --amend', () => {
     await runCommitCommand(['--subject', 'normal commit'], deps);
 
     expect(headIdReader.readIds).not.toHaveBeenCalled();
-    expect(deps.commitBuilder.build).toHaveBeenCalledWith(
+    expect(FormattingLogic.formatCommit).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
       expect.anything(),
       undefined,
     );
