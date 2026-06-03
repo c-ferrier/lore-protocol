@@ -148,7 +148,7 @@ export class EngineBootstrapper {
     const stalenessDetector = new StalenessDetector(gitClient, config, protocolRegistry);
     const validator = new Validator(atomRepository, config, protocolRegistry);
     const prompt = new TerminalPrompt();
-    const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry);
+    const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry, config);
     const headIdReader = new HeadIdReader(gitClient, protocolRegistry);
 
     // 6. Formatter factory

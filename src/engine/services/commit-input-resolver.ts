@@ -6,109 +6,79 @@ import { promisify } from 'node:util';
 
 import { InteractiveInputReader } from './readers/interactive-input-reader.js';
 import { JsonInputReader } from './readers/json-input-reader.js';
-import { FlagsInputReader } from './readers/flags-input-reader.js';
 import { TrailerCollectorRegistry } from './readers/collectors/trailer-collector-registry.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
+import type { EngineConfig } from '../types/config.js';
 
-/**
- * The modes of commit input resolution, ordered by priority.
- * interactive > file > flags > stdin
- */
-export enum InputMode {
-  Interactive = 'interactive',
-  File = 'file',
-  Flags = 'flags',
-  Stdin = 'stdin',
-}
+// Pure Logic Modules
+import { 
+    InputMode, 
+    type CommitCommandOptions, 
+    selectInputMode, 
+    parseFlagsToInput, 
+    finalizeCommitInput 
+} from '../logic/input-interpretation.js';
 
-/**
- * CLI options passed to the commit command.
- * 
- * SOLID: SRP -- pure DTO for CLI option parsing.
- * Supports dynamic core flags via index signature.
- */
-export interface CommitCommandOptions {
-  readonly amend?: boolean;
-  readonly edit?: boolean;
-  readonly file?: string;
-  readonly interactive?: boolean;
-  readonly subject?: string;
-  readonly body?: string;
-  readonly trailer?: string[];
-  /** Dynamic flags from definitions (e.g. confidence, scope-risk) */
-  readonly [key: string]: unknown;
-}
+export { InputMode, type CommitCommandOptions };
 
 /**
  * Resolves commit input from the appropriate source based on CLI options.
+ * This service acts as the CLI Adapter, coordinating I/O and pure logic.
  */
 export class CommitInputResolver implements ICommitInputReader {
   constructor(
     private readonly prompt: IPrompt,
     private readonly protocolRegistry: ProtocolRegistry,
+    private readonly config: EngineConfig,
   ) {}
 
   /**
    * Resolve commit input from the appropriate source based on CLI options.
    */
   async read(options: CommitCommandOptions): Promise<CommitInput> {
-    const mode = this.resolveMode(options);
-    const reader = await this.createReader(mode, options);
-    return reader.read(options);
+    const mode = this.getActualMode(options);
+    const intent = await this.readIntent(mode, options);
+    return finalizeCommitInput(intent, this.config);
   }
 
   /**
-   * Determine the input mode based on option priority.
+   * Executes the I/O portion of input resolution.
    */
-  private resolveMode(options: CommitCommandOptions): InputMode {
-    if (options.interactive) {
-      return InputMode.Interactive;
-    }
-    if (options.file) {
-      return InputMode.File;
-    }
-    
-    // Check if the subject line or any trailer flag was provided
-    const baseFlags = ['amend', 'edit', 'subject', 'body', 'file', 'trailer', 'interactive', 'json', 'format', 'color', 'context', 'cache', 'updateNotifier'];
-    const extraKeys = Object.keys(options).filter(k => !baseFlags.includes(k) && options[k] !== undefined);
-    const hasFlags = !!options.subject || (options.trailer && options.trailer.length > 0) || extraKeys.length > 0;
-
-    if (hasFlags) {
-      return InputMode.Flags;
-    }
-    if (process.stdin.isTTY) {
-      return InputMode.Interactive;
-    }
-    return InputMode.Stdin;
-  }
-
-  /**
-   * Construct the appropriate ICommitInputReader for the resolved mode.
-   */
-  private async createReader(
-    mode: InputMode,
-    options: CommitCommandOptions,
-  ): Promise<ICommitInputReader> {
+  private async readIntent(mode: InputMode, options: CommitCommandOptions): Promise<Partial<CommitInput>> {
     switch (mode) {
       case InputMode.Interactive: {
         const collectors = this.protocolRegistry.getAll().flatMap(p => {
             const registry = new TrailerCollectorRegistry(p);
             return registry.getCollectors();
         });
-        return new InteractiveInputReader(
-          this.prompt,
-          collectors,
-        );
+        const reader = new InteractiveInputReader(this.prompt, collectors);
+        return reader.read(options);
       }
-      case InputMode.File:
-        return new JsonInputReader(await promisify(readFile)(options.file!, 'utf-8'), this.protocolRegistry);
-      case InputMode.Flags:
-        return new FlagsInputReader(options, this.protocolRegistry);
+      case InputMode.File: {
+        const content = await promisify(readFile)(options.file!, 'utf-8');
+        const reader = new JsonInputReader(content, this.protocolRegistry);
+        return reader.read(options);
+      }
+      case InputMode.Flags: {
+        return parseFlagsToInput(options, this.protocolRegistry);
+      }
       case InputMode.Stdin: {
         const content = await this.readStdinContent();
-        return new JsonInputReader(content, this.protocolRegistry);
+        const reader = new JsonInputReader(content, this.protocolRegistry);
+        return reader.read(options);
       }
     }
+  }
+
+  /**
+   * Adjusts the mode based on environment-specific factors like TTY.
+   */
+  private getActualMode(options: CommitCommandOptions): InputMode {
+      const logicalMode = selectInputMode(options);
+      if (logicalMode === InputMode.Stdin && process.stdin.isTTY) {
+          return InputMode.Interactive;
+      }
+      return logicalMode;
   }
 
   /**

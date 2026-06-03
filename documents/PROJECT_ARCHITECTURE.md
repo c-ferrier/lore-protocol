@@ -178,7 +178,7 @@ No command or service instantiates its own dependencies. All wiring is centraliz
 - **Contains**: `ICommitInputReader` interface.
 - **Single Responsibility**: Strategy contract for reading commit input from any source.
 - **Dependencies**: `CommitInput`.
-- **Dependents**: `JsonInputReader`, `FlagsInputReader`, `InteractiveInputReader`, `CommitInputResolver`.
+- **Dependents**: `JsonInputReader`, `InteractiveInputReader`, `CommitInputResolver`, `input-interpretation.ts`.
 
 #### `src/interfaces/trailer-collector.ts`
 - **Contains**: `ITrailerCollector` interface, `TrailerCollectorResult` type.
@@ -306,10 +306,10 @@ No command or service instantiates its own dependencies. All wiring is centraliz
 - **Single Responsibility**: Parses a JSON string into `CommitInput`. Coerces single strings to arrays for array trailers.
 - **Dependencies**: `ICommitInputReader`, `CommitInput`.
 
-#### `src/services/readers/flags-input-reader.ts`
-- **Contains**: `FlagsInputReader` class implementing `ICommitInputReader`.
-- **Single Responsibility**: Maps CLI flag values to `CommitInput`. Pure data mapping, no I/O.
-- **Dependencies**: `ICommitInputReader`, `CommitInput`, `CommitCommandOptions`.
+#### `src/logic/input-interpretation.ts`
+- **Contains**: Pure functions for mapping CLI flags and user intent.
+- **Single Responsibility**: Mathematical transformation of raw input into structured `CommitInput`.
+- **Decoupling**: Enables environment-agnostic interpretation (browser, IDE, CLI).
 
 #### `src/services/readers/interactive-input-reader.ts`
 - **Contains**: `InteractiveInputReader` class implementing `ICommitInputReader`.
@@ -1192,7 +1192,8 @@ The `log` command now uses `SupersessionResolver.resolve()` to properly compute 
 ### Commit Input Resolution (Resolved)
 
 The commit command's input resolution is refactored into a Strategy pattern:
-- `ICommitInputReader` interface with three implementations: `JsonInputReader`, `FlagsInputReader`, `InteractiveInputReader`
+- `ICommitInputReader` interface with two implementations: `JsonInputReader`, `InteractiveInputReader`. CLI flags are now handled by pure logic in `input-interpretation.ts`.
+
 - `CommitInputResolver` as pure dispatcher using `InputMode` enum
 - `InteractiveInputReader` uses Template Method with `ITrailerCollector` Strategy for each trailer type
 - All prompt strings centralized in `PROMPT_STRINGS` constant

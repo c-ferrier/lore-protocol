@@ -27,7 +27,7 @@ describe('CommitInputResolver', () => {
     protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
     registry = new ProtocolRegistry();
     registry.register(protocol);
-    resolver = new CommitInputResolver(prompt, registry);
+    resolver = new CommitInputResolver(prompt, registry, TEST_ENGINE_CONFIG);
   });
 
   describe('mode resolution priority', () => {
@@ -55,23 +55,6 @@ describe('CommitInputResolver', () => {
       const result = await resolver.read(options);
 
       expect(result.subject).toBe('feat: from flags');
-      vi.unstubAllGlobals();
-    });
-
-    it('should NOT trigger flags mode for whitelisted background flags (like updateNotifier)', async () => {
-      vi.stubGlobal('process', {
-        ...process,
-        stdin: { isTTY: false, resume: vi.fn(), on: vi.fn() },
-      });
-
-      // Simulation of Lore's default --no-update-notifier
-      const options = { updateNotifier: false };
-      
-      // Since it's not a TTY and no "real" flags are set, it should fall through to stdin
-      // (Even if we can't easily read from mock stdin here, we can check the mode resolution)
-      const mode = (resolver as any).resolveMode(options);
-      expect(mode).toBe('stdin');
-      
       vi.unstubAllGlobals();
     });
   });

@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { FlagsInputReader } from '../../../src/engine/services/readers/flags-input-reader.js';
+import { parseFlagsToInput } from '../../../src/engine/logic/input-interpretation.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../engine-test-utils.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
-import type { CommitCommandOptions } from '../../../src/engine/services/commit-input-resolver.js';
+import type { CommitCommandOptions } from '../../../src/engine/logic/input-interpretation.js';
 import type { FormattableQueryResult } from '../../../src/engine/types/output.js';
 import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
 
@@ -41,8 +41,7 @@ describe('Protocol Architectural Integrity', () => {
       'ticket-id': ['PROJ-123', 'PROJ-456'],
     } as any;
 
-    const reader = new FlagsInputReader(options, registry);
-    const input = await reader.read();
+    const input = parseFlagsToInput(options, registry);
 
     // 2. Verify Reader mapped it correctly as a top-level property in root namespace
     const loreInput = input.trailers.get('lore') || {};
@@ -97,8 +96,7 @@ describe('Protocol Architectural Integrity', () => {
       trailer: ['Project-Code:LORE-001'],
     };
 
-    const reader = new FlagsInputReader(options, registry);
-    const input = await reader.read();
+    const input = parseFlagsToInput(options, registry);
 
     // Verify both are captured correctly at top level in root namespace
     const loreInput = input.trailers.get('lore') || {};

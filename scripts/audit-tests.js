@@ -80,6 +80,48 @@ function getBaselineContent(ref, path) {
   }
 }
 
+function getIndent(item) {
+  const match = item.match(/^(\s*)/);
+  return match ? match[1].length : 0;
+}
+
+function printWithContext(fullMap, diffList, symbol) {
+  const printed = new Set();
+  
+  for (const item of diffList) {
+    const index = fullMap.indexOf(item);
+    const parents = [];
+    const itemIndent = getIndent(item);
+    
+    // Look backwards for parents
+    for (let i = index - 1; i >= 0; i--) {
+        const potentialParent = fullMap[i];
+        if (potentialParent.trim().startsWith('DESC:') && getIndent(potentialParent) < itemIndent) {
+            // Only add if we haven't found a parent at this level yet
+            if (!parents.some(p => getIndent(p) === getIndent(potentialParent))) {
+                parents.unshift(potentialParent);
+            }
+            if (getIndent(potentialParent) === 0) break;
+        }
+    }
+    
+    // Print unprinted parents
+    for (const parent of parents) {
+        if (!printed.has(parent)) {
+            const isDiff = diffList.includes(parent);
+            const marker = isDiff ? symbol : ' ';
+            console.log(`  ${marker}  ${parent}`);
+            printed.add(parent);
+        }
+    }
+    
+    if (!printed.has(item)) {
+        console.log(`  ${symbol}  ${item}`);
+        printed.add(item);
+    }
+  }
+}
+
 const currentFiles = getCurrentFiles(inputPath);
 const baselineFiles = getBaselineFiles(baseline, inputPath);
 
@@ -99,7 +141,7 @@ for (const relPath of allFiles) {
     const currentMap = extractTestMap(currentContent);
     if (currentMap.length > 0) {
       console.log('  ✅ ADDED TESTS:');
-      currentMap.forEach(a => console.log(`     + ${a.trim()}`));
+      printWithContext(currentMap, currentMap, '+');
     }
     console.log('');
     continue;
@@ -110,7 +152,7 @@ for (const relPath of allFiles) {
     console.log(`🗑️  DELETED FILE: ${relPath}`);
     const baselineMap = extractTestMap(baselineContent);
     console.log('  ❌ LOST TESTS:');
-    baselineMap.forEach(l => console.log(`     - ${l.trim()}`));
+    printWithContext(baselineMap, baselineMap, '-');
     console.log('');
     continue;
   }
@@ -127,12 +169,12 @@ for (const relPath of allFiles) {
     if (lost.length > 0) {
       hasGaps = true;
       console.log('  ❌ LOST TESTS:');
-      lost.forEach(l => console.log(`     - ${l.trim()}`));
+      printWithContext(baselineMap, lost, '-');
     }
     
     if (added.length > 0) {
       console.log('  ✅ ADDED TESTS:');
-      added.forEach(a => console.log(`     + ${a.trim()}`));
+      printWithContext(currentMap, added, '+');
     }
     console.log('');
   }
