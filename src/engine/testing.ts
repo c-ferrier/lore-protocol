@@ -13,7 +13,6 @@ import { QueryTargetFactory } from './services/query-target-factory.js';
 import { InMemoryLogger } from './services/in-memory-logger.js';
 import { TerminalLogger } from './services/terminal-logger.js';
 import { CommitBuilder } from './services/commit-builder.js';
-import { IdGenerator } from './services/id-generator.js';
 
 import type { 
     Atom, 
@@ -68,7 +67,6 @@ export {
     InMemoryLogger,
     TerminalLogger,
     CommitBuilder,
-    IdGenerator,
     ProtocolMap,
     type ProtocolName,
     type Atom,

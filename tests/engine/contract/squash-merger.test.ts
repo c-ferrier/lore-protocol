@@ -6,13 +6,9 @@ import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, TEST_YAP_DEFINITION, make
 
 import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
 
-const TEST_ID_KEY = "Mock-id";
+import * as IdentityLogic from '../../../src/engine/logic/identity.js';
 
-function createMockIdGenerator(id = 'deadbeef') {
-  return {
-    generate: vi.fn(() => id),
-  };
-}
+const TEST_ID_KEY = "Mock-id";
 
 function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
   return {
@@ -56,16 +52,22 @@ function makeAtom(overrides: Partial<any> = {}): Atom {
 
 describe('SquashMerger', () => {
   let merger: SquashMerger;
-  let mockIdGen: ReturnType<typeof createMockIdGenerator>;
   let protocol: Protocol;
   let registry: ProtocolRegistry;
+  let idSpy: any;
 
   beforeEach(() => {
-    mockIdGen = createMockIdGenerator();
     protocol = makeProtocol();
     registry = new ProtocolRegistry();
     registry.register(protocol);
-    merger = new SquashMerger(mockIdGen as any, registry);
+    merger = new SquashMerger(registry);
+    
+    // Default deterministic ID for tests
+    idSpy = vi.spyOn(IdentityLogic, 'generateId').mockReturnValue('deadbeef');
+  });
+
+  afterEach(() => {
+    idSpy.mockRestore();
   });
 
   it('should throw for empty atoms', () => {
@@ -76,7 +78,7 @@ describe('SquashMerger', () => {
     const atom = makeAtom();
     const { message, protocols } = merger.merge([atom], {});
 
-    expect(mockIdGen.generate).toHaveBeenCalledOnce();
+    expect(idSpy).toHaveBeenCalled();
     expect(message).toContain(`${TEST_ID_KEY}: deadbeef`);
     expect(protocols.mock.id).toBe('deadbeef');
   });

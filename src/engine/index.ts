@@ -23,6 +23,7 @@ export type { IOutputFormatter, ErrorMessage } from './interfaces/output-formatt
 // --- Pure Logic Modules ---
 export * from './logic/hydration.js';
 export * from './logic/supersession.js';
+export * from './logic/identity.js';
 
 // --- Orchestrating Services (Runtime) ---
 export { ProtocolRegistry } from './services/protocol-registry.js';

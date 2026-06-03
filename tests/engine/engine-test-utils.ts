@@ -15,7 +15,6 @@ import {
     Protocol,
     ProtocolLoader,
     CommitBuilder,
-    IdGenerator,
     TEST_ID_KEY,
     TEST_ENGINE_CONFIG,
     TEST_PROTOCOL_DEFINITION,
@@ -152,15 +151,6 @@ export function makeMockAtomRepository(overrides: any = {}): any {
         findByScope: vi.fn(stub.findByScope),
         resolveFollowLinks: vi.fn(stub.resolveFollowLinks),
         extractReferenceIds: vi.fn(stub.extractReferenceIds)
-    };
-}
-
-/** Factory: Create a PURE MOCK IdGenerator (vi.fn() object). */
-export function makeMockIdGenerator(overrides: any = {}): any {
-    return {
-        generate: vi.fn(() => 'a1b2c3d4'),
-        isValid: vi.fn(() => true),
-        ...overrides
     };
 }
 

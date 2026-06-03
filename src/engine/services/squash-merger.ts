@@ -1,8 +1,8 @@
-import type { IdGenerator } from './id-generator.js';
 import type { Atom, AtomId } from '../types/domain.js';
 import type { IProtocol } from '../interfaces/protocol.js';
 import { ProtocolRegistry } from './protocol-registry.js';
 import { ProtocolError } from '../util/errors.js';
+import { generateId } from '../logic/identity.js';
 
 /**
  * Orchestrates the merging of multiple decision atoms during a git squash.
@@ -14,7 +14,6 @@ import { ProtocolError } from '../util/errors.js';
  */
 export class SquashMerger {
   constructor(
-    private readonly idGenerator: IdGenerator,
     private readonly protocolRegistry: ProtocolRegistry,
   ) {}
 
@@ -48,7 +47,7 @@ export class SquashMerger {
     // 1. Process each protocol for identity and trailers
     for (const protocol of registeredProtocols) {
       const pName = protocol.name.toLowerCase();
-      const newId = this.idGenerator.generate(protocol);
+      const newId = generateId(protocol);
       
       protocols[pName] = {
         id: newId,

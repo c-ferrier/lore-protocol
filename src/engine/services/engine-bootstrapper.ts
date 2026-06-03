@@ -6,7 +6,6 @@ import { SearchFilter } from './search-filter.js';
 import { AtomRepository } from './atom-repository.js';
 import { QueryCache } from './query-cache.js';
 import { QueryTargetFactory } from './query-target-factory.js';
-import { IdGenerator } from './id-generator.js';
 import { LogLevel } from '../interfaces/logger.js';
 import { TerminalLogger } from './terminal-logger.js';
 import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, QUERY_CACHE_DIR, PROTOCOLS_DIR_NAME } from '../util/constants.js';
@@ -153,10 +152,9 @@ export class EngineBootstrapper {
       targetFactory,
     );
 
-    const idGenerator = new IdGenerator();
     const stalenessDetector = new StalenessDetector(gitClient, config, protocolRegistry);
-    const commitBuilder = new CommitBuilder(idGenerator, config, protocolRegistry);
-    const squashMerger = new SquashMerger(idGenerator, protocolRegistry);
+    const commitBuilder = new CommitBuilder(config, protocolRegistry);
+    const squashMerger = new SquashMerger(protocolRegistry);
     const validator = new Validator(atomRepository, config, protocolRegistry);
     const prompt = new TerminalPrompt();
     const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry);

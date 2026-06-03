@@ -1,4 +1,3 @@
-import type { IdGenerator } from './id-generator.js';
 import type { EngineConfig } from '../types/config.js';
 import type { AtomId } from '../types/domain.js';
 import type { CommitInput } from '../types/commit.js';
@@ -6,6 +5,7 @@ import type { ValidationIssue } from '../types/output.js';
 import { ProtocolError } from '../util/errors.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 import { serializeTrailers } from '../logic/trailers.js';
+import { generateId } from '../logic/identity.js';
 
 /**
  * Builds and validates git commit messages enriched with decision context.
@@ -13,7 +13,6 @@ import { serializeTrailers } from '../logic/trailers.js';
  */
 export class CommitBuilder {
   constructor(
-    private readonly idGenerator: IdGenerator,
     private readonly config: EngineConfig,
     private readonly protocolRegistry: ProtocolRegistry,
   ) {}
@@ -36,7 +35,7 @@ export class CommitBuilder {
       }
 
       const ns = protocol.getStorageNamespace();
-      const id = (existingIds && existingIds[pName]) || this.idGenerator.generate(protocol);
+      const id = (existingIds && existingIds[pName]) || generateId(protocol);
 
       protocols[pName] = {
         id,
@@ -80,7 +79,7 @@ export class CommitBuilder {
         const pName = protocol.name.toLowerCase();
         if (protocols[pName]) continue;
 
-        const id = (existingIds && existingIds[pName]) || this.idGenerator.generate(protocol);
+        const id = (existingIds && existingIds[pName]) || generateId(protocol);
         const ns = protocol.getStorageNamespace();
 
         protocols[pName] = {

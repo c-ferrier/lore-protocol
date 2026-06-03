@@ -3,9 +3,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { CommitBuilder } from '../../../src/engine/services/commit-builder.js';
 import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol, makeCommitInput } from '../engine-test-utils.js';
 import type { CommitInput } from '../../../src/engine/types/commit.js';
+import * as IdentityLogic from '../../../src/engine/logic/identity.js';
 
 describe('CommitBuilder Namespacing', () => {
-  const mockIdGen = { generate: vi.fn() };
 
   it('should include namespaced trailers in the built message', () => {
     const registry = new ProtocolRegistry();
@@ -23,8 +23,9 @@ describe('CommitBuilder Namespacing', () => {
     registry.register(fredProtocol);
     registry.register(jiraProtocol);
 
-    const builder = new CommitBuilder(mockIdGen as any, TEST_ENGINE_CONFIG, registry);
-    mockIdGen.generate.mockReturnValueOnce('mock123').mockReturnValueOnce('fred456').mockReturnValueOnce('PROJ-123');
+    const builder = new CommitBuilder(TEST_ENGINE_CONFIG, registry);
+    const spy = vi.spyOn(IdentityLogic, 'generateId');
+    spy.mockReturnValueOnce('mock123').mockReturnValueOnce('fred456').mockReturnValueOnce('PROJ-123');
 
     const input = makeCommitInput({
       subject: 'feat: add feature',
@@ -41,6 +42,7 @@ describe('CommitBuilder Namespacing', () => {
     expect(message).toContain('fred: Fred-id: fred456');
     expect(message).toContain('fred: Impact: high');
     expect(message).toContain('jira: Issue: PROJ-123');
+    spy.mockRestore();
   });
 
   it('should validate namespaced trailers if permissive is true', () => {
@@ -51,7 +53,7 @@ describe('CommitBuilder Namespacing', () => {
     );
     registry.register(fredProtocol);
 
-    const builder = new CommitBuilder(mockIdGen as any, TEST_ENGINE_CONFIG, registry);
+    const builder = new CommitBuilder(TEST_ENGINE_CONFIG, registry);
 
     const input = makeCommitInput({
       subject: 'feat: add feature',
