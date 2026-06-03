@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
-import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { makeAtomRepository, makeProtocol, makeMockGitClient } from '../engine-test-utils.js';
 
 describe('Multi-Protocol Integration', () => {
@@ -33,7 +32,6 @@ describe('Multi-Protocol Integration', () => {
     repo = makeAtomRepository({
         gitClient,
         registry,
-        pathResolver: new PathResolver('/mock', '/mock')
     });
   });
 

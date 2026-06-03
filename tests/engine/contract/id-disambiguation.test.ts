@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { makeProtocol, makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+import { makeProtocol, makeAtomRepository, makeMockGitClient, makeQueryTarget } from '../engine-test-utils.js';
+import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 
 describe('AtomRepository Identity Disambiguation', () => {
   let gitClient: any;
@@ -40,7 +40,6 @@ describe('AtomRepository Identity Disambiguation', () => {
     repo = makeAtomRepository({
         gitClient,
         registry: protocolRegistry,
-        pathResolver: new PathResolver('/mock', '/mock')
     });
   });
 

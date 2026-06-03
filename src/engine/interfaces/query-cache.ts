@@ -11,7 +11,7 @@ export interface IQueryCache {
   /**
    * Retrieve cached hashes for a query.
    * @param headHash The 40-char HEAD commit hash.
-   * @param targetFingerprint A unique, stable string representing the query target (e.g. from IQueryTarget).
+   * @param targetFingerprint A unique, stable string representing the query target (e.g. from QueryTargetAST).
    * @param options The engine-specific query options (filters, text, etc.).
    * @returns List of matching commit hashes, or null if not in cache.
    */

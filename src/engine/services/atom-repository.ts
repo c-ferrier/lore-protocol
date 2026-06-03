@@ -1,18 +1,23 @@
 import type { IGitClient, StorageQuery } from '../interfaces/git-client.js';
-import type { SearchOptions } from '../types/query.js';
+import type { SearchOptions, QueryTargetAST, QueryIdentity } from '../types/query.js';
 import type { Atom } from '../types/domain.js';
 import { GLOBAL_CACHE_KEY } from '../util/constants.js';
 import { ProtocolError } from '../util/errors.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import { escapeRegex } from '../util/regex.js';
-import type { IQueryTarget, QueryIdentity } from '../interfaces/query-target.js';
-import type { QueryTargetFactory } from './query-target-factory.js';
 
 // Pure Logic Modules
 import { hydrateAtoms, extractReferenceIds } from '../logic/hydration.js';
 import { resolveSupersession } from '../logic/supersession.js';
 import { filterAtoms, resolveFilters } from '../logic/filtering.js';
+import { 
+    createTargetFromIdentities, 
+    getCacheFingerprint, 
+    isBlameTarget, 
+    getGitLogArgs, 
+    getGitBlameArgs 
+} from '../logic/query-targets.js';
 
 /**
  * Retrieves Atoms from git history.
@@ -23,15 +28,14 @@ export class AtomRepository {
     private readonly gitClient: IGitClient,
     private readonly protocolRegistry: ProtocolRegistry,
     private readonly queryCache: IQueryCache,
-    private readonly baseTarget: IQueryTarget,
-    private readonly targetFactory: QueryTargetFactory,
+    private readonly baseTarget: QueryTargetAST,
   ) {}
 
   /**
    * HIGH-LEVEL: The primary entry point for chronological atom discovery.
    * Unifies path-scoped, multi-path, ID-based, and global history queries.
    */
-  async find(target?: IQueryTarget, options: SearchOptions = {}): Promise<Atom[]> {
+  async find(target?: QueryTargetAST, options: SearchOptions = {}): Promise<Atom[]> {
       const activeTarget = target || this.baseTarget;
       const headHash = await this.getHeadHash();
       return this.internalQuery(activeTarget, options, headHash);
@@ -50,7 +54,7 @@ export class AtomRepository {
    */
   async findByIds(identities: readonly QueryIdentity[], options: SearchOptions = {}): Promise<Atom[]> {
       if (identities.length === 0) return [];
-      return this.find(this.targetFactory.fromIdentities(identities), options);
+      return this.find(createTargetFromIdentities(identities), options);
   }
 
   /**
@@ -59,7 +63,7 @@ export class AtomRepository {
   async findByRange(range: string, options: SearchOptions = {}): Promise<Atom[]> {
       // Range queries are currently handled as a physical path scan with a ref restriction.
       // This will be further unified in Phase 4.
-      const rawCommits = await this.gitClient.log([range, ...this.baseTarget.getPaths()]);
+      const rawCommits = await this.gitClient.log([range, ...this.baseTarget.resolvedPaths]);
       const atoms = hydrateAtoms(rawCommits, this.protocolRegistry);
       return this.postProcessAtoms(atoms, options);
   }
@@ -68,7 +72,7 @@ export class AtomRepository {
    * Find a single atom by its commit hash.
    */
   async findByCommitHash(hash: string, options: SearchOptions = {}): Promise<Atom | null> {
-      const rawCommits = await this.gitClient.log(['-1', hash, ...this.baseTarget.getPaths()]);
+      const rawCommits = await this.gitClient.log(['-1', hash, ...this.baseTarget.resolvedPaths]);
       const atoms = hydrateAtoms(rawCommits, this.protocolRegistry);
       const processed = this.postProcessAtoms(atoms, options);
       return processed[0] || null;
@@ -86,15 +90,16 @@ export class AtomRepository {
    * BASE: Orchestrates the coarse discovery, expansion, and internalized truth pass.
    */
   private async internalQuery(
-    target: IQueryTarget,
+    target: QueryTargetAST,
     options: SearchOptions,
     headHash?: string,
   ): Promise<Atom[]> {
     const resolvedOptions = await this.resolveOptions(options);
 
     // 1. Try Cache First (Fast Path)
-    const fingerprint = target.getCacheFingerprint();
-    if (headHash && resolvedOptions.cache !== false && !target.isBlameTarget()) {
+    // NOTE: Identity targets handle their own atomic caching in discoveryByIdentities.
+    const fingerprint = getCacheFingerprint(target);
+    if (headHash && resolvedOptions.cache !== false && !isBlameTarget(target) && target.type !== 'identity') {
       const cachedHashes = await this.queryCache.get(headHash, fingerprint, resolvedOptions);
       if (cachedHashes) {
         const rawCommits = await this.gitClient.getCommitsByHashes(cachedHashes);
@@ -106,12 +111,12 @@ export class AtomRepository {
     // 2. Initial Discovery Pass
     let initialAtoms: Atom[] = [];
 
-    if (target.isBlameTarget()) {
+    if (isBlameTarget(target)) {
         initialAtoms = await this.discoveryByBlame(target);
     } else if (target.type === 'identity') {
-        initialAtoms = await this.discoveryByIdentities(target.getIdentities(), headHash);
+        initialAtoms = await this.discoveryByIdentities(target.identities || [], headHash);
     } else {
-        initialAtoms = await this.discoveryByPaths(target.getPaths(), resolvedOptions);
+        initialAtoms = await this.discoveryByPaths(target.resolvedPaths, resolvedOptions);
     }
 
     // 3. Expansion Pass (Transitive Link Following)
@@ -125,8 +130,8 @@ export class AtomRepository {
     const resultAtoms = this.postProcessAtoms(expandedAtoms, resolvedOptions);
 
     // 5. Update Cache (Background)
-    // Caching is enabled for all discovery modes except Blame (Range)
-    if (headHash && resolvedOptions.cache !== false && !target.isBlameTarget()) {
+    // Caching is enabled for all discovery modes except Blame (Range) and Identity (handles its own)
+    if (headHash && resolvedOptions.cache !== false && !isBlameTarget(target) && target.type !== 'identity') {
       const hashes = resultAtoms.map(a => a.commitHash);
       this.queryCache.set(headHash, fingerprint, resolvedOptions, hashes).catch(() => {});
     }
@@ -226,7 +231,7 @@ export class AtomRepository {
 
     const rawCommits = await this.gitClient.query({
         regexPatterns: [patterns],
-        paths: this.baseTarget.getPaths()
+        paths: [...this.baseTarget.resolvedPaths]
     });
 
     const hydrated = hydrateAtoms(rawCommits, this.protocolRegistry);
@@ -236,7 +241,10 @@ export class AtomRepository {
     for (const { id, protocol: pName } of missing) {
         const matchingAtom = hydrated.find(a => {
             if (pName) {
-                return this.protocolRegistry.get(pName)?.getIdentity(a.protocols.get(pName)) === id;
+                const protocol = this.protocolRegistry.get(pName);
+                const state = a.protocols.get(pName);
+                const foundId = protocol?.getIdentity(state);
+                return foundId === id;
             }
             for (const [name, state] of a.protocols) {
                 if (this.protocolRegistry.get(name)?.getIdentity(state) === id) return true;
@@ -261,8 +269,8 @@ export class AtomRepository {
   /**
    * Initial Discovery: Search by specific line ranges using git blame.
    */
-  private async discoveryByBlame(target: IQueryTarget): Promise<Atom[]> {
-      const range = target.getLineRange();
+  private async discoveryByBlame(target: QueryTargetAST): Promise<Atom[]> {
+      const range = target.lineRange;
       if (!range) throw new ProtocolError(`Target "${target.raw}" is not a valid line range`, 1);
 
       const blameLines = await this.gitClient.blame(range.file, range.start, range.end);

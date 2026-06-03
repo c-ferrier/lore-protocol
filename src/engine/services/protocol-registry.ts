@@ -1,7 +1,6 @@
 import { ProtocolMap } from '../types/domain.js';
 import type { IProtocol } from '../interfaces/protocol.js';
-import type { QualifiedFilter } from '../types/query.js';
-import type { QueryIdentity } from '../interfaces/query-target.js';
+import type { QualifiedFilter, QueryIdentity } from '../types/query.js';
 import { ProtocolError, ConfigurationError } from '../util/errors.js';
 
 /**

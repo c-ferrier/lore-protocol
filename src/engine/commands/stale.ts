@@ -9,7 +9,8 @@ import { STALE_SIGNAL } from '../util/constants.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import type { ILogger } from '../interfaces/logger.js';
 
-import type { QueryTargetFactory } from '../services/query-target-factory.js';
+// Pure Logic Modules
+import { createQueryTarget } from '../logic/query-targets.js';
 
 interface StaleCommandOptions {
   readonly olderThan?: string;
@@ -29,9 +30,12 @@ export function registerStaleCommand(
     stalenessDetector: StalenessDetector;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
-    targetFactory: QueryTargetFactory;
+    protocolRoot: string;
+    gitRoot: string;
+    cwd: string;
   },
 ): void {
+  const { protocolRoot, gitRoot, cwd } = deps;
   program
     .command('stale [target]')
     .description('Flag potentially outdated atoms')
@@ -39,10 +43,10 @@ export function registerStaleCommand(
     .option('--drift <n>', 'File drift threshold (commits since atom)', parseInt)
     .action(async (rawTarget: string | undefined, _options: StaleCommandOptions, command: Command) => {
       const options = mergeOptions<StaleCommandOptions & PathQueryOptions>(command);
-      const { atomRepository, stalenessDetector, getFormatter, targetFactory } = deps;
+      const { atomRepository, stalenessDetector, getFormatter } = deps;
 
-      // 1. Resolve target using the opaque factory
-      const target = targetFactory.create(rawTarget);
+      // 1. Resolve target using the pure logic
+      const target = createQueryTarget(rawTarget, { cwd, protocolRoot, isScoped: false });
       
       const atoms = await atomRepository.find(target);
 

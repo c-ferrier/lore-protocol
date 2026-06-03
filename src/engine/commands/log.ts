@@ -9,7 +9,8 @@ import { addPathQueryOptions } from './helpers/path-query.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import type { ILogger } from '../interfaces/logger.js';
 
-import type { QueryTargetFactory } from '../services/query-target-factory.js';
+// Pure Logic Modules
+import { createQueryTarget } from '../logic/query-targets.js';
 
 /**
  * Register the log command.
@@ -21,9 +22,12 @@ export function registerLogCommand(
     atomRepository: AtomRepository;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
-    targetFactory: QueryTargetFactory;
+    protocolRoot: string;
+    gitRoot: string;
+    cwd: string;
   },
 ): void {
+  const { protocolRoot, gitRoot, cwd } = deps;
   const cmd = program
     .command('log [paths...]')
     .description('Chronological decision surveyors for specific paths');
@@ -32,12 +36,14 @@ export function registerLogCommand(
 
   cmd.action(async (paths: string[] | undefined, _options: any, command: Command) => {
     const options = mergeOptions<PathQueryOptions>(command);
-    const { atomRepository, getFormatter, logger, targetFactory } = deps;
+    const { atomRepository, getFormatter, logger } = deps;
 
-    // Step 1: Resolve target using the opaque factory
-    const target = options.scope 
-      ? targetFactory.create() // Scopes use the base target logic
-      : targetFactory.create(paths);
+    // Step 1: Resolve target using the pure logic
+    const target = createQueryTarget(options.scope ? undefined : paths, { 
+        cwd, 
+        protocolRoot, 
+        isScoped: !!options.scope 
+    });
 
     const atoms = await atomRepository.find(target, options);
     const totalAtoms = atoms.length;
@@ -51,7 +57,7 @@ export function registerLogCommand(
     const result: QueryResult = {
       command: 'log',
       target: target.raw ? target.raw.toString() : 'all',
-      targetType: target.type === 'global' ? 'global' : 'directory',
+      targetType: target.type === 'global' ? 'global' : 'path',
       atoms: displayAtoms,
       meta: buildQueryMeta(totalAtoms, displayAtoms),
     };

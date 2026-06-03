@@ -9,7 +9,8 @@ import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/pat
 import { mergeOptions } from './helpers/merge-options.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
-import type { QueryTargetFactory } from '../services/query-target-factory.js';
+// Pure Logic Modules
+import { createQueryTarget } from '../logic/query-targets.js';
 
 /**
  * Register the `why <target>` command.
@@ -21,9 +22,12 @@ export function registerWhyCommand(
     atomRepository: AtomRepository;
     getFormatter: () => IOutputFormatter;
     protocolRegistry: ProtocolRegistry;
-    targetFactory: QueryTargetFactory;
+    protocolRoot: string;
+    gitRoot: string;
+    cwd: string;
   },
 ): void {
+  const { protocolRoot, gitRoot, cwd } = deps;
   const cmd = program
     .command('why <target>')
     .description('Decision context for a specific line or line range');
@@ -31,7 +35,7 @@ export function registerWhyCommand(
   addPathQueryOptions(cmd);
 
   cmd.action(async (rawTarget: string, _options: PathQueryCommandOptions, command: Command) => {
-    const { atomRepository, getFormatter, protocolRegistry, targetFactory } = deps;
+    const { atomRepository, getFormatter, protocolRegistry } = deps;
     
     if (protocolRegistry.getAll().length === 0) {
         throw new ProtocolError('At least one protocol must be registered to run this command.', 1);
@@ -39,8 +43,8 @@ export function registerWhyCommand(
 
     const options = mergeOptions<PathQueryCommandOptions>(command);
 
-    // Step 1: Resolve target using the opaque factory
-    const target = targetFactory.create(rawTarget);
+    // Step 1: Resolve target using the pure logic
+    const target = createQueryTarget(rawTarget, { cwd, protocolRoot, isScoped: false });
 
     // Step 2: Resolve atoms using high-level Repository API
     const atoms = await atomRepository.find(target, options);

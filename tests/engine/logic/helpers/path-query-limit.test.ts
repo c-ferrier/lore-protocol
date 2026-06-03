@@ -62,7 +62,9 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
       }) as any,
       config: TEST_ENGINE_CONFIG,
       logger,
-      targetFactory: makeMockTargetFactory()
+      protocolRoot: '/mock',
+      gitRoot: '/mock',
+      cwd: '/mock'
     };
   });
 

@@ -9,7 +9,8 @@ import type { AtomRepository } from '../services/atom-repository.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { ILogger } from '../interfaces/logger.js';
 
-import type { QueryTargetFactory } from '../services/query-target-factory.js';
+// Pure Logic Modules
+import { createQueryTarget } from '../logic/query-targets.js';
 
 /**
  * Register the `search` command.
@@ -20,9 +21,12 @@ export function registerSearchCommand(
     atomRepository: AtomRepository;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
-    targetFactory: QueryTargetFactory;
+    protocolRoot: string;
+    gitRoot: string;
+    cwd: string;
   },
 ): void {
+  const { protocolRoot, gitRoot, cwd } = deps;
   const cmd = program
     .command('search')
     .description('Search for decision atoms across history')
@@ -32,7 +36,7 @@ export function registerSearchCommand(
   addPathQueryOptions(cmd);
 
   cmd.action(async (options: PathQueryCommandOptions & { text?: string; has?: string }, command: Command) => {
-    const { atomRepository, getFormatter, logger, targetFactory } = deps;
+    const { atomRepository, getFormatter, logger } = deps;
     const mergedOptions = mergeOptions<PathQueryCommandOptions & { text?: string; has?: string }>(command);
 
     const searchOptions = {
@@ -49,10 +53,12 @@ export function registerSearchCommand(
       has: mergedOptions.has ?? null,
     };
 
-    // Step 1: Resolve target using the opaque factory
-    const target = searchOptions.scope 
-      ? targetFactory.create() // Scopes use the base target logic
-      : targetFactory.create(); // Default search is global (respects baseTarget)
+    // Step 1: Resolve target using the pure logic
+    const target = createQueryTarget(undefined, { 
+        cwd, 
+        protocolRoot, 
+        isScoped: !!searchOptions.scope 
+    });
 
     const atoms = await atomRepository.find(target, searchOptions);
     const totalAtoms = atoms.length;

@@ -4,7 +4,6 @@ import { ProtocolRegistry } from './protocol-registry.js';
 import { Protocol } from './protocol.js';
 import { AtomRepository } from './atom-repository.js';
 import { QueryCache } from './query-cache.js';
-import { QueryTargetFactory } from './query-target-factory.js';
 import { LogLevel } from '../interfaces/logger.js';
 import { TerminalLogger } from './terminal-logger.js';
 import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, QUERY_CACHE_DIR, PROTOCOLS_DIR_NAME } from '../util/constants.js';
@@ -17,6 +16,9 @@ import { resolveProtocolRoot } from './root-resolver.js';
 import { DynamicProtocolLoader } from './protocol-loader.js';
 import { ProtocolLoader } from './protocol/protocol-loader.js';
 import { getEngineVersion } from '../util/version.js';
+
+// Pure Logic Modules
+import { createQueryTarget } from '../logic/query-targets.js';
 import { JsonFormatter } from '../formatters/json-formatter.js';
 import { TextFormatter } from '../formatters/text-formatter.js';
 import { GitClient } from './git-client.js';
@@ -130,20 +132,17 @@ export class EngineBootstrapper {
       `engine@${getEngineVersion()};${protocolRegistry.getFingerprint()}`,
     );
 
-    const targetFactory = new QueryTargetFactory({
+    const baseTarget = createQueryTarget(undefined, {
       cwd,
       protocolRoot: activeRoot,
       isScoped
     });
-
-    const baseTarget = targetFactory.create();
 
     const atomRepository = new AtomRepository(
       gitClient,
       protocolRegistry,
       queryCache,
       baseTarget,
-      targetFactory,
     );
 
     const stalenessDetector = new StalenessDetector(gitClient, config, protocolRegistry);
@@ -183,13 +182,11 @@ export class EngineBootstrapper {
       protocolRegistry,
       validator,
       stalenessDetector,
-      targetFactory,
-      baseTarget,
-      configLoader: engineConfigLoader as any,
       protocolRoot: protocolRoot || activeRoot,
       gitRoot: gitRoot || activeRoot,
-      engineDirName: this.options.engineDirName,
-      configFileName: this.options.configFileName,
+      cwd,
+      configLoader: engineConfigLoader as any,
+
       cacheDir: join(activeRoot, this.options.engineDirName, CACHE_DIR),
       defaultConfig: this.options.defaultConfig,
     };

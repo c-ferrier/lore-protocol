@@ -45,8 +45,6 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
   const program = new Command();
   program.exitOverride();
 
-  const targetFactory = makeMockTargetFactory();
-
   const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
   const protocolRegistry = new ProtocolRegistry();
   protocolRegistry.register(protocol);
@@ -55,7 +53,9 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
     atomRepository: repo,
     getFormatter: () => formatter,
     logger,
-    targetFactory,
+    protocolRoot: '/mock',
+    gitRoot: '/mock',
+    cwd: '/mock',
   });
 
   return { program, capturedResult, repo, logger };
@@ -78,7 +78,7 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     expect(h.repo.find).toHaveBeenCalledTimes(1);
     const [target] = h.repo.find.mock.calls[0];
-    expect(target.getPaths()).toContain('src/main.ts');
+    expect(target.resolvedPaths).toContain('src/main.ts');
 
     const result = (h.capturedResult.data as { result: { atoms: any[] } }).result;
     expect(result.atoms).toHaveLength(1);
@@ -96,7 +96,7 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     expect(h.repo.find).toHaveBeenCalledTimes(1);
     const [target] = h.repo.find.mock.calls[0];
-    expect(target.getPaths()).toContain('src/main.ts');
+    expect(target.resolvedPaths).toContain('src/main.ts');
 
     const result = (h.capturedResult.data as { result: { atoms: any[] } }).result;
     expect(result.atoms).toHaveLength(1);

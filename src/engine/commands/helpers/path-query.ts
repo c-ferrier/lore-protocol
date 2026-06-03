@@ -3,13 +3,14 @@ import type { AtomRepository } from '../../services/atom-repository.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { EngineConfig } from '../../types/config.js';
 import type { Atom, SupersessionStatus } from '../../types/domain.js';
-import type { PathQueryOptions, QueryResult, TargetType } from '../../types/query.js';
+import type { PathQueryOptions, QueryResult } from '../../types/query.js';
 import type { FormattableQueryResult } from '../../types/output.js';
 import { buildQueryMeta } from './build-query-meta.js';
 import type { ILogger } from '../../interfaces/logger.js';
 import { ProtocolError } from '../../util/errors.js';
 
-import type { QueryTargetFactory } from '../../services/query-target-factory.js';
+// Pure Logic Modules
+import { createQueryTarget } from '../../logic/query-targets.js';
 
 /** Parse a CLI value as a strict positive integer; rejects non-numeric trailing chars. */
 export function parsePositiveInt(value: string): number {
@@ -28,7 +29,9 @@ export interface PathQueryDeps {
   readonly getFormatter: () => IOutputFormatter;
   readonly config: EngineConfig;
   readonly logger: ILogger;
-  readonly targetFactory: QueryTargetFactory;
+  readonly protocolRoot: string;
+  readonly gitRoot: string;
+  readonly cwd: string;
 }
 
 export interface PathQueryCommandOptions {
@@ -57,7 +60,7 @@ export async function executePathQuery(
   commandName: string,
   visibleTrailers: readonly string[] | 'all',
 ): Promise<void> {
-  const { atomRepository, getFormatter, config, logger, targetFactory } = deps;
+  const { atomRepository, getFormatter, config, logger, protocolRoot, gitRoot, cwd } = deps;
 
   const queryOptions = {
     filters: options.filter && options.filter.length > 0 ? options.filter : undefined,
@@ -72,10 +75,12 @@ export async function executePathQuery(
     until: options.until ?? null,
   };
 
-  // Step 1: Resolve target using the opaque factory
-  const target = queryOptions.scope 
-    ? targetFactory.create() // Scopes use the base target logic
-    : targetFactory.create(rawTarget);
+  // Step 1: Resolve target using pure logic
+  const target = createQueryTarget(queryOptions.scope ? undefined : rawTarget, { 
+    cwd, 
+    protocolRoot, 
+    isScoped: !!queryOptions.scope 
+  });
 
   const atoms = await atomRepository.find(target, { ...queryOptions, limit: null });
 
@@ -105,7 +110,7 @@ export async function executePathQuery(
   const result: QueryResult = {
     command: commandName,
     target: target.raw.toString(),
-    targetType: target.type === 'line-range' ? 'line-range' : 'directory',
+    targetType: target.type === 'line-range' ? 'line-range' : 'path',
     atoms: displayAtoms,
     meta: buildQueryMeta(totalAtoms, displayAtoms),
   };

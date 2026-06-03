@@ -38,8 +38,7 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
       gitClient,
       protocolRegistry,
       logger,
-      getFormatter: () => formatter as unknown as IOutputFormatter,
-      targetFactory: makeMockTargetFactory()
+      getFormatter: () => formatter as unknown as IOutputFormatter
     });
   });
 

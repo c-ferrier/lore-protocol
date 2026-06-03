@@ -1,13 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import type { SearchOptions } from '../../../src/engine/types/query.js';
 import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeMockGitClient, makeQueryTarget } from '../engine-test-utils.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
-
-const TEST_ID_KEY = "Mock-id";
+import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
+import { TEST_ID_KEY } from '../../../src/engine/testing.js';
 
 describe('AtomRepository Filtering Parity', () => {
   let gitClient: any;

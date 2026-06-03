@@ -6,9 +6,7 @@ import { ProtocolLoader } from './services/protocol/protocol-loader.js';
 import { AtomRepository } from './services/atom-repository.js';
 import { Validator } from './services/validator.js';
 import { StalenessDetector } from './services/staleness-detector.js';
-import { PathResolver } from './services/path-resolver.js';
 import { NullQueryCache } from './services/query-cache.js';
-import { QueryTargetFactory } from './services/query-target-factory.js';
 import { InMemoryLogger } from './services/in-memory-logger.js';
 import { TerminalLogger } from './services/terminal-logger.js';
 
@@ -16,10 +14,10 @@ import type {
     Atom, 
     Trailers, 
     HierarchicalTrailers,
-    ProtocolState,
-    SupersessionStatus,
-    StaleReason,
-    StaleSignal
+    ProtocolState, 
+    SupersessionStatus, 
+    StaleReason, 
+    StaleSignal 
 } from './types/domain.js';
 import type { IProtocol, ActiveTrailer } from './interfaces/protocol.js';
 import type { IGitClient, RawCommit, CommitResult, BlameLine } from './interfaces/git-client.js';
@@ -29,26 +27,22 @@ import type { ProtocolDefinition } from './interfaces/protocol-definition.js';
 import type { EngineConfig, ProtocolConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition } from './types/config.js';
 import type { CommitInput } from './types/commit.js';
 import type { ValidationIssue, FormattableTrailerDefinition } from './types/output.js';
-import type { QualifiedFilter, SearchOptions } from './types/query.js';
-import type { IQueryTarget, QueryIdentity } from './interfaces/query-target.js';
+import type { QualifiedFilter, SearchOptions, QueryTargetAST, QueryIdentity } from './types/query.js';
 import type { IConfigLoader } from './interfaces/config-loader.js';
 
 import type { IPrompt } from './interfaces/prompt.js';
 import type { ICommitInputReader } from './interfaces/commit-input-reader.js';
 
-/**
- * =============================================================================
- * ATOM ENGINE TESTING GATEWAY
- * =============================================================================
- * This file provides standardized factories, stubs, and constants for testing 
- * Atom Engine components and protocol implementations.
- * =============================================================================
- * DESIGN PRINCIPLE: "CENTRALIZED BRAIN"
- * All default logic, working values (like 'head-hash'), and interface-compliant 
- * behaviors live HERE in framework-agnostic Stubs. 
- * Framework-specific spies (like Vitest vi.fn()) should only wrap these stubs.
- * =============================================================================
- */
+// Pure Logic Modules
+export * from './logic/hydration.js';
+export * from './logic/supersession.js';
+export * from './logic/identity.js';
+export * from './logic/trailers.js';
+export * from './logic/filtering.js';
+export * from './logic/squashing.js';
+export * from './logic/commit-formatting.js';
+export * from './logic/path-resolution.js';
+export * from './logic/query-targets.js';
 
 // Re-export production services for integration testing
 export { 
@@ -58,8 +52,6 @@ export {
     AtomRepository, 
     Validator, 
     StalenessDetector, 
-    PathResolver, 
-    QueryTargetFactory,
     NullQueryCache,
     InMemoryLogger,
     TerminalLogger,
@@ -71,7 +63,30 @@ export {
     type ProtocolState,
     type SupersessionStatus,
     type StaleReason,
-    type StaleSignal
+    type StaleSignal,
+    type IGitClient,
+    type RawCommit,
+    type CommitResult,
+    type BlameLine,
+    type IQueryCache,
+    type IOutputFormatter,
+    type ErrorMessage,
+    type ProtocolDefinition,
+    type EngineConfig,
+    type ProtocolConfig,
+    type TrailerUiKind,
+    type TrailerUiColor,
+    type TrailerDefinition,
+    type CommitInput,
+    type ValidationIssue,
+    type FormattableTrailerDefinition,
+    type QualifiedFilter,
+    type SearchOptions,
+    type QueryTargetAST,
+    type QueryIdentity,
+    type IConfigLoader,
+    type IPrompt,
+    type ICommitInputReader
 };
 
 /** Key for the standard baseline protocol ID. */
@@ -216,6 +231,7 @@ export function makeProtocolRegistry(protocols: Protocol[] = []): ProtocolRegist
 
 import { hydrateAtoms, extractReferenceIds } from './logic/hydration.js';
 import { resolveSupersession } from './logic/supersession.js';
+import { createQueryTarget } from './logic/query-targets.js';
 
 // --- Component Factories ---
 
@@ -226,25 +242,27 @@ export function makeAtomRepository(options: {
 } = {}): AtomRepository {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
     const gitClient = options.gitClient || makeStubGitClient();
-    const targetFactory = makeStubTargetFactory({ isScoped: options.isScoped ?? false });
-    const baseTarget = makeQueryTarget(undefined, options.isScoped ?? false);
+    
+    const baseTarget = createQueryTarget(undefined, {
+        cwd: '/mock',
+        protocolRoot: '/mock',
+        isScoped: options.isScoped ?? false
+    });
     
     return new AtomRepository(
         gitClient, registry,
         options.queryCache || new NullQueryCache(),
-        baseTarget,
-        targetFactory as any
+        baseTarget
     );
 }
 
-/** Helper: Create a functional IQueryTarget for testing. */
-export function makeQueryTarget(input?: string | string[], isScoped: boolean = false): IQueryTarget {
-    const factory = new QueryTargetFactory({
+/** Helper: returns a valid QueryTargetAST for testing. */
+export function makeQueryTarget(input?: string | string[], isScoped: boolean = false): QueryTargetAST {
+    return createQueryTarget(input, {
         cwd: '/mock',
         protocolRoot: '/mock',
         isScoped
     });
-    return factory.create(input);
 }
 
 // --- Pure Mock Stubs (THE BRAIN) ---
@@ -413,41 +431,6 @@ export function makeStubProtocolRegistry(protocols: readonly IProtocol[] = []): 
 /** Stub: Create a functional AtomRepository stub. */
 export function makeStubAtomRepository(overrides: any = {}): any {
     return { find: async () => [], findAll: async () => [], findById: async () => null, findByIds: async () => [], findByRange: async () => [], findByCommitHash: async () => null, findByScope: async () => [], resolveFollowLinks: async (atoms: any) => atoms, extractReferenceIds: () => [], ...overrides };
-}
-
-/** Stub: Create a strictly-typed stubbed QueryTargetFactory. */
-export function makeStubTargetFactory(overrides: any = {}): any {
-    const isScoped = overrides.isScoped ?? false;
-    const factory = {
-        create: (input?: any) => {
-            const isEmpty = !input || (Array.isArray(input) && input.length === 0);
-            return {
-                raw: input || '',
-                type: input?.includes?.(':') ? 'line-range' : (isEmpty ? 'global' : 'path'),
-                getPaths: () => {
-                    if (!isEmpty) return Array.isArray(input) ? input : [input];
-                    return isScoped ? ['.'] : [];
-                },
-                getLineRange: () => null,
-                getIdentities: () => [],
-                getCacheFingerprint: () => 'stub',
-                isBlameTarget: () => input?.includes?.(':') || false,
-                ...overrides
-            };
-        },
-        fromIdentities: (identities: readonly QueryIdentity[]) => ({
-            raw: identities.map(i => i.id),
-            type: 'identity',
-            getPaths: () => [],
-            getLineRange: () => null,
-            getIdentities: () => identities,
-            getCacheFingerprint: () => 'stub-identity',
-            isBlameTarget: () => false,
-            ...overrides
-        }),
-        ...overrides
-    };
-    return factory;
 }
 
 

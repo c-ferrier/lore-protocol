@@ -3,7 +3,7 @@ import type { EngineConfig } from '../types/config.js';
 import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
 import type { CommitValidationResult, ValidationIssue } from '../types/output.js';
 import type { Trailers, ProtocolState } from '../types/domain.js';
-import type { QueryIdentity } from '../interfaces/query-target.js';
+import type { QueryIdentity } from '../types/query.js';
 import type { IProtocol } from '../interfaces/protocol.js';
 
 import type { ProtocolRegistry } from './protocol-registry.js';

@@ -3,7 +3,6 @@ import { AtomRepository } from '../../../src/engine/services/atom-repository.js'
 import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeMockGitClient, makeAtom, makeQueryTarget } from '../engine-test-utils.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 
 import * as HydrationLogic from '../../../src/engine/logic/hydration.js';
 

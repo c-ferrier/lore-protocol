@@ -6,14 +6,13 @@ import {
   makeAtom,
   makeProtocol,
   makeQueryTarget,
-  makeMockTargetFactory,
   ProtocolRegistry,
   TEST_ID_KEY
 } from '../engine-test-utils.js';
 import { QueryCache } from '../../../src/engine/services/query-cache.js';
-import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { rmSync, mkdirSync } from 'node:fs';
 
+import { createTargetFromIdentities } from '../../../src/engine/logic/query-targets.js';
 import * as HydrationLogic from '../../../src/engine/logic/hydration.js';
 
 describe('Query Cache Combined Fidelity (Contract)', () => {
@@ -33,14 +32,11 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     
     cache = new QueryCache(testDir, 100, 'test-fingerprint');
 
-    const targetFactory = makeMockTargetFactory();
-
     repo = new AtomRepository(
       gitClient,
       registry,
       cache,
       makeQueryTarget(),
-      targetFactory
     );
   });
 
@@ -99,7 +95,7 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
 
     // 1. Initial run: Fill cache
     vi.spyOn(cache, 'get').mockResolvedValue(null);
-    const target = (repo as any).targetFactory.fromIdentities([{ id }]);
+    const target = createTargetFromIdentities([{ id }]);
 
     await repo.find(target, { cache: true });
     expect(gitClient.query).toHaveBeenCalledTimes(1);

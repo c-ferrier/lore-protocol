@@ -6,8 +6,7 @@ import {
   TEST_ENGINE_CONFIG, 
   TEST_PROTOCOL_CONFIG, 
   makeMockGitClient,
-  makeQueryTarget,
-  makeMockTargetFactory
+  makeQueryTarget
 } from '../../engine/engine-test-utils.js';
 import { LoreJsonFormatter } from '../../../src/lore/formatters/lore-json-formatter.js';
 
@@ -49,13 +48,11 @@ describe('Lore Wrapper Rebranding Flow', () => {
     vi.mocked(mockGit.query).mockResolvedValue([rawCommit]);
 
     // 3. Setup Repository
-    const targetFactory = makeMockTargetFactory();
     const repo = new AtomRepository(
       mockGit as any,
       registry,
       new NullQueryCache(),
-      makeQueryTarget(),
-      targetFactory
+      makeQueryTarget()
     );
 
     const atoms = await repo.find(makeQueryTarget());

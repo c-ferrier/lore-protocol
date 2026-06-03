@@ -6,10 +6,9 @@ import { AtomRepository } from '../../../src/engine/services/atom-repository.js'
 import { GitClient } from '../../../src/engine/services/git-client.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { QueryTargetFactory } from '../../../src/engine/services/query-target-factory.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { makeQueryTarget } from '../engine-test-utils.js';
+import { createQueryTarget } from '../../../src/engine/logic/query-targets.js';
 
 describe('Multi-Target Atom Discovery', () => {
   let testDir: string;
@@ -54,18 +53,18 @@ describe('Multi-Target Atom Discovery', () => {
     gitClient = new GitClient(testDir);
     const registry = new ProtocolRegistry();
     registry.register(new Protocol(LoreProtocolDefinition));
-    const targetFactory = new QueryTargetFactory({
+    
+    const context = {
         cwd: testDir,
         protocolRoot: testDir,
         isScoped: false
-    });
+    };
 
     repo = new AtomRepository(
       gitClient,
       registry,
       new NullQueryCache(),
-      targetFactory.create(),
-      targetFactory
+      createQueryTarget(undefined, context),
     );
   });
 
@@ -74,7 +73,8 @@ describe('Multi-Target Atom Discovery', () => {
   });
 
   it('should find atoms touching any of the provided targets', async () => {
-    const result = await repo.find(makeQueryTarget(['fileA.ts', 'fileB.ts']));
+    const context = { cwd: testDir, protocolRoot: testDir, isScoped: false };
+    const result = await repo.find(createQueryTarget(['fileA.ts', 'fileB.ts'], context));
     
     // Should find A, B, and AB, but NOT C.
     expect(result).toHaveLength(3);
@@ -86,7 +86,8 @@ describe('Multi-Target Atom Discovery', () => {
   });
 
   it('should return empty array if none of the targets have protocol atoms', async () => {
-    const result = await repo.find(makeQueryTarget(['non-existent.ts']));
+    const context = { cwd: testDir, protocolRoot: testDir, isScoped: false };
+    const result = await repo.find(createQueryTarget(['non-existent.ts'], context));
 
     expect(result).toHaveLength(0);
   });

@@ -145,7 +145,7 @@ export class QueryCache implements IQueryCache {
   }
 
   private generateQueryHash(targetFingerprint: string, options: QueryOptions): string {
-    // 1. Target identity is already normalized by IQueryTarget
+    // 1. Target identity is already normalized by the query target logic
     
     // 2. Deep normalize options (sort all keys recursively and lowercase them for stable hashing)
     const normalize = (obj: any): any => {

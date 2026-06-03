@@ -8,8 +8,7 @@ import {
   TEST_ENGINE_CONFIG, 
   TEST_PROTOCOL_CONFIG, 
   makeMockGitClient, 
-  makeQueryTarget, 
-  makeMockTargetFactory 
+  makeQueryTarget 
 } from '../engine-test-utils.js';
 import { Validator } from '../../../src/engine/services/validator.js';
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
@@ -65,13 +64,11 @@ describe('Engine Protocol Rebranding Flow', () => {
     vi.mocked(mockGit.getFilesChanged).mockResolvedValue(new Map([['abc12345', ['src/fred.ts']]]));
 
     // 3. Setup Repository
-    const targetFactory = makeMockTargetFactory();
     const repo = new AtomRepository(
       mockGit as any,
       registry,
       new NullQueryCache(),
-      makeQueryTarget(),
-      targetFactory
+      makeQueryTarget()
     );
 
     const atoms = await repo.find(makeQueryTarget());

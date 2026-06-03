@@ -1,13 +1,34 @@
 import type { Atom } from './domain.js';
 
-export type TargetType = 'file' | 'line-range' | 'directory' | 'glob';
+export interface QueryIdentity {
+  readonly id: string;
+  readonly protocol?: string;
+}
 
-export interface QueryTarget {
-  readonly raw: string;
-  readonly type: TargetType;
-  readonly filePath: string;
-  readonly lineStart: number | null;
-  readonly lineEnd: number | null;
+export type QueryTargetType = 'global' | 'path' | 'line-range' | 'identity';
+
+/**
+ * Represents a resolved physical query space (Global, Path, or Line-Range).
+ * Encapsulates the logic of how to scope the storage-layer discovery.
+ * 
+ * DESIGN: This is an "Opaque Handle". It hides the complexity of 
+ * path resolution, relative-to-root calculation, and line-range parsing.
+ */
+export interface QueryTargetAST {
+  /** The original user input (e.g. "src/main.ts:10" or ["file1", "file2"]). */
+  readonly raw: string | readonly string[];
+
+  /** The logical target category. */
+  readonly type: QueryTargetType;
+
+  /** Physical paths relative to the Protocol Root. */
+  readonly resolvedPaths: readonly string[];
+
+  /** Line-range details if applicable. */
+  readonly lineRange?: { file: string; start: number; end: number } | null;
+
+  /** Specific identities to look for. */
+  readonly identities?: readonly QueryIdentity[];
 }
 
 export interface PathQueryOptions {
@@ -82,7 +103,7 @@ export type QueryOptions = SearchOptions;
 export interface QueryResult {
   readonly command: string;
   readonly target: string;
-  readonly targetType: TargetType | 'search' | 'global';
+  readonly targetType: QueryTargetType | 'search';
   readonly atoms: readonly Atom[];
   readonly meta: QueryMeta;
 }

@@ -10,7 +10,6 @@ import {
     Validator,
     StalenessDetector,
     AtomRepository,
-    PathResolver,
     Protocol,
     ProtocolLoader,
     TEST_ID_KEY,
@@ -28,13 +27,13 @@ import {
     makeStubPrompt,
     makeStubProtocolRegistry,
     makeStubAtomRepository,
-    makeStubTargetFactory,
     makeStubHeadIdReader,
     makeStubValidator,
     makeStubStalenessDetector,
     makeRawCommit,
     makeProtocolConfig,
-    makeQueryTarget
+    makeQueryTarget,
+    makeStubTargetContext
 } from '../../src/engine/testing.js';
 
 // SOURCE EVERYTHING FROM THE TESTING GATEWAY
@@ -201,21 +200,10 @@ export function makeMockValidator(overrides: any = {}): any {
     };
 }
 
-/** Factory: Create a PURE MOCK QueryTargetFactory (vi.fn() object). */
-export function makeMockTargetFactory(overrides: any = {}): any {
-    const stub = makeStubTargetFactory(overrides);
-    return {
-        create: vi.fn(stub.create),
-        fromIdentities: vi.fn(stub.fromIdentities)
-    };
-}
-
 /** Factory: Create a PURE MOCK Protocol (vi.fn() object). */
 export function makeMockProtocol(overrides: any = {}): any {
     const stub = makeStubProtocol(overrides);
-    
-    // Wrap all stub functions in Vitest mocks
-    const mock = {
+    return {
         ...stub,
         getStorageNamespace: vi.fn(stub.getStorageNamespace),
         setRegistry: vi.fn(stub.setRegistry),
@@ -244,8 +232,6 @@ export function makeMockProtocol(overrides: any = {}): any {
         getStaleSignals: vi.fn(stub.getStaleSignals),
         parse: vi.fn(stub.parse)
     };
-
-    return mock;
 }
 
 /** A real in-memory logger for checking output in tests. */
