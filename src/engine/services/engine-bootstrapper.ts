@@ -5,11 +5,9 @@ import { Protocol } from './protocol.js';
 import { TrailerParser } from './trailer-parser.js';
 import { SearchFilter } from './search-filter.js';
 import { AtomRepository } from './atom-repository.js';
-import { AtomHydrator } from './atom-hydrator.js';
 import { QueryCache } from './query-cache.js';
 import { QueryTargetFactory } from './query-target-factory.js';
 import { IdGenerator } from './id-generator.js';
-import { SupersessionResolver } from './supersession-resolver.js';
 import { LogLevel } from '../interfaces/logger.js';
 import { TerminalLogger } from './terminal-logger.js';
 import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, QUERY_CACHE_DIR, PROTOCOLS_DIR_NAME } from '../util/constants.js';
@@ -140,10 +138,6 @@ export class EngineBootstrapper {
       `engine@${getEngineVersion()};${protocolRegistry.getFingerprint()}`,
     );
 
-    const atomHydrator = new AtomHydrator(
-      protocolRegistry,
-    );
-
     const targetFactory = new QueryTargetFactory({
       cwd,
       protocolRoot: activeRoot,
@@ -151,16 +145,13 @@ export class EngineBootstrapper {
     });
 
     const baseTarget = targetFactory.create();
-    const supersessionResolver = new SupersessionResolver(protocolRegistry);
 
     const atomRepository = new AtomRepository(
       gitClient,
-      atomHydrator,
       protocolRegistry,
       searchFilter,
       queryCache,
       baseTarget,
-      supersessionResolver,
       targetFactory,
     );
 
@@ -206,7 +197,6 @@ export class EngineBootstrapper {
       commitBuilder,
       squashMerger,
       validator,
-      supersessionResolver,
       stalenessDetector,
       targetFactory,
       baseTarget,

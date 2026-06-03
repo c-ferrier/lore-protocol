@@ -10,7 +10,6 @@ import {
     NullQueryCache,
     Validator,
     StalenessDetector,
-    AtomHydrator,
     AtomRepository,
     PathResolver,
     SearchFilter,
@@ -32,10 +31,8 @@ import {
     makeStubInputResolver,
     makeStubPrompt,
     makeStubProtocolRegistry,
-    makeStubAtomHydrator,
     makeStubAtomRepository,
     makeStubTargetFactory,
-    makeStubSupersessionResolver,
     makeStubHeadIdReader,
     makeStubCommitBuilder,
     makeStubValidator,
@@ -192,16 +189,6 @@ export function makeMockPrompt(overrides: any = {}): any {
     };
 }
 
-/** Factory: Create a PURE MOCK SupersessionResolver (vi.fn() object). */
-export function makeMockSupersessionResolver(overrides: any = {}): any {
-    const stub = makeStubSupersessionResolver(overrides);
-    return {
-        ...stub,
-        resolve: vi.fn(stub.resolve),
-        resolveAll: vi.fn(stub.resolveAll)
-    };
-}
-
 /** Factory: Create a PURE MOCK HeadIdReader (vi.fn() object). */
 export function makeMockHeadIdReader(overrides: any = {}): any {
     const stub = makeStubHeadIdReader(overrides);
@@ -228,16 +215,6 @@ export function makeMockInputResolver(overrides: any = {}): any {
     return {
         ...stub,
         read: vi.fn(stub.read)
-    };
-}
-
-/** Factory: Create a PURE MOCK AtomHydrator (vi.fn() object). */
-export function makeMockAtomHydrator(overrides: any = {}): any {
-    const stub = makeStubAtomHydrator(overrides);
-    return {
-        ...stub,
-        hydrate: vi.fn(stub.hydrate),
-        extractReferenceIds: vi.fn(stub.extractReferenceIds)
     };
 }
 

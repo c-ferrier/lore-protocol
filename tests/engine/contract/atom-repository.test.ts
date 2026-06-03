@@ -19,6 +19,8 @@ import { ProtocolError } from '../../../src/engine/util/errors.js';
 
 const TEST_ID_KEY = "Mock-id";
 
+import * as HydrationLogic from '../../../src/engine/logic/hydration.js';
+
 describe('AtomRepository', () => {
   let gitClient: any;
   let repo: AtomRepository;
@@ -463,12 +465,11 @@ describe('AtomRepository', () => {
       });
 
       vi.mocked(gitClient.query).mockResolvedValue([
-          makeRawCommit({ hash: 'h1' }), 
-          makeRawCommit({ hash: 'h2' }), 
+          makeRawCommit({ hash: 'h1' }),
+          makeRawCommit({ hash: 'h2' }),
           makeRawCommit({ hash: 'h3' })
       ]);
-      vi.spyOn((repo as any).hydrator, 'hydrate').mockReturnValue([p1, c1, c2]);
-      
+      vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([p1, c1, c2]);
       const atoms = await repo.find(makeQueryTarget(), { all: true });
       
       const parentAtom = atoms.find(a => a.commitHash === 'h1');
@@ -491,14 +492,14 @@ describe('AtomRepository', () => {
 
       // CASE 1: Query only for A. Repository doesn't see B, so it says A is NOT superseded.
       vi.mocked(gitClient.query).mockResolvedValueOnce([makeRawCommit({ hash: 'h1' })]);
-      vi.spyOn((repo as any).hydrator, 'hydrate').mockReturnValueOnce([atomA]);
+      vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValueOnce([atomA]);
       
       const results1 = await repo.findByIds([{ id: 'aaaa1111' }]);
       expect(results1[0].protocols.get('Mock')?.supersession?.superseded).toBe(false);
 
       // CASE 2: Query for A AND B. Repository sees the link, so it says A IS superseded.
       vi.mocked(gitClient.query).mockResolvedValueOnce([makeRawCommit({ hash: 'h1' }), makeRawCommit({ hash: 'h2' })]);
-      vi.spyOn((repo as any).hydrator, 'hydrate').mockReturnValueOnce([atomA, atomB]);
+      vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValueOnce([atomA, atomB]);
       
       const results2 = await repo.findByIds([{ id: 'aaaa1111' }, { id: 'bbbb2222' }]);
       expect(results2.find(a => a.commitHash === 'h1')?.protocols.get('Mock')?.supersession?.superseded).toBe(true);

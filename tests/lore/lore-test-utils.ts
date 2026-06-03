@@ -2,7 +2,6 @@ import {
     makeProtocol, 
     makeProtocolRegistry, 
     makeMockAtomRepository, 
-    makeMockSupersessionResolver,
     makeMockFormatter,
     TEST_ENGINE_CONFIG,
     ProtocolRegistry
@@ -39,7 +38,6 @@ export function makeLoreRegistry() {
 export function makeMockLoreContext(overrides: any = {}) {
   return {
     atomRepository: makeMockAtomRepository(),
-    supersessionResolver: makeMockSupersessionResolver(),
     protocolRegistry: makeLoreRegistry(),
     getFormatter: () => makeMockFormatter(),
     config: TEST_ENGINE_CONFIG,

@@ -2,13 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { 
   makeMockGitClient, 
-  makeAtomHydrator,
   makeRawCommit,
   makeAtom,
   makeProtocol,
   makeQueryTarget,
   makeMockTargetFactory,
-  SupersessionResolver,
   ProtocolRegistry,
   TEST_ID_KEY
 } from '../engine-test-utils.js';
@@ -17,12 +15,13 @@ import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { rmSync, mkdirSync } from 'node:fs';
 
+import * as HydrationLogic from '../../../src/engine/logic/hydration.js';
+
 describe('Query Cache Combined Fidelity (Contract)', () => {
   const testDir = '.test-cache-fidelity';
   let gitClient: any;
   let registry: any;
   let cache: QueryCache;
-  let hydrator: any;
   let repo: AtomRepository;
 
   beforeEach(() => {
@@ -35,23 +34,16 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     
     cache = new QueryCache(testDir, 100, 'test-fingerprint');
     
-    hydrator = {
-        hydrate: vi.fn(),
-        extractReferenceIds: vi.fn(() => [])
-    };
-
     const searchFilter = new SearchFilter(registry);
 
     const targetFactory = makeMockTargetFactory();
 
     repo = new AtomRepository(
       gitClient,
-      hydrator as any,
       registry,
       searchFilter,
       cache,
       makeQueryTarget(),
-      new SupersessionResolver(registry),
       targetFactory
     );
   });
@@ -72,7 +64,7 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     
     // 1. First run: Perform full Discovery + Fetch
     vi.mocked(gitClient.query).mockResolvedValue([commit]);
-    vi.mocked(hydrator.hydrate).mockReturnValue([makeAtom({ commitHash: 'abc', filesChanged: commit.filesChanged })]);
+    vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([makeAtom({ commitHash: 'abc', filesChanged: commit.filesChanged })]);
     vi.spyOn(cache, 'get').mockResolvedValue(null);
     
     const target = makeQueryTarget('src/logic.ts');
@@ -83,7 +75,7 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     vi.mocked(gitClient.query).mockClear();
     vi.spyOn(cache, 'get').mockResolvedValue(['abc']);
     vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit]);
-    vi.mocked(hydrator.hydrate).mockReturnValue([makeAtom({ commitHash: 'abc', filesChanged: commit.filesChanged })]);
+    vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([makeAtom({ commitHash: 'abc', filesChanged: commit.filesChanged })]);
     
     const result = await repo.find(target, { cache: true });
     
@@ -107,8 +99,8 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
 
     vi.mocked(gitClient.resolveRef).mockResolvedValue(headHash);
     vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit]);
-    vi.mocked(hydrator.hydrate).mockReturnValue([makeAtom({ id })]);
-    
+    vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([makeAtom({ id })]);
+
     // 1. Initial run: Fill cache
     vi.spyOn(cache, 'get').mockResolvedValue(null);
     const target = (repo as any).targetFactory.fromIdentities([{ id }]);
@@ -119,7 +111,8 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     // 2. Second run: Cache hit
     vi.mocked(gitClient.query).mockClear();
     vi.spyOn(cache, 'get').mockResolvedValue(['hash123']);
-    
+    vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([makeAtom({ id })]);
+
     const result = await repo.find(target, { cache: true });
 
     // VERIFICATION: Discovery is skipped, but truth projection still happens

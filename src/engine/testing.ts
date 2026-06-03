@@ -3,7 +3,6 @@ import { ProtocolMap, type ProtocolName } from './util/protocol-map.js';
 import { Protocol } from './services/protocol.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
 import { ProtocolLoader } from './services/protocol/protocol-loader.js';
-import { AtomHydrator } from './services/atom-hydrator.js';
 import { AtomRepository } from './services/atom-repository.js';
 import { Validator } from './services/validator.js';
 import { StalenessDetector } from './services/staleness-detector.js';
@@ -16,7 +15,6 @@ import { InMemoryLogger } from './services/in-memory-logger.js';
 import { TerminalLogger } from './services/terminal-logger.js';
 import { CommitBuilder } from './services/commit-builder.js';
 import { IdGenerator } from './services/id-generator.js';
-import { SupersessionResolver } from './services/supersession-resolver.js';
 
 import type { 
     Atom, 
@@ -61,9 +59,7 @@ export {
     Protocol, 
     ProtocolRegistry, 
     ProtocolLoader, 
-    AtomHydrator, 
     AtomRepository, 
-    SupersessionResolver,
     Validator, 
     StalenessDetector, 
     SearchFilter, 
@@ -226,34 +222,26 @@ export function makeProtocolRegistry(protocols: Protocol[] = []): ProtocolRegist
     return registry;
 }
 
-// --- Component Factories ---
+import { hydrateAtoms, extractReferenceIds } from './logic/hydration.js';
+import { resolveSupersession } from './logic/supersession.js';
 
-/** Factory: Create a REAL functional AtomHydrator with mocked dependencies. */
-export function makeAtomHydrator(options: {
-    registry?: ProtocolRegistry;
-} = {}): AtomHydrator {
-    const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
-    return new AtomHydrator(registry);
-}
+// --- Component Factories ---
 
 /** Factory: Create a REAL functional AtomRepository with mocked dependencies. */
 export function makeAtomRepository(options: {
-    gitClient?: any; registry?: ProtocolRegistry; isScoped?: boolean; searchFilter?: SearchFilter; hydrator?: AtomHydrator;
+    gitClient?: any; registry?: ProtocolRegistry; isScoped?: boolean; searchFilter?: SearchFilter;
     queryCache?: IQueryCache;
 } = {}): AtomRepository {
     const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
     const gitClient = options.gitClient || makeStubGitClient();
-    const hydrator = options.hydrator || makeAtomHydrator({ registry });
     const targetFactory = makeStubTargetFactory({ isScoped: options.isScoped ?? false });
     const baseTarget = makeQueryTarget(undefined, options.isScoped ?? false);
-    const supersessionResolver = new SupersessionResolver(registry);
     
     return new AtomRepository(
-        gitClient, hydrator, registry,
+        gitClient, registry,
         options.searchFilter || new SearchFilter(registry),
         options.queryCache || new NullQueryCache(),
         baseTarget,
-        supersessionResolver,
         targetFactory as any
     );
 }
@@ -386,15 +374,6 @@ export function makeStubInputResolver(overrides: Partial<ICommitInputReader> = {
     };
 }
 
-/** Stub: Create a strictly-typed stubbed SupersessionResolver. */
-export function makeStubSupersessionResolver(overrides: any = {}): any {
-    return {
-        resolve: async () => ({ superseded: false, supersededBy: null }),
-        resolveAll: async () => new Map(),
-        ...overrides
-    };
-}
-
 /** Stub: Create a strictly-typed stubbed HeadIdReader. */
 export function makeStubHeadIdReader(overrides: any = {}): any {
     return {
@@ -444,16 +423,8 @@ export function makeStubProtocolRegistry(protocols: readonly IProtocol[] = []): 
         getIdentity: () => null,
         resolveIdentity: (val: string) => ({ protocol: 'mock', id: val }),
         getFingerprint: () => 'stub-fingerprint',
-        register: (p: IProtocol) => map.set(p.name, p)
-    };
-}
-
-/** Stub: Create a functional AtomHydrator stub. */
-export function makeStubAtomHydrator(overrides: any = {}): any {
-    return {
-        hydrate: (raw: readonly RawCommit[]) => raw.map(c => makeAtom({ commitHash: c.hash, filesChanged: c.filesChanged })),
-        extractReferenceIds: () => [],
-        ...overrides
+        register: (p: IProtocol) => map.set(p.name, p),
+        getRoot: () => Array.from(map.values())[0] // Simple root stub
     };
 }
 

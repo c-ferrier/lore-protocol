@@ -60,7 +60,7 @@ The storage layer is formalized as a **Virtual Protocol** in the reserved `syste
 *   **Discovery Rule**: **Always Claim**. The `system:git` protocol claims 100% of records passed to it.
 
 ### Data Mapping (Virtual Projection)
-During hydration, the `AtomHydrator` projects the raw Git metadata into the `system:git` trailers:
+During hydration (via the `hydration.ts` logic module), the raw Git metadata is projected into the `system:git` trailers:
 *   `system:Author` <- `raw.author`
 *   `system:Date` <- `raw.date`
 *   `system:Subject` <- `raw.subject`

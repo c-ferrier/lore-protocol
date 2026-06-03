@@ -2,14 +2,17 @@ import { describe, it, expect, vi } from 'vitest';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { AtomHydrator } from '../../../src/engine/services/atom-hydrator.js';
-import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG, makeMockGitClient, makeQueryTarget } from '../engine-test-utils.js';
-import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
+import { 
+  TEST_ENGINE_CONFIG, 
+  TEST_PROTOCOL_CONFIG, 
+  makeMockGitClient, 
+  makeQueryTarget, 
+  makeMockTargetFactory 
+} from '../engine-test-utils.js';
 import { Validator } from '../../../src/engine/services/validator.js';
 import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
 
@@ -65,16 +68,14 @@ describe('Engine Protocol Rebranding Flow', () => {
 
     // 3. Setup Repository
     const trailerParser = new TrailerParser();
-    const hydrator = new AtomHydrator(registry);
-    const supersessionResolver = new SupersessionResolver(registry);
+    const targetFactory = makeMockTargetFactory();
     const repo = new AtomRepository(
       mockGit as any,
-      hydrator,
       registry,
       new SearchFilter(registry),
       new NullQueryCache(),
       makeQueryTarget(),
-      supersessionResolver
+      targetFactory
     );
 
     const atoms = await repo.find(makeQueryTarget());

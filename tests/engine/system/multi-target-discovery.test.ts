@@ -3,18 +3,14 @@ import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { AtomHydrator } from '../../../src/engine/services/atom-hydrator.js';
 import { GitClient } from '../../../src/engine/services/git-client.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { QueryTargetFactory } from '../../../src/engine/services/query-target-factory.js';
-import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { makeQueryTarget } from '../engine-test-utils.js';
-import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
 
 describe('Multi-Target Atom Discovery', () => {
   let testDir: string;
@@ -59,9 +55,6 @@ describe('Multi-Target Atom Discovery', () => {
     gitClient = new GitClient(testDir);
     const registry = new ProtocolRegistry();
     registry.register(new Protocol(LoreProtocolDefinition));
-    const trailerParser = new TrailerParser();
-    const hydrator = new AtomHydrator(registry);
-    const supersessionResolver = new SupersessionResolver(registry);
     const targetFactory = new QueryTargetFactory({
         cwd: testDir,
         protocolRoot: testDir,
@@ -70,12 +63,11 @@ describe('Multi-Target Atom Discovery', () => {
 
     repo = new AtomRepository(
       gitClient,
-      hydrator,
       registry,
       new SearchFilter(registry),
       new NullQueryCache(),
       targetFactory.create(),
-      supersessionResolver
+      targetFactory
     );
   });
 

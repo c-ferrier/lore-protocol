@@ -3,18 +3,13 @@ import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { AtomHydrator } from '../../../src/engine/services/atom-hydrator.js';
 import { GitClient } from '../../../src/engine/services/git-client.js';
-import { TrailerParser } from '../../../src/engine/services/trailer-parser.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { SearchFilter } from '../../../src/engine/services/search-filter.js';
 import { QueryTargetFactory } from '../../../src/engine/services/query-target-factory.js';
-import { PathResolver } from '../../../src/engine/services/path-resolver.js';
 import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { makeQueryTarget } from '../engine-test-utils.js';
-import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
 
 describe('AtomRepository Git Integration', () => {
   let testDir: string;
@@ -61,14 +56,10 @@ describe('AtomRepository Git Integration', () => {
 
   beforeEach(() => {
     gitClient = new GitClient(testDir);
-    const trailerParser = new TrailerParser();
     const protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(new Protocol(LoreProtocolDefinition));
     const searchFilter = new SearchFilter(protocolRegistry);
-    const pathResolver = new PathResolver(testDir, testDir);
     const queryCache = new NullQueryCache();
-    const hydrator = new AtomHydrator(protocolRegistry);
-    const supersessionResolver = new SupersessionResolver(protocolRegistry);
 
     const targetFactory = new QueryTargetFactory({
         cwd: testDir,
@@ -76,14 +67,15 @@ describe('AtomRepository Git Integration', () => {
         isScoped: false
     });
 
+    const baseTarget = targetFactory.create();
+
     repo = new AtomRepository(
       gitClient,
-      hydrator,
       protocolRegistry,
       searchFilter,
       queryCache,
-      targetFactory.create(),
-      supersessionResolver
+      baseTarget,
+      targetFactory
     );
 
   });

@@ -1,4 +1,4 @@
-import type { IGitClient, RawCommit, StorageQuery } from '../interfaces/git-client.js';
+import type { IGitClient, StorageQuery } from '../interfaces/git-client.js';
 import type { SearchOptions } from '../types/query.js';
 import type { Atom } from '../types/domain.js';
 import { GLOBAL_CACHE_KEY } from '../util/constants.js';
@@ -8,10 +8,12 @@ import type { SearchFilter } from './search-filter.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import { FilterResolver } from './filter-resolver.js';
 import { escapeRegex } from '../util/regex.js';
-import type { AtomHydrator } from './atom-hydrator.js';
 import type { IQueryTarget, QueryIdentity } from '../interfaces/query-target.js';
-import type { SupersessionResolver } from './supersession-resolver.js';
 import type { QueryTargetFactory } from './query-target-factory.js';
+
+// Pure Logic Modules
+import { hydrateAtoms, extractReferenceIds } from '../logic/hydration.js';
+import { resolveSupersession } from '../logic/supersession.js';
 
 /**
  * Retrieves Atoms from git history.
@@ -20,12 +22,10 @@ import type { QueryTargetFactory } from './query-target-factory.js';
 export class AtomRepository {
   constructor(
     private readonly gitClient: IGitClient,
-    private readonly hydrator: AtomHydrator,
     private readonly protocolRegistry: ProtocolRegistry,
     private readonly searchFilter: SearchFilter,
     private readonly queryCache: IQueryCache,
     private readonly baseTarget: IQueryTarget,
-    private readonly supersessionResolver: SupersessionResolver,
     private readonly targetFactory: QueryTargetFactory,
   ) {}
 
@@ -62,7 +62,7 @@ export class AtomRepository {
       // Range queries are currently handled as a physical path scan with a ref restriction.
       // This will be further unified in Phase 4.
       const rawCommits = await this.gitClient.log([range, ...this.baseTarget.getPaths()]);
-      const atoms = this.hydrator.hydrate(rawCommits);
+      const atoms = hydrateAtoms(rawCommits, this.protocolRegistry);
       return this.postProcessAtoms(atoms, options);
   }
 
@@ -71,7 +71,7 @@ export class AtomRepository {
    */
   async findByCommitHash(hash: string, options: SearchOptions = {}): Promise<Atom | null> {
       const rawCommits = await this.gitClient.log(['-1', hash, ...this.baseTarget.getPaths()]);
-      const atoms = this.hydrator.hydrate(rawCommits);
+      const atoms = hydrateAtoms(rawCommits, this.protocolRegistry);
       const processed = this.postProcessAtoms(atoms, options);
       return processed[0] || null;
   }
@@ -100,7 +100,7 @@ export class AtomRepository {
       const cachedHashes = await this.queryCache.get(headHash, fingerprint, resolvedOptions);
       if (cachedHashes) {
         const rawCommits = await this.gitClient.getCommitsByHashes(cachedHashes);
-        const atoms = this.hydrator.hydrate(rawCommits);
+        const atoms = hydrateAtoms(rawCommits, this.protocolRegistry);
         return this.postProcessAtoms(atoms, resolvedOptions);
       }
     }
@@ -179,7 +179,7 @@ export class AtomRepository {
         paths: [...paths],
     });
 
-    const atoms = this.hydrator.hydrate(rawCommits);
+    const atoms = hydrateAtoms(rawCommits, this.protocolRegistry);
     return this.searchFilter.filter(atoms, options);
   }
 
@@ -203,7 +203,7 @@ export class AtomRepository {
             const cached = await this.queryCache.get(headHash, fingerprint, {});
             if (cached && cached.length > 0) {
                 const raw = await this.gitClient.getCommitsByHashes(cached);
-                results.push(...this.hydrator.hydrate(raw));
+                results.push(...hydrateAtoms(raw, this.protocolRegistry));
             } else {
                 missing.push(identity);
             }
@@ -231,7 +231,7 @@ export class AtomRepository {
         paths: this.baseTarget.getPaths()
     });
 
-    const hydrated = this.hydrator.hydrate(rawCommits);
+    const hydrated = hydrateAtoms(rawCommits, this.protocolRegistry);
 
     // 3. Match result atoms back to requested missing identities
     const foundFromGit: Atom[] = [];
@@ -272,7 +272,7 @@ export class AtomRepository {
 
       const commitHashes = Array.from(new Set(blameLines.map(l => l.commitHash)));
       const rawCommits = await this.gitClient.getCommitsByHashes(commitHashes);
-      const hydratedAtoms = this.hydrator.hydrate(rawCommits);
+      const hydratedAtoms = hydrateAtoms(rawCommits, this.protocolRegistry);
 
       // Deduplicate by identity
       const seenIds = new Set<string>();
@@ -290,7 +290,7 @@ export class AtomRepository {
   private postProcessAtoms(atoms: Atom[], options: SearchOptions): Atom[] {
     if (atoms.length === 0) return [];
 
-    const statusMap = this.supersessionResolver.resolveAll(atoms);
+    const statusMap = resolveSupersession(atoms, this.protocolRegistry);
     
     for (const atom of atoms) {
         for (const [pName, state] of atom.protocols) {
@@ -346,7 +346,7 @@ export class AtomRepository {
     indexAtoms(atoms);
 
     const queue: { identities: QueryIdentity[]; depth: number }[] = [
-      { identities: this.hydrator.extractReferenceIds(atoms), depth: 1 },
+      { identities: extractReferenceIds(atoms, this.protocolRegistry), depth: 1 },
     ];
 
     while (queue.length > 0) {
@@ -390,7 +390,7 @@ export class AtomRepository {
       }
 
       if (newAtoms.length > 0) {
-        queue.push({ identities: this.hydrator.extractReferenceIds(newAtoms), depth: depth + 1 });
+        queue.push({ identities: extractReferenceIds(newAtoms, this.protocolRegistry), depth: depth + 1 });
       }
     }
 

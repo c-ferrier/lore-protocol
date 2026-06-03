@@ -20,11 +20,13 @@ export type { ILogger } from './interfaces/logger.js';
 export { LogLevel } from './interfaces/logger.js';
 export type { IOutputFormatter, ErrorMessage } from './interfaces/output-formatter.js';
 
+// --- Pure Logic Modules ---
+export * from './logic/hydration.js';
+export * from './logic/supersession.js';
+
 // --- Orchestrating Services (Runtime) ---
 export { ProtocolRegistry } from './services/protocol-registry.js';
-export { SupersessionResolver } from './services/supersession-resolver.js';
 export { Protocol } from './services/protocol.js';
-export { ProtocolHydrator } from './services/protocol-hydrator.js';
 export { InMemoryLogger } from './services/in-memory-logger.js';
 
 // --- Command Toolkit (For Wrappers/CLI) ---

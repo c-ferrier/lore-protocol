@@ -2,7 +2,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { registerLogCommand } from '../../../src/engine/commands/log.js';
 import type { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import type { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
 import type { IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
 import type { Atom } from '../../../src/engine/types/domain.js';
 import { 
@@ -10,7 +9,6 @@ import {
     TestLogger, 
     makeAtom, 
     makeMockAtomRepository, 
-    makeMockSupersessionResolver,
     makeMockTargetFactory,
     makeQueryTarget
 } from '../engine-test-utils.js';
@@ -35,10 +33,6 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
       find: vi.fn().mockResolvedValue(filteredAtoms ?? atoms),
   });
 
-  const supersessionResolver = makeMockSupersessionResolver({
-      resolveAll: vi.fn().mockReturnValue(new Map([['mock', new Map()]])),
-  });
-
   const capturedResult: { data: unknown } = { data: undefined };
   const formatter = {
     formatQueryResult: vi.fn((data: unknown) => {
@@ -59,7 +53,6 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
 
   registerLogCommand(program, {
     atomRepository: repo,
-    supersessionResolver,
     getFormatter: () => formatter,
     logger,
     targetFactory,

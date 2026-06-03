@@ -3,7 +3,6 @@ import {
     execute, 
     type EngineOptions,
     ProtocolRegistry,
-    ProtocolHydrator,
     ENGINE_CONFIG_FILENAME, 
     ENGINE_DIR_NAME, 
     TRAILER_UI_KINDS, 

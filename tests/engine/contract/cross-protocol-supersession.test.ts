@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
 import { Protocol } from '../../../src/engine/services/protocol.js';
+import { resolveSupersession } from '../../../src/engine/logic/supersession.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, TEST_ENGINE_CONFIG, makeProtocol } from '../engine-test-utils.js';
-import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol } from '../engine-test-utils.js';
 import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
 
 const TEST_ID_KEY = "Mock-id";
@@ -41,8 +40,7 @@ function makeAtom(options: {
   };
 }
 
-describe('SupersessionResolver Cross-Protocol', () => {
-  let resolver: SupersessionResolver;
+describe('Supersession Logic Cross-Protocol', () => {
   let registry: ProtocolRegistry;
 
   beforeEach(() => {
@@ -50,7 +48,6 @@ describe('SupersessionResolver Cross-Protocol', () => {
     // Use different namespaces to avoid root permissive conflict
     registry.register(makeProtocol({ ...TEST_PROTOCOL_DEFINITION, namespace: 'mock' }));
     registry.register(makeProtocol({ ...LORE_DEFINITION, namespace: 'lore' }));
-    resolver = new SupersessionResolver(registry);
   });
 
   it('should resolve supersession across protocols (Lore supersedes Mock)', () => {
@@ -59,7 +56,7 @@ describe('SupersessionResolver Cross-Protocol', () => {
       makeAtom({ id: 'bbbb2222', protocol: 'mock' }),
     ];
 
-    const globalResult = resolver.resolveAll(atoms);
+    const globalResult = resolveSupersession(atoms, registry);
     
     // Check Mock status
     const mockStatus = globalResult.get('mock')!;
@@ -78,7 +75,7 @@ describe('SupersessionResolver Cross-Protocol', () => {
       makeAtom({ id: 'cccc3333', protocol: 'lore' }),
     ];
 
-    const globalResult = resolver.resolveAll(atoms);
+    const globalResult = resolveSupersession(atoms, registry);
     
     expect(globalResult.get('mock')?.get('bbbb2222')?.superseded).toBe(true);
     expect(globalResult.get('lore')?.get('cccc3333')?.superseded).toBe(true);
@@ -92,7 +89,7 @@ describe('SupersessionResolver Cross-Protocol', () => {
       makeAtom({ id: 'deadbeef', protocol: 'lore' }),
     ];
 
-    const globalResult = resolver.resolveAll(atoms);
+    const globalResult = resolveSupersession(atoms, registry);
     
     expect(globalResult.get('lore')?.get('deadbeef')?.superseded).toBe(true);
     expect(globalResult.get('lore')?.get('deadbeef')?.supersededBy).toEqual(['12345678']);
@@ -107,7 +104,7 @@ describe('SupersessionResolver Cross-Protocol', () => {
       makeAtom({ id: 'bbbb2222', protocol: 'mock' }),
     ];
 
-    const globalResult = resolver.resolveAll(atoms);
+    const globalResult = resolveSupersession(atoms, registry);
     
     // Should still resolve the valid part of the chain
     expect(globalResult.get('mock')?.get('bbbb2222')?.superseded).toBe(true);

@@ -198,7 +198,7 @@ No command or service instantiates its own dependencies. All wiring is centraliz
 - **Contains**: All protocol constants: `LORE_TRAILER_KEYS`, `ARRAY_TRAILER_KEYS`, `ENUM_TRAILER_KEYS`, valid enum value arrays, `LORE_ID_PATTERN` regex, `REFERENCE_TRAILER_KEYS`, default limits/thresholds, config file names, exit codes.
 - **Single Responsibility**: Central registry of all protocol-level constants. Changing a trailer name or adding a new one starts here.
 - **Dependencies**: `domain.ts` (type imports only).
-- **Dependents**: `TrailerParser`, `PathResolver`, `AtomRepository`, `SupersessionResolver`, `CommitBuilder`, `StalenessDetector`, `Validator`, `init.ts`, `search.ts`, `trace.ts`, `doctor.ts`, `why.ts`.
+- **Dependents**: `TrailerParser`, `PathResolver`, `AtomRepository`, `CommitBuilder`, `StalenessDetector`, `Validator`, `init.ts`, `search.ts`, `trace.ts`, `doctor.ts`, `why.ts`.
 
 ### Services Layer
 
@@ -223,19 +223,26 @@ No command or service instantiates its own dependencies. All wiring is centraliz
 - **Dependents**: `CommitBuilder`, `SquashMerger`, `main.ts`.
 - **Key methods**: `generate()`.
 
-#### `src/services/atom-repository.ts`
-- **Contains**: `AtomRepository` class.
-- **Single Responsibility**: Central query engine. Retrieves `LoreAtom` objects from git history by target path, Lore-id, revision range, scope, or globally. Handles follow-link BFS traversal.
-- **Dependencies**: `IGitClient`, `TrailerParser`, `domain.ts`, `query.ts`, `constants.ts`.
-- **Dependents**: Commands (`context`, `constraints`, `rejected`, `directives`, `tested`, `search`, `log`, `stale`, `trace`, `squash`, `doctor`), `Validator`, `main.ts`.
-- **Key methods**: `findByTarget()`, `findByLoreId()`, `findByRange()`, `findAll()`, `findByScope()`, `resolveFollowLinks()`.
+#### `src/engine/logic/hydration.ts`
+- **Contains**: Pure logic functions for atom hydration and reference extraction.
+- **Single Responsibility**: Transforms raw Git commit data into rich domain Atoms. Extracts logical identifiers for transitive expansion.
+- **Dependencies**: `domain.ts`, `ProtocolRegistry`.
+- **Dependents**: `AtomRepository`.
+- **Key methods**: `hydrateAtoms()`, `extractReferenceIds()`.
 
-#### `src/services/supersession-resolver.ts`
-- **Contains**: `SupersessionResolver` class.
-- **Single Responsibility**: Computes which Lore atoms are superseded (replaced by newer atoms) and resolves transitive supersession chains.
-- **Dependencies**: `domain.ts`, `constants.ts`.
-- **Dependents**: Commands (`context`, `constraints`, `rejected`, `directives`, `tested`, `search`, `stale`), `main.ts`.
-- **Key methods**: `resolve()`, `filterActive()`.
+#### `src/engine/services/atom-repository.ts`
+- **Contains**: `AtomRepository` class.
+- **Single Responsibility**: Central discovery orchestrator. Retrieves Atoms from Git by path, identity, or range. Handles transitive expansion and utilizes the high-performance discovery cache.
+- **Dependencies**: `IGitClient`, `ProtocolRegistry`, `SearchFilter`, `IQueryCache`, `IQueryTarget`, `QueryTargetFactory`.
+- **Dependents**: Commands, `Validator`.
+- **Key methods**: `find()`, `findByIds()`, `resolveFollowLinks()`.
+
+#### `src/engine/logic/supersession.ts`
+- **Contains**: Pure logic functions for calculating truth (supersession).
+- **Single Responsibility**: Computes the global truth map (active vs superseded) for a set of atoms and provides filtering logic.
+- **Dependencies**: `domain.ts`, `ProtocolRegistry`.
+- **Dependents**: `AtomRepository`, `executePathQuery`.
+- **Key methods**: `resolveSupersession()`, `filterActiveAtoms()`.
 
 #### `src/services/staleness-detector.ts`
 - **Contains**: `StalenessDetector` class.

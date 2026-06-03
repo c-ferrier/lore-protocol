@@ -1,8 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { resolveSupersession, filterActiveAtoms } from '../../../src/engine/logic/supersession.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol } from '../engine-test-utils.js';
-import { SupersessionResolver } from '../../../src/engine/services/supersession-resolver.js';
+import { TEST_PROTOCOL_DEFINITION, makeProtocol } from '../engine-test-utils.js';
 import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
 
 const TEST_ID_KEY = "Mock-id";
@@ -35,18 +34,16 @@ function makeAtom(options: {
 }
 
 
-describe('SupersessionResolver', () => {
-  let resolver: SupersessionResolver;
+describe('Supersession Logic', () => {
   let registry: ProtocolRegistry;
 
   beforeEach(() => {
     const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
     registry = new ProtocolRegistry();
     registry.register(protocol);
-    resolver = new SupersessionResolver(registry);
   });
 
-  describe('resolveAll', () => {
+  describe('resolveSupersession', () => {
     it('should return all atoms as active when no supersession exists', () => {
       const atoms = [
         makeAtom({ id: 'aaaa1111' }),
@@ -54,7 +51,7 @@ describe('SupersessionResolver', () => {
         makeAtom({ id: 'cccc3333' }),
       ];
 
-      const globalResult = resolver.resolveAll(atoms);
+      const globalResult = resolveSupersession(atoms, registry);
       const result = globalResult.get('mock')!;
 
       expect(result.size).toBe(3);
@@ -70,7 +67,7 @@ describe('SupersessionResolver', () => {
         makeAtom({ id: 'bbbb2222' }),
       ];
 
-      const globalResult = resolver.resolveAll(atoms);
+      const globalResult = resolveSupersession(atoms, registry);
       const result = globalResult.get('mock')!;
 
       expect(result.get('aaaa1111')!.superseded).toBe(false);
@@ -85,7 +82,7 @@ describe('SupersessionResolver', () => {
         makeAtom({ id: 'cccc3333' }),
       ];
 
-      const globalResult = resolver.resolveAll(atoms);
+      const globalResult = resolveSupersession(atoms, registry);
       const result = globalResult.get('mock')!;
 
       expect(result.get('aaaa1111')!.superseded).toBe(false);
@@ -102,7 +99,7 @@ describe('SupersessionResolver', () => {
         makeAtom({ id: 'cccc3333' }),
       ];
 
-      const globalResult = resolver.resolveAll(atoms);
+      const globalResult = resolveSupersession(atoms, registry);
       const result = globalResult.get('mock')!;
 
       expect(result.get('aaaa1111')!.superseded).toBe(false);
@@ -116,7 +113,7 @@ describe('SupersessionResolver', () => {
         makeAtom({ id: 'bbbb2222', supersedes: ['aaaa1111'] }),
       ];
 
-      const globalResult = resolver.resolveAll(atoms);
+      const globalResult = resolveSupersession(atoms, registry);
       const result = globalResult.get('mock')!;
 
       // Both should be marked as superseded since each supersedes the other
@@ -125,7 +122,7 @@ describe('SupersessionResolver', () => {
     });
 
     it('should handle empty atom list', () => {
-      const globalResult = resolver.resolveAll([]);
+      const globalResult = resolveSupersession([], registry);
       const result = globalResult.get('mock')!;
 
       expect(result.size).toBe(0);
@@ -134,7 +131,7 @@ describe('SupersessionResolver', () => {
     it('should handle single atom with no supersession', () => {
       const atoms = [makeAtom({ id: 'aaaa1111' })];
 
-      const globalResult = resolver.resolveAll(atoms);
+      const globalResult = resolveSupersession(atoms, registry);
       const result = globalResult.get('mock')!;
 
       expect(result.size).toBe(1);
@@ -149,7 +146,7 @@ describe('SupersessionResolver', () => {
         ]),
       };
 
-      const globalResult = resolver.resolveAll([sparseAtom]);
+      const globalResult = resolveSupersession([sparseAtom], registry);
       const result = globalResult.get('mock');
       expect(result).toBeDefined();
       expect(result!.get('a1b2c3d4')!.superseded).toBe(false);
@@ -161,7 +158,7 @@ describe('SupersessionResolver', () => {
         makeAtom({ id: 'bbbb2222' }),
       ];
 
-      const globalResult = resolver.resolveAll(atoms);
+      const globalResult = resolveSupersession(atoms, registry);
       const result = globalResult.get('mock')!;
 
       expect(result.get('bbbb2222')!.superseded).toBe(true);
@@ -169,7 +166,7 @@ describe('SupersessionResolver', () => {
     });
   });
 
-  describe('filterActive', () => {
+  describe('filterActiveAtoms', () => {
     it('should return only active (non-superseded) atoms', () => {
       const atoms = [
         makeAtom({ id: 'aaaa1111', supersedes: ['bbbb2222'] }),
@@ -177,8 +174,8 @@ describe('SupersessionResolver', () => {
         makeAtom({ id: 'cccc3333' }),
       ];
 
-      const globalSupersessionMap = resolver.resolveAll(atoms);
-      const active = resolver.filterActive(atoms, globalSupersessionMap);
+      const globalSupersessionMap = resolveSupersession(atoms, registry);
+      const active = filterActiveAtoms(atoms, globalSupersessionMap, registry);
 
       expect(active).toHaveLength(2);
       const activeHashes = active.map((a) => a.commitHash);
@@ -193,8 +190,8 @@ describe('SupersessionResolver', () => {
         makeAtom({ id: 'bbbb2222' }),
       ];
 
-      const globalSupersessionMap = resolver.resolveAll(atoms);
-      const active = resolver.filterActive(atoms, globalSupersessionMap);
+      const globalSupersessionMap = resolveSupersession(atoms, registry);
+      const active = filterActiveAtoms(atoms, globalSupersessionMap, registry);
 
       expect(active).toHaveLength(2);
     });
@@ -205,8 +202,8 @@ describe('SupersessionResolver', () => {
         makeAtom({ id: 'bbbb2222', supersedes: ['aaaa1111'] }),
       ];
 
-      const globalSupersessionMap = resolver.resolveAll(atoms);
-      const active = resolver.filterActive(atoms, globalSupersessionMap);
+      const globalSupersessionMap = resolveSupersession(atoms, registry);
+      const active = filterActiveAtoms(atoms, globalSupersessionMap, registry);
 
       expect(active).toHaveLength(0);
     });

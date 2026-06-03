@@ -2,15 +2,14 @@ import { describe, it, expect, vi } from 'vitest';
 import { Protocol, ProtocolRegistry, type ProtocolDefinition } from '../../../src/engine/index.js';
 import { 
   AtomRepository, 
-  AtomHydrator, 
   TrailerParser, 
   SearchFilter, 
   NullQueryCache,
-  SupersessionResolver,
   TEST_ENGINE_CONFIG, 
   TEST_PROTOCOL_CONFIG, 
   makeMockGitClient,
-  makeQueryTarget
+  makeQueryTarget,
+  makeMockTargetFactory
 } from '../../engine/engine-test-utils.js';
 import { LoreJsonFormatter } from '../../../src/lore/formatters/lore-json-formatter.js';
 
@@ -53,16 +52,14 @@ describe('Lore Wrapper Rebranding Flow', () => {
 
     // 3. Setup Repository
     const trailerParser = new TrailerParser();
-    const hydrator = new AtomHydrator(registry);
-    const supersessionResolver = new SupersessionResolver(registry);
+    const targetFactory = makeMockTargetFactory();
     const repo = new AtomRepository(
       mockGit as any,
-      hydrator,
       registry,
       new SearchFilter(registry),
       new NullQueryCache(),
       makeQueryTarget(),
-      supersessionResolver
+      targetFactory
     );
 
     const atoms = await repo.find(makeQueryTarget());

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { AtomHydrator } from '../../../src/engine/services/atom-hydrator.js';
+import { describe, it, expect } from 'vitest';
+import { hydrateAtoms, extractReferenceIds } from '../../../src/engine/logic/hydration.js';
 import { 
   makeRawCommit, 
   makeProtocol, 
@@ -8,16 +8,11 @@ import {
 } from '../engine-test-utils.js';
 import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 
-describe('AtomHydrator Contract', () => {
+describe('AtomHydrator Contract (Logic)', () => {
   const protocol = makeProtocol();
   const registry = makeProtocolRegistry([protocol]);
-  let hydrator: AtomHydrator;
 
-  beforeEach(() => {
-    hydrator = new AtomHydrator(registry);
-  });
-
-  describe('hydrate', () => {
+  describe('hydrateAtoms', () => {
     it('should hydrate raw commits into Atoms using the built-in file list', () => {
       const mockCommit: RawCommit = makeRawCommit({ 
           hash: 'abc12345', 
@@ -25,7 +20,7 @@ describe('AtomHydrator Contract', () => {
           filesChanged: ['src/main.ts']
       });
       
-      const result = hydrator.hydrate([mockCommit]);
+      const result = hydrateAtoms([mockCommit], registry);
 
       expect(result).toHaveLength(1);
       const atom = result[0];
@@ -49,14 +44,13 @@ describe('AtomHydrator Contract', () => {
       });
 
       const localRegistry = makeProtocolRegistry([p1, p2]);
-      const localHydrator = new AtomHydrator(localRegistry);
 
       const raw: RawCommit = makeRawCommit({
         trailers: 'P1-id: 1\nAuthorized: val\nOrphan: stray\nP2-id: 2',
         filesChanged: ['src/main.ts']
       });
 
-      const [atom] = localHydrator.hydrate([raw]);
+      const [atom] = hydrateAtoms([raw], localRegistry);
       
       const state1 = atom.protocols.get('p1');
       const state2 = atom.protocols.get('p2');
@@ -74,7 +68,7 @@ describe('AtomHydrator Contract', () => {
             filesChanged: []
         });
 
-        const [atom] = hydrator.hydrate([raw]);
+        const [atom] = hydrateAtoms([raw], registry);
         expect(atom.body).toBe('');
     });
   });
@@ -88,15 +82,14 @@ describe('AtomHydrator Contract', () => {
           }
       });
       const localRegistry = makeProtocolRegistry([p]);
-      const localHydrator = new AtomHydrator(localRegistry);
 
       const commits = [
         makeRawCommit({ hash: 'h1', id: 'a1', trailers: 'Mock-id: a1\nRelated: b1', filesChanged: [] }),
         makeRawCommit({ hash: 'h2', id: 'a2', trailers: 'Mock-id: a2\nRelated: b1\nRelated: c1', filesChanged: [] })
       ];
 
-      const atoms = localHydrator.hydrate(commits);
-      const refs = localHydrator.extractReferenceIds(atoms);
+      const atoms = hydrateAtoms(commits, localRegistry);
+      const refs = extractReferenceIds(atoms, localRegistry);
 
       expect(refs).toHaveLength(2);
       expect(refs.map(r => r.id)).toContain('b1');
