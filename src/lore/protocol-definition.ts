@@ -196,9 +196,6 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
         input: 'Not-tested:',
         order: 170,
       },
-      directives: [
-        '[on:squash] Carry forward all unverified risks'
-      ]
     },
     'Supersedes': {
       description: 'Lore-id of the atom this decision replaces.',
@@ -250,9 +247,6 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
         order: 200,
       },
       stale_if: { kind: 'reference-superseded' },
-      directives: [
-        '[on:commit] Use for cross-references that do not imply strict dependency'
-      ]
     }
   },
 };

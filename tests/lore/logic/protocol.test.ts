@@ -33,8 +33,6 @@ describe('LoreProtocolDefinition', () => {
     for (const [key, def] of Object.entries(definitions)) {
       if (key === LORE_ID_KEY) continue;
       
-      expect(def.directives, `Trailer "${key}" is missing directives`).toBeDefined();
-      
       const fullDef = protocol.getDefinition(key);
       expect(fullDef?.prompt, `Trailer "${key}" is missing prompt metadata`).toBeDefined();
       expect(fullDef?.prompt?.confirm, `Trailer "${key}" is missing a confirm message`).toBeDefined();
