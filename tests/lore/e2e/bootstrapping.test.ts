@@ -1,5 +1,6 @@
 import { EngineBootstrapper } from '../../../src/engine/services/engine-bootstrapper.js';
 import { DEFAULT_ENGINE_CONFIG } from '../../../src/engine/defaults.js';
+import { getAuthorizedKeys } from '../../../src/engine/core/logic/protocols.js';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 ;
@@ -58,7 +59,7 @@ pattern = "^[0-9]+$"
     expect(custom).toBeDefined();
     expect(custom?.version).toBe('2.0');
     expect(custom?.identityKey).toBe('CID');
-    expect(custom?.getAuthorizedKeys()).toContain('CID');
+    expect(getAuthorizedKeys(custom!)).toContain('CID');
   });
 
   it('should apply config.toml overrides to a dynamic protocol', async () => {
@@ -92,7 +93,7 @@ description = "new"
     const protocol = sharedDeps.protocolRegistry.get('Overridden')!;
 
     expect(protocol.permissive).toBe(false);
-    expect(protocol.getDefinition('ID')?.description).toBe('new');
+    expect(protocol.trailers.get('ID')?.description).toBe('new');
   });
 
   it('should throw a descriptive error if a dynamic protocol is malformed', async () => {

@@ -374,8 +374,8 @@ export class ProtocolSchema extends ActiveProtocol {
             trailers
         });
     }
-    getUiKind(k: string) { return (this.getDefinition(k)?.ui?.kind || 'custom') as any; }
-    getUiColor(k: string) { return (this.getDefinition(k)?.ui?.color || 'cyan') as any; }
+    getUiKind(k: string) { return (this.trailers.get(k)?.ui?.kind || 'custom') as any; }
+    getUiColor(k: string) { return (this.trailers.get(k)?.ui?.color || 'cyan') as any; }
 }
 
 export class ProtocolInterpreter {

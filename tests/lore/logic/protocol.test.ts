@@ -1,11 +1,12 @@
 import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
 import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { 
+    getScalarKeys, 
+    getListKeys 
+} from '../../../src/engine/core/logic/protocols.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
-;
-;
-;
 
 const LORE_ID_KEY = 'Lore-id';
 
@@ -21,8 +22,8 @@ describe('LoreProtocolDefinition', () => {
     for (const [key, def] of Object.entries(definitions)) {
       if (key === LORE_ID_KEY) continue;
       
-      // Verification via Protocol engine rather than raw object
-      const fullDef = protocol.getDefinition(key);
+      // Verification via Protocol context trailers map
+      const fullDef = protocol.trailers.get(key);
       expect(fullDef?.cli, `Trailer "${key}" is missing CLI flag metadata`).toBeDefined();
       expect(fullDef?.cli?.flag, `Trailer "${key}" is missing a flag name`).toBeDefined();
     }
@@ -33,7 +34,7 @@ describe('LoreProtocolDefinition', () => {
     for (const [key, def] of Object.entries(definitions)) {
       if (key === LORE_ID_KEY) continue;
       
-      const fullDef = protocol.getDefinition(key);
+      const fullDef = protocol.trailers.get(key);
       expect(fullDef?.prompt, `Trailer "${key}" is missing prompt metadata`).toBeDefined();
       expect(fullDef?.prompt?.confirm, `Trailer "${key}" is missing a confirm message`).toBeDefined();
       
@@ -56,21 +57,21 @@ describe('LoreProtocolDefinition', () => {
 
   describe('derivation logic', () => {
     it('should correctly identify ARRAY_TRAILER_KEYS', () => {
-      const listKeys = protocol.getListKeys();
+      const listKeys = getListKeys(protocol);
       expect(listKeys).toContain('Constraint');
       expect(listKeys).toContain('Rejected');
       expect(listKeys).not.toContain('Confidence');
     });
 
     it('should correctly identify scalar keys', () => {
-      const scalarKeys = protocol.getScalarKeys();
+      const scalarKeys = getScalarKeys(protocol);
       expect(scalarKeys).toContain('Confidence');
       expect(scalarKeys).toContain('Scope-risk');
       expect(scalarKeys).not.toContain('Constraint');
     });
 
     it('should derive enum values from metadata options', () => {
-      const def = protocol.getDefinition('Confidence');
+      const def = protocol.trailers.get('Confidence');
       expect(Object.keys(def?.values || {})).toEqual(['low', 'medium', 'high']);
     });
   });

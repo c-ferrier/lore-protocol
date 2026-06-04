@@ -1,9 +1,14 @@
 import { type ActiveTrailer } from '../../../../src/engine/core/models/active-protocol.js';
 import { ProtocolSchema } from '../../../../src/engine/testing.js';
+import { 
+    isCoreTrailer, 
+    getAuthorizedKeys, 
+    getScalarKeys, 
+    getListKeys, 
+    getReferenceKeys 
+} from '../../../../src/engine/core/logic/protocols.js';
 
 import { describe, it, expect } from 'vitest';
-;
-
 
 describe('ProtocolSchema', () => {
   const createSchema = (definitions: Map<string, ActiveTrailer>, permissive = true) => {
@@ -42,9 +47,9 @@ describe('ProtocolSchema', () => {
     ]);
     const schema = createSchema(definitions);
 
-    expect(schema.isCore('Core-Key')).toBe(true);
-    expect(schema.isCore('Custom-Key')).toBe(false);
-    expect(schema.isCore('Unknown')).toBe(false);
+    expect(isCoreTrailer('Core-Key', schema)).toBe(true);
+    expect(isCoreTrailer('Custom-Key', schema)).toBe(false);
+    expect(isCoreTrailer('Unknown', schema)).toBe(false);
   });
 
   it('should sort authorized keys based on prompt order', () => {
@@ -55,7 +60,7 @@ describe('ProtocolSchema', () => {
     ]);
     const schema = createSchema(definitions);
 
-    expect(schema.getAuthorizedKeys()).toEqual(['First', 'Middle', 'Last']);
+    expect(getAuthorizedKeys(schema)).toEqual(['First', 'Middle', 'Last']);
   });
 
   it('should return semantic UI metadata', () => {
@@ -79,16 +84,16 @@ describe('ProtocolSchema', () => {
     ]);
     const schema = createSchema(definitions);
 
-    expect(schema.getScalarKeys()).toContain('Scalar');
-    expect(schema.getScalarKeys()).toContain('Ref');
-    expect(schema.getListKeys()).toContain('List');
-    expect(schema.getReferenceKeys()).toContain('Ref');
+    expect(getScalarKeys(schema)).toContain('Scalar');
+    expect(getScalarKeys(schema)).toContain('Ref');
+    expect(getListKeys(schema)).toContain('List');
+    expect(getReferenceKeys(schema)).toContain('Ref');
   });
 
   it('should handle empty definitions gracefully', () => {
     const schema = createSchema(new Map(), false);
-    expect(schema.getAuthorizedKeys()).toEqual([]);
-    expect(schema.getScalarKeys()).toEqual([]);
+    expect(getAuthorizedKeys(schema)).toEqual([]);
+    expect(getScalarKeys(schema)).toEqual([]);
     expect(schema.getFormattableDefinitions()).toEqual({});
   });
 
@@ -99,6 +104,6 @@ describe('ProtocolSchema', () => {
     ]);
     const schema = createSchema(definitions);
 
-    expect(schema.getAuthorizedKeys()).toEqual(['First', 'Last']);
+    expect(getAuthorizedKeys(schema)).toEqual(['First', 'Last']);
   });
 });

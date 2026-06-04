@@ -10,13 +10,17 @@ import {
   makeTrailers
 } from '../../../src/engine/testing.js';
 
+import { 
+    isCoreTrailer, 
+    getAuthorizedKeys 
+} from '../../../src/engine/core/logic/protocols.js';
 import { describe, it, expect, vi } from 'vitest';
 
 describe('Protocol Service', () => {
 
   it('should load baseline trailers by default', () => {
     const protocol = makeProtocol({ name: 'BaselineTest' });
-    const keys = protocol.getAuthorizedKeys();
+    const keys = getAuthorizedKeys(protocol);
     
     expect(keys).toContain(TEST_ID_KEY);
     expect(keys).not.toContain('Constraint');
@@ -29,12 +33,12 @@ describe('Protocol Service', () => {
       }
     };
     const protocol = makeProtocol({ name: 'MergeTest' }, config as any);
-    const def = protocol.getDefinition('Team');
+    const def = protocol.trailers.get('Team');
     
     expect(def).toBeDefined();
     expect(def?.description).toBe('The team responsible');
     expect(def?.isCore).toBe(false);
-    expect(protocol.isCore('Team')).toBe(false);
+    expect(isCoreTrailer('Team', protocol)).toBe(false);
   });
 
   it('should identify configured custom trailers as non-core even if they are in core-definitions', () => {
@@ -45,8 +49,8 @@ describe('Protocol Service', () => {
     };
     const protocol = makeProtocol({ name: 'CoreTest' }, config as any);
     
-    expect(protocol.isCore('Constraint')).toBe(true);
-    expect(protocol.getDefinition('Constraint')?.description).toBe('User override');
+    expect(isCoreTrailer('Constraint', protocol)).toBe(true);
+    expect(protocol.trailers.get('Constraint')?.description).toBe('User override');
   });
 
   it('should authorize any key in permissive mode', () => {
@@ -73,7 +77,7 @@ describe('Protocol Service', () => {
         'A': { description: '', prompt: { order: 5 } } as any
       }
     });
-    const keys = protocol.getAuthorizedKeys();
+    const keys = getAuthorizedKeys(protocol);
     expect(keys[0]).toBe('A');
     expect(keys[1]).toBe('Z');
   });
@@ -82,7 +86,7 @@ describe('Protocol Service', () => {
     const protocol = makeProtocol({ name: 'OrderTest' }, {
       trailers: { 'Custom': { description: 'D' } }
     } as any);
-    const keys = protocol.getAuthorizedKeys();
+    const keys = getAuthorizedKeys(protocol);
     expect(keys[keys.length - 1]).toBe('Custom');
   });
 
@@ -125,7 +129,7 @@ describe('Protocol Service', () => {
         name: 'RequiredTest',
         trailers: { 'Must-Have': { description: '', required: true } } as any
       });
-      expect(protocol.getDefinition('Must-Have')?.required).toBe(true);
+      expect(protocol.trailers.get('Must-Have')?.required).toBe(true);
     });
   });
 
@@ -140,7 +144,7 @@ describe('Protocol Service', () => {
         }
       } as any);
       
-      const def = protocol.getDefinition('Confidence');
+      const def = protocol.trailers.get('Confidence');
       expect(def?.description).toBe('New Desc');
       expect(def?.ui?.color).toBe('red');
     });
