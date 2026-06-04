@@ -3,6 +3,7 @@ import type { TrailerDefinition } from '../../../core/types/config.js';
 import { MultiValueTrailerCollector } from './multi-value-trailer-collector.js';
 import { EnumChoiceTrailerCollector } from './enum-choice-trailer-collector.js';
 import type { ProtocolContext } from '../../../core/types/protocol-definition.js';
+import { getAuthorizedKeys } from '../../../core/logic/protocols.js';
 
 /**
  * Registry and factory for trailer collectors.
@@ -15,23 +16,18 @@ export class TrailerCollectorRegistry {
  */
   getCollectors(): ITrailerCollector[] {
     const collectors: ITrailerCollector[] = [];
-    const { def } = this.ctx;
     
     // Sort keys by prompt order for deterministic UI sequence
-    const authorizedKeys = Object.keys(def.trailers).sort((a, b) => {
-        const orderA = def.trailers[a]?.prompt?.order ?? 1000;
-        const orderB = def.trailers[b]?.prompt?.order ?? 1000;
-        return orderA - orderB;
-    });
+    const authorizedKeys = getAuthorizedKeys(this.ctx);
 
-    const namespace = def.namespace;
-    const protocolName = def.name.toLowerCase();
+    const namespace = this.ctx.def.namespace;
+    const protocolName = this.ctx.def.name.toLowerCase();
 
     // Iterate through all authorized keys in protocol-defined order
     for (const key of authorizedKeys) {
-      if (key === def.identityKey) continue;
+      if (key === this.ctx.def.identityKey) continue;
 
-      const tDef = def.trailers[key];
+      const tDef = this.ctx.trailers.get(key);
       if (!tDef) continue;
 
       collectors.push(this.createCollectorFromDefinition(key, tDef, namespace, protocolName));

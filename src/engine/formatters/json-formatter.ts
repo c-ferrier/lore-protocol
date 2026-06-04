@@ -230,6 +230,13 @@ export class JsonFormatter implements IOutputFormatter {
   /**
    * Serialize all protocols for an atom.
    */
+  serializeAtoms(atoms: readonly Atom[]): Record<string, any>[] {
+      return atoms.map(a => this.serializeProtocols(a, 'all'));
+  }
+
+  /**
+   * Serialize all protocols for an atom.
+   */
   serializeProtocols(
     atom: Atom, 
     visibleTrailers: readonly string[] | 'all' = 'all'
@@ -254,12 +261,12 @@ export class JsonFormatter implements IOutputFormatter {
     visibleTrailers: readonly string[] | 'all'
   ): Record<string, any> {
     const p = this.protocolRegistry.get(protocolName);
-    const id = p ? getProtocolIdentity(state, p) : null;
+    const id = p ? getProtocolIdentity(state, p.context) : null;
 
     return {
       id,
-      identity_key: p?.identityKey ?? null,
-      version: p?.version ?? '1.0',
+      identity_key: p?.def.identityKey ?? null,
+      version: p?.def.version ?? '1.0',
       trailers: this.serializeTrailers(state, protocolName, visibleTrailers),
       unauthorized: { ...state.unauthorized },
     };
@@ -277,7 +284,7 @@ export class JsonFormatter implements IOutputFormatter {
     const result: Record<string, unknown> = {};
     const trailers = state.trailers;
     const p = this.protocolRegistry.get(protocolName);
-    const identityKey = p?.identityKey;
+    const identityKey = p?.def.identityKey;
 
     const shouldShow = (key: string): boolean => {
       if (visibleTrailers === 'all') return true;
@@ -289,8 +296,8 @@ export class JsonFormatter implements IOutputFormatter {
       if (!shouldShow(key)) continue;
       if (!values || values.length === 0) continue;
       
-      const def = p?.getDefinition(key);
-      const isScalar = def && !def.multivalue;
+      const tDef = p?.trailers.get(key);
+      const isScalar = tDef && !tDef.multivalue;
 
       result[key] = isScalar ? values[0] : [...values];
     }

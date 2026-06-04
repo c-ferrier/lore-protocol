@@ -12,6 +12,7 @@ import type {
 import type { Atom } from '../core/types/domain.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
 import { getProtocolIdentity } from '../core/logic/identity.js';
+import { getAuthorizedKeys } from '../core/logic/protocols.js';
 
 /**
  * Strategy implementation for human-readable terminal output.
@@ -43,12 +44,12 @@ export class TextFormatter implements IOutputFormatter {
       const rootProtocol = this.protocolRegistry.getRoot();
       const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) || atom.protocols.get(rootProtocol.name) : null;
       
-      let id = rootProtocol ? getProtocolIdentity(primaryState, rootProtocol) : undefined;
+      let id = rootProtocol ? getProtocolIdentity(primaryState, rootProtocol.context) : undefined;
       if (!id) {
           // Try to find ANY protocol identity
           for (const [name, state] of atom.protocols) {
               const p = this.protocolRegistry.get(name);
-              id = p ? getProtocolIdentity(state, p) : undefined;
+              id = p ? getProtocolIdentity(state, p.context) : undefined;
               if (id) break;
           }
       }
@@ -142,7 +143,7 @@ export class TextFormatter implements IOutputFormatter {
       const id = rootProtocol ? getProtocolIdentity(state, rootProtocol) : report.atom.commitHash.slice(0, 8);
 
       const dateStr = report.atom.date.toISOString().slice(0, 10);
-      lines.push(`${this.c.yellow('STALE')}  ${this.c.bold(id || '')} (${dateStr})`);
+      lines.push(`${this.color('yellow')}STALE${this.color('reset')}  ${this.color('bright')}${id || ''} (${dateStr})${this.color('reset')}`);
       lines.push(`  ${report.atom.subject}`);
 
       for (const reason of report.reasons) {
@@ -259,14 +260,21 @@ export class TextFormatter implements IOutputFormatter {
 
     for (const [pName, state] of atom.protocols) {
       const p = this.protocolRegistry.get(pName);
-      
-      for (const [key, values] of Object.entries(state.trailers)) {
-        if (p && key === p.identityKey && p.getIdentity(state) === headerId) continue;
+      if (!p) continue;
+
+      const authorizedKeys = p.getAuthorizedKeys();
+      const allStateKeys = Object.keys(state.trailers);
+      const renderedKeys = new Set<string>();
+
+      for (const key of authorizedKeys) {
+        const id = p.getIdentity(state);
+        if (key === p.identityKey && id === headerId) continue;
         if (!shouldShow(key)) continue;
 
+        const values = state.trailers[key];
         if (!values || values.length === 0) continue;
 
-        const def = p?.getDefinition(key);
+        const def = p.getDefinition(key);
         const colorName = def?.ui?.color || 'dim';
         const color = this.getTrailerColor(colorName);
         
@@ -274,8 +282,27 @@ export class TextFormatter implements IOutputFormatter {
         const label = `[${pName}] ${key}`;
 
         for (const val of values) {
-          lines.push(`${this.c.dim(label + ':')} ${val}`);
+          lines.push(`${color(label + ':')} ${val}`);
         }
+        renderedKeys.add(key);
+      }
+
+      // Format remaining trailers (permissive/adhoc)
+      for (const key of allStateKeys) {
+          if (renderedKeys.has(key)) continue;
+          
+          const id = p.getIdentity(state);
+          if (key === p.identityKey && id === headerId) continue;
+          if (!shouldShow(key)) continue;
+
+          const values = state.trailers[key];
+          if (!values || values.length === 0) continue;
+
+          const label = `[${pName}] ${key}`;
+          const color = this.getTrailerColor('dim');
+          for (const val of values) {
+              lines.push(`${color(label + ':')} ${val}`);
+          }
       }
 
       // Format Unauthorized
@@ -305,5 +332,9 @@ export class TextFormatter implements IOutputFormatter {
     };
     const key = colors[name] || 'dim';
     return this.c[key] as ChalkInstance;
+  }
+
+  protected color(name: string): string {
+    return ''; // Dummy for internal use if needed, but we use this.c
   }
 }

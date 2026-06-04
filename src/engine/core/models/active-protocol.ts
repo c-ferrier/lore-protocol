@@ -1,5 +1,4 @@
 import { ProtocolMap, type ProtocolName } from './protocol-map.js';
-import { ProtocolHydrator } from '../../shell/fs/protocol-hydrator.js';
 import type { 
     ProtocolDefinition, 
     ProtocolContext,
@@ -14,7 +13,6 @@ import type {
     Atom,
     SupersessionStatus,
     StaleReason,
-    Trailers
 } from '../types/domain.js';
 import type { ValidationIssue } from '../types/output.js'
 import type { FormattableTrailerDefinition } from '../types/output.js';
@@ -73,9 +71,8 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
   public readonly caseMap: Map<string, string>;
   public readonly isRoot: boolean;
   public readonly storagePrefix: string;
-  public readonly context: ProtocolContext;
-
-  private readonly definitions = new Map<string, TrailerDefinition & { key: string }>();
+  /** Map of hydrated trailer definitions indexed by canonical key */
+  public readonly trailers: Map<string, TrailerDefinition & { key: string }>;
 
   constructor(
     definition: ProtocolDefinition
@@ -92,39 +89,44 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
     this.caseMap = ctx.caseMap;
     this.isRoot = ctx.isRoot;
     this.storagePrefix = ctx.storagePrefix;
-    this.context = this;
+    this.trailers = ctx.trailers;
+  }
 
-    this.loadDefinitions();
+  /**
+   * Helper to satisfy IProtocol.context while being the context itself.
+   */
+  public get context(): ProtocolContext {
+      return this;
   }
 
   /**
    * Translates a raw key into its canonical, schema-defined case.
    */
   authorize(key: string): string | null {
-    return authorizeKey(key, this.context);
+    return authorizeKey(key, this);
   }
 
   /**
    * Returns all trailer keys explicitly defined in the protocol schema.
    */
   getAuthorizedKeys(): string[] {
-    return getAuthorizedKeys(this.context);
+    return getAuthorizedKeys(this);
   }
 
   getScalarKeys(): string[] {
-    return getScalarKeys(this.context);
+    return getScalarKeys(this);
   }
 
   getListKeys(): string[] {
-    return getListKeys(this.context);
+    return getListKeys(this);
   }
 
   getDefinition(key: string): TrailerDefinition | null {
-    return this.definitions.get(key) || null;
+    return this.trailers.get(key) || null;
   }
 
   getReferenceKeys(): string[] {
-    return getReferenceKeys(this.context);
+    return getReferenceKeys(this);
   }
 
   getStoragePrefix(): string {
@@ -132,15 +134,15 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
   }
 
   getQualifiedKey(key: string): string {
-    return getQualifiedKey(key, this.context);
+    return getQualifiedKey(key, this);
   }
 
   isBucketOwner(key: string): boolean {
-    return isBucketOwner(key, this.context);
+    return isBucketOwner(key, this);
   }
 
   owns(key: string): boolean {
-    return ownsKey(key, this.context);
+    return ownsKey(key, this);
   }
 
   isRootProtocol(): boolean {
@@ -157,7 +159,7 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
   }
 
   normalize(rawMap: Record<string, readonly string[]>, claimedKeys?: Set<string>): ProtocolState {
-    return normalizeTrailers(rawMap, this.context, claimedKeys);
+    return normalizeTrailers(rawMap, this, claimedKeys);
   }
 
   getIdentity(state?: ProtocolState | null): string | null {
@@ -176,27 +178,27 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
   }
 
   isCore(key: string): boolean {
-    return isCoreTrailer(key, this.context);
+    return isCoreTrailer(key, this);
   }
 
   matches(state: ProtocolState, filters: readonly QualifiedFilter[]): boolean {
-    return matchesFilters(state, filters, this.context);
+    return matchesFilters(state, filters, this);
   }
 
   claims(raw: string): boolean {
-    return claimsTrailers(raw, this.context);
+    return claimsTrailers(raw, this);
   }
 
   getDiscoveryPatterns(): string[] {
-    return getDiscoveryPatterns(this.context);
+    return getDiscoveryPatterns(this);
   }
 
   getSearchPatterns(filters: readonly QualifiedFilter[]): string[][] {
-    return getSearchPatterns(filters, this.context);
+    return getSearchPatterns(filters, this);
   }
 
   getFormattableDefinitions(): Record<string, FormattableTrailerDefinition> {
-    return getFormattableDefinitions(this.context);
+    return getFormattableDefinitions(this);
   }
 
   getStaleSignals(
@@ -204,15 +206,6 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
     now: Date,
     globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
   ): StaleReason[] {
-    return getProtocolStaleSignals(this.context, atom, now, globalSupersessionMap);
-  }
-
-  private loadDefinitions(): void {
-    for (const [key, tDef] of Object.entries(this.def.trailers || {} || {})) {
-      const hydrated = ProtocolHydrator.hydrateTrailer(key, tDef);
-      // Ensure isCore defaults to false if not specified
-      const isCore = hydrated.isCore ?? false;
-      this.definitions.set(key, { ...hydrated, key, isCore });
-    }
+    return getProtocolStaleSignals(this, atom, now, globalSupersessionMap);
   }
 }

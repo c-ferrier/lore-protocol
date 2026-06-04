@@ -1,5 +1,6 @@
 import type { ProtocolDefinition, ProtocolContext } from '../types/protocol-definition.js';
 import type { FormattableTrailerDefinition } from '../types/output.js';
+import { ProtocolHydrator } from '../../shell/fs/protocol-hydrator.js';
 
 /**
  * Transforms a serializable ProtocolDefinition into an operationally optimized ProtocolContext.
@@ -7,17 +8,23 @@ import type { FormattableTrailerDefinition } from '../types/output.js';
  */
 export function createProtocolContext(def: ProtocolDefinition): ProtocolContext {
     const caseMap = new Map<string, string>();
+    const trailers = new Map<string, any>();
     
-    const trailers = def.trailers || {};
+    const rawTrailers = def.trailers || {};
     const namespace = def.namespace || '';
 
-    for (const key of Object.keys(trailers)) {
+    for (const [key, tDef] of Object.entries(rawTrailers)) {
         caseMap.set(key.toLowerCase(), key);
+        
+        const hydrated = ProtocolHydrator.hydrateTrailer(key, tDef);
+        const isCore = (hydrated as any).isCore ?? false;
+        trailers.set(key, { ...hydrated, key, isCore });
     }
 
     return {
         def,
         caseMap,
+        trailers,
         isRoot: namespace === '',
         storagePrefix: namespace !== '' ? `${namespace}: ` : '',
     };
@@ -28,9 +35,9 @@ export function createProtocolContext(def: ProtocolDefinition): ProtocolContext 
  * Result is sorted numerically by 'prompt.order' (ascending).
  */
 export function getAuthorizedKeys(ctx: ProtocolContext): string[] {
-    return Object.keys(ctx.def.trailers).sort((a, b) => {
-        const orderA = ctx.def.trailers[a]?.prompt?.order ?? 1000;
-        const orderB = ctx.def.trailers[b]?.prompt?.order ?? 1000;
+    return Array.from(ctx.trailers.keys()).sort((a, b) => {
+        const orderA = ctx.trailers.get(a)?.prompt?.order ?? 1000;
+        const orderB = ctx.trailers.get(b)?.prompt?.order ?? 1000;
         return orderA - orderB;
     });
 }
@@ -39,21 +46,21 @@ export function getAuthorizedKeys(ctx: ProtocolContext): string[] {
  * Returns all schema-defined keys that allow only a single value.
  */
 export function getScalarKeys(ctx: ProtocolContext): string[] {
-    return getAuthorizedKeys(ctx).filter(k => !ctx.def.trailers[k]?.multivalue);
+    return getAuthorizedKeys(ctx).filter(k => !ctx.trailers.get(k)?.multivalue);
 }
 
 /**
  * Returns all schema-defined keys that allow multiple values.
  */
 export function getListKeys(ctx: ProtocolContext): string[] {
-    return getAuthorizedKeys(ctx).filter(k => ctx.def.trailers[k]?.multivalue);
+    return getAuthorizedKeys(ctx).filter(k => ctx.trailers.get(k)?.multivalue);
 }
 
 /**
  * Returns all schema-defined keys that serve as references to other atoms.
  */
 export function getReferenceKeys(ctx: ProtocolContext): string[] {
-    return getAuthorizedKeys(ctx).filter(k => ctx.def.trailers[k]?.validation === 'reference');
+    return getAuthorizedKeys(ctx).filter(k => ctx.trailers.get(k)?.validation === 'reference');
 }
 
 /**
@@ -62,7 +69,7 @@ export function getReferenceKeys(ctx: ProtocolContext): string[] {
 export function isCoreTrailer(key: string, ctx: ProtocolContext): boolean {
     const canonical = ctx.caseMap.get(key.toLowerCase());
     if (!canonical) return false;
-    return ctx.def.trailers[canonical]?.isCore ?? false;
+    return ctx.trailers.get(canonical)?.isCore ?? false;
 }
 
 /**
@@ -73,14 +80,14 @@ export function getFormattableDefinitions(ctx: ProtocolContext): Record<string, 
     const keys = getAuthorizedKeys(ctx);
 
     for (const key of keys) {
-        const def = ctx.def.trailers[key];
-        if (!def) continue;
+        const tDef = ctx.trailers.get(key);
+        if (!tDef) continue;
 
         results[key] = {
-            ...def,
+            ...tDef,
             ui: {
-                kind: (def.ui?.kind || 'text') as any,
-                color: def.ui?.color || 'dim',
+                kind: (tDef.ui?.kind || 'text') as any,
+                color: tDef.ui?.color || 'dim',
             }
         } as any;
     }

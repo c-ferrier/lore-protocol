@@ -34,7 +34,7 @@ export function registerConfigCommand(
 
       let allTrailers: Record<string, FormattableTrailerDefinition> = {};
       for (const p of protocolRegistry.getAll()) {
-        allTrailers = { ...allTrailers, ...getFormattableDefinitions(p) };
+        allTrailers = { ...allTrailers, ...getFormattableDefinitions(p.context) };
       }
 
       const formattable: FormattableConfigResult = {

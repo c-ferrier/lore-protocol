@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import type { IGitClient } from '../../interfaces/git-client.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { EngineConfig, TrailerDefinition } from '../../core/types/config.js';
+import type { EngineConfig } from '../../core/types/config.js';
 import { ProtocolError } from '../../util/errors.js';
 import type { CommitInputResolver } from '../readers/commit-input-resolver.js';
 import type { HeadIdReader } from '../../shell/git/head-id-reader.js';
@@ -13,6 +13,7 @@ import { slugify } from '../../util/string.js';
 
 // Pure Logic Modules
 import { formatCommit, validateFormatting } from '../../core/logic/commit-formatting.js';
+import { getAuthorizedKeys } from '../../core/logic/protocols.js';
 
 /**
  * CLI Options for the commit command.
@@ -81,8 +82,9 @@ export function registerCommitCommand(
       // Identify any dynamic protocol-specific flags passed
       const protocolFlags = new Set<string>();
       for (const p of protocolRegistry.getAll()) {
-          for (const key of p.getAuthorizedKeys()) {
-              const def = p.getDefinition(key);
+          const authorizedKeys = getAuthorizedKeys(p.context);
+          for (const key of authorizedKeys) {
+              const def = p.trailers.get(key);
               if (def) protocolFlags.add(def.cli?.flag || slugify(key));
           }
       }

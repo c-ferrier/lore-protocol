@@ -40,6 +40,8 @@ export interface ProtocolContext {
     readonly isRoot: boolean;
     /** "Namespace: " or "" */
     readonly storagePrefix: string;
+    /** Map of hydrated trailer definitions indexed by canonical key */
+    readonly trailers: Map<string, TrailerDefinition & { key: string }>;
 }
 
 /**
