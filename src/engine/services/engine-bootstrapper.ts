@@ -1,7 +1,6 @@
 import { Command } from 'commander';
 import { join } from 'node:path';
 import {  ProtocolRegistry  } from './protocol-registry.js';
-import {  ActiveProtocol  } from '../core/models/active-protocol.js';
 import { AtomRepository } from './atom-repository.js';
 import { QueryCache } from '../shell/fs/query-cache.js';
 import { LogLevel } from '../interfaces/logger.js';
@@ -17,6 +16,7 @@ import { DynamicProtocolLoader, ProtocolLoader } from '../shell/fs/protocol-load
 import { getEngineVersion } from '../util/version.js';
 
 // Pure Logic Modules
+import { createProtocolContext } from '../core/logic/protocols.js';
 import { createQueryTarget } from '../core/logic/query-targets.js';
 import { JsonFormatter } from '../formatters/json-formatter.js';
 import { TextFormatter } from '../formatters/text-formatter.js';
@@ -144,7 +144,7 @@ export class EngineBootstrapper {
     const protocolRegistry = new ProtocolRegistry();
     
     for (const def of allProtocols) {
-      protocolRegistry.register(new ActiveProtocol(def));
+      protocolRegistry.register(createProtocolContext(def));
     }
     
     const queryCache: IQueryCache = new QueryCache(
