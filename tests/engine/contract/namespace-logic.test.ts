@@ -1,12 +1,9 @@
 import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeProtocol } from '../../../src/engine/testing.js';
+import { getSearchPatterns } from '../../../src/engine/shell/git/protocol-query-adapter.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
-;
-;
-
-;
 
 describe('Hierarchical Namespacing Logic', () => {
   let registry: ProtocolRegistry;
@@ -136,12 +133,12 @@ describe('Hierarchical Namespacing Logic', () => {
 
   describe('Search Patterns', () => {
       it('should generate namespaced patterns for namespaced search', () => {
-          const patterns = projectProtocol.getSearchPatterns([{ protocol: null, key: 'Team', op: 'eq' as const, value: 'Backend' }]);
+          const patterns = getSearchPatterns([{ protocol: null, key: 'Team', op: 'eq' as const, value: 'Backend' }], projectProtocol);
           expect(patterns).toEqual([['^Project: Team: Backend']]);
       });
 
       it('should generate flat patterns for root search', () => {
-          const patterns = rootProtocol.getSearchPatterns([{ protocol: null, key: 'Lore-id', op: 'eq' as const, value: 'l1' }]);
+          const patterns = getSearchPatterns([{ protocol: null, key: 'Lore-id', op: 'eq' as const, value: 'l1' }], rootProtocol);
           expect(patterns).toEqual([['^Lore-id: l1']]);
       });
   });

@@ -31,18 +31,8 @@ import {
 import { getQualifiedKey, isBucketOwner, ownsKey, authorizeKey } from '../logic/ownership.js';
 import { normalizeTrailers } from '../logic/normalization.js';
 
-import { 
-    getDiscoveryPatterns, 
-    getSearchPatterns, 
-    matchesFilters, 
-    claimsTrailers 
-} from '../../shell/git/protocol-query-adapter.js';
-
-import { 
-    getProtocolStaleSignals,
-} from '../logic/staleness.js';
-
 import { getProtocolIdentity } from '../logic/identity.js';
+import { getProtocolStaleSignals } from '../logic/staleness.js';
 
 export type ActiveTrailer = TrailerDefinition & { key: string };
 
@@ -151,26 +141,6 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
   validateTrailer: (key: string, value: string, resolver?: IIdentityResolver) => { valid: boolean; message?: string; rule?: string };
   getStaleSignals: (atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>) => StaleReason[];
   getAuthorizedKeys: () => string[];
-
-  matches(state: ProtocolState, filters: readonly QualifiedFilter[]): boolean {
-    if ((this.def as any).matches) return (this.def as any).matches(state, filters);
-    return matchesFilters(state, filters, this);
-  }
-
-  claims(raw: string): boolean {
-    if ((this.def as any).claims) return (this.def as any).claims(raw);
-    return claimsTrailers(raw, this);
-  }
-
-  getDiscoveryPatterns(): string[] {
-    if ((this.def as any).getDiscoveryPatterns) return (this.def as any).getDiscoveryPatterns();
-    return getDiscoveryPatterns(this);
-  }
-
-  getSearchPatterns(filters: readonly QualifiedFilter[]): string[][] {
-    if ((this.def as any).getSearchPatterns) return (this.def as any).getSearchPatterns(filters);
-    return getSearchPatterns(filters, this);
-  }
 
   getFormattableDefinitions(): Record<string, FormattableTrailerDefinition> {
     if ((this.def as any).getFormattableDefinitions) return (this.def as any).getFormattableDefinitions();

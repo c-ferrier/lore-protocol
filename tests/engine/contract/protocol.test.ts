@@ -14,6 +14,11 @@ import {
     isCoreTrailer, 
     getAuthorizedKeys 
 } from '../../../src/engine/core/logic/protocols.js';
+import { 
+    claimsTrailers, 
+    getDiscoveryPatterns, 
+    getSearchPatterns 
+} from '../../../src/engine/shell/git/protocol-query-adapter.js';
 import { describe, it, expect, vi } from 'vitest';
 
 describe('Protocol Service', () => {
@@ -153,17 +158,17 @@ describe('Protocol Service', () => {
   describe('Discovery & Claims', () => {
     it('should claim a commit with its identity key', () => {
         const protocol = makeProtocol({ name: 'ClaimTest' });
-        expect(protocol.claims(`${TEST_ID_KEY}: a1b2c3d4`)).toBe(true);
+        expect(claimsTrailers(`${TEST_ID_KEY}: a1b2c3d4`, protocol)).toBe(true);
     });
 
     it('should not claim a commit without its identity key', () => {
         const protocol = makeProtocol({ name: 'NoClaimTest' });
-        expect(protocol.claims('Other: value')).toBe(false);
+        expect(claimsTrailers('Other: value', protocol)).toBe(false);
     });
 
     it('should provide discovery patterns', () => {
         const protocol = makeProtocol({ name: 'DiscoveryTest' });
-        expect(protocol.getDiscoveryPatterns()).toEqual([`^${TEST_ID_KEY}: [0-9a-f]{8}`]);
+        expect(getDiscoveryPatterns(protocol)).toEqual([`^${TEST_ID_KEY}: [0-9a-f]{8}`]);
     });
   });
 
@@ -327,12 +332,12 @@ describe('Protocol Service', () => {
 
       it('should provide namespaced discovery pattern', () => {
           const nsProtocol = makeProtocol({ name: 'ProjectPattern', namespace: 'Project' });
-          expect(nsProtocol.getDiscoveryPatterns()).toEqual(['^Project:']);
+          expect(getDiscoveryPatterns(nsProtocol)).toEqual(['^Project:']);
       });
 
       it('should provide namespaced search patterns', () => {
           const nsProtocol = makeProtocol({ name: 'ProjectSearch', namespace: 'Project', trailers: { 'T': { description: 'T' } } as any });
-          const patterns = nsProtocol.getSearchPatterns([{ protocol: null, key: 'T', op: 'eq', value: 'v' }]);
+          const patterns = getSearchPatterns([{ protocol: null, key: 'T', op: 'eq', value: 'v' }], nsProtocol);
           expect(patterns).toEqual([['^Project: T: v']]);
       });
     });

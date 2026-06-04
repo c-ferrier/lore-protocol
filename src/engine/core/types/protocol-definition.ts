@@ -76,10 +76,6 @@ export interface IProtocol extends ProtocolContext {
     normalize(rawMap: Record<string, readonly string[]>, claimedKeys?: Set<string>): ProtocolState;
     validateState(state: ProtocolState, resolver?: IIdentityResolver): ValidationIssue[];
     validateTrailer(key: string, value: string, resolver?: IIdentityResolver): { valid: boolean; message?: string; rule?: string };
-    matches(state: ProtocolState, filters: readonly QualifiedFilter[]): boolean;
-    claims(raw: string): boolean;
-    getDiscoveryPatterns(): string[];
-    getSearchPatterns(filters: readonly QualifiedFilter[]): string[][];
     getFormattableDefinitions(): Record<string, FormattableTrailerDefinition>;
     getStaleSignals(atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[];
 }
