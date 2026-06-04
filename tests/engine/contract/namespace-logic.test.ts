@@ -2,6 +2,7 @@ import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeProtocol } from '../../../src/engine/testing.js';
 import { getSearchPatterns } from '../../../src/engine/shell/git/protocol-query-adapter.js';
+import { ownsKey } from '../../../src/engine/core/logic/ownership.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
@@ -43,18 +44,18 @@ describe('Hierarchical Namespacing Logic', () => {
 
   describe('Ownership', () => {
     it('namespaced protocol should own its namespace key only', () => {
-      expect(projectProtocol.owns('Project')).toBe(true);
-      expect(projectProtocol.owns('project')).toBe(true);
+      expect(ownsKey('Project', projectProtocol)).toBe(true);
+      expect(ownsKey('project', projectProtocol)).toBe(true);
       
       // STRICT ISOLATION: Namespaced protocols don't own root trailers (even their ID)
-      expect(projectProtocol.owns('Project-id')).toBe(false);
-      expect(projectProtocol.owns('Team')).toBe(false);
+      expect(ownsKey('Project-id', projectProtocol)).toBe(false);
+      expect(ownsKey('Team', projectProtocol)).toBe(false);
     });
 
     it('root protocol should own its schema keys', () => {
-      expect(rootProtocol.owns('Lore-id')).toBe(true);
-      expect(rootProtocol.owns('Constraint')).toBe(true);
-      expect(rootProtocol.owns('Project')).toBe(false);
+      expect(ownsKey('Lore-id', rootProtocol)).toBe(true);
+      expect(ownsKey('Constraint', rootProtocol)).toBe(true);
+      expect(ownsKey('Project', rootProtocol)).toBe(false);
     });
   });
 

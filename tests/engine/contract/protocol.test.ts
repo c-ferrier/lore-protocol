@@ -19,6 +19,13 @@ import {
     getDiscoveryPatterns, 
     getSearchPatterns 
 } from '../../../src/engine/shell/git/protocol-query-adapter.js';
+import { 
+    authorizeKey, 
+    ownsKey 
+} from '../../../src/engine/core/logic/ownership.js';
+import { 
+    normalizeTrailers 
+} from '../../../src/engine/core/logic/normalization.js';
 import { describe, it, expect, vi } from 'vitest';
 
 describe('Protocol Service', () => {
@@ -66,12 +73,12 @@ describe('Protocol Service', () => {
     };
     const protocol = makeProtocol({ name: 'PermissiveTest' }, config as any);
     
-    expect(protocol.authorize('Random-Key')).toBe('Random-Key');
+    expect(authorizeKey('Random-Key', protocol)).toBe('Random-Key');
   });
 
   it('should not authorize unknown keys in strict mode', () => {
     const protocol = makeProtocol({ name: 'StrictAuthTest', strict: true, permissive: false });
-    expect(protocol.authorize('Unknown')).toBeNull();
+    expect(authorizeKey('Unknown', protocol)).toBeNull();
   });
 
   it('should sort authorized keys based on prompt order', () => {
@@ -101,20 +108,20 @@ describe('Protocol Service', () => {
         name: 'CaseTest',
         trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS } 
       });
-      expect(protocol.authorize('confidence')).toBe('Confidence');
-      expect(protocol.authorize('CONFIDENCE')).toBe('Confidence');
+      expect(authorizeKey('confidence', protocol)).toBe('Confidence');
+      expect(authorizeKey('CONFIDENCE', protocol)).toBe('Confidence');
     });
 
     it('should normalize custom definition keys', () => {
         const protocol = makeProtocol({ name: 'CustomCaseTest' }, {
             trailers: { 'Custom-Key': { description: 'D' } }
         } as any);
-        expect(protocol.authorize('custom-key')).toBe('Custom-Key');
+        expect(authorizeKey('custom-key', protocol)).toBe('Custom-Key');
     });
 
     it('should preserve original casing for ad-hoc trailers in permissive mode', () => {
       const protocol = makeProtocol({ name: 'AdhocCaseTest', permissive: true });
-      expect(protocol.authorize('New-Key')).toBe('New-Key');
+      expect(authorizeKey('New-Key', protocol)).toBe('New-Key');
     });
 
     it('should prioritize core casing over ad-hoc casing', () => {
@@ -124,7 +131,7 @@ describe('Protocol Service', () => {
             trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
         });
         // 'confidence' is core, so it should be mapped to 'Confidence' even if we allow ad-hoc
-        expect(protocol.authorize('confidence')).toBe('Confidence');
+        expect(authorizeKey('confidence', protocol)).toBe('Confidence');
     });
   });
 
@@ -222,7 +229,7 @@ describe('Protocol Service', () => {
                 'Typo-Key': ['junk']
             };
 
-            const state = protocol.normalize(raw);
+            const state = normalizeTrailers(raw, protocol);
             expect(state.trailers[TEST_ID_KEY]).toEqual(['a1b2c3d4']);
             expect(state.trailers.Confidence).toEqual(['high']);
             expect(state.unauthorized['Typo-Key']).toEqual(['junk']);
@@ -241,7 +248,7 @@ describe('Protocol Service', () => {
                 'Team': ['Backend']
             };
 
-            const state = nsProtocol.normalize(raw);
+            const state = normalizeTrailers(raw, nsProtocol);
             // STRICT ISOLATION: Namespaced protocols ignore Root level.
             expect(state.trailers.Id).toBeUndefined();
             expect(state.unauthorized.Team).toBeUndefined();
@@ -260,7 +267,7 @@ describe('Protocol Service', () => {
                 'Other': ['Junk']
             };
 
-            const state = nsProtocol.normalize(raw);
+            const state = normalizeTrailers(raw, nsProtocol);
             expect(state.trailers.Id).toEqual(['12345']);
             expect(state.unauthorized.Team).toEqual(['Backend']);
             expect(state.trailers.Other).toBeUndefined();
@@ -301,11 +308,11 @@ describe('Protocol Service', () => {
               identityKey: 'Id',
               trailers: { Id: { description: '' } }
           }, { permissive: false });
-          expect(nsProtocol.owns('Project')).toBe(true);
-          expect(nsProtocol.owns('project')).toBe(true);
+          expect(ownsKey('Project', nsProtocol)).toBe(true);
+          expect(ownsKey('project', nsProtocol)).toBe(true);
           
           // STRICT ISOLATION: Namespaced protocols don't own root trailers.
-          expect(nsProtocol.owns('Id')).toBe(false);
+          expect(ownsKey('Id', nsProtocol)).toBe(false);
       });
 
       it('should unpack nested colons during parsing', () => {
@@ -345,7 +352,7 @@ describe('Protocol Service', () => {
     describe('Ownership & Claims', () => {
       it('should own its identity key', () => {
         const protocol = makeProtocol({ name: 'IdOwnTest', identityKey: 'ID' });
-        expect(protocol.owns('ID')).toBe(true);
+        expect(ownsKey('ID', protocol)).toBe(true);
       });
 
       it('should own its configured trailers', () => {
@@ -353,19 +360,19 @@ describe('Protocol Service', () => {
             name: 'ConfiguredOwnTest',
             trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS } 
         });
-        expect(protocol.owns('Confidence')).toBe(true);
+        expect(ownsKey('Confidence', protocol)).toBe(true);
       });
 
       it('should own configured custom trailers', () => {
         const protocol = makeProtocol({ name: 'CustomOwnTest' }, {
             trailers: { 'Custom': { description: '' } }
         } as any);
-        expect(protocol.owns('Custom')).toBe(true);
+        expect(ownsKey('Custom', protocol)).toBe(true);
       });
 
       it('should not own unregistered trailers', () => {
         const protocol = makeProtocol({ name: 'UnregisteredOwnTest' });
-        expect(protocol.owns('Unknown')).toBe(false);
+        expect(ownsKey('Unknown', protocol)).toBe(false);
       });
 
       describe('parse with claim hierarchy', () => {

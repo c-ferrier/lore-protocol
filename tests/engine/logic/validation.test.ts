@@ -1,4 +1,5 @@
 import { evaluateHygiene, evaluateProtocolSchema, evaluateTrailerHygiene } from '../../../src/engine/core/logic/validation.js';
+import { normalizeTrailers } from '../../../src/engine/core/logic/normalization.js';
 import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../src/engine/testing.js';
 
 import { describe, it, expect, vi } from 'vitest';
@@ -71,7 +72,7 @@ describe('Validation Logic (Pure Functions)', () => {
                 Confidence: { description: '', multivalue: false, validation: 'none', required: true }
             }
         });
-        const state = protocol.normalize({ 'Mock-id': ['a1'] });
+        const state = normalizeTrailers({ 'Mock-id': ['a1'] }, protocol);
         
         const issues = evaluateProtocolSchema(protocol, state);
         expect(issues.some(i => i.rule === 'required-trailer')).toBe(true);

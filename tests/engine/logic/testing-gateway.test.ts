@@ -1,4 +1,5 @@
 import { makeStubGitClient, makeStubProtocol } from '../../../src/engine/testing.js';
+import { ownsKey } from '../../../src/engine/core/logic/ownership.js';
 
 import { describe, it, expect } from 'vitest';
 ;
@@ -13,15 +14,15 @@ describe('Testing Gateway Logic', () => {
     it('should correctly capture storage namespace', () => {
       const stub = makeStubProtocol({ namespace: 'project' });
       expect(stub.def.namespace).toBe('project');
-      expect(stub.owns('project')).toBe(true);
+      expect(ownsKey('project', stub)).toBe(true);
     });
 
     it('should implement basic owns logic based on namespace', () => {
         const stub = makeStubProtocol({ name: 'Alpha', namespace: 'ns' });
         // STRICT ISOLATION: Namespaced protocols only own their bucket.
-        expect(stub.owns('alpha')).toBe(false);
-        expect(stub.owns('ns')).toBe(true);
-        expect(stub.owns('other')).toBe(false);
+        expect(ownsKey('alpha', stub)).toBe(false);
+        expect(ownsKey('ns', stub)).toBe(true);
+        expect(ownsKey('other', stub)).toBe(false);
     });
   });
 

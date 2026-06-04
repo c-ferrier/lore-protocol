@@ -28,7 +28,6 @@ import {
     getProtocolAuthorizedKeys,
     getFormattableDefinitions
 } from '../logic/protocols.js';
-import { getQualifiedKey, isBucketOwner, ownsKey, authorizeKey } from '../logic/ownership.js';
 import { normalizeTrailers } from '../logic/normalization.js';
 
 import { getProtocolIdentity } from '../logic/identity.js';
@@ -92,30 +91,6 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
       return this;
   }
 
-  /**
-   * ALL methods check this.def for mock overrides first to support legacy tests.
-   */
-
-  authorize(key: string): string | null {
-    if ((this.def as any).authorize) return (this.def as any).authorize(key);
-    return authorizeKey(key, this);
-  }
-
-  getQualifiedKey(key: string): string {
-    if ((this.def as any).getQualifiedKey) return (this.def as any).getQualifiedKey(key);
-    return getQualifiedKey(key, this);
-  }
-
-  isBucketOwner(key: string): boolean {
-    if ((this.def as any).isBucketOwner) return (this.def as any).isBucketOwner(key);
-    return isBucketOwner(key, this);
-  }
-
-  owns(key: string): boolean {
-    if ((this.def as any).owns) return (this.def as any).owns(key);
-    return ownsKey(key, this);
-  }
-
   isValidIdentity(id: string): boolean {
     if ((this.def as any).isValidIdentity) return (this.def as any).isValidIdentity(id);
     return isValidProtocolIdentity(id, this.def);
@@ -123,11 +98,6 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
 
   parse(raw: string, claimedKeys?: Set<string>): ProtocolState {
     const rawMap = TriggerParser.parseTrailers(raw);
-    return this.normalize(rawMap, claimedKeys);
-  }
-
-  normalize(rawMap: Record<string, readonly string[]>, claimedKeys?: Set<string>): ProtocolState {
-    if ((this.def as any).normalize) return (this.def as any).normalize(rawMap, claimedKeys);
     return normalizeTrailers(rawMap, this, claimedKeys);
   }
 

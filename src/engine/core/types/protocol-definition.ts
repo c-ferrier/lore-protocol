@@ -66,14 +66,9 @@ export interface ProtocolContext {
 export interface IProtocol extends ProtocolContext {
     readonly context: ProtocolContext;
     
-    authorize(key: string): string | null;
     isValidIdentity(id: string): boolean;
     getIdentity(state?: ProtocolState | null): string | null;
     getAuthorizedKeys(): string[];
-    getQualifiedKey(key: string): string;
-    isBucketOwner(key: string): boolean;
-    owns(key: string): boolean;
-    normalize(rawMap: Record<string, readonly string[]>, claimedKeys?: Set<string>): ProtocolState;
     validateState(state: ProtocolState, resolver?: IIdentityResolver): ValidationIssue[];
     validateTrailer(key: string, value: string, resolver?: IIdentityResolver): { valid: boolean; message?: string; rule?: string };
     getFormattableDefinitions(): Record<string, FormattableTrailerDefinition>;

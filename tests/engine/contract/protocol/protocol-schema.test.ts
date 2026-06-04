@@ -7,6 +7,7 @@ import {
     getListKeys, 
     getReferenceKeys 
 } from '../../../../src/engine/core/logic/protocols.js';
+import { authorizeKey } from '../../../../src/engine/core/logic/ownership.js';
 
 import { describe, it, expect } from 'vitest';
 
@@ -25,19 +26,19 @@ describe('ProtocolSchema', () => {
     ]);
     const schema = createSchema(definitions);
 
-    expect(schema.authorize('confidence')).toBe('Confidence');
-    expect(schema.authorize('CONFIDENCE')).toBe('Confidence');
-    expect(schema.authorize('Confidence')).toBe('Confidence');
+    expect(authorizeKey('confidence', schema)).toBe('Confidence');
+    expect(authorizeKey('CONFIDENCE', schema)).toBe('Confidence');
+    expect(authorizeKey('Confidence', schema)).toBe('Confidence');
   });
 
   it('should authorize unknown keys in permissive mode', () => {
     const schema = createSchema(new Map(), true);
-    expect(schema.authorize('Random-Key')).toBe('Random-Key');
+    expect(authorizeKey('Random-Key', schema)).toBe('Random-Key');
   });
 
   it('should not authorize unknown keys in strict mode', () => {
     const schema = createSchema(new Map(), false);
-    expect(schema.authorize('Random-Key')).toBeNull();
+    expect(authorizeKey('Random-Key', schema)).toBeNull();
   });
 
   it('should identify core trailers correctly', () => {
