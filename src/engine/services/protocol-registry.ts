@@ -40,11 +40,6 @@ export class ProtocolRegistry {
 
      this.protocols.set(name, protocol);
      this.namespaceMap.set(ns, protocol);
-
-     // Backward compatibility for legacy tests that expect registry linkage
-     if (typeof (protocol as any).setRegistry === 'function') {
-         (protocol as any).setRegistry(this);
-     }
    }
 
    /**

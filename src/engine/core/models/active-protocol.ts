@@ -23,6 +23,12 @@ import { STALE_SIGNAL } from '../../util/constants.js';
 import { TriggerParser, parseTriggerHints } from '../../util/trigger-parser.js';
 import { ProtocolQueryAdapter } from '../../shell/git/protocol-query-adapter.js';
 
+import { 
+    validateProtocolState, 
+    validateProtocolTrailer, 
+    isValidProtocolIdentity 
+} from '../logic/validation.js';
+
 export type ActiveTrailer = TrailerDefinition & { key: string };
 
 /**
@@ -165,10 +171,11 @@ export class ActiveProtocol implements IProtocol {
   /**
    * Validates if a string matches the protocol's identity format.
    */
+  /**
+   * Validates if a string matches the protocol's identity format.
+   */
   isValidIdentity(id: string): boolean {
-    const idDef = this.definitions.get(this.identityKey);
-    if (!idDef?.pattern) return true;
-    return new RegExp(idDef.pattern).test(id);
+    return isValidProtocolIdentity(id, this.definition);
   }
 
   /**
@@ -263,144 +270,18 @@ export class ActiveProtocol implements IProtocol {
     return values[0];
   }
 
+  /**
+   * Validates a protocol state against its definition.
+   */
   validateState(state: ProtocolState, resolver?: IIdentityResolver): ValidationIssue[] {
-    const issues: ValidationIssue[] = [];
-    const keys = this.getAuthorizedKeys();
-
-    for (const key of keys) {
-      const def = this.getDefinition(key);
-      const values = state.trailers[key] || [];
-
-      if (def?.required && values.length === 0) {
-          issues.push({
-            severity: (key === this.identityKey || this.strict) ? 'error' : 'warning',
-            rule: (key === this.identityKey) ? `${this.name.toLowerCase().replace(/-/g, '')}-id-present` : 'required-trailer',
-            field: this.storageNamespace !== '' && key !== this.storageNamespace ? `${this.storageNamespace}:${key}` : key,
-            message: `[${this.name}] Required trailer missing: "${key}"`,
-          });
-      }
-
-      if (def?.multivalue === false && values.length > 1) {
-          issues.push({
-            severity: 'error',
-            rule: 'invalid-cardinality',
-            field: key,
-            message: `[${this.name}] Trailer "${key}" allows only one value (got ${values.length})`,
-          });
-      }
-
-      for (const value of values) {
-        const result = this.validateTrailer(key, value, resolver);
-        if (!result.valid) {
-          issues.push({
-            severity: (key === this.identityKey || this.strict) ? 'error' : 'warning',
-            rule: result.rule || 'invalid-format',
-            field: key,
-            message: result.message || `[${this.name}] Invalid value for "${key}": "${value}"`,
-          });
-        }
-      }
-    }
-
-    if (!this.permissive) {
-      for (const [key] of Object.entries(state.unauthorized)) {
-          issues.push({
-            severity: 'error',
-            rule: 'unauthorized-trailer',
-            field: this.storageNamespace !== '' && key !== this.storageNamespace ? `${this.storageNamespace}:${key}` : key,
-            message: `[${this.name}] Trailer "${key}" is not recognized by protocol schema`,
-          });
-      }
-    }
-    return issues;
+    return validateProtocolState(state, this.definition, resolver);
   }
 
+  /**
+   * Validates a single trailer value.
+   */
   validateTrailer(key: string, value: string, resolver?: IIdentityResolver): { valid: boolean; message?: string; rule?: string } {
-    const def = this.getDefinition(key);
-    if (!def) return { valid: true };
-
-    if (def.validation === 'values' && def.values) {
-      if (!Object.keys(def.values).includes(value)) {
-        return {
-          valid: false,
-          rule: 'invalid-enum',
-          message: `[${this.name}] Invalid value for "${key}": "${value}". Expected one of: ${Object.keys(def.values).join(', ')}`,
-        };
-      }
-    }
-
-    if (def.validation === 'pattern' && def.pattern) {
-      if (!new RegExp(def.pattern).test(value)) {
-        let rule = 'invalid-format';
-        let message = `[${this.name}] Value for "${key}" does not match pattern: ${def.pattern}`;
-        if (key === this.identityKey) {
-            rule = `${this.name.toLowerCase().replace(/-/g, '')}-id-format`;
-            message = `[${this.name}] ${this.identityKey} "${value}" is not a valid identifier`;
-        }
-        return { valid: false, rule, message };
-      }
-    }
-
-    if (def.validation === 'reference') {
-      let targetPName = this.name;
-      let targetId = value;
-
-      if (value.includes('/')) {
-        const [prefix, suffix] = value.split('/', 2);
-        targetPName = prefix.toLowerCase();
-        targetId = suffix;
-      }
-
-      const isLocal = targetPName === this.name;
-
-      if (def.crossProtocol === false && !isLocal) {
-        return {
-          valid: false,
-          rule: 'cross-protocol-prohibited',
-          message: `[${this.name}] Trailer "${key}" does not allow cross-protocol references (got "${targetPName}")`,
-        };
-      }
-
-      if (isLocal) {
-        return this.isValidIdentity(targetId) ? { valid: true } : {
-          valid: false,
-          rule: 'reference-format',
-          message: `[${this.name}] Invalid reference format in ${key}: "${value}".`,
-        };
-      }
-
-      if (!resolver) {
-        return {
-          valid: false,
-          rule: 'unknown-protocol-prefix',
-          message: `[${this.name}] Unknown protocol prefix: "${targetPName}" (Resolver not linked)`,
-        };
-      }
-
-      try {
-        const identity = resolver.resolveIdentity(value, this.name);
-        if (!identity) return { valid: false, rule: 'unknown-protocol-prefix' };
-
-        const targetP = resolver.get(identity.protocol || this.name);
-        if (targetP && !targetP.isValidIdentity(identity.id)) {
-            return {
-                valid: false,
-                rule: 'invalid-reference-format',
-                message: `[${this.name}] Reference "${value}" is not a valid identifier for protocol "${targetP.name}"`
-            };
-        }
-
-        return { valid: true };
-      } catch (err) {
-        return {
-            valid: false,
-            rule: 'unknown-protocol-prefix',
-            message: `[${this.name}] ${err instanceof Error ? err.message : String(err)}`,
-        };
-      }
-    }
-
-    return { valid: true };
+    return validateProtocolTrailer(key, value, this.definition, resolver);
   }
 
   isCore(key: string): boolean {

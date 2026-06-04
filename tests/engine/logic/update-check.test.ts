@@ -25,6 +25,7 @@ describe('Update Check Utility', () => {
   });
 
   it('should call updateNotifier if enabled and in a TTY', async () => {
+    process.env.CI = ''; // Ensure CI is disabled for this test
     await checkForUpdates({
       packageName: 'test-pkg',
       currentVersion: '1.0.0',
