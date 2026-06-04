@@ -26,18 +26,32 @@ describe('ProtocolInterpreter Normalization Priority Matrix', () => {
     expect(state.unauthorized).toEqual({});
   });
 
-  it('Step 2: Namespace Exclusion (Root Protocol ignores qualified trailers)', () => {
+  it('Step 2: Orphan Capture (Root Protocol ingests unrecognized namespaces)', () => {
     const protocol = makeMockProtocol({ namespace: '', permissive: true });
     const interpreter = protocol;
     
     const raw = {
-      'Other': ['Key: value'] // Qualified trailer
+      'Other': ['Key: value'] // Qualified trailer with no matching protocol
     };
 
     const state = interpreter.normalize(raw);
-    // Root protocol ignores things with colons in values that it doesn't own
-    expect(state.trailers.Other).toBeUndefined();
+    // Root protocol should capture this as a custom trailer because it is permissive
+    expect(state.trailers.Other).toEqual(['Key: value']);
     expect(state.unauthorized.Other).toBeUndefined();
+  });
+
+  it('Step 2a: Orphan Rejection (Strict Root Protocol marks unrecognized namespaces as unauthorized)', () => {
+    const protocol = makeMockProtocol({ namespace: '', permissive: false });
+    const interpreter = protocol;
+    
+    const raw = {
+      'Other': ['Key: value'] 
+    };
+
+    const state = interpreter.normalize(raw);
+    // Root protocol should mark this as unauthorized because it is NOT permissive
+    expect(state.trailers.Other).toBeUndefined();
+    expect(state.unauthorized.Other).toEqual(['Key: value']);
   });
 
   it('Step 3: Reserved Check (Ignore if another protocol explicitly claimed this key)', () => {

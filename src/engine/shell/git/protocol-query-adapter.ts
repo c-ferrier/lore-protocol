@@ -17,9 +17,9 @@ export class ProtocolQueryAdapter {
    * - Root: Must start with "identityKey: " + its regex pattern if available.
    */
   getDiscoveryPatterns(): string[] {
-    const { storageNamespace, identityKey } = this.protocol;
-    if (storageNamespace !== '') {
-        return [`^${escapeRegex(storageNamespace)}:`];
+    const { identityKey } = this.protocol;
+    if (!this.protocol.isRoot()) {
+        return [`^${escapeRegex(this.protocol.storageNamespace)}:`];
     }
 
     const def = this.protocol.getDefinition(identityKey);
@@ -38,8 +38,8 @@ export class ProtocolQueryAdapter {
    * Generates a specific pattern to find a single identity.
    */
   getIdentityPattern(id: string): string {
-      const { storageNamespace, identityKey } = this.protocol;
-      const prefix = storageNamespace !== '' ? `${storageNamespace}: ` : '';
+      const { identityKey } = this.protocol;
+      const prefix = this.protocol.getStoragePrefix();
       return `^${escapeRegex(prefix)}${escapeRegex(identityKey)}: ${escapeRegex(id)}$`;
   }
 
@@ -48,9 +48,7 @@ export class ProtocolQueryAdapter {
    */
   getSearchPatterns(filters: readonly QualifiedFilter[]): string[][] {
     const patterns: string[] = [];
-    const prefix = this.protocol.storageNamespace !== '' 
-        ? `${this.protocol.storageNamespace}: ` 
-        : '';
+    const prefix = this.protocol.getStoragePrefix();
 
     for (const filter of filters) {
       // 1. Authorize the key for this protocol
@@ -120,11 +118,11 @@ export class ProtocolQueryAdapter {
    * Determines if this protocol claims a block of raw trailers.
    */
   claims(rawTrailers: string): boolean {
-    const { storageNamespace, identityKey } = this.protocol;
+    const { identityKey } = this.protocol;
     const lines = rawTrailers.split('\n');
 
-    if (storageNamespace !== '') {
-        const pattern = new RegExp(`^${escapeRegex(storageNamespace)}:`, 'i');
+    if (!this.protocol.isRoot()) {
+        const pattern = new RegExp(`^${escapeRegex(this.protocol.storageNamespace)}:`, 'i');
         return lines.some(l => pattern.test(l));
     }
 
