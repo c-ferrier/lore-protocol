@@ -16,7 +16,7 @@ import type {
     StaleReason,
     Trailers
 } from '../types/domain.js';
-import type { ValidationIssue } from '../types/output.ts'
+import type { ValidationIssue } from '../types/output.js'
 import type { FormattableTrailerDefinition } from '../types/output.js';
 import type { QualifiedFilter, FilterOperator } from '../types/query.js';
 import { STALE_SIGNAL } from '../../util/constants.js';

@@ -33,7 +33,7 @@ import { LoreTextFormatter } from './formatters/lore-text-formatter.js';
 import { LoreConfigLoader } from './services/lore-config-loader.js';
 import { getLoreVersion, getLorePackageName, getLorePublishedVersion } from './util/version.js';
 import { resolve, join } from 'node:path';
-import type { LoreConfig } from './defaults.js';
+import type { Command } from 'commander';
 
 /**
  * Lore CLI Compatibility Layer.
@@ -74,8 +74,7 @@ export async function buildLoreCli() {
     onConfigLoaded: async (config: EngineConfig): Promise<EngineConfig> => {
         if (!legacyData) return config;
 
-        // Clone config to avoid mutation of readonly properties while still 
-        // using a mutable workspace for the patch phase.
+        // Clone config to avoid mutation of readonly properties
         const result: any = JSON.parse(JSON.stringify(config));
 
         const map = (section: string, legacyKey: string, engineKey: string) => {
@@ -159,7 +158,7 @@ export async function buildLoreCli() {
 
   // --- REBRANDING WRAPPER (Commander level) ---
   
-  // Register Lore-specific commands FIRST so they can be shimmed in the loop
+  // Register Lore-specific commands
   registerInitCommand(program, {
     getFormatter,
     engineDirName: options.engineDirName,
@@ -186,55 +185,36 @@ export async function buildLoreCli() {
   const versionOpt = program.options.find(o => o.long === '--version');
   if (versionOpt) (versionOpt as any).description = 'output the version number';
 
-  // 0.5.0 missing global no-op
-  if (!program.options.some(o => o.long === '--no-update-notifier')) {
-    program.option('--no-update-notifier', 'Disable update notification');
-  }
+  // --- REBRANDING & SHIMMING WRAPPER (Commander level) ---
+  const loreProtocol = sharedDeps.protocolRegistry.get('lore');
 
-  // Dynamic Flag Generation
-  // The Wrapper explicitly surfaces protocol properties as friendly CLI flags.
-  // E.g., a "Project" protocol with a "Status" trailer becomes --project-status.
-  for (const cmd of program.commands) {
-    const name = cmd.name();
-    if (name !== 'commit') continue; // Only apply to commit for 0.5.0 parity
-
-    // Lore-Only CLI Surface: The Wrapper only exposes Lore flags as top-level options.
-    // This maintains 100% parity with 0.5.0 and prevents UI clutter from internal plugins.
-    const loreProtocol = sharedDeps.protocolRegistry.get('lore');
-    if (loreProtocol) {
-      for (const key of loreProtocol.getAuthorizedKeys()) {
-        if (key === loreProtocol.identityKey) continue;
-
-        const def = loreProtocol.getDefinition(key) as TrailerDefinition;
-        if (!def) continue;
-
-        const flagName = def.cli?.flag || key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-        
-        if (!cmd.options.some(o => o.long === `--${flagName}`)) {
-          cmd.option(`--${flagName} <value...>`, `[lore] ${def.description}`);
-        }
-      }
-    }
-  }
-
-  // 1. Dynamic Prefix Stripping & 0.5.0 Trailer Shims
   for (const cmd of program.commands) {
       const name = cmd.name();
 
-      // Strip [Lore] prefix from any option description
+      // 1. Dynamic Flag Generation (0.5.0 parity)
+      if (name === 'commit' && loreProtocol) {
+          for (const key of loreProtocol.getAuthorizedKeys()) {
+              if (key === loreProtocol.identityKey) continue;
+
+              const def = loreProtocol.getDefinition(key) as TrailerDefinition;
+              if (!def) continue;
+
+              const flagName = def.cli?.flag || key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+              cmd.option(`--${flagName} <value...>`, `[lore] ${def.description}`);
+          }
+      }
+
+      // 2. Prefix Stripping
       for (const opt of cmd.options) {
           if (opt.description.startsWith('[Lore] ')) {
               (opt as any).description = opt.description.slice(7);
           }
+          if (opt.description.startsWith('[lore] ')) {
+              (opt as any).description = opt.description.slice(7);
+          }
       }
 
-      // Function to hide additive options
-      const hideOpt = (f: string) => {
-          const opt = cmd.options.find(o => o.long === f);
-          if (opt) (opt as any).hidden = true;
-      };
-
-      // Exact 0.5.0 String Parity for Core Trailers (Commit Command)
+      // 3. Command-specific 0.5.0 Shims
       if (name === 'commit') {
           const shim = (flag: string, desc: string) => {
               const opt = cmd.options.find(o => o.long === flag);
@@ -251,16 +231,14 @@ export async function buildLoreCli() {
           shim('--supersedes', 'Supersedes Lore-id (repeatable)');
           shim('--depends-on', 'Depends-on Lore-id (repeatable)');
           shim('--related', 'Related Lore-id (repeatable)');
-          
-          hideOpt('--until');
-          hideOpt('--trailer');
-          hideOpt('--assisted-by');
-          hideOpt('--co-authored-by');
 
-          // Legacy 0.5.0 branding
+          hideOpt(cmd, '--until');
+          hideOpt(cmd, '--trailer');
+          hideOpt(cmd, '--assisted-by');
+          hideOpt(cmd, '--co-authored-by');
+
           cmd.description('Create a Lore-enriched commit');
 
-          // Subject/Intent handling
           const subjectOpt = cmd.options.find(o => o.long === '--subject');
           if (subjectOpt) {
               (subjectOpt as any).hidden = true;
@@ -271,70 +249,64 @@ export async function buildLoreCli() {
               const opts = thisCommand.opts();
               if (opts.intent) thisCommand.setOptionValue('subject', opts.intent);
 
-              // Map dynamic Lore flags to the generic --trailer array
               const trailerArray: string[] = opts.trailer || [];
-              const loreProtocol = sharedDeps.protocolRegistry.get('lore');
-              
               if (loreProtocol) {
                   for (const key of loreProtocol.getAuthorizedKeys()) {
                       if (key === loreProtocol.identityKey) continue;
-
                       const def = loreProtocol.getDefinition(key) as TrailerDefinition;
                       if (!def) continue;
-
                       const flagName = def.cli?.flag || key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
                       const camelFlag = camelCase(flagName);
-
                       if (opts[camelFlag]) {
                           const vals = Array.isArray(opts[camelFlag]) ? opts[camelFlag] : [opts[camelFlag]];
-                          for (const v of vals) {
-                              trailerArray.push(`${key}=${v}`);
-                          }
+                          for (const v of vals) trailerArray.push(`${key}=${v}`);
                       }
                   }
               }
-              if (trailerArray.length > 0) {
-                  thisCommand.setOptionValue('trailer', trailerArray);
-              }
+              if (trailerArray.length > 0) thisCommand.setOptionValue('trailer', trailerArray);
           });
       }
 
-      // Command-level 0.5.0 Shims
       if (name === 'log') {
           cmd.description('Lore-enriched git log');
-          hideOpt('--scope');
-          hideOpt('--follow');
-          hideOpt('--all');
-          hideOpt('--author');
-          hideOpt('--until');
-          hideOpt('--filter');
+          hideOpt(cmd, '--scope');
+          hideOpt(cmd, '--follow');
+          hideOpt(cmd, '--all');
+          hideOpt(cmd, '--author');
+          hideOpt(cmd, '--until');
+          hideOpt(cmd, '--filter');
       }
+      
       if (name === 'validate') {
           cmd.description('Validate commits for Lore protocol compliance');
-          hideOpt('--until');
+          hideOpt(cmd, '--until');
       }
+
       if (name === 'why') {
           cmd.description('Decision context for a specific line or line range');
-          hideOpt('--scope');
-          hideOpt('--follow');
-          hideOpt('--all');
-          hideOpt('--author');
-          hideOpt('--limit');
-          hideOpt('--max-commits');
-          hideOpt('--since');
-          hideOpt('--until');
-          hideOpt('--filter');
+          hideOpt(cmd, '--scope');
+          hideOpt(cmd, '--follow');
+          hideOpt(cmd, '--all');
+          hideOpt(cmd, '--author');
+          hideOpt(cmd, '--limit');
+          hideOpt(cmd, '--max-commits');
+          hideOpt(cmd, '--since');
+          hideOpt(cmd, '--until');
+          hideOpt(cmd, '--filter');
       }
+
       if (name === 'trace') {
           cmd.description('Follow decision chain from a starting atom');
           const maxDepthOpt = cmd.options.find(o => o.long === '--max-depth');
           if (maxDepthOpt) (maxDepthOpt as any).description = 'Maximum BFS traversal depth (default: 10)';
-          hideOpt('--until');
+          hideOpt(cmd, '--until');
       }
+
       if (name === 'doctor') {
           cmd.description('Health check: broken refs, config issues');
-          hideOpt('--until');
+          hideOpt(cmd, '--until');
       }
+
       if (name === 'search') {
           cmd.description('Search across all lore with filters');
           const textOpt = cmd.options.find(o => o.long === '--text');
@@ -355,19 +327,12 @@ export async function buildLoreCli() {
           const untilOpt = cmd.options.find(o => o.long === '--until');
           if (untilOpt) (untilOpt as any).description = 'Upper time/revision bound';
 
-          hideOpt('--follow');
-          hideOpt('--filter');
+          hideOpt(cmd, '--follow');
+          hideOpt(cmd, '--filter');
 
-          // Re-add Lore semantic filters
-          if (!cmd.options.some(o => o.long === '--confidence')) {
-            cmd.option('--confidence <level>', 'Filter by confidence: low, medium, high');
-          }
-          if (!cmd.options.some(o => o.long === '--scope-risk')) {
-            cmd.option('--scope-risk <level>', 'Filter by scope-risk: narrow, moderate, wide');
-          }
-          if (!cmd.options.some(o => o.long === '--reversibility')) {
-            cmd.option('--reversibility <level>', 'Filter by reversibility: clean, migration-needed, irreversible');
-          }
+          cmd.option('--confidence <level>', 'Filter by confidence: low, medium, high');
+          cmd.option('--scope-risk <level>', 'Filter by scope-risk: narrow, moderate, wide');
+          cmd.option('--reversibility <level>', 'Filter by reversibility: clean, migration-needed, irreversible');
 
           cmd.hook('preAction', (thisCommand) => {
               const opts = thisCommand.opts();
@@ -375,17 +340,14 @@ export async function buildLoreCli() {
               if (opts.confidence) filterArray.push(`Confidence=${opts.confidence}`);
               if (opts.scopeRisk) filterArray.push(`Scope-risk=${opts.scopeRisk}`);
               if (opts.reversibility) filterArray.push(`Reversibility=${opts.reversibility}`);
-              if (filterArray.length > 0) {
-                thisCommand.setOptionValue('filter', filterArray);
-              }
+              if (filterArray.length > 0) thisCommand.setOptionValue('filter', filterArray);
           });
       }
+
       if (name === 'stale') {
           cmd.description('Flag potentially outdated knowledge');
-          if (!cmd.options.some(o => o.long === '--low-confidence')) {
-            cmd.option('--low-confidence', 'Flag low-confidence atoms');
-          }
-          hideOpt('--until');
+          cmd.option('--low-confidence', 'Flag low-confidence atoms');
+          hideOpt(cmd, '--until');
           
           cmd.hook('preAction', (thisCommand) => {
               const opts = thisCommand.opts();
@@ -394,32 +356,37 @@ export async function buildLoreCli() {
               thisCommand.setOptionValue('signals', signals);
           });
       }
+
       if (name === 'squash') {
           cmd.description('Merge atoms for squash-merge preparation');
           const subjectOpt = cmd.options.find(o => o.long === '--subject');
           if (subjectOpt) (subjectOpt as any).hidden = true;
-          if (!cmd.options.some(o => o.long === '--intent')) {
-            cmd.option('--intent <text>', 'Override the intent line of the merged message');
-          }
-          hideOpt('--until');
+          cmd.option('--intent <text>', 'Override the intent line of the merged message');
+          hideOpt(cmd, '--until');
           cmd.hook('preAction', (thisCommand) => {
               const opts = thisCommand.opts();
               if (opts.intent) thisCommand.setOptionValue('subject', opts.intent);
           });
       }
 
-      // Shared shims across path-query commands
       const pathQueryCmds = ['context', 'constraints', 'rejected', 'directives', 'tested', 'coverage'];
       if (pathQueryCmds.includes(name)) {
-          hideOpt('--until');
-          hideOpt('--filter');
+          hideOpt(cmd, '--until');
+          hideOpt(cmd, '--filter');
           const maxCommitsOpt = cmd.options.find(o => o.long === '--max-commits');
           if (maxCommitsOpt) (maxCommitsOpt as any).description = 'Maximum git commits to scan (supersession may be incomplete)';
-          
           if (name === 'rejected') cmd.description('Previously rejected alternatives for a code region');
           if (name === 'directives') cmd.description('Active forward-looking warnings for a code region');
       }
   }
 
   return { program, getFormatter, sharedDeps, config };
+}
+
+/**
+ * Helper to hide an option on a command.
+ */
+function hideOpt(cmd: Command, flag: string) {
+  const opt = cmd.options.find(o => o.long === flag || o.short === flag);
+  if (opt) (opt as any).hidden = true;
 }

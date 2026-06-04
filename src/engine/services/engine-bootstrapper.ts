@@ -127,6 +127,7 @@ export class EngineBootstrapper {
       .option('--json', 'Output results in JSON format')
       .option('--no-cache', 'Bypass local atom cache')
       .option('--no-color', 'Disable terminal colors')
+      .option('--no-update-notifier', 'Disable update notification')
       .option('--context <path>', 'Run in the context of a specific directory')
       .option('--format <type>', 'Output format (text, json)', 'text');
 
