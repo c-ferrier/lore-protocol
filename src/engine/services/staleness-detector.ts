@@ -8,6 +8,7 @@ import type { StaleAtomReport } from '../core/types/output.js';
 import { 
     evaluateAgeSignal, 
     evaluateDriftSignal, 
+    getProtocolStaleSignals
 } from '../core/logic/staleness.js';
 
 /**
@@ -44,7 +45,7 @@ export class StalenessDetector {
 
       // 2. Protocol-Specific Signals
       for (const p of protocols) {
-          const pReasons = p.getStaleSignals(atom, now, globalSupersessionMap);
+          const pReasons = getProtocolStaleSignals(p, atom, now, globalSupersessionMap);
           reasons.push(...pReasons);
       }
 

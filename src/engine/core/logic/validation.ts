@@ -1,7 +1,6 @@
 import type { ValidationIssue } from '../types/output.js';
 import type { EngineConfig } from '../types/config.js';
 import type { Trailers, ProtocolState } from '../types/domain.js';
-import type { ActiveProtocol } from '../models/active-protocol.js';
 import type { IIdentityResolver, ProtocolDefinition, ProtocolContext } from '../types/protocol-definition.js';
 
 /**
@@ -44,7 +43,7 @@ export function evaluateHygiene(subject: string = '', body: string = '', config:
  * Pure logic -- calls the protocol's validateState which performs schema math.
  */
 export function evaluateProtocolSchema(
-  protocol: ActiveProtocol,
+  protocol: ProtocolContext,
   state: ProtocolState,
   resolver?: IIdentityResolver,
 ): ValidationIssue[] {

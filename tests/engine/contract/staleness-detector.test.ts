@@ -44,13 +44,12 @@ describe('StalenessDetector Orchestration (Contract)', () => {
   it('should delegate to protocols for domain-specific signals', async () => {
     const protocol = makeProtocol({
         name: 'mock',
-        trailers: { Confidence: { description: 'conf' } }
-    });
-    // Force a protocol-level stale signal
-    vi.spyOn(protocol, 'getStaleSignals').mockReturnValue([{
-        signal: STALE_SIGNAL.CONFIDENCE,
-        description: 'Low confidence'
-    }]);
+        trailers: { Confidence: { description: 'conf' } },
+        getStaleSignals: () => [{
+            signal: STALE_SIGNAL.CONFIDENCE,
+            description: 'Low confidence'
+        }]
+    } as any);
 
     const registry = makeProtocolRegistry([protocol]);
     const detector = new StalenessDetector(gitClient, TEST_ENGINE_CONFIG, registry);
