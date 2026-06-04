@@ -8,8 +8,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 describe('Hierarchical Namespacing Logic', () => {
   let registry: ProtocolRegistry;
-  let rootProtocol: any;
-  let projectProtocol: any;
+  let rootProtocol: ProtocolContext;
+  let projectProtocol: ProtocolContext;
 
   beforeEach(() => {
     registry = new ProtocolRegistry();

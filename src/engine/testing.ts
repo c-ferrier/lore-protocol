@@ -165,28 +165,22 @@ export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = 
 /**
  * Creates a pure ProtocolContext for testing with optional mock logic hooks.
  */
-export function makeMockContext(overrides: Partial<ProtocolDefinition> & {
-    validateState?: any;
-    validateTrailer?: any;
-    getStaleSignals?: any;
-    getAuthorizedKeys?: any;
-    matches?: any;
-    claims?: any;
-} = {}): ProtocolContext {
+export function makeMockContext(overrides: Partial<ProtocolDefinition> & Partial<Pick<ProtocolContext, 'validateState' | 'validateTrailer' | 'getStaleSignals' | 'getAuthorizedKeys' | 'matches' | 'claims'>> = {}): ProtocolContext {
     const { validateState, validateTrailer, getStaleSignals, getAuthorizedKeys, matches, claims, ...defOverrides } = overrides;
     
     const def = makeProtocolDefinition(defOverrides);
     const ctx = createProtocolContext(def);
     
-    // Inject mock hooks if provided
-    if (validateState) (ctx as any).validateState = validateState;
-    if (validateTrailer) (ctx as any).validateTrailer = validateTrailer;
-    if (getStaleSignals) (ctx as any).getStaleSignals = getStaleSignals;
-    if (getAuthorizedKeys) (ctx as any).getAuthorizedKeys = getAuthorizedKeys;
-    if (matches) (ctx as any).matches = matches;
-    if (claims) (ctx as any).claims = claims;
-    
-    return ctx;
+    // Create a new object to safely override readonly hooks without type casting errors
+    return {
+        ...ctx,
+        ...(validateState && { validateState }),
+        ...(validateTrailer && { validateTrailer }),
+        ...(getStaleSignals && { getStaleSignals }),
+        ...(getAuthorizedKeys && { getAuthorizedKeys }),
+        ...(matches && { matches }),
+        ...(claims && { claims })
+    };
 }
 
 /** Helper to create a raw commit object. */

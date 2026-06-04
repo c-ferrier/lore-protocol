@@ -51,8 +51,8 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
     });
 
 
-    registry.register(mockProtocol as any);
-    registry.register(secProtocol as any);
+    registry.register(mockProtocol);
+    registry.register(secProtocol);
 
     const reports = await detector.analyze([mockAtom], new Map());
 

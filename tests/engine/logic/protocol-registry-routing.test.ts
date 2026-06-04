@@ -18,8 +18,8 @@ describe('ProtocolRegistry Key Routing', () => {
         authorize: (k: string) => k === 'ns2' ? 'ns2' : null 
     });
     const registry = new ProtocolRegistry();
-    registry.register(p1 as any);
-    registry.register(p2 as any);
+    registry.register(p1);
+    registry.register(p2);
 
     expect(registry.resolveKey('Key1')).toBe(p1);
     expect(registry.resolveKey('ns2')).toBe(p2);
@@ -28,7 +28,7 @@ describe('ProtocolRegistry Key Routing', () => {
   it('should return the root protocol as fallback for unknown keys', () => {
     const p1 = makeMockProtocolContext({ name: 'Root', namespace: '' });
     const registry = new ProtocolRegistry();
-    registry.register(p1 as any);
+    registry.register(p1);
 
     expect(registry.resolveKey('Unknown')).toBe(p1);
   });
@@ -36,7 +36,7 @@ describe('ProtocolRegistry Key Routing', () => {
   it('should return undefined if no protocol owns the key and no root exists', () => {
       const p1 = makeMockProtocolContext({ name: 'NS', namespace: 'ns' });
       const registry = new ProtocolRegistry();
-      registry.register(p1 as any);
+      registry.register(p1);
 
       expect(registry.resolveKey('Unknown')).toBeUndefined();
   });
@@ -48,7 +48,7 @@ describe('ProtocolRegistry Key Routing', () => {
         authorize: (k: string) => k.toLowerCase() === 'status' ? 'Status' : null,
     });
     const registry = new ProtocolRegistry();
-    registry.register(p as any);
+    registry.register(p);
 
     expect(registry.resolveKey('status')).toBe(p);
     expect(registry.resolveKey('STATUS')).toBe(p);

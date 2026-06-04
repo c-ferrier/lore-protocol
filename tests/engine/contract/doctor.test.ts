@@ -10,7 +10,7 @@ import { Command } from 'commander';
 describe('Doctor Command', () => {
   let atomRepository: any;
   let configLoader: any;
-  let protocol: any;
+  let protocol: ProtocolContext;
 
   beforeEach(() => {
     atomRepository = makeMockAtomRepository();
