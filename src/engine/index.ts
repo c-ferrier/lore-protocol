@@ -1,6 +1,5 @@
 // --- Domain Models & Semantic Types ---
 export { ProtocolMap, type ProtocolName } from './core/models/protocol-map.js';
-export { ActiveProtocol, type ActiveTrailer } from './core/models/active-protocol.js';
 
 // --- Domain Types (Explicit Named Exports to prevent circular shadowing) ---
 export type { 
@@ -46,7 +45,7 @@ export type {
 } from './core/types/output.js';
 
 export type { CommitInput } from './core/types/commit.js';
-export type { ProtocolDefinition } from './core/types/protocol-definition.js';
+export type { ProtocolDefinition, ProtocolContext, IIdentityResolver } from './core/types/protocol-definition.js';
 
 // --- Primary Public Interfaces ---
 export type { IGitClient, RawCommit, CommitResult, BlameLine } from './interfaces/git-client.js';
