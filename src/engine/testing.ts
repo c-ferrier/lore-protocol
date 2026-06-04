@@ -3,7 +3,7 @@ import { ProtocolMap } from './core/models/protocol-map.js';
 import { ActiveProtocol } from './core/models/active-protocol.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
 import { ProtocolLoader } from './shell/fs/protocol-loader.js';
-import type { ProtocolDefinition, IIdentityResolver, IProtocol, ProtocolContext } from './core/types/protocol-definition.js';
+import type { ProtocolDefinition, IIdentityResolver, ProtocolContext } from './core/types/protocol-definition.js';
 import type { EngineConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition } from './core/types/config.js';
 import type { Atom, SupersessionStatus, StaleReason, ProtocolState } from './core/types/domain.js';
 import type { RawCommit as IGitRawCommit } from './interfaces/git-client.js';
@@ -215,7 +215,7 @@ export function makeStubGitClient(overrides: any = {}) {
 }
 
 /** Lightweight stub for testing services that need a protocol but not its full logic. */
-export function makeStubProtocol(overrides: any = {}): IProtocol {
+export function makeStubProtocol(overrides: any = {}): ProtocolContext {
     const p = makeProtocol(overrides);
     
     // Explicitly apply overrides to the instance to allow method/property mocking

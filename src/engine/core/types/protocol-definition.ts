@@ -58,19 +58,3 @@ export interface ProtocolContext {
     getStaleSignals(atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[];
     getAuthorizedKeys(): string[];
 }
-
-/**
- * Domain model for a Protocol.
- * Combines optimized context with behavioral methods.
- */
-export interface IProtocol extends ProtocolContext {
-    readonly context: ProtocolContext;
-    
-    isValidIdentity(id: string): boolean;
-    getIdentity(state?: ProtocolState | null): string | null;
-    getAuthorizedKeys(): string[];
-    validateState(state: ProtocolState, resolver?: IIdentityResolver): ValidationIssue[];
-    validateTrailer(key: string, value: string, resolver?: IIdentityResolver): { valid: boolean; message?: string; rule?: string };
-    getFormattableDefinitions(): Record<string, FormattableTrailerDefinition>;
-    getStaleSignals(atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[];
-}

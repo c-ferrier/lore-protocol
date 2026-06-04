@@ -1,6 +1,5 @@
 import { ActiveProtocol } from '../../../../src/engine/core/models/active-protocol.js';
 import { type ProtocolDefinition } from '../../../../src/engine/core/types/protocol-definition.js';
-import { type IProtocol } from '../../../../src/engine/core/types/protocol-definition.js';
 
 import { describe, it, expect, vi } from 'vitest';
 

@@ -3,7 +3,6 @@ import type {
     ProtocolDefinition, 
     ProtocolContext,
     IIdentityResolver, 
-    IProtocol 
 } from '../types/protocol-definition.js';
 import type { 
     TrailerDefinition, 
@@ -28,6 +27,7 @@ import {
     getProtocolAuthorizedKeys,
     getFormattableDefinitions
 } from '../logic/protocols.js';
+import { getQualifiedKey, isBucketOwner, ownsKey, authorizeKey } from '../logic/ownership.js';
 import { normalizeTrailers } from '../logic/normalization.js';
 
 import { getProtocolIdentity } from '../logic/identity.js';
@@ -41,9 +41,9 @@ export type ActiveTrailer = TrailerDefinition & { key: string };
  * Responsibility: Provide a backward-compatible class interface that 
  * delegates all 'Judgment Brain' logic to stateless pure functions.
  * 
- * Satisfies ProtocolContext and IProtocol to allow seamless transition.
+ * Satisfies ProtocolContext to allow seamless transition.
  */
-export class ActiveProtocol implements IProtocol, ProtocolContext {
+export class ActiveProtocol implements ProtocolContext {
   public readonly name: string;
   public readonly version: string;
   public readonly strict: boolean;
@@ -85,7 +85,7 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
   }
 
   /**
-   * Helper to satisfy IProtocol.context while being the context itself.
+   * Helper to satisfy legacy code that still expects a .context property.
    */
   public get context(): ProtocolContext {
       return this;

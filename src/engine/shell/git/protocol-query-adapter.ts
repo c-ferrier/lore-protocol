@@ -1,4 +1,4 @@
-import type { ProtocolContext, IProtocol } from '../../core/types/protocol-definition.js';
+import type { ProtocolContext } from '../../core/types/protocol-definition.js';
 import type { QualifiedFilter, FilterOperator } from '../../core/types/query.js';
 import type { ProtocolState } from '../../core/types/domain.js';
 import { escapeRegex } from '../../util/regex.js';
