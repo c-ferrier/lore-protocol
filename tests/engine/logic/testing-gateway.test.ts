@@ -1,28 +1,33 @@
-import { makeStubGitClient, makeStubProtocol } from '../../../src/engine/testing.js';
+import { makeStubGitClient, makeMockContext } from '../../../src/engine/testing.js';
 import { ownsKey } from '../../../src/engine/core/logic/ownership.js';
 
 import { describe, it, expect } from 'vitest';
-;
 
 describe('Testing Gateway Logic', () => {
-  describe('makeStubProtocol', () => {
+  describe('makeMockContext', () => {
     it('should force lowercase name even if provided in overrides', () => {
-      const stub = makeStubProtocol({ name: 'Alpha' });
-      expect(stub.def.name.toLowerCase()).toBe('alpha');
+      const stub = makeMockContext({ name: 'Alpha' });
+      expect(stub.name).toBe('alpha');
     });
 
     it('should correctly capture storage namespace', () => {
-      const stub = makeStubProtocol({ namespace: 'project' });
-      expect(stub.def.namespace).toBe('project');
+      const stub = makeMockContext({ namespace: 'project' });
+      expect(stub.storageNamespace).toBe('project');
       expect(ownsKey('project', stub)).toBe(true);
     });
 
     it('should implement basic owns logic based on namespace', () => {
-        const stub = makeStubProtocol({ name: 'Alpha', namespace: 'ns' });
+        const stub = makeMockContext({ name: 'Alpha', namespace: 'ns' });
         // STRICT ISOLATION: Namespaced protocols only own their bucket.
         expect(ownsKey('alpha', stub)).toBe(false);
         expect(ownsKey('ns', stub)).toBe(true);
         expect(ownsKey('other', stub)).toBe(false);
+    });
+
+    it('should inject functional hooks', () => {
+        const validateState = () => [];
+        const stub = makeMockContext({ validateState });
+        expect(stub.validateState).toBe(validateState);
     });
   });
 

@@ -8,8 +8,6 @@ import {
     makeStubAtomRepository as stubAtomRepository, 
     makeStubValidator as stubValidator, 
     makeStubStalenessDetector as stubStalenessDetector, 
-    makeStubProtocolRegistry as stubProtocolRegistryStub,
-    makeStubProtocol as stubProtocolStub,
     TEST_ENGINE_CONFIG,
     createProtocolContext,
     makeRawCommit,
@@ -150,6 +148,12 @@ export function makeMockProtocolContext(overrides: any = {}): ProtocolContext {
     if (overrides.getAuthorizedKeys && typeof overrides.getAuthorizedKeys === 'function' && !overrides.getAuthorizedKeys.mock) {
         hooks.getAuthorizedKeys = vi.fn(overrides.getAuthorizedKeys);
     }
+    if (overrides.matches && typeof overrides.matches === 'function' && !overrides.matches.mock) {
+        hooks.matches = vi.fn(overrides.matches);
+    }
+    if (overrides.claims && typeof overrides.claims === 'function' && !overrides.claims.mock) {
+        hooks.claims = vi.fn(overrides.claims);
+    }
 
     return stubMockContext({ ...overrides, ...hooks });
 }
@@ -207,7 +211,7 @@ export function makeQueryOptions(overrides: any = {}): any {
 // Shims for backward compatibility (Mock versions preferred in tests)
 export const makeProtocolRegistry = makeMockProtocolRegistry;
 export const makeProtocol = makeMockProtocol;
-export const makeStubProtocol = stubProtocolStub;
+export const makeStubProtocol = (overrides: any) => stubMockContext(overrides);
 export const makeStubGitClient = makeMockGitClient;
 export const makeFormatter = makeMockFormatter;
 export const makeConfigLoader = makeMockConfigLoader;

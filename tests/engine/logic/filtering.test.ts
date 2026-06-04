@@ -1,12 +1,9 @@
 import { filterAtoms, resolveFilterStrings, resolveFilters } from '../../../src/engine/core/logic/filtering.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtom } from '../../../src/engine/testing.js';
-import { makeMockProtocol } from '../engine-test-utils.js';
+import { makeAtom, makeMockContext } from '../../../src/engine/testing.js';
+import { ProtocolMap } from '../../../src/engine/core/types/domain.js';
 
-import { describe, it, expect, vi } from 'vitest';
-;
-;
-;
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 describe('Filtering Logic (Pure Functions)', () => {
   let registry: ProtocolRegistry;
@@ -41,21 +38,25 @@ describe('Filtering Logic (Pure Functions)', () => {
     registry = new ProtocolRegistry();
     
     // P1: Root protocol
-    const protocol = makeMockProtocol({
+    const protocol = makeMockContext({
         name: 'mock',
         namespace: '',
-        owns: vi.fn((key: string) => ['mock-id', 'confidence'].includes(key.toLowerCase())),
-        authorize: vi.fn(mockAuthorize),
+        trailers: {
+            'Mock-id': { description: 'ID' },
+            'Confidence': { description: 'C' }
+        },
         matches: vi.fn(createMockMatches(mockAuthorize))
     });
     registry.register(protocol);
 
-    // P2: Namespaced protocol (must be namespaced to avoid collision with root protocol)
-    const fredProtocol = makeMockProtocol({
+    // P2: Namespaced protocol
+    const fredProtocol = makeMockContext({
         name: 'fred',
         namespace: 'fred',
-        owns: vi.fn((key: string) => ['fred-id', 'team'].includes(key.toLowerCase())),
-        authorize: vi.fn(fredAuthorize),
+        trailers: {
+            'Fred-id': { description: 'ID' },
+            'Team': { description: 'T' }
+        },
         matches: vi.fn(createMockMatches(fredAuthorize))
     });
     registry.register(fredProtocol);
@@ -231,10 +232,7 @@ describe('Filtering Logic (Pure Functions)', () => {
     it('should evaluate qualified namespace paths correctly', () => {
       const atom = makeAtom({ id: 'a1' });
       atom.protocols.set('fred', {
-          name: 'Fred',
-          version: '1.0',
-          identityKey: 'Fred-id',
-          trailers: { 'Team': ['alpha'] } as any,
+          trailers: { 'Team': ['alpha'] },
           unauthorized: {}
       });
 
@@ -248,10 +246,7 @@ describe('Filtering Logic (Pure Functions)', () => {
     it('should match if any protocol in the atom matches generic filters', () => {
       const multiAtom = makeAtom({ id: 'a1' });
       multiAtom.protocols.set('fred', {
-          name: 'Fred',
-          version: '1.0',
-          identityKey: 'Fred-id',
-          trailers: { 'Team': ['secret'] } as any,
+          trailers: { 'Team': ['secret'] },
           unauthorized: {}
       });
 

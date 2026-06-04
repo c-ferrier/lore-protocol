@@ -1,9 +1,11 @@
 import type { ProtocolDefinition, ProtocolContext, IIdentityResolver } from '../types/protocol-definition.js';
 import type { FormattableTrailerDefinition, ValidationIssue } from '../types/output.js';
 import type { ProtocolState, Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
+import type { QualifiedFilter } from '../types/query.js';
 import { ProtocolHydrator } from '../../shell/fs/protocol-hydrator.js';
 import { validateProtocolState, validateProtocolTrailer } from './validation.js';
 import { getProtocolStaleSignals } from './staleness.js';
+import { matchesFilters, claimsTrailers } from './query-adapter.js';
 
 /**
  * Transforms a serializable ProtocolDefinition into an operationally optimized ProtocolContext.
@@ -51,6 +53,12 @@ export function createProtocolContext(def: ProtocolDefinition): ProtocolContext 
             
         getAuthorizedKeys: () => 
             (def as any).getAuthorizedKeys ? (def as any).getAuthorizedKeys() : getProtocolAuthorizedKeys(ctx),
+
+        matches: (state: ProtocolState, filters: readonly QualifiedFilter[]) =>
+            (def as any).matches ? (def as any).matches(state, filters) : matchesFilters(state, filters, ctx),
+
+        claims: (raw: string) =>
+            (def as any).claims ? (def as any).claims(raw) : claimsTrailers(raw, ctx),
     };
 
     return ctx;

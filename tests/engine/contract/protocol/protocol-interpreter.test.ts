@@ -1,33 +1,33 @@
-import { ProtocolInterpreter, TEST_PROTOCOL_DEFINITION, makeMockContext } from '../../../../src/engine/testing.js';
+import { TEST_PROTOCOL_DEFINITION, makeMockContext, normalizeTrailers } from '../../../../src/engine/testing.js';
+import { getProtocolIdentity } from '../../../../src/engine/core/logic/identity.js';
+import { getStaleSignals } from '../../../../src/engine/core/logic/staleness.js';
 import { ProtocolMap } from '../../../../src/engine/core/types/domain.js';
 
 import { describe, it, expect } from 'vitest';
 
-describe('ProtocolInterpreter', () => {
+describe('Protocol Interpreter Logic (via Pure Functions)', () => {
 
   it('should normalize raw trailers into authorized and unauthorized buckets', () => {
     const protocol = makeMockContext({ ...TEST_PROTOCOL_DEFINITION, permissive: false });
-    const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
       'Mock-id': ['a1b2c3d4'],
       'Unknown': ['junk']
     };
 
-    const state = interpreter.normalize(raw);
+    const state = normalizeTrailers(raw, protocol);
     expect(state.trailers['Mock-id']).toEqual(['a1b2c3d4']);
     expect(state.unauthorized['Unknown']).toEqual(['junk']);
   });
 
   it('should ingest unknown trailers in permissive mode', () => {
     const protocol = makeMockContext({ ...TEST_PROTOCOL_DEFINITION, permissive: true });
-    const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
       'Unknown': ['value']
     };
 
-    const state = interpreter.normalize(raw);
+    const state = normalizeTrailers(raw, protocol);
     expect(state.trailers['Unknown']).toEqual(['value']);
     expect(state.unauthorized).toEqual({});
   });
@@ -39,51 +39,47 @@ describe('ProtocolInterpreter', () => {
         permissive: false,
         trailers: { id: { description: 'ID' } }
     });
-    const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
       'Project': ['id: 12345678', 'team: backend']
     };
 
-    const state = interpreter.normalize(raw);
+    const state = normalizeTrailers(raw, protocol);
     expect(state.trailers.id).toEqual(['12345678']);
     expect(state.unauthorized.team).toEqual(['backend']);
   });
 
   it('should extract identity from protocol state', () => {
     const protocol = makeMockContext(TEST_PROTOCOL_DEFINITION);
-    const interpreter = new ProtocolInterpreter(protocol);
     
     const state = {
       trailers: { 'Mock-id': ['a1b2c3d4'] },
       unauthorized: {}
     };
 
-    expect(interpreter.getIdentity(state)).toBe('a1b2c3d4');
-    expect(interpreter.getIdentity(null)).toBeNull();
+    expect(getProtocolIdentity(state, protocol)).toBe('a1b2c3d4');
+    expect(getProtocolIdentity(null, protocol)).toBeNull();
   });
 
   it('should handle namespaced trailers with invalid formats by putting them in unauthorized bucket', () => {
     const protocol = makeMockContext({ ...TEST_PROTOCOL_DEFINITION, namespace: 'Project' });
-    const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
       'Project': ['this is not a key-value pair']
     };
 
-    const state = interpreter.normalize(raw);
+    const state = normalizeTrailers(raw, protocol);
     expect(state.unauthorized['invalid-format']).toEqual(['this is not a key-value pair']);
   });
 
   it('should respect claimed keys in permissive mode', () => {
     const protocol = makeMockContext({ ...TEST_PROTOCOL_DEFINITION, permissive: true });
-    const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
       'Other': ['value']
     };
 
-    const state = interpreter.normalize(raw, new Set(['Other']));
+    const state = normalizeTrailers(raw, protocol, new Set(['Other']));
     expect(state.trailers.Other).toBeUndefined();
   });
 
@@ -92,14 +88,13 @@ describe('ProtocolInterpreter', () => {
         ...TEST_PROTOCOL_DEFINITION, 
         trailers: { Confidence: { description: 'C' } }
     });
-    const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
       'confidence': ['high'],
       'CONFIDENCE': ['low']
     };
 
-    const state = interpreter.normalize(raw);
+    const state = normalizeTrailers(raw, protocol);
     expect(state.trailers.Confidence).toEqual(['high', 'low']);
   });
 
@@ -114,13 +109,12 @@ describe('ProtocolInterpreter', () => {
           }
         }
       });
-      const interpreter = new ProtocolInterpreter(protocol);
       
       const atom = {
         protocols: new ProtocolMap([['mock', { trailers: { Confidence: ['low'] }, unauthorized: {} }]])
       } as any;
 
-      const signals = interpreter.getStaleSignals(atom, new Date(), new Map());
+      const signals = getStaleSignals(protocol, atom, new Date(), new Map());
       expect(signals).toHaveLength(1);
       expect(signals[0].signal).toBe('low-conf');
       expect(signals[0].description).toContain('marked as Confidence: low');
@@ -136,14 +130,13 @@ describe('ProtocolInterpreter', () => {
           }
         }
       });
-      const interpreter = new ProtocolInterpreter(protocol);
       
       const atom = {
         protocols: new ProtocolMap([['mock', { trailers: { Deadline: ['[until: 2024-01-01]'] }, unauthorized: {} }]])
       } as any;
 
       const later = new Date('2024-02-01');
-      const signals = interpreter.getStaleSignals(atom, later, new Map());
+      const signals = getStaleSignals(protocol, atom, later, new Map());
       expect(signals).toHaveLength(1);
       expect(signals[0].signal).toBe('expired-hint');
     });
@@ -159,7 +152,6 @@ describe('ProtocolInterpreter', () => {
           }
         }
       });
-      const interpreter = new ProtocolInterpreter(protocol);
       
       const atom = {
         protocols: new ProtocolMap([['mock', { trailers: { 'Mock-id': ['a1b2c3d4'], Ref: ['old-id'] }, unauthorized: {} }]])
@@ -169,7 +161,7 @@ describe('ProtocolInterpreter', () => {
         ['mock', new Map([['old-id', { superseded: true, supersededBy: ['new-id'] }]])]
       ]);
 
-      const signals = interpreter.getStaleSignals(atom, new Date(), globalMap);
+      const signals = getStaleSignals(protocol, atom, new Date(), globalMap);
       expect(signals).toHaveLength(1);
       expect(signals[0].signal).toBe('orphaned-dep');
       expect(signals[0].description).toContain('superseded by new-id');
@@ -186,7 +178,6 @@ describe('ProtocolInterpreter', () => {
               }
             }
           });
-          const interpreter = new ProtocolInterpreter(protocol);
           
           // Use a valid hex ID so isValidIdentity passes
           const validId = 'abcdef12';
@@ -198,7 +189,7 @@ describe('ProtocolInterpreter', () => {
             ['mock', new Map([['old-id', { superseded: true, supersededBy: [validId] }]])]
           ]);
     
-          const signals = interpreter.getStaleSignals(atom, new Date(), globalMap);
+          const signals = getStaleSignals(protocol, atom, new Date(), globalMap);
           expect(signals).toHaveLength(0);
     });
   });

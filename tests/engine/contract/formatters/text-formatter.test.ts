@@ -1,10 +1,9 @@
-import { ActiveProtocol } from '../../../../src/engine/core/models/active-protocol.js';
-import { type Atom, type Trailers } from '../../../../src/engine/core/types/domain.js';
+import { type Atom, type Trailers, ProtocolMap } from '../../../../src/engine/core/types/domain.js';
 import { type FormattableDoctorResult, type FormattableQueryResult, type FormattableStalenessResult, type FormattableTraceResult, type FormattableValidationResult } from '../../../../src/engine/core/types/output.js';
 import { TextFormatter } from '../../../../src/engine/formatters/text-formatter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeProtocol } from '../../../../src/engine/testing.js';
-import { makeMockProtocol } from '../../engine-test-utils.js';
+import { makeMockContext as makeProtocol } from '../../../../src/engine/testing.js';
+import { makeMockProtocolContext as makeMockProtocol } from '../../engine-test-utils.js';
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 

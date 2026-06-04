@@ -4,8 +4,7 @@ import {
     claimsTrailers, 
     matchesFilters 
 } from '../../../../src/engine/shell/git/protocol-query-adapter.js';
-import { createProtocolContext } from '../../../../src/engine/core/logic/protocols.js';
-import { TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../../src/engine/testing.js';
+import { TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeMockContext } from '../../../../src/engine/testing.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
@@ -13,11 +12,10 @@ describe('ProtocolQueryAdapter Functional', () => {
   let ctx: any;
 
   beforeEach(() => {
-    const protocol = makeProtocol({
+    ctx = makeMockContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
     });
-    ctx = (protocol as any).context || createProtocolContext(protocol as any);
   });
 
   it('should generate discovery pattern for root protocol', () => {
@@ -25,11 +23,10 @@ describe('ProtocolQueryAdapter Functional', () => {
   });
 
   it('should generate discovery pattern for namespaced protocol', () => {
-    const nsProtocol = makeProtocol({
+    const nsCtx = makeMockContext({
       ...TEST_PROTOCOL_DEFINITION,
       namespace: 'Project'
     });
-    const nsCtx = (nsProtocol as any).context || createProtocolContext(nsProtocol as any);
     
     expect(getDiscoveryPatterns(nsCtx)).toEqual(['^Project:']);
   });
@@ -40,12 +37,11 @@ describe('ProtocolQueryAdapter Functional', () => {
   });
 
   it('should generate namespaced search patterns', () => {
-    const nsProtocol = makeProtocol({
+    const nsCtx = makeMockContext({
       ...TEST_PROTOCOL_DEFINITION,
       namespace: 'Project',
       trailers: { 'Confidence': MOCK_CORE_TRAILERS.Confidence }
     });
-    const nsCtx = (nsProtocol as any).context || createProtocolContext(nsProtocol as any);
     const filters = [{ protocol: null, key: 'Confidence', op: 'eq' as const, value: 'high' }];
     
     expect(getSearchPatterns(filters, nsCtx)).toEqual([['^Project: Confidence: high']]);

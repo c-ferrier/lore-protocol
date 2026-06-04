@@ -27,7 +27,6 @@ import {
     getProtocolAuthorizedKeys,
     getFormattableDefinitions
 } from '../logic/protocols.js';
-import { getQualifiedKey, isBucketOwner, ownsKey, authorizeKey } from '../logic/ownership.js';
 import { normalizeTrailers } from '../logic/normalization.js';
 
 import { getProtocolIdentity } from '../logic/identity.js';
@@ -41,7 +40,7 @@ export type ActiveTrailer = TrailerDefinition & { key: string };
  * Responsibility: Provide a backward-compatible class interface that 
  * delegates all 'Judgment Brain' logic to stateless pure functions.
  * 
- * Satisfies ProtocolContext to allow seamless transition.
+ * Satisfies ProtocolContext and IProtocol to allow seamless transition.
  */
 export class ActiveProtocol implements ProtocolContext {
   public readonly name: string;
@@ -82,6 +81,8 @@ export class ActiveProtocol implements ProtocolContext {
     this.validateTrailer = ctx.validateTrailer;
     this.getStaleSignals = ctx.getStaleSignals;
     this.getAuthorizedKeys = ctx.getAuthorizedKeys;
+    this.matches = ctx.matches;
+    this.claims = ctx.claims;
   }
 
   /**
@@ -111,6 +112,8 @@ export class ActiveProtocol implements ProtocolContext {
   validateTrailer: (key: string, value: string, resolver?: IIdentityResolver) => { valid: boolean; message?: string; rule?: string };
   getStaleSignals: (atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>) => StaleReason[];
   getAuthorizedKeys: () => string[];
+  matches: (state: ProtocolState, filters: readonly QualifiedFilter[]) => boolean;
+  claims: (raw: string) => boolean;
 
   getFormattableDefinitions(): Record<string, FormattableTrailerDefinition> {
     if ((this.def as any).getFormattableDefinitions) return (this.def as any).getFormattableDefinitions();

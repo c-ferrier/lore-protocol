@@ -1,9 +1,10 @@
-import { makeProtocol, TEST_PROTOCOL_DEFINITION, TEST_ID_KEY } from '../../../../src/engine/testing.js';
-import { describe, it, expect, vi } from 'vitest';
+import { makeMockContext, TEST_PROTOCOL_DEFINITION, TEST_ID_KEY } from '../../../../src/engine/testing.js';
+import { validateState, validateTrailer } from '../../../../src/engine/core/logic/validation.js';
+import { describe, it, expect } from 'vitest';
 
 describe('ProtocolValidator', () => {
   it('should report missing required trailers as errors in strict mode', () => {
-    const protocol = makeProtocol({ 
+    const protocol = makeMockContext({ 
         strict: true, 
         trailers: { 
             [TEST_ID_KEY]: TEST_PROTOCOL_DEFINITION.trailers[TEST_ID_KEY],
@@ -16,7 +17,7 @@ describe('ProtocolValidator', () => {
         unauthorized: {}
     };
 
-    const issues = protocol.validateState(state);
+    const issues = validateState(protocol, state);
     const idIssue = issues.find(i => i.field === TEST_ID_KEY);
     const confIssue = issues.find(i => i.field === 'Confidence');
 
@@ -26,7 +27,7 @@ describe('ProtocolValidator', () => {
   });
 
   it('should report missing optional required trailers as warnings in non-strict mode', () => {
-    const protocol = makeProtocol({ 
+    const protocol = makeMockContext({ 
         strict: false, 
         trailers: { 
             [TEST_ID_KEY]: TEST_PROTOCOL_DEFINITION.trailers[TEST_ID_KEY],
@@ -39,7 +40,7 @@ describe('ProtocolValidator', () => {
         unauthorized: {}
     };
 
-    const issues = protocol.validateState(state);
+    const issues = validateState(protocol, state);
     const idIssue = issues.find(i => i.field === TEST_ID_KEY);
     const confIssue = issues.find(i => i.field === 'Confidence');
 
@@ -50,27 +51,27 @@ describe('ProtocolValidator', () => {
   });
 
   it('should validate enum values', () => {
-    const protocol = makeProtocol({ 
+    const protocol = makeMockContext({ 
         trailers: { Confidence: { description: 'C', validation: 'values', values: { high: {} } } }
     });
 
-    const validResult = protocol.validateTrailer('Confidence', 'high');
+    const validResult = validateTrailer(protocol, 'Confidence', 'high');
     expect(validResult.valid).toBe(true);
 
-    const invalidResult = protocol.validateTrailer('Confidence', 'junk');
+    const invalidResult = validateTrailer(protocol, 'Confidence', 'junk');
     expect(invalidResult.valid).toBe(false);
     expect(invalidResult.rule).toBe('invalid-enum');
   });
 
   it('should report unauthorized trailers in non-permissive mode', () => {
-    const protocol = makeProtocol({ permissive: false });
+    const protocol = makeMockContext({ permissive: false });
 
     const state = {
         trailers: { [TEST_ID_KEY]: ['abc'] },
         unauthorized: { 'Typo': ['val'] }
     };
 
-    const issues = protocol.validateState(state);
+    const issues = validateState(protocol, state);
     const typoIssue = issues.find(i => i.field === 'Typo');
 
     expect(typoIssue).toBeDefined();
@@ -79,20 +80,20 @@ describe('ProtocolValidator', () => {
   });
 
   it('should validate pattern formats', () => {
-    const protocol = makeProtocol({
+    const protocol = makeMockContext({
         trailers: { Id: { description: 'D', validation: 'pattern', pattern: '^[0-9]+$' } }
     });
 
-    const validResult = protocol.validateTrailer('Id', '12345');
+    const validResult = validateTrailer(protocol, 'Id', '12345');
     expect(validResult.valid).toBe(true);
 
-    const invalidResult = protocol.validateTrailer('Id', 'abcde');
+    const invalidResult = validateTrailer(protocol, 'Id', 'abcde');
     expect(invalidResult.valid).toBe(false);
     expect(invalidResult.rule).toBe('invalid-format');
   });
 
   it('should validate local reference formats without a registry', () => {
-    const protocol = makeProtocol({
+    const protocol = makeMockContext({
         trailers: { 
             [TEST_ID_KEY]: TEST_PROTOCOL_DEFINITION.trailers[TEST_ID_KEY],
             Ref: { description: 'R', validation: 'reference' } 
@@ -100,22 +101,22 @@ describe('ProtocolValidator', () => {
     });
 
     // Local ref (no prefix)
-    expect(protocol.validateTrailer('Ref', 'a1b2c3d4').valid).toBe(true);
+    expect(validateTrailer(protocol, 'Ref', 'a1b2c3d4').valid).toBe(true);
     // Identity check is now strict, and 'junk' is not 8-char hex
-    expect(protocol.validateTrailer('Ref', 'junk').valid).toBe(false);
+    expect(validateTrailer(protocol, 'Ref', 'junk').valid).toBe(false);
 
     // Explicit local ref (with prefix matching name)
-    expect(protocol.validateTrailer('Ref', 'mock/a1b2c3d4').valid).toBe(true);
+    expect(validateTrailer(protocol, 'Ref', 'mock/a1b2c3d4').valid).toBe(true);
   });
 
   it('should enforce boundary rules (crossProtocol: false)', () => {
-    const protocol = makeProtocol({
+    const protocol = makeMockContext({
         name: 'Strict',
         trailers: { Ref: { description: 'R', validation: 'reference', crossProtocol: false } }
     });
 
     // Cross-protocol ref to 'other' -> prohibited
-    const result = protocol.validateTrailer('Ref', 'other/123');
+    const result = validateTrailer(protocol, 'Ref', 'other/123');
     expect(result.valid).toBe(false);
     expect(result.rule).toBe('cross-protocol-prohibited');
   });

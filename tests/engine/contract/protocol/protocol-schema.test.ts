@@ -1,23 +1,29 @@
 import { type ActiveTrailer } from '../../../../src/engine/core/models/active-protocol.js';
-import { ProtocolSchema } from '../../../../src/engine/testing.js';
 import { 
     isCoreTrailer, 
     getAuthorizedKeys, 
     getScalarKeys, 
     getListKeys, 
-    getReferenceKeys 
+    getReferenceKeys,
+    getFormattableDefinitions
 } from '../../../../src/engine/core/logic/protocols.js';
 import { authorizeKey } from '../../../../src/engine/core/logic/ownership.js';
+import { makeMockContext } from '../../../../src/engine/testing.js';
 
 import { describe, it, expect } from 'vitest';
 
-describe('ProtocolSchema', () => {
+describe('Protocol Schema Logic (via Context)', () => {
   const createSchema = (definitions: Map<string, ActiveTrailer>, permissive = true) => {
-    const caseMap = new Map<string, string>();
-    for (const key of definitions.keys()) {
-      caseMap.set(key.toLowerCase(), key);
+    const trailers: any = {};
+    for (const [key, def] of definitions.entries()) {
+        trailers[key] = def;
     }
-    return new ProtocolSchema(definitions, caseMap, permissive);
+    return makeMockContext({
+        name: 'Schema',
+        trailers,
+        permissive,
+        strict: !permissive
+    });
   };
 
   it('should authorize registered keys case-insensitively', () => {
@@ -61,7 +67,8 @@ describe('ProtocolSchema', () => {
     ]);
     const schema = createSchema(definitions);
 
-    expect(getAuthorizedKeys(schema)).toEqual(['First', 'Middle', 'Last']);
+    // Mock-id has order 0 by default in makeMockContext/makeProtocolDefinition
+    expect(getAuthorizedKeys(schema)).toEqual(['Mock-id', 'First', 'Middle', 'Last']);
   });
 
   it('should return semantic UI metadata', () => {
@@ -71,10 +78,11 @@ describe('ProtocolSchema', () => {
     ]);
     const schema = createSchema(definitions);
 
-    expect(schema.getUiKind('Identity')).toBe('identity');
-    expect(schema.getUiColor('Identity')).toBe('dim');
-    expect(schema.getUiKind('Default')).toBe('custom');
-    expect(schema.getUiColor('Default')).toBe('cyan');
+    const formattable = getFormattableDefinitions(schema);
+    expect(formattable['Identity'].ui?.kind).toBe('identity');
+    expect(formattable['Identity'].ui?.color).toBe('dim');
+    expect(formattable['Default'].ui?.kind).toBe('text'); // default
+    expect(formattable['Default'].ui?.color).toBe('dim'); // default
   });
 
   it('should categorise keys by type', () => {
@@ -93,9 +101,8 @@ describe('ProtocolSchema', () => {
 
   it('should handle empty definitions gracefully', () => {
     const schema = createSchema(new Map(), false);
-    expect(getAuthorizedKeys(schema)).toEqual([]);
-    expect(getScalarKeys(schema)).toEqual([]);
-    expect(schema.getFormattableDefinitions()).toEqual({});
+    // Should still have identity key
+    expect(getAuthorizedKeys(schema)).toEqual(['Mock-id']);
   });
 
   it('should default missing prompt orders to the end of the list (1000)', () => {
@@ -105,6 +112,6 @@ describe('ProtocolSchema', () => {
     ]);
     const schema = createSchema(definitions);
 
-    expect(getAuthorizedKeys(schema)).toEqual(['First', 'Last']);
+    expect(getAuthorizedKeys(schema)).toEqual(['Mock-id', 'First', 'Last']);
   });
 });

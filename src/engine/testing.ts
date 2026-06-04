@@ -7,7 +7,7 @@ import type { ProtocolDefinition, IIdentityResolver, ProtocolContext } from './c
 import type { EngineConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition } from './core/types/config.js';
 import type { Atom, SupersessionStatus, StaleReason, ProtocolState } from './core/types/domain.js';
 import type { RawCommit as IGitRawCommit } from './interfaces/git-client.js';
-import type { QueryTargetAST, QueryIdentity } from './core/types/query.js';
+import type { QueryTargetAST, QueryIdentity, QualifiedFilter } from './core/types/query.js';
 import type { CommitInput } from './core/types/commit.js';
 import { AtomRepository } from './services/atom-repository.js';
 
@@ -137,7 +137,7 @@ export function makeProtocol(
 }
 
 /** Helper: returns a REAL ProtocolRegistry instance. */
-export function makeProtocolRegistry(protocols: ProtocolDefinition[] = []): ProtocolRegistry {
+export function makeProtocolRegistry(protocols: ProtocolContext[] = []): ProtocolRegistry {
   const registry = new ProtocolRegistry();
   for (const p of protocols) {
     registry.register(p);
@@ -170,8 +170,10 @@ export function makeMockContext(overrides: Partial<ProtocolDefinition> & {
     validateTrailer?: any;
     getStaleSignals?: any;
     getAuthorizedKeys?: any;
+    matches?: any;
+    claims?: any;
 } = {}): ProtocolContext {
-    const { validateState, validateTrailer, getStaleSignals, getAuthorizedKeys, ...defOverrides } = overrides;
+    const { validateState, validateTrailer, getStaleSignals, getAuthorizedKeys, matches, claims, ...defOverrides } = overrides;
     
     const def = makeProtocolDefinition(defOverrides);
     const ctx = createProtocolContext(def);
@@ -181,6 +183,8 @@ export function makeMockContext(overrides: Partial<ProtocolDefinition> & {
     if (validateTrailer) (ctx as any).validateTrailer = validateTrailer;
     if (getStaleSignals) (ctx as any).getStaleSignals = getStaleSignals;
     if (getAuthorizedKeys) (ctx as any).getAuthorizedKeys = getAuthorizedKeys;
+    if (matches) (ctx as any).matches = matches;
+    if (claims) (ctx as any).claims = claims;
     
     return ctx;
 }
@@ -245,21 +249,6 @@ export function makeStubGitClient(overrides: any = {}) {
   };
 }
 
-/** Lightweight stub for testing services that need a protocol but not its full logic. */
-export function makeStubProtocol(overrides: any = {}): ProtocolContext {
-    const p = makeProtocol(overrides);
-    
-    // Explicitly apply overrides to the instance to allow method/property mocking
-    // while preserving the ActiveProtocol prototype for functional delegation.
-    Object.assign(p, overrides);
-    
-    if (overrides.namespace) {
-        (p as any).def = { ...p.def, namespace: overrides.namespace };
-        (p as any).storageNamespace = overrides.namespace;
-    }
-    return p;
-}
-
 /** Stub Atom Repository. */
 export function makeStubAtomRepository(overrides: any = {}) {
     const vi = (globalThis as any).vi;
@@ -286,16 +275,6 @@ export function makeStubStalenessDetector(overrides: any = {}) {
     const vi = (globalThis as any).vi;
     return {
         analyze: async () => [],
-        ...overrides
-    };
-}
-
-/** Stub Protocol Registry. */
-export function makeStubProtocolRegistry(overrides: any = {}) {
-    const vi = (globalThis as any).vi;
-    const registry = new ProtocolRegistry();
-    return {
-        ...registry,
         ...overrides
     };
 }
@@ -389,29 +368,4 @@ export function makeCommitInput(overrides: any = {}): CommitInput {
         ...rest,
         trailers,
     };
-}
-
-export class ProtocolSchema extends ActiveProtocol {
-    constructor(definitions: Map<string, any>, caseMap: Map<string, string>, permissive: boolean) {
-        const trailers: Record<string, TrailerDefinition> = {};
-        for (const [k, v] of definitions.entries()) trailers[k] = v;
-        super({
-            name: 'Schema',
-            version: '1.0',
-            namespace: '',
-            identityKey: 'Mock-id',
-            strict: !permissive,
-            permissive,
-            trailers
-        });
-    }
-    getUiKind(k: string) { return (this.trailers.get(k)?.ui?.kind || 'custom') as any; }
-    getUiColor(k: string) { return (this.trailers.get(k)?.ui?.color || 'cyan') as any; }
-}
-
-export class ProtocolInterpreter {
-    constructor(private readonly p: ProtocolContext) {}
-    normalize(raw: any, claimed?: any) { return normalizeTrailers(raw, this.p, claimed); }
-    getIdentity(state: any) { return getProtocolIdentity(state, this.p); }
-    getStaleSignals(atom: any, now: any, map: any) { return getProtocolStaleSignals(this.p, atom, now, map); }
 }

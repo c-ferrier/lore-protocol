@@ -5,8 +5,7 @@ import { EngineConfigLoader } from '../../../../src/engine/shell/fs/config-loade
 import { DynamicProtocolLoader } from '../../../../src/engine/shell/fs/protocol-loader.js';
 import { resolveProtocolRoot } from '../../../../src/engine/shell/fs/root-resolver.js';
 import { GitClient } from '../../../../src/engine/shell/git/git-client.js';
-import { TEST_ENGINE_CONFIG, makeProtocol } from '../../../../src/engine/testing.js';
-import { makeMockProtocol } from '../../engine-test-utils.js';
+import { TEST_ENGINE_CONFIG, makeMockContext } from '../../../../src/engine/testing.js';
 
 import { describe, it, expect, vi } from 'vitest';
 
@@ -84,12 +83,12 @@ describe('EngineBootstrapper', () => {
   });
 
   it('should allow wrappers to mutate protocols via hooks', async () => {
-    const onProtocolsLoaded = vi.fn(async (protos) => [...protos, makeProtocol({ 
+    const onProtocolsLoaded = vi.fn(async (protos) => [...protos, makeMockContext({ 
         name: 'Hooked', 
         namespace: '', 
         identityKey: 'id', 
         trailers: { 'id': { description: 'ID', multivalue: false, validation: 'none' } } 
-    }, { strict: true })]);
+    })]);
     const bootstrapper = new EngineBootstrapper({ ...options, onProtocolsLoaded });
 
     const { sharedDeps } = await bootstrapper.bootstrap('/mock', []);

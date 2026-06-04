@@ -2,7 +2,7 @@ import { runCli } from '../../../src/engine/index-impl.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { LoreConfigLoader } from '../../../src/lore/services/lore-config-loader.js';
 import { buildLoreCli } from '../lore-test-utils.js';
-import { makeMockProtocol } from '../../engine/engine-test-utils.js';
+import { makeMockProtocolContext as makeMockProtocol } from '../../engine/engine-test-utils.js';
 
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 ;
