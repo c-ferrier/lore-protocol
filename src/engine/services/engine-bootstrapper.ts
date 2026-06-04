@@ -58,6 +58,9 @@ export interface EngineOptions {
   onConfigLoaded?: (config: EngineConfig) => Promise<EngineConfig>;
   onProtocolsLoaded?: (protocols: ProtocolDefinition[]) => Promise<ProtocolDefinition[]>;
 
+  hiddenCommands?: string[];
+  hiddenGlobalOptions?: string[];
+
   logger?: ILogger;
   logLevel?: LogLevel;
 }
@@ -126,6 +129,14 @@ export class EngineBootstrapper {
       .option('--no-color', 'Disable terminal colors')
       .option('--context <path>', 'Run in the context of a specific directory')
       .option('--format <type>', 'Output format (text, json)', 'text');
+
+    // 4b. Handle Hidden Global Options
+    if (this.options.hiddenGlobalOptions) {
+        for (const flag of this.options.hiddenGlobalOptions) {
+            const opt = program.options.find(o => o.long === flag || o.short === flag);
+            if (opt) (opt as any).hidden = true;
+        }
+    }
 
     // 5. Create primary services
     const gitClient: IGitClient = new GitClient(activeRoot);
@@ -211,6 +222,14 @@ export class EngineBootstrapper {
     registerCacheCommand(program, sharedDeps);
     registerConfigCommand(program, sharedDeps);
     registerDoctorCommand(program, sharedDeps);
+
+    // 8b. Handle Hidden Commands
+    if (this.options.hiddenCommands) {
+        for (const name of this.options.hiddenCommands) {
+            const cmd = program.commands.find(c => c.name() === name);
+            if (cmd) (cmd as any)._hidden = true;
+        }
+    }
 
     return { program, getFormatter, sharedDeps, config };
   }

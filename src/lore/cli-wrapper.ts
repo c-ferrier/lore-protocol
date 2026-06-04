@@ -66,6 +66,10 @@ export async function buildLoreCli() {
     jsonFormatterFactory: (registry: ProtocolRegistry) => new LoreJsonFormatter(registry),
     textFormatterFactory: (registry: ProtocolRegistry, opts: { color: boolean }) => new LoreTextFormatter(registry, opts),
 
+    // Rebranding Surface: Hide internal engine parts not in 0.5.0
+    hiddenCommands: ['cache', 'config'],
+    hiddenGlobalOptions: ['--no-cache', '--context', '--format'],
+
     // Hook: Merge legacy .lore/config.toml settings into engine config
     onConfigLoaded: async (config: EngineConfig): Promise<EngineConfig> => {
         if (!legacyData) return config;
@@ -208,16 +212,7 @@ export async function buildLoreCli() {
   registerTestedCommand(program, sharedDeps);
   registerRejectedCommand(program, sharedDeps);
 
-  // 0.5.0 Shims: Global Descriptions and Hidden Additives
-  const hideGlobal = (f: string) => {
-    const opt = program.options.find(o => o.long === f);
-    if (opt) (opt as any).hidden = true;
-  };
-
-  hideGlobal('--no-cache');
-  hideGlobal('--context');
-  hideGlobal('--format');
-
+  // 0.5.0 Shims: Global Descriptions
   const jsonOpt = program.options.find(o => o.long === '--json');
   if (jsonOpt) (jsonOpt as any).description = 'Shorthand for --format json';
 
@@ -264,11 +259,6 @@ export async function buildLoreCli() {
   // 1. Dynamic Prefix Stripping & 0.5.0 Trailer Shims
   for (const cmd of program.commands) {
       const name = cmd.name();
-
-      // Hide global engine commands not in 0.5.0
-      if (['cache', 'config'].includes(name)) {
-          (cmd as any)._hidden = true;
-      }
 
       // Strip [Lore] prefix from any option description
       for (const opt of cmd.options) {
