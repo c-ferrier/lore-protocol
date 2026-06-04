@@ -74,60 +74,24 @@ export async function buildLoreCli() {
     onConfigLoaded: async (config: EngineConfig): Promise<EngineConfig> => {
         if (!legacyData) return config;
 
-        let result = config;
+        // Clone config to avoid mutation of readonly properties while still 
+        // using a mutable workspace for the patch phase.
+        const result: any = JSON.parse(JSON.stringify(config));
 
-        // Manual deep patch for engine config to ensure overrides persist
-        if (legacyData.validation) {
-            result = {
-                ...result,
-                validation: {
-                    ...result.validation,
-                    ...(legacyData.validation.max_message_lines !== undefined && { maxMessageLines: legacyData.validation.max_message_lines }),
-                    ...(legacyData.validation.intent_max_length !== undefined && { subjectMaxLength: legacyData.validation.intent_max_length })
-                }
-            };
-        }
+        const map = (section: string, legacyKey: string, engineKey: string) => {
+            const val = (legacyData as any)[section]?.[legacyKey];
+            if (val !== undefined) result[section][engineKey] = val;
+        };
 
-        if (legacyData.stale) {
-            result = {
-                ...result,
-                stale: {
-                    ...result.stale,
-                    ...(legacyData.stale.older_than && { olderThan: legacyData.stale.older_than }),
-                    ...(legacyData.stale.drift_threshold && { driftThreshold: legacyData.stale.drift_threshold })
-                }
-            };
-        }
-
-        if (legacyData.output) {
-            result = {
-                ...result,
-                output: {
-                    ...result.output,
-                    ...(legacyData.output.default_format && { defaultFormat: legacyData.output.default_format })
-                }
-            };
-        }
-
-        if (legacyData.follow) {
-            result = {
-                ...result,
-                follow: {
-                    ...result.follow,
-                    ...(legacyData.follow.max_depth !== undefined && { maxDepth: legacyData.follow.max_depth })
-                }
-            };
-        }
-
-        if (legacyData.cli) {
-            result = {
-                ...result,
-                cli: {
-                    ...result.cli,
-                    ...(legacyData.cli.update_check !== undefined && { updateCheck: legacyData.cli.update_check })
-                }
-            };
-        }
+        map('validation', 'max_message_lines', 'maxMessageLines');
+        map('validation', 'intent_max_length', 'subjectMaxLength');
+        
+        map('stale', 'older_than', 'olderThan');
+        map('stale', 'drift_threshold', 'driftThreshold');
+        
+        map('output', 'default_format', 'defaultFormat');
+        map('follow', 'max_depth', 'maxDepth');
+        map('cli', 'update_check', 'updateCheck');
 
         // 2. Translate Legacy Lore Protocols to Engine protocols bucket
         const loreOverrides: any = {
@@ -166,15 +130,12 @@ export async function buildLoreCli() {
 
         loreOverrides.permissive = !hasCustomTrailers;
         
-        result = {
-            ...result,
-            protocols: {
-                ...result.protocols,
-                lore: loreOverrides
-            }
+        result.protocols = {
+            ...result.protocols,
+            lore: loreOverrides
         };
 
-        return result;
+        return result as EngineConfig;
     },
   };
 
@@ -305,9 +266,7 @@ export async function buildLoreCli() {
               (subjectOpt as any).hidden = true;
               (subjectOpt as any).description = 'Primary subject line (why the change was made)';
           }
-          if (!cmd.options.some(o => o.long === '--intent')) {
-            cmd.option('--intent <text>', 'Intent line (why the change was made)');
-          }
+          cmd.option('--intent <text>', 'Intent line (why the change was made)');
           cmd.hook('preAction', (thisCommand) => {
               const opts = thisCommand.opts();
               if (opts.intent) thisCommand.setOptionValue('subject', opts.intent);
