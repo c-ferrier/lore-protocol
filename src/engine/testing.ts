@@ -4,7 +4,11 @@ import { ActiveProtocol } from './core/models/active-protocol.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
 import { ProtocolLoader } from './shell/fs/protocol-loader.js';
 import { TriggerParser, parseTriggerHints } from './util/trigger-parser.js';
-import { ProtocolQueryAdapter } from './shell/git/protocol-query-adapter.js';
+import { 
+    getDiscoveryPatterns, 
+    getSearchPatterns, 
+    claimsTrailers 
+} from './shell/git/protocol-query-adapter.js';
 import type { ProtocolDefinition, IIdentityResolver, IProtocol } from './core/types/protocol-definition.js';
 import type { EngineConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition, StaleIfCondition } from './core/types/config.js';
 import type { ProtocolState, Atom, SupersessionStatus, StaleReason, Trailers, HierarchicalTrailers } from './core/types/domain.js';

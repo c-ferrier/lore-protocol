@@ -12,10 +12,12 @@ export function createProtocolContext(def: ProtocolDefinition): ProtocolContext 
         caseMap.set(key.toLowerCase(), key);
     }
 
+    const namespace = def.namespace || '';
+
     return {
         def,
         caseMap,
-        isRoot: def.namespace === '',
-        storagePrefix: def.namespace !== '' ? `${def.namespace}: ` : '',
+        isRoot: namespace === '',
+        storagePrefix: namespace !== '' ? `${namespace}: ` : '',
     };
 }

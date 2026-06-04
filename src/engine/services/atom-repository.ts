@@ -18,7 +18,7 @@ import {
     getGitLogArgs, 
     getGitBlameArgs 
 } from '../core/logic/query-targets.js';
-import { ProtocolQueryAdapter } from '../shell/git/protocol-query-adapter.js';
+import { getIdentityPattern } from '../shell/git/protocol-query-adapter.js';
 
 /**
  * Retrieves Atoms from git history.
@@ -226,8 +226,7 @@ export class AtomRepository {
       const protocols = pName ? [this.protocolRegistry.get(pName)!] : this.protocolRegistry.getAll();
       for (const p of protocols) {
         if (p?.isValidIdentity(id)) {
-            const adapter = new ProtocolQueryAdapter(p);
-            patterns.push(adapter.getIdentityPattern(id));
+            patterns.push(getIdentityPattern(id, (p as any).context));
         }
       }
     }

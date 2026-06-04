@@ -19,10 +19,9 @@ import type {
 } from '../types/domain.js';
 import type { ValidationIssue } from '../types/output.js'
 import type { FormattableTrailerDefinition } from '../types/output.js';
-import type { QualifiedFilter, FilterOperator } from '../types/query.js';
+import type { QualifiedFilter } from '../types/query.js';
 import { STALE_SIGNAL } from '../../util/constants.js';
 import { TriggerParser, parseTriggerHints } from '../../util/trigger-parser.js';
-import { ProtocolQueryAdapter } from '../../shell/git/protocol-query-adapter.js';
 
 import { 
     validateProtocolState, 
@@ -33,6 +32,13 @@ import {
 import { createProtocolContext } from '../logic/protocols.js';
 import { getQualifiedKey, isBucketOwner, ownsKey, authorizeKey } from '../logic/ownership.js';
 import { normalizeTrailers } from '../logic/normalization.js';
+
+import { 
+    getDiscoveryPatterns, 
+    getSearchPatterns, 
+    matchesFilters, 
+    claimsTrailers 
+} from '../../shell/git/protocol-query-adapter.js';
 
 export type ActiveTrailer = TrailerDefinition & { key: string };
 
@@ -214,19 +220,19 @@ export class ActiveProtocol implements IProtocol {
   }
 
   matches(state: ProtocolState, filters: readonly QualifiedFilter[]): boolean {
-    return new ProtocolQueryAdapter(this as any).matches(state, filters);
+    return matchesFilters(state, filters, this.context);
   }
 
   claims(raw: string): boolean {
-    return new ProtocolQueryAdapter(this as any).claims(raw);
+    return claimsTrailers(raw, this.context);
   }
 
   getDiscoveryPatterns(): string[] {
-    return new ProtocolQueryAdapter(this as any).getDiscoveryPatterns();
+    return getDiscoveryPatterns(this.context);
   }
 
   getSearchPatterns(filters: readonly QualifiedFilter[]): string[][] {
-    return new ProtocolQueryAdapter(this as any).getSearchPatterns(filters);
+    return getSearchPatterns(filters, this.context);
   }
 
   getFormattableDefinitions(): Record<string, FormattableTrailerDefinition> {

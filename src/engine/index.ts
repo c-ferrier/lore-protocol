@@ -77,7 +77,12 @@ export { evaluateAgeSignal, evaluateDriftSignal } from './core/logic/staleness.j
 
 // --- Orchestrating Services (Runtime) ---
 export { ProtocolRegistry } from './services/protocol-registry.js';
-export { ProtocolQueryAdapter } from './shell/git/protocol-query-adapter.js';
+export { 
+    getDiscoveryPatterns, 
+    getSearchPatterns, 
+    matchesFilters, 
+    claimsTrailers 
+} from './shell/git/protocol-query-adapter.js';
 export { InMemoryLogger } from './services/in-memory-logger.js';
 
 // --- CLI Commands & Adapters ---

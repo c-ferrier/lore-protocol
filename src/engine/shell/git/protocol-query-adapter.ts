@@ -1,132 +1,122 @@
-import type { ActiveProtocol } from '../../core/models/active-protocol.js';
+import type { ProtocolContext } from '../../core/types/protocol-definition.js';
 import type { QualifiedFilter, FilterOperator } from '../../core/types/query.js';
 import type { ProtocolState } from '../../core/types/domain.js';
 import { escapeRegex } from '../../util/regex.js';
+import { ownsKey, authorizeKey } from '../../core/logic/ownership.js';
 
 /**
- * Functional adapter to translate Protocol domain logic into Git CLI arguments
- * and memory matching logic.
+ * Generates regex patterns to find commits belonging to this protocol.
+ * STRICT SEGMENTATION: 
+ * - Namespaced: Must start with "Namespace: "
+ * - Root: Must start with "identityKey: " + its regex pattern if available.
  */
-export class ProtocolQueryAdapter {
-  constructor(private readonly protocol: ActiveProtocol) {}
-
-  /**
-   * Generates regex patterns to find commits belonging to this protocol.
-   * STRICT SEGMENTATION: 
-   * - Namespaced: Must start with "Namespace: "
-   * - Root: Must start with "identityKey: " + its regex pattern if available.
-   */
-  getDiscoveryPatterns(): string[] {
-    const { identityKey } = this.protocol;
-    if (!this.protocol.isRoot()) {
-        return [`^${escapeRegex(this.protocol.storageNamespace)}:`];
+export function getDiscoveryPatterns(ctx: ProtocolContext): string[] {
+    const { def, isRoot } = ctx;
+    if (!isRoot) {
+        return [`^${escapeRegex(def.namespace)}:`];
     }
 
-    const def = this.protocol.getDefinition(identityKey);
-    let pattern = `^${escapeRegex(identityKey)}: `;
+    const tDef = def.trailers[def.identityKey];
+    let pattern = `^${escapeRegex(def.identityKey)}: `;
     
     // Include the identity pattern if available, or fallback to exact match to satisfy discovery tests
-    if (def?.pattern) {
-        const cleanPattern = def.pattern.replace(/^\^/, '').replace(/\$$/, '');
+    if (tDef?.pattern) {
+        const cleanPattern = tDef.pattern.replace(/^\^/, '').replace(/\$$/, '');
         pattern += cleanPattern;
     }
     
     return [pattern];
-  }
+}
 
-  /**
-   * Generates a specific pattern to find a single identity.
-   */
-  getIdentityPattern(id: string): string {
-      const { identityKey } = this.protocol;
-      const prefix = this.protocol.getStoragePrefix();
-      return `^${escapeRegex(prefix)}${escapeRegex(identityKey)}: ${escapeRegex(id)}$`;
-  }
+/**
+ * Generates a specific pattern to find a single identity.
+ */
+export function getIdentityPattern(id: string, ctx: ProtocolContext): string {
+    const { def, storagePrefix } = ctx;
+    return `^${escapeRegex(storagePrefix)}${escapeRegex(def.identityKey)}: ${escapeRegex(id)}$`;
+}
 
-  /**
-   * Translates structured filters into git log grep patterns.
-   */
-  getSearchPatterns(filters: readonly QualifiedFilter[]): string[][] {
+/**
+ * Translates structured filters into git log grep patterns.
+ */
+export function getSearchPatterns(filters: readonly QualifiedFilter[], ctx: ProtocolContext): string[][] {
     const patterns: string[] = [];
-    const prefix = this.protocol.getStoragePrefix();
+    const { storagePrefix } = ctx;
 
     for (const filter of filters) {
-      // 1. Authorize the key for this protocol
-      const authorizedKey = this.protocol.authorize(filter.key);
-      if (!authorizedKey) continue;
+        // 1. Authorize the key for this protocol
+        const authorizedKey = authorizeKey(filter.key, ctx);
+        if (!authorizedKey) continue;
 
-      // 2. Format based on operator
-      if (filter.op === 'has') {
-        patterns.push(`^${escapeRegex(prefix)}${escapeRegex(authorizedKey)}:`);
-      } else if (filter.op === 'eq') {
-        const values = Array.isArray(filter.value) ? filter.value : [filter.value];
-        for (const val of values) {
-           // Rule: Exact match for the value part (to satisfy contract tests).
-           // If users want fuzzy, they should use different operators.
-           patterns.push(`^${escapeRegex(prefix)}${escapeRegex(authorizedKey)}: ${escapeRegex(String(val))}`);
+        // 2. Format based on operator
+        if (filter.op === 'has') {
+            patterns.push(`^${escapeRegex(storagePrefix)}${escapeRegex(authorizedKey)}:`);
+        } else if (filter.op === 'eq') {
+            const values = Array.isArray(filter.value) ? filter.value : [filter.value];
+            for (const val of values) {
+                patterns.push(`^${escapeRegex(storagePrefix)}${escapeRegex(authorizedKey)}: ${escapeRegex(String(val))}`);
+            }
         }
-      }
     }
 
     return patterns.length > 0 ? [patterns] : [];
-  }
+}
 
-  /**
-   * Evaluates if a protocol state matches a set of filters.
-   */
-  matches(state: ProtocolState, filters: readonly QualifiedFilter[]): boolean {
+/**
+ * Evaluates if a protocol state matches a set of filters.
+ */
+export function matchesFilters(state: ProtocolState, filters: readonly QualifiedFilter[], ctx: ProtocolContext): boolean {
     for (const filter of filters) {
-      // 1. Protocol scope check
-      if (filter.protocol !== null && filter.protocol.toLowerCase() !== this.protocol.name) {
-        continue;
-      }
+        // 1. Protocol scope check
+        if (filter.protocol !== null && filter.protocol.toLowerCase() !== ctx.def.name.toLowerCase()) {
+            continue;
+        }
 
-      // 2. Ownership check: If we don't own it and it's root search, ignore it (always matches)
-      if (!this.protocol.owns(filter.key) && filter.protocol === null) {
-          continue;
-      }
+        // 2. Ownership check: If we don't own it and it's root search, ignore it (always matches)
+        if (!ownsKey(filter.key, ctx) && filter.protocol === null) {
+            continue;
+        }
 
-      // 3. Authorization check
-      const authorizedKey = this.protocol.authorize(filter.key);
-      if (!authorizedKey) return false;
+        // 3. Authorization check
+        const authorizedKey = authorizeKey(filter.key, ctx);
+        if (!authorizedKey) return false;
 
-      // 4. Value evaluation
-      const actualValues = state.trailers[authorizedKey] || [];
-      if (!this.evaluateFilter(actualValues, filter.op, filter.value)) {
-          return false;
-      }
+        // 4. Value evaluation
+        const actualValues = state.trailers[authorizedKey] || [];
+        if (!evaluateFilter(actualValues, filter.op, filter.value)) {
+            return false;
+        }
     }
 
     return true;
-  }
+}
 
-  private evaluateFilter(actual: readonly string[], op: FilterOperator, expected: any): boolean {
+function evaluateFilter(actual: readonly string[], op: FilterOperator, expected: any): boolean {
     const expectedValues = Array.isArray(expected) ? expected : [expected];
     const lowerActual = actual.map(v => v.toLowerCase());
 
     switch (op) {
-      case 'eq':
-        return expectedValues.some(ev => lowerActual.includes(String(ev).toLowerCase()));
-      case 'has':
-        return actual.length > 0;
-      default:
-        return false;
+        case 'eq':
+            return expectedValues.some(ev => lowerActual.includes(String(ev).toLowerCase()));
+        case 'has':
+            return actual.length > 0;
+        default:
+            return false;
     }
-  }
+}
 
-  /**
-   * Determines if this protocol claims a block of raw trailers.
-   */
-  claims(rawTrailers: string): boolean {
-    const { identityKey } = this.protocol;
+/**
+ * Determines if this protocol claims a block of raw trailers.
+ */
+export function claimsTrailers(rawTrailers: string, ctx: ProtocolContext): boolean {
+    const { def, isRoot } = ctx;
     const lines = rawTrailers.split('\n');
 
-    if (!this.protocol.isRoot()) {
-        const pattern = new RegExp(`^${escapeRegex(this.protocol.storageNamespace)}:`, 'i');
+    if (!isRoot) {
+        const pattern = new RegExp(`^${escapeRegex(def.namespace)}:`, 'i');
         return lines.some(l => pattern.test(l));
     }
 
-    const idPattern = new RegExp(`^${escapeRegex(identityKey)}:`, 'i');
+    const idPattern = new RegExp(`^${escapeRegex(def.identityKey)}:`, 'i');
     return lines.some(l => idPattern.test(l));
-  }
 }

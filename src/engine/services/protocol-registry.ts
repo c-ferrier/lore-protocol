@@ -2,7 +2,12 @@ import { ProtocolMap, type Atom, type SupersessionStatus } from '../core/types/d
 import type { QualifiedFilter, QueryIdentity } from '../core/types/query.js';
 import { ProtocolError, ConfigurationError } from '../util/errors.js';
 import {  ActiveProtocol  } from '../core/models/active-protocol.js';
-import { ProtocolQueryAdapter } from '../shell/git/protocol-query-adapter.js';
+import { createProtocolContext } from '../core/logic/protocols.js';
+import { 
+    getDiscoveryPatterns, 
+    getSearchPatterns, 
+    claimsTrailers 
+} from '../shell/git/protocol-query-adapter.js';
 
 /**
  * Orchestrates multiple decision protocols using the Strict Isolation Model.
@@ -97,8 +102,7 @@ export class ProtocolRegistry {
    */
   detect(rawTrailers: string): ActiveProtocol[] {
     return this.getAll().filter((p) => {
-        const adapter = new ProtocolQueryAdapter(p);
-        return adapter.claims(rawTrailers);
+        return claimsTrailers(rawTrailers, this.getContext(p));
     });
   }
 
@@ -108,8 +112,7 @@ export class ProtocolRegistry {
   getDiscoveryPatterns(): string[] {
     const patterns: string[] = [];
     for (const p of this.getAll()) {
-      const adapter = new ProtocolQueryAdapter(p);
-      patterns.push(...adapter.getDiscoveryPatterns());
+      patterns.push(...getDiscoveryPatterns(this.getContext(p)));
     }
     return patterns;
   }
@@ -126,15 +129,13 @@ export class ProtocolRegistry {
       if (filter.protocol) {
         const p = this.get(filter.protocol);
         if (p) {
-          const adapter = new ProtocolQueryAdapter(p);
-          const pPatterns = adapter.getSearchPatterns([filter]);
+          const pPatterns = getSearchPatterns([filter], this.getContext(p));
           for (const set of pPatterns) orSet.push(...set);
         }
       } else {
         const target = this.resolveKey(filter.key);
         if (target) {
-            const adapter = new ProtocolQueryAdapter(target);
-            const pPatterns = adapter.getSearchPatterns([filter]);
+            const pPatterns = getSearchPatterns([filter], this.getContext(target));
             for (const set of pPatterns) orSet.push(...set);
         }
       }
@@ -145,6 +146,10 @@ export class ProtocolRegistry {
     }
 
     return results;
+  }
+
+  private getContext(p: ActiveProtocol): any {
+    return (p as any).context || (p as any).getContext?.() || createProtocolContext(p as any);
   }
 
   /**
