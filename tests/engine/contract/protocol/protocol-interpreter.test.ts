@@ -1,13 +1,12 @@
-import { ProtocolInterpreter, TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../../../src/engine/testing.js';
+import { ProtocolInterpreter, TEST_PROTOCOL_DEFINITION, makeMockContext } from '../../../../src/engine/testing.js';
+import { ProtocolMap } from '../../../../src/engine/core/types/domain.js';
 
-import { describe, it, expect, vi } from 'vitest';
-
-
+import { describe, it, expect } from 'vitest';
 
 describe('ProtocolInterpreter', () => {
 
   it('should normalize raw trailers into authorized and unauthorized buckets', () => {
-    const protocol = makeProtocol({ ...TEST_PROTOCOL_DEFINITION, permissive: false });
+    const protocol = makeMockContext({ ...TEST_PROTOCOL_DEFINITION, permissive: false });
     const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
@@ -21,7 +20,7 @@ describe('ProtocolInterpreter', () => {
   });
 
   it('should ingest unknown trailers in permissive mode', () => {
-    const protocol = makeProtocol({ ...TEST_PROTOCOL_DEFINITION, permissive: true });
+    const protocol = makeMockContext({ ...TEST_PROTOCOL_DEFINITION, permissive: true });
     const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
@@ -34,7 +33,7 @@ describe('ProtocolInterpreter', () => {
   });
 
   it('should handle namespaced trailers when configured', () => {
-    const protocol = makeProtocol({ 
+    const protocol = makeMockContext({ 
         ...TEST_PROTOCOL_DEFINITION, 
         namespace: 'Project',
         permissive: false,
@@ -52,7 +51,7 @@ describe('ProtocolInterpreter', () => {
   });
 
   it('should extract identity from protocol state', () => {
-    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+    const protocol = makeMockContext(TEST_PROTOCOL_DEFINITION);
     const interpreter = new ProtocolInterpreter(protocol);
     
     const state = {
@@ -65,7 +64,7 @@ describe('ProtocolInterpreter', () => {
   });
 
   it('should handle namespaced trailers with invalid formats by putting them in unauthorized bucket', () => {
-    const protocol = makeProtocol({ ...TEST_PROTOCOL_DEFINITION, namespace: 'Project' });
+    const protocol = makeMockContext({ ...TEST_PROTOCOL_DEFINITION, namespace: 'Project' });
     const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
@@ -77,7 +76,7 @@ describe('ProtocolInterpreter', () => {
   });
 
   it('should respect claimed keys in permissive mode', () => {
-    const protocol = makeProtocol({ ...TEST_PROTOCOL_DEFINITION, permissive: true });
+    const protocol = makeMockContext({ ...TEST_PROTOCOL_DEFINITION, permissive: true });
     const interpreter = new ProtocolInterpreter(protocol);
     
     const raw = {
@@ -89,7 +88,7 @@ describe('ProtocolInterpreter', () => {
   });
 
   it('should normalize mixed-case trailers to canonical keys', () => {
-    const protocol = makeProtocol({ 
+    const protocol = makeMockContext({ 
         ...TEST_PROTOCOL_DEFINITION, 
         trailers: { Confidence: { description: 'C' } }
     });
@@ -106,7 +105,7 @@ describe('ProtocolInterpreter', () => {
 
   describe('getStaleSignals (Declarative Triggers)', () => {
     it('should evaluate "value-equals" condition', () => {
-      const protocol = makeProtocol({
+      const protocol = makeMockContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: {
           Confidence: {
@@ -118,7 +117,7 @@ describe('ProtocolInterpreter', () => {
       const interpreter = new ProtocolInterpreter(protocol);
       
       const atom = {
-        protocols: new Map([['mock', { trailers: { Confidence: ['low'] }, unauthorized: {} }]])
+        protocols: new ProtocolMap([['mock', { trailers: { Confidence: ['low'] }, unauthorized: {} }]])
       } as any;
 
       const signals = interpreter.getStaleSignals(atom, new Date(), new Map());
@@ -128,7 +127,7 @@ describe('ProtocolInterpreter', () => {
     });
 
     it('should evaluate "date-expired" condition', () => {
-      const protocol = makeProtocol({
+      const protocol = makeMockContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: {
           Deadline: {
@@ -140,7 +139,7 @@ describe('ProtocolInterpreter', () => {
       const interpreter = new ProtocolInterpreter(protocol);
       
       const atom = {
-        protocols: new Map([['mock', { trailers: { Deadline: ['[until: 2024-01-01]'] }, unauthorized: {} }]])
+        protocols: new ProtocolMap([['mock', { trailers: { Deadline: ['[until: 2024-01-01]'] }, unauthorized: {} }]])
       } as any;
 
       const later = new Date('2024-02-01');
@@ -150,7 +149,7 @@ describe('ProtocolInterpreter', () => {
     });
 
     it('should evaluate "reference-superseded" condition', () => {
-      const protocol = makeProtocol({
+      const protocol = makeMockContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: {
           Ref: {
@@ -163,7 +162,7 @@ describe('ProtocolInterpreter', () => {
       const interpreter = new ProtocolInterpreter(protocol);
       
       const atom = {
-        protocols: new Map([['mock', { trailers: { 'Mock-id': ['a1b2c3d4'], Ref: ['old-id'] }, unauthorized: {} }]])
+        protocols: new ProtocolMap([['mock', { trailers: { 'Mock-id': ['a1b2c3d4'], Ref: ['old-id'] }, unauthorized: {} }]])
       } as any;
 
       const globalMap = new Map([
@@ -177,7 +176,7 @@ describe('ProtocolInterpreter', () => {
     });
 
     it('should NOT evaluate "reference-superseded" if the target is superseded by the atom itself', () => {
-        const protocol = makeProtocol({
+        const protocol = makeMockContext({
             ...TEST_PROTOCOL_DEFINITION,
             trailers: {
               Ref: {
@@ -192,7 +191,7 @@ describe('ProtocolInterpreter', () => {
           // Use a valid hex ID so isValidIdentity passes
           const validId = 'abcdef12';
           const atom = {
-            protocols: new Map([['mock', { trailers: { 'Mock-id': [validId], Ref: ['old-id'] }, unauthorized: {} }]])
+            protocols: new ProtocolMap([['mock', { trailers: { 'Mock-id': [validId], Ref: ['old-id'] }, unauthorized: {} }]])
           } as any;
     
           const globalMap = new Map([

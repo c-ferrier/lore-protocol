@@ -1,15 +1,13 @@
 import { registerCommitCommand } from '../../../src/engine/cli/commands/commit.js';
 import { TEST_ENGINE_CONFIG, makeProtocolRegistry } from '../../../src/engine/testing.js';
-import { makeMockFormatter, makeMockGitClient, makeMockHeadIdReader, makeMockInputResolver, makeMockProtocol } from '../engine-test-utils.js';
+import { makeMockFormatter, makeMockGitClient, makeMockHeadIdReader, makeMockInputResolver, makeMockProtocolContext } from '../engine-test-utils.js';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-;
-;
 
 function createDeps(overrides: any = {}) {
-  const protocol = makeMockProtocol();
-  const protocolRegistry = makeProtocolRegistry([protocol]);
+  const protocol = makeMockProtocolContext();
+  const protocolRegistry = makeProtocolRegistry([protocol as any]);
 
   return {
     gitClient: makeMockGitClient(),
@@ -32,10 +30,10 @@ describe('atom commit (validation logic)', () => {
 
   it('should abort commit if validation returns errors', async () => {
     const gitClient = makeMockGitClient();
-    const protocol = makeMockProtocol({
+    const protocol = makeMockProtocolContext({
         validateState: vi.fn().mockReturnValue([{ severity: 'error', rule: 'test-err', message: 'Fatal issue' }])
     });
-    const deps = createDeps({ gitClient, protocol, protocolRegistry: makeProtocolRegistry([protocol]) });
+    const deps = createDeps({ gitClient, protocol, protocolRegistry: makeProtocolRegistry([protocol as any]) });
 
     const program = new Command();
     program.exitOverride();
@@ -51,10 +49,10 @@ describe('atom commit (validation logic)', () => {
   it('should proceed with commit but log warnings if validation returns warnings only', async () => {
     const gitClient = makeMockGitClient();
     const logger = { warn: vi.fn(), info: vi.fn(), error: vi.fn() } as any;
-    const protocol = makeMockProtocol({
+    const protocol = makeMockProtocolContext({
         validateState: vi.fn().mockReturnValue([{ severity: 'warning', rule: 'test-warn', message: 'Hygiene issue' }])
     });
-    const deps = createDeps({ gitClient, protocol, protocolRegistry: makeProtocolRegistry([protocol]), logger });
+    const deps = createDeps({ gitClient, protocol, protocolRegistry: makeProtocolRegistry([protocol as any]), logger });
 
     const program = new Command();
     program.exitOverride();

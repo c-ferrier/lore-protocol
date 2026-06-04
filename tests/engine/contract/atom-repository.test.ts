@@ -1,9 +1,9 @@
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, makeAtom, makeCommitInput, makeProtocol, makeRawCommit } from '../../../src/engine/testing.js';
+import { TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, makeAtom, makeMockContext, makeRawCommit } from '../../../src/engine/testing.js';
 import { makeAtomRepository, makeMockGitClient, makeQueryOptions } from '../engine-test-utils.js';
 import { makeQueryTarget } from '../../../src/engine/testing.js';
-import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
+import { ProtocolMap } from '../../../src/engine/core/types/domain.js';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -15,7 +15,7 @@ describe('AtomRepository', () => {
   beforeEach(() => {
     gitClient = makeMockGitClient();
     protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(makeProtocol({
+    protocolRegistry.register(makeMockContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: {
             ...TEST_PROTOCOL_DEFINITION.trailers,
@@ -59,7 +59,6 @@ describe('AtomRepository', () => {
       gitClient.getCommitsByHashes.mockResolvedValue([commit1]); 
 
       const result = await repo.find(makeQueryTarget('src/main.ts'));
-      if (result.length !== 1) console.log('NON-PROTOCOL ATOM:', JSON.stringify(result[1], null, 2));
       expect(result).toHaveLength(1);
       expect(result[0].commitHash).toBe('c1');
     });
@@ -190,8 +189,8 @@ describe('AtomRepository', () => {
     });
 
     it('should handle multiple protocols correctly', async () => {
-        const p1 = new ActiveProtocol({ name: 'P1', version: '1', strict: true, permissive: false, namespace: 'ns1', identityKey: 'P1-id', trailers: { 'P1-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
-        const p2 = new ActiveProtocol({ name: 'P2', version: '1', strict: true, permissive: false, namespace: 'ns2', identityKey: 'P2-id', trailers: { 'P2-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
+        const p1 = makeMockContext({ name: 'P1', version: '1', strict: true, permissive: false, namespace: 'ns1', identityKey: 'P1-id', trailers: { 'P1-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
+        const p2 = makeMockContext({ name: 'P2', version: '1', strict: true, permissive: false, namespace: 'ns2', identityKey: 'P2-id', trailers: { 'P2-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
         
         const multiRegistry = new ProtocolRegistry();
         multiRegistry.register(p1);
@@ -276,7 +275,6 @@ describe('AtomRepository', () => {
       gitClient.getCommitsByHashes.mockResolvedValue([commit1, commit2]);
 
       const result = await repo.find(undefined, { scope: 'auth' });
-      if (result.length !== 1) console.log('SCOPE FAIL:', JSON.stringify(result, null, 2));
       expect(result).toHaveLength(1);
     });
 
@@ -292,8 +290,8 @@ describe('AtomRepository', () => {
 
   describe('Multi-Protocol Hydration', () => {
     it('should hydrate an atom with multiple protocol states if claimed by multiple protocols', async () => {
-      const p1 = new ActiveProtocol({ name: 'P1', version: '1', strict: true, permissive: false, namespace: 'ns1', identityKey: 'P1-id', trailers: { 'P1-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
-      const p2 = new ActiveProtocol({ name: 'P2', version: '1', strict: true, permissive: false, namespace: 'ns2', identityKey: 'P2-id', trailers: { 'P2-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
+      const p1 = makeMockContext({ name: 'P1', version: '1', strict: true, permissive: false, namespace: 'ns1', identityKey: 'P1-id', trailers: { 'P1-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
+      const p2 = makeMockContext({ name: 'P2', version: '1', strict: true, permissive: false, namespace: 'ns2', identityKey: 'P2-id', trailers: { 'P2-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
       
       const localRegistry = new ProtocolRegistry();
       localRegistry.register(p1);
@@ -329,10 +327,10 @@ describe('AtomRepository', () => {
       // Hydrate initial atom manually
       const initial = makeAtom({
           commitHash: 'h1',
-          protocols: new Map([['mock', { 
+          protocols: new ProtocolMap([['mock', { 
               trailers: { 'Mock-id': ['aaaa1111'], 'Related': ['bbbb2222'] },
               unauthorized: {} 
-          }]])
+          } as any]])
       });
 
       const resolved = await repo.resolveFollowLinks([initial], 5);
@@ -350,10 +348,10 @@ describe('AtomRepository', () => {
 
       const initial = makeAtom({
           commitHash: 'h1',
-          protocols: new Map([['mock', { 
+          protocols: new ProtocolMap([['mock', { 
               trailers: { 'Mock-id': ['aaaa1111'], 'Related': ['bbbb2222'] },
               unauthorized: {} 
-          }]])
+          } as any]])
       });
 
       // Max depth 1 means we only get the initial + its direct links (c2)
@@ -370,10 +368,10 @@ describe('AtomRepository', () => {
 
       const initial = makeAtom({
           commitHash: 'h1',
-          protocols: new Map([['mock', { 
+          protocols: new ProtocolMap([['mock', { 
               trailers: { 'Mock-id': ['aaaa1111'], 'Related': ['bbbb2222'] },
               unauthorized: {} 
-          }]])
+          } as any]])
       });
 
       const resolved = await repo.resolveFollowLinks([initial], 5);
@@ -435,7 +433,6 @@ describe('AtomRepository', () => {
       
       await scopedRepo.find(); // no explicit target
       const query = gitClient.query.mock.calls[0][0];
-      if (!query.paths) console.log('QUERY PATHS MISSING:', JSON.stringify(query, null, 2));
       expect(query.paths).toEqual(['.']); // from baseTarget in makeAtomRepository
     });
 

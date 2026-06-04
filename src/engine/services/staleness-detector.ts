@@ -8,7 +8,7 @@ import type { StaleAtomReport } from '../core/types/output.js';
 import { 
     evaluateAgeSignal, 
     evaluateDriftSignal, 
-    getProtocolStaleSignals
+    getStaleSignals
 } from '../core/logic/staleness.js';
 
 /**
@@ -45,7 +45,7 @@ export class StalenessDetector {
 
       // 2. Protocol-Specific Signals
       for (const p of protocols) {
-          const pReasons = getProtocolStaleSignals(p, atom, now, globalSupersessionMap);
+          const pReasons = getStaleSignals(p, atom, now, globalSupersessionMap);
           reasons.push(...pReasons);
       }
 
@@ -65,7 +65,7 @@ export class StalenessDetector {
   private async buildDriftMap(atom: Atom): Promise<Record<string, number>> {
     const driftMap: Record<string, number> = {};
     
-    await Promise.all(atom.filesChanged.map(async (file) => {
+    await Promise.all(Array.from(atom.filesChanged).map(async (file) => {
       try {
         const count = await this.gitClient.countCommitsSince(file, atom.commitHash);
         driftMap[file] = count;

@@ -1,9 +1,9 @@
-import { type Atom } from '../../../src/engine/core/types/domain.js';
+import { type Atom, ProtocolMap } from '../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { StalenessDetector } from '../../../src/engine/services/staleness-detector.js';
 import { TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 import { STALE_SIGNAL } from '../../../src/engine/util/constants.js';
-import { makeMockProtocol } from '../engine-test-utils.js';
+import { makeMockProtocolContext } from '../engine-test-utils.js';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -17,11 +17,11 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
     author: 'dev@example.com',
     subject: 'feat: multi-protocol atom',
     body: '',
-    protocols: new Map([
+    protocols: new ProtocolMap([
         ['mockstale', { trailers: {}, unauthorized: {} }],
         ['secstale', { trailers: {}, unauthorized: {} }]
     ]),
-    filesChanged: [],
+    filesChanged: new Set(),
   };
 
   beforeEach(() => {
@@ -31,7 +31,7 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
 
   it('should aggregate staleness signals from multiple protocols for a single atom', async () => {
     // 1. Mock protocol identifies an expired hint
-    const mockProtocol = makeMockProtocol({
+    const mockProtocol = makeMockProtocolContext({
         name: 'MockStale',
         namespace: 'mockstale',
         getStaleSignals: vi.fn().mockReturnValue([{ 
@@ -41,7 +41,7 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
     });
 
     // 2. Security protocol identifies low confidence
-    const secProtocol = makeMockProtocol({
+    const secProtocol = makeMockProtocolContext({
         name: 'SecStale',
         namespace: 'secstale',
         getStaleSignals: vi.fn().mockReturnValue([{ 
@@ -51,8 +51,8 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
     });
 
 
-    registry.register(mockProtocol);
-    registry.register(secProtocol);
+    registry.register(mockProtocol as any);
+    registry.register(secProtocol as any);
 
     const reports = await detector.analyze([mockAtom], new Map());
 

@@ -152,7 +152,7 @@ export async function validateFormatting(
     const state = normalizeTrailers(rawMapForNormalize, ctx, lowerClaimed);
 
     // B. Validate: Expert reviews the structured state
-    const bucketIssues = validateProtocolState(state, ctx.def, registry);
+    const bucketIssues = ctx.validateState(state, registry);
 
     // C. Post-process: Filter out "missing identity" errors if the protocol provides a generator
     const protocolSlug = ctx.name.replace(/-/g, '');
@@ -176,7 +176,7 @@ export async function validateFormatting(
 
       // Perform validation on an empty state to catch missing required trailers
       const emptyState = normalizeTrailers({}, ctx, lowerClaimed);
-      const bucketIssues = validateProtocolState(emptyState, ctx.def, registry);
+      const bucketIssues = ctx.validateState(emptyState, registry);
 
       // Filter out identity issues as they are handled during build()
       const protocolSlug = ctx.name.replace(/-/g, '');

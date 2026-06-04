@@ -1,7 +1,7 @@
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_ID_KEY, makeProtocol } from '../../../src/engine/testing.js';
+import { TEST_ID_KEY, makeMockContext } from '../../../src/engine/testing.js';
 import { ConfigurationError } from '../../../src/engine/util/errors.js';
-import { makeMockProtocol } from '../engine-test-utils.js';
+import { makeMockProtocolContext } from '../engine-test-utils.js';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -11,7 +11,7 @@ describe('ProtocolRegistry', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    mockProtocol = makeMockProtocol({
+    mockProtocol = makeMockProtocolContext({
       name: 'RegistryMock',
       namespace: '',
       identityKey: 'Mock-id',
@@ -37,6 +37,7 @@ describe('ProtocolRegistry', () => {
 
   it('should detect protocols that claim raw trailers', () => {
     const raw = `${TEST_ID_KEY}: a1b2c3d4`;
+    // Inject mock hook directly into the context object
     mockProtocol.claims = vi.fn().mockReturnValue(true);
     registry.register(mockProtocol);
     const detected = registry.detect(raw);
@@ -47,7 +48,7 @@ describe('ProtocolRegistry', () => {
     mockProtocol.permissive = true;
     registry.register(mockProtocol);
     
-    const other = makeProtocol({ name: 'OtherPermissive', namespace: '', permissive: true });
+    const other = makeMockContext({ name: 'OtherPermissive', namespace: '', permissive: true });
     expect(() => registry.register(other)).toThrow(ConfigurationError);
   });
 
@@ -55,12 +56,12 @@ describe('ProtocolRegistry', () => {
     mockProtocol.permissive = true;
     registry.register(mockProtocol);
     
-    const other = makeProtocol({ name: 'OtherPermissiveNS', namespace: 'Other', permissive: true });
+    const other = makeMockContext({ name: 'OtherPermissiveNS', namespace: 'Other', permissive: true });
     expect(() => registry.register(other)).not.toThrow();
   });
 
   it('should aggregate claimed keys from all protocols', () => {
-    const fredProtocol = makeMockProtocol({
+    const fredProtocol = makeMockProtocolContext({
       name: 'FredClaim',
       namespace: 'fred',
       getAuthorizedKeys: vi.fn().mockReturnValue(['fred']),
@@ -76,8 +77,8 @@ describe('ProtocolRegistry', () => {
   });
 
   it('should aggregate discovery patterns from all protocols into a single OR list', () => {
-    const mock = makeProtocol({ name: 'DiscoveryMock', identityKey: 'Mock-id', trailers: { 'Mock-id': { description: 'ID', validation: 'pattern', pattern: '[0-9a-f]{8}' } } });
-    const fred = makeProtocol({ name: 'DiscoveryFred', namespace: 'fred', identityKey: 'Fred-id', trailers: { 'Fred-id': { description: 'ID', validation: 'none' } } });
+    const mock = makeMockContext({ name: 'DiscoveryMock', identityKey: 'Mock-id', trailers: { 'Mock-id': { description: 'ID', validation: 'pattern', pattern: '[0-9a-f]{8}' } } });
+    const fred = makeMockContext({ name: 'DiscoveryFred', namespace: 'fred', identityKey: 'Fred-id', trailers: { 'Fred-id': { description: 'ID', validation: 'none' } } });
     
     registry.register(mock);
     registry.register(fred);
@@ -89,7 +90,7 @@ describe('ProtocolRegistry', () => {
   });
 
   it('should correctly resolve a qualified identity (alpha/1234)', () => {
-    const alpha = makeProtocol({ name: 'AlphaRes', namespace: 'alpha', identityKey: 'Alpha-id', trailers: { 'Alpha-id': { description: 'ID' } } });
+    const alpha = makeMockContext({ name: 'AlphaRes', namespace: 'alpha', identityKey: 'Alpha-id', trailers: { 'Alpha-id': { description: 'ID' } } });
     registry.register(alpha);
 
     const identity = registry.resolveIdentity('alpha/1234');
@@ -108,8 +109,8 @@ describe('ProtocolRegistry', () => {
   });
 
   it('should treat namespace comparison as case-insensitive for safety rules', () => {
-    const mock = makeProtocol({ name: 'CaseMock', namespace: 'System' }, { permissive: true });
-    const fred = makeProtocol({ name: 'CaseFred', namespace: 'system' }, { permissive: true });
+    const mock = makeMockContext({ name: 'CaseMock', namespace: 'System' });
+    const fred = makeMockContext({ name: 'CaseFred', namespace: 'system' });
     
     registry.register(mock);
     expect(() => registry.register(fred)).toThrow(ConfigurationError);

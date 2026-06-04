@@ -55,9 +55,6 @@ export function evaluateProtocolSchema(
  * Pure logic -- takes identity string and protocol definition.
  */
 export function isValidProtocolIdentity(id: string, def: ProtocolDefinition): boolean {
-  // Support method override via the definition object (used by mocks in tests)
-  if ((def as any).isValidIdentity) return (def as any).isValidIdentity(id);
-
   const idDef = def.trailers[def.identityKey];
   if (!idDef?.pattern) return true;
   return new RegExp(idDef.pattern).test(id);
@@ -72,9 +69,6 @@ export function validateProtocolState(
   def: ProtocolDefinition,
   resolver?: IIdentityResolver
 ): ValidationIssue[] {
-  // Support method override via the definition object (used by mocks in tests)
-  if ((def as any).validateState) return (def as any).validateState(state, resolver);
-
   const issues: ValidationIssue[] = [];
   
   // Sort keys by prompt order for deterministic issue reporting
@@ -133,6 +127,17 @@ export function validateProtocolState(
 }
 
 /**
+ * Public wrapper for protocol state validation.
+ */
+export function validateState(
+  ctx: ProtocolContext,
+  state: ProtocolState,
+  resolver?: IIdentityResolver
+): ValidationIssue[] {
+  return ctx.validateState(state, resolver);
+}
+
+/**
  * Validates a single trailer value.
  */
 export function validateProtocolTrailer(
@@ -141,9 +146,6 @@ export function validateProtocolTrailer(
   def: ProtocolDefinition,
   resolver?: IIdentityResolver
 ): { valid: boolean; message?: string; rule?: string } {
-  // Support method override via the definition object (used by mocks in tests)
-  if ((def as any).validateTrailer) return (def as any).validateTrailer(key, value, resolver);
-
   const tDef = def.trailers[key];
   if (!tDef) return { valid: true };
 
@@ -229,6 +231,18 @@ export function validateProtocolTrailer(
   }
 
   return { valid: true };
+}
+
+/**
+ * Public wrapper for trailer value validation.
+ */
+export function validateTrailer(
+  ctx: ProtocolContext,
+  key: string,
+  value: string,
+  resolver?: IIdentityResolver
+): { valid: boolean; message?: string; rule?: string } {
+    return ctx.validateTrailer(key, value, resolver);
 }
 
 /**

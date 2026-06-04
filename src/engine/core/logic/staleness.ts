@@ -51,9 +51,6 @@ export function getProtocolStaleSignals(
     now: Date,
     globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
 ): StaleReason[] {
-    // Support method override via the definition object (used by mocks in tests)
-    if ((ctx.def as any).getStaleSignals) return (ctx.def as any).getStaleSignals(atom, now, globalSupersessionMap);
-
     const reasons: StaleReason[] = [];
     const pName = ctx.name;
     const state = atom.protocols.get(pName) || atom.protocols.get(ctx.def.name);
@@ -76,6 +73,18 @@ export function getProtocolStaleSignals(
       }
     }
     return reasons;
+}
+
+/**
+ * Public wrapper for protocol stale signals.
+ */
+export function getStaleSignals(
+    ctx: ProtocolContext,
+    atom: Atom,
+    now: Date,
+    globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
+): StaleReason[] {
+    return ctx.getStaleSignals(atom, now, globalSupersessionMap);
 }
 
 /**

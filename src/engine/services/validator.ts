@@ -11,12 +11,12 @@ import { parseTrailers } from '../core/logic/trailers.js';
 import { 
     evaluateHygiene, 
     evaluateTrailerHygiene, 
-    validateProtocolState,
-    validateProtocolTrailer
+    validateState,
+    validateTrailer
 } from '../core/logic/validation.js';
 import { normalizeTrailers } from '../core/logic/normalization.js';
 import { getProtocolIdentity } from '../core/logic/identity.js';
-import { getAuthorizedKeys, getReferenceKeys } from '../core/logic/protocols.js';
+import { getReferenceKeys } from '../core/logic/protocols.js';
 
 /**
  * Validates existing git commits for protocol compliance.
@@ -66,7 +66,7 @@ export class Validator {
         // Validation needs to see everything (even invalid values) to report errors
         const state = normalizeTrailers(trailers, ctx, claimedKeys);
         
-        issues.push(...validateProtocolState(state, ctx.def, this.protocolRegistry));
+        issues.push(...validateState(ctx, state, this.protocolRegistry));
         await this.validateReferenceExistence(ctx, state.trailers, issues);
       }
 
@@ -110,7 +110,7 @@ export class Validator {
       for (const val of values) {
         try {
           // Check if format is valid before checking existence
-          const validResult = validateProtocolTrailer(key, val, ctx.def, this.protocolRegistry);
+          const validResult = validateTrailer(ctx, key, val, this.protocolRegistry);
           if (!validResult.valid) continue;
 
           // resolveIdentity is safe here because validateTrailer already passed
