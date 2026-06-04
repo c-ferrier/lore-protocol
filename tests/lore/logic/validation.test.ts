@@ -1,22 +1,24 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Protocol, ProtocolRegistry, type RawCommit } from '../../../src/engine/index.js';
+import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
+import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { Validator } from '../../../src/engine/services/validator.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG, makeProtocol, makeRawCommit } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { 
-  Validator, 
-  TEST_ENGINE_CONFIG, 
-  TEST_PROTOCOL_CONFIG, 
-  makeRawCommit, 
-  makeMockAtomRepository 
-} from '../../engine/engine-test-utils.js';
+import { makeMockAtomRepository } from '../../engine/engine-test-utils.js';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+;
+;
+;
 
 describe('Lore Protocol Validation Contract', () => {
   let validator: Validator;
   let registry: ProtocolRegistry;
-  let protocol: Protocol;
+  let protocol: ActiveProtocol;
   let mockAtomRepo: any;
 
   beforeEach(() => {
-    protocol = new Protocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
+    protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
     registry = new ProtocolRegistry();
     registry.register(protocol);
     mockAtomRepo = makeMockAtomRepository();

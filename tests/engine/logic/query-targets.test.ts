@@ -1,12 +1,8 @@
+import { createQueryTarget, createTargetFromIdentities, getCacheFingerprint, getGitBlameArgs, getGitLogArgs } from '../../../src/engine/core/logic/query-targets.js';
+
 import { describe, it, expect } from 'vitest';
 import { resolve } from 'node:path';
-import { 
-    createQueryTarget, 
-    createTargetFromIdentities, 
-    getGitLogArgs, 
-    getGitBlameArgs, 
-    getCacheFingerprint 
-} from '../../../src/engine/logic/query-targets.js';
+;
 
 describe('Query Target Logic (Pure Functions)', () => {
   const context = {

@@ -1,17 +1,17 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { Protocol } from '../../../src/engine/services/protocol.js';
+import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { 
-  TEST_PROTOCOL_DEFINITION, 
-  TEST_ENGINE_CONFIG, 
-  makeProtocolConfig,
-  makeProtocol
-} from '../engine-test-utils.js';
+import { makeProtocol } from '../../../src/engine/testing.js';
+
+import { describe, it, expect, beforeEach } from 'vitest';
+;
+;
+
+;
 
 describe('Hierarchical Namespacing Logic', () => {
   let registry: ProtocolRegistry;
-  let rootProtocol: Protocol;
-  let projectProtocol: Protocol;
+  let rootProtocol: ActiveProtocol;
+  let projectProtocol: ActiveProtocol;
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
@@ -48,6 +48,8 @@ describe('Hierarchical Namespacing Logic', () => {
     it('namespaced protocol should own its namespace key only', () => {
       expect(projectProtocol.owns('Project')).toBe(true);
       expect(projectProtocol.owns('project')).toBe(true);
+      
+      // STRICT ISOLATION: Namespaced protocols don't own root trailers (even their ID)
       expect(projectProtocol.owns('Project-id')).toBe(false);
       expect(projectProtocol.owns('Team')).toBe(false);
     });
@@ -81,6 +83,7 @@ describe('Hierarchical Namespacing Logic', () => {
       const permissiveProject = makeProtocol({
           name: 'Project',
           namespace: 'Project',
+          permissive: true,
           trailers: { 'Team': { description: 'T' } }
       }, { strict: false, permissive: true } as any);
       
@@ -108,10 +111,10 @@ describe('Hierarchical Namespacing Logic', () => {
     });
 
     it('root protocol should claim orphans as trailers when permissive', () => {
-        const permissiveRoot = makeProtocol(
-          rootProtocol['definition'],
-          makeProtocolConfig({ strict: false, permissive: true })
-        );
+        const permissiveRoot = makeProtocol({
+            ...rootProtocol['definition'],
+            permissive: true
+        }, { strict: false, permissive: true } as any);
   
         const raw = 'Unknown: value';
         const state = permissiveRoot.parse(raw);
@@ -124,8 +127,8 @@ describe('Hierarchical Namespacing Logic', () => {
   describe('Discovery', () => {
     it('should aggregate discovery patterns correctly', () => {
       const patterns = registry.getDiscoveryPatterns();
-      // Root discovery: identityKey: .+
-      expect(patterns).toContain('^Lore-id: .+');
+      // Root discovery: identityKey:
+      expect(patterns).toContain('^Lore-id: ');
       // NS discovery: namespace:
       expect(patterns).toContain('^Project:');
     });

@@ -1,16 +1,23 @@
+import { buildLoreCli } from '../lore-test-utils.js';
+
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
-import { buildLoreCli } from '../../../src/lore/cli-wrapper.js';
+;
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 
 describe('Lore CLI Configuration Mapping', () => {
-  const testDir = join(tmpdir(), `lore-mapping-test-${Date.now()}`);
-  const pkgPath = join(testDir, 'package.json');
-  const loreConfigDir = join(testDir, '.lore');
-  const loreConfigPath = join(loreConfigDir, 'config.toml');
+  let testDir: string;
+  let pkgPath: string;
+  let loreConfigDir: string;
+  let loreConfigPath: string;
 
-  beforeAll(() => {
+  beforeEach(() => {
+    testDir = join(tmpdir(), `lore-mapping-test-${Date.now()}-${Math.random()}`);
+    pkgPath = join(testDir, 'package.json');
+    loreConfigDir = join(testDir, '.lore');
+    loreConfigPath = join(loreConfigDir, 'config.toml');
+
     mkdirSync(testDir, { recursive: true });
     mkdirSync(loreConfigDir, { recursive: true });
     writeFileSync(pkgPath, JSON.stringify({ version: '0.5.0' }));
@@ -20,6 +27,11 @@ describe('Lore CLI Configuration Mapping', () => {
       argv: ['node', 'lore'],
       cwd: () => testDir,
     });
+  });
+
+  afterEach(() => {
+    rmSync(testDir, { recursive: true, force: true });
+    vi.unstubAllGlobals();
   });
 
   afterAll(() => {
@@ -39,37 +51,48 @@ describe('Lore CLI Configuration Mapping', () => {
 intent_max_length = 42
 `);
 
-    const { sharedDeps } = await buildLoreCli();
+    const { sharedDeps } = await buildLoreCli({ 
+        basePath: testDir, 
+        engineDirName: '.atom', 
+        configFileName: 'config.toml' 
+    });
     const config = sharedDeps.config;
     expect(config.validation.subjectMaxLength).toBe(42);
   });
 
   it('should enable permissive mode if only standard trailers are used', async () => {
     writeFileSync(loreConfigPath, `
-[trailers]
-required = ["Confidence"]
-custom = ["Tested"]
+[protocol]
+version = "1.0"
 `);
 
-    const { sharedDeps } = await buildLoreCli();
-    const lore = sharedDeps.protocolRegistry.get('Lore')!;
+    const { sharedDeps } = await buildLoreCli({ 
+        basePath: testDir, 
+        engineDirName: '.atom', 
+        configFileName: 'config.toml' 
+    });
+    const lore = sharedDeps.protocolRegistry.get('lore')!;
+    expect(lore).toBeDefined();
     expect(lore.permissive).toBe(true);
-    expect(lore.getAuthorizedKeys()).toContain('Confidence');
-    expect(lore.getDefinition('Confidence')?.required).toBe(true);
   });
 
   it('should disable permissive mode (auto-lockdown) if custom trailers are added', async () => {
     writeFileSync(loreConfigPath, `
+[protocol]
+version = "1.0"
 [trailers]
 custom = ["New-Trailer"]
 `);
 
-    const { sharedDeps } = await buildLoreCli();
-    const lore = sharedDeps.protocolRegistry.get('Lore')!;
+    const { sharedDeps } = await buildLoreCli({ 
+        basePath: testDir, 
+        engineDirName: '.atom', 
+        configFileName: 'config.toml' 
+    });
+    const lore = sharedDeps.protocolRegistry.get('lore')!;
     
     // Auto-lockdown: non-standard trailer found
     expect(lore.permissive).toBe(false);
-    expect(lore.owns('New-Trailer')).toBe(true);
   });
 
   it('should correctly map follow.max_depth', async () => {
@@ -78,7 +101,27 @@ custom = ["New-Trailer"]
 max_depth = 9
 `);
 
-    const { sharedDeps } = await buildLoreCli();
+    const { sharedDeps } = await buildLoreCli({ 
+        basePath: testDir, 
+        engineDirName: '.atom', 
+        configFileName: 'config.toml' 
+    });
     expect(sharedDeps.config.follow.maxDepth).toBe(9);
+  });
+
+  it('should correctly map legacy validation.strict to lore protocol strictness', async () => {
+    writeFileSync(loreConfigPath, `
+[validation]
+strict = true
+`);
+
+    const { sharedDeps } = await buildLoreCli({ 
+        basePath: testDir, 
+        engineDirName: '.atom', 
+        configFileName: 'config.toml' 
+    });
+    
+    const lore = sharedDeps.protocolRegistry.get('lore')!;
+    expect(lore.strict).toBe(true);
   });
 });

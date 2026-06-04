@@ -1,5 +1,8 @@
+import { EngineBootstrapper } from '../../../src/engine/services/engine-bootstrapper.js';
+import { DEFAULT_ENGINE_CONFIG } from '../../../src/engine/defaults.js';
+
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { EngineBootstrapper, DEFAULT_ENGINE_CONFIG } from '../../../src/engine/index.js';
+;
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

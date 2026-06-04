@@ -1,4 +1,4 @@
-import { 
+import {  
     type IOutputFormatter,
     type ProtocolRegistry, 
     type Atom,
@@ -8,9 +8,9 @@ import {
     type FormattableTraceResult,
     type FormattableValidationResult,
     type FormattableConfigResult,
-    type ErrorMessage,
-    createBaseFormatter
-} from '../../engine/index.js';
+    type ErrorMessage
+ } from '../../engine/index.js';
+import { createBaseFormatter } from '../../engine/formatters/index.js';
 import chalk from 'chalk';
 
 /**

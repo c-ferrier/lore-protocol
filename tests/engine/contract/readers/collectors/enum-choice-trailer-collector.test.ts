@@ -1,6 +1,9 @@
+import { EnumChoiceTrailerCollector } from '../../../../../src/engine/cli/readers/collectors/enum-choice-trailer-collector.js';
 import { makeMockPrompt } from '../../../engine-test-utils.js';
+
+;
 import { describe, it, expect, vi } from 'vitest';
-import { EnumChoiceTrailerCollector } from '../../../../../src/engine/services/readers/collectors/enum-choice-trailer-collector.js';
+;
 
 describe('EnumChoiceTrailerCollector', () => {
   it('should return undefined when user declines', async () => {

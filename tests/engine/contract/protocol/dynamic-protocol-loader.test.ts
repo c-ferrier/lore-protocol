@@ -1,5 +1,7 @@
+import { DynamicProtocolLoader } from '../../../../src/engine/shell/fs/protocol-loader.js';
+
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { DynamicProtocolLoader } from '../../../../src/engine/services/protocol-loader.js';
+;
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

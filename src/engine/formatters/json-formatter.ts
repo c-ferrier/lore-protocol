@@ -7,8 +7,8 @@ import type {
   FormattableDoctorResult,
   FormattableConfigResult,
   FormattableTrailerDefinition,
-} from '../types/output.js';
-import type { Atom, ProtocolState } from '../types/domain.js';
+} from '../core/types/output.js';
+import type { Atom, ProtocolState } from '../core/types/domain.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
 
 /**
@@ -34,7 +34,7 @@ export class JsonFormatter implements IOutputFormatter {
     const subjectKey = this.getSubjectKey();
 
     const results = result.atoms.map((atom) => {
-      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
+      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name) : null;
 
       return {
         commit: atom.commitHash,

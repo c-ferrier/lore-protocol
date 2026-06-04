@@ -1,9 +1,11 @@
+import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { QueryCache } from '../../../src/engine/services/query-cache.js';
+;
 import { rm, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { GLOBAL_CACHE_KEY } from '../../../src/engine/util/constants.js';
+;
 
 describe('QueryCache Stability', () => {
   const testCacheDir = join(process.cwd(), '.atom', 'test-query-cache');

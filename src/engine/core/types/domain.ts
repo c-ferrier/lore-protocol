@@ -1,4 +1,4 @@
-import { ProtocolMap, type ProtocolName } from '../util/protocol-map.js';
+import { ProtocolMap, type ProtocolName } from '../models/protocol-map.js';
 
 export { ProtocolMap };
 export type { ProtocolName };

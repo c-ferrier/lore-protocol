@@ -1,5 +1,7 @@
+import { GitClient } from '../../../src/engine/shell/git/git-client.js';
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GitClient } from '../../../src/engine/services/git-client.js';
+;
 import { execFile as execFileCb } from 'node:child_process';
 
 vi.mock('node:util', async () => {

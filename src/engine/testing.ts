@@ -1,93 +1,23 @@
-import { existsSync, mkdirSync } from 'node:fs';
-import { ProtocolMap, type ProtocolName } from './util/protocol-map.js';
-import { Protocol } from './services/protocol.js';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { ProtocolMap, type ProtocolName } from './core/models/protocol-map.js';
+import { ActiveProtocol } from './core/models/active-protocol.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
-import { ProtocolLoader } from './services/protocol/protocol-loader.js';
-import { AtomRepository } from './services/atom-repository.js';
-import { Validator } from './services/validator.js';
-import { StalenessDetector } from './services/staleness-detector.js';
-import { NullQueryCache } from './services/query-cache.js';
-import { InMemoryLogger } from './services/in-memory-logger.js';
-import { TerminalLogger } from './services/terminal-logger.js';
-
-import type { 
-    Atom, 
-    Trailers, 
-    HierarchicalTrailers,
-    ProtocolState, 
-    SupersessionStatus, 
-    StaleReason, 
-    StaleSignal 
-} from './types/domain.js';
-import type { IProtocol, ActiveTrailer } from './interfaces/protocol.js';
-import type { IGitClient, RawCommit, CommitResult, BlameLine } from './interfaces/git-client.js';
-import type { IQueryCache } from './interfaces/query-cache.js';
-import type { IOutputFormatter, ErrorMessage } from './interfaces/output-formatter.js';
-import type { ProtocolDefinition } from './interfaces/protocol-definition.js';
-import type { EngineConfig, ProtocolConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition } from './types/config.js';
-import type { CommitInput } from './types/commit.js';
-import type { ValidationIssue, FormattableTrailerDefinition } from './types/output.js';
-import type { QualifiedFilter, SearchOptions, QueryTargetAST, QueryIdentity } from './types/query.js';
-import type { IConfigLoader } from './interfaces/config-loader.js';
-
-import type { IPrompt } from './interfaces/prompt.js';
-import type { ICommitInputReader } from './interfaces/commit-input-reader.js';
-
-// Pure Logic Modules
-export * from './logic/hydration.js';
-export * from './logic/supersession.js';
-export * from './logic/identity.js';
-export * from './logic/trailers.js';
-export * from './logic/filtering.js';
-export * from './logic/squashing.js';
-export * from './logic/commit-formatting.js';
-export * from './logic/path-resolution.js';
-export * from './logic/query-targets.js';
-
-// Re-export production services for integration testing
-export { 
-    Protocol, 
-    ProtocolRegistry, 
-    ProtocolLoader, 
-    AtomRepository, 
-    Validator, 
-    StalenessDetector, 
-    NullQueryCache,
-    InMemoryLogger,
-    TerminalLogger,
-    ProtocolMap,
-    type ProtocolName,
-    type Atom,
-    type Trailers,
-    type HierarchicalTrailers,
-    type ProtocolState,
-    type SupersessionStatus,
-    type StaleReason,
-    type StaleSignal,
-    type IGitClient,
-    type RawCommit,
-    type CommitResult,
-    type BlameLine,
-    type IQueryCache,
-    type IOutputFormatter,
-    type ErrorMessage,
-    type ProtocolDefinition,
-    type EngineConfig,
-    type ProtocolConfig,
-    type TrailerUiKind,
-    type TrailerUiColor,
-    type TrailerDefinition,
-    type CommitInput,
-    type ValidationIssue,
-    type FormattableTrailerDefinition,
-    type QualifiedFilter,
-    type SearchOptions,
-    type QueryTargetAST,
-    type QueryIdentity,
-    type IConfigLoader,
-    type IPrompt,
-    type ICommitInputReader
-};
+import { ProtocolLoader } from './shell/fs/protocol-loader.js';
+import { TriggerParser, parseTriggerHints } from './util/trigger-parser.js';
+import { ProtocolQueryAdapter } from './shell/git/protocol-query-adapter.js';
+import type { ProtocolDefinition, IIdentityResolver, IProtocol } from './core/types/protocol-definition.js';
+import type { EngineConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition, StaleIfCondition } from './core/types/config.js';
+import type { ProtocolState, Atom, SupersessionStatus, StaleReason, Trailers, HierarchicalTrailers } from './core/types/domain.js';
+import type { CommitInput } from './core/types/commit.js';
+import type { FormattableQueryResult, FormattableValidationResult, FormattableStalenessResult, FormattableTraceResult, FormattableConfigResult, FormattableDoctorResult, FormattableTrailerDefinition } from './core/types/output.js';
+import type { QueryTargetAST, QueryIdentity, QualifiedFilter, FilterOperator, SearchOptions } from './core/types/query.js';
+import type { RawCommit } from './interfaces/git-client.js';
+import { 
+    GLOBAL_CACHE_KEY, 
+    ENGINE_CONFIG_FILENAME, 
+    ENGINE_DIR_NAME, 
+    STALE_SIGNAL 
+} from './util/constants.js';
 
 /** Key for the standard baseline protocol ID. */
 export const TEST_ID_KEY = 'Mock-id';
@@ -104,7 +34,7 @@ export function assertIsolatedEngine(dir: string = TEST_ENGINE_DIR) {
 
 /** A standard, valid engine configuration. */
 export const TEST_ENGINE_CONFIG: EngineConfig = {
-  validation: { maxMessageLines: 50, subjectMaxLength: 50 }, // Restore authoritative defaults for Validator tests
+  validation: { maxMessageLines: 50, subjectMaxLength: 50 },
   stale: { olderThan: '6m', driftThreshold: 20 },
   output: { defaultFormat: 'text' },
   follow: { maxDepth: 3 },
@@ -112,18 +42,14 @@ export const TEST_ENGINE_CONFIG: EngineConfig = {
   protocols: {},
 };
 
-/** A standard, valid protocol configuration. */
-export const TEST_PROTOCOL_CONFIG: ProtocolConfig = {
-  version: '1.0', strict: false, permissive: true, trailers: {},
-};
 
 /** A generic root, permissive protocol schema definition. */
 export const TEST_PROTOCOL_DEFINITION: ProtocolDefinition = {
   name: 'Mock',
   version: '1.0',
-  namespace: '', // Root namespace
-  strict: false,
-  permissive: true,
+  namespace: '',
+  strict: true,
+  permissive: false,
   identityKey: TEST_ID_KEY,
   trailers: {
     [TEST_ID_KEY]: {
@@ -131,7 +57,12 @@ export const TEST_PROTOCOL_DEFINITION: ProtocolDefinition = {
       pattern: '^[0-9a-f]{8}$', generator: 'hex8', required: true, isCore: true,
       ui: { kind: 'identity' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       prompt: { order: 0 }
-    },
+    }
+  }
+};
+
+/** Standard core-like trailers for tests that need them. */
+export const MOCK_CORE_TRAILERS: Record<string, TrailerDefinition> = {
     'Constraint': {
       description: 'Test constraint.', multivalue: true, validation: 'none', isCore: true,
       ui: { kind: 'decision' as TrailerUiKind, color: 'cyan' as TrailerUiColor },
@@ -153,254 +84,229 @@ export const TEST_PROTOCOL_DEFINITION: ProtocolDefinition = {
       description: 'Superseded reference.', multivalue: true, validation: 'reference', isCore: true,
       ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
       prompt: { order: 210 }
-    },
-    'Ref': {
-        description: 'Generic reference.', multivalue: true, validation: 'reference', isCore: true,
-        ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
-    },
-    'Depends-on': {
-        description: 'Dependency reference.', multivalue: true, validation: 'reference', isCore: true,
-        ui: { kind: 'reference' as TrailerUiKind, color: 'dim' as TrailerUiColor },
     }
-  }
 };
 
-/** A generic strict namespace protocol definition. */
-export const TEST_YAP_DEFINITION: ProtocolDefinition = {
-  name: 'YAP',
-  version: '2.0',
-  namespace: 'yap',
-  strict: true,
-  permissive: false,
-  identityKey: 'YAP-id',
-  trailers: {
-    'YAP-id': {
-      description: 'YAP identity.', multivalue: false, validation: 'pattern',
-      pattern: '^[0-9a-f]{8}$', generator: 'hex8', required: true, isCore: true,
-      ui: { kind: 'identity' as TrailerUiKind, color: 'dim' as TrailerUiColor },
-    },
-    'Impact': {
-      description: 'Impact level.', multivalue: false, validation: 'values', isCore: true,
-      values: { low: { description: 'Low' }, high: { description: 'High' } },
-      ui: { kind: 'risk' as TrailerUiKind, color: 'cyan' as TrailerUiColor },
-      squash: 'rank-max'
-    }
-  }
-};
-
-// --- Infrastructure Factories ---
-
-/** Helper to create a ProtocolConfig with deep partial overrides. */
-export function makeProtocolConfig(overrides: Partial<ProtocolConfig> = {}): ProtocolConfig {
-  return {
-    ...TEST_PROTOCOL_CONFIG,
-    ...overrides,
-    trailers: { ...TEST_PROTOCOL_CONFIG.trailers, ...(overrides.trailers || {}) },
-  };
-}
-
-/** Helper: returns a REAL Protocol instance. */
+/** Helper: returns a REAL ActiveProtocol instance. */
 export function makeProtocol(
-    defOverrides: Partial<ProtocolDefinition> = {},
-    configOverrides: Partial<ProtocolConfig> = {}
-): Protocol {
-    const trailers = { ...TEST_PROTOCOL_DEFINITION.trailers, ...(defOverrides.trailers || {}) };
+    overrides: Partial<ProtocolDefinition> = {},
+    configOverrides: any = {}
+): ActiveProtocol {
+    const name = overrides.name || configOverrides.name || 'Mock';
     
-    if (defOverrides.identityKey && defOverrides.identityKey !== TEST_PROTOCOL_DEFINITION.identityKey) {
-        if (!defOverrides.trailers || !defOverrides.trailers[TEST_PROTOCOL_DEFINITION.identityKey]) {
-            delete trailers[TEST_PROTOCOL_DEFINITION.identityKey];
-        }
-        if (!trailers[defOverrides.identityKey]) {
-            trailers[defOverrides.identityKey] = {
-                required: true, description: 'ID', multivalue: false, validation: 'none',
-                ui: { kind: 'identity', color: 'dim' } as any
-            };
-        }
+    // 1. Prepare Base Schema (Isolation: don't inject mock trailers if custom ones provided)
+    const trailers = { ...(overrides.trailers ?? TEST_PROTOCOL_DEFINITION.trailers) };
+    
+    // 2. Ensure identity key is in the schema to prevent normalization failures
+    const identityKey = overrides.identityKey || TEST_PROTOCOL_DEFINITION.identityKey;
+    if (!trailers[identityKey]) {
+        trailers[identityKey] = { description: 'ID', multivalue: false, validation: 'none' } as any;
     }
 
-    const finalized = ProtocolLoader.applyOverrides([{ ...TEST_PROTOCOL_DEFINITION, ...defOverrides, trailers }], { [defOverrides.name || 'Mock']: { ...TEST_PROTOCOL_CONFIG, ...configOverrides } })[0];
-    return new Protocol(finalized);
+    const baseDef = { 
+        ...TEST_PROTOCOL_DEFINITION, 
+        ...overrides, 
+        name,
+        identityKey,
+        trailers
+    };
+
+    // 3. Prepare Config Override (Strip name to prevent accidental registry collisions)
+    const { name: _ignoredName, ...safeConfig } = configOverrides;
+
+    const finalized = ProtocolLoader.applyOverrides([baseDef as any], { 
+        [name.toLowerCase()]: safeConfig
+    })[0];
+    
+    return new ActiveProtocol(finalized);
 }
 
 /** Helper: returns a REAL ProtocolRegistry instance. */
-export function makeProtocolRegistry(protocols: Protocol[] = []): ProtocolRegistry {
-    const registry = new ProtocolRegistry();
-    for (const p of protocols) registry.register(p);
-    return registry;
+export function makeProtocolRegistry(protocols: ActiveProtocol[] = []): ProtocolRegistry {
+  const registry = new ProtocolRegistry();
+  for (const p of protocols) {
+    registry.register(p);
+  }
+  return registry;
 }
 
-import { hydrateAtoms, extractReferenceIds } from './logic/hydration.js';
-import { resolveSupersession } from './logic/supersession.js';
-import { createQueryTarget } from './logic/query-targets.js';
+/** Helper to create a ProtocolDefinition with deep partial overrides. */
+export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = {}): ProtocolDefinition {
+  return {
+    ...TEST_PROTOCOL_DEFINITION,
+    ...overrides,
+    trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...(overrides.trailers || {}) },
+  };
+}
 
-// --- Component Factories ---
+/** Legacy/Compatibility shims for older tests. */
+export class ProtocolInterpreter {
+    constructor(public p: ActiveProtocol) {}
+    normalize(raw: any, claimed?: any) { 
+        return this.p.normalize(raw, claimed); 
+    }
+    getIdentity(state: any) { 
+        const id = this.p.getIdentity(state);
+        if (!id) return null;
+        return this.p.storageNamespace !== '' ? `${this.p.storageNamespace}/${id}` : id;
+    }
+    getStaleSignals(atom: any, now: Date, map: any) { return this.p.getStaleSignals(atom, now, map); }
+    getDiscoveryPatterns() { return this.p.getDiscoveryPatterns(); }
+    getSearchPatterns(f: any) { return this.p.getSearchPatterns(f); }
+    claims(raw: string) { return this.p.claims(raw); }
+    isRoot() { return this.p.isRoot(); }
+}
 
-/** Factory: Create a REAL functional AtomRepository with mocked dependencies. */
-export function makeAtomRepository(options: {
-    gitClient?: any; registry?: ProtocolRegistry; isScoped?: boolean;
-    queryCache?: IQueryCache;
-} = {}): AtomRepository {
-    const registry = options.registry || makeProtocolRegistry([makeProtocol()]);
-    const gitClient = options.gitClient || makeStubGitClient();
+export class ProtocolValidator {
+    constructor(public p: ActiveProtocol) {}
+    validateState(state: any, resolver?: any) { return this.p.validateState(state, resolver); }
+    validateTrailer(key: string, val: string, resolver?: any) { return this.p.validateTrailer(key, val, resolver); }
+}
+
+export class ProtocolSchema extends ActiveProtocol {
+    constructor(definitions: Map<string, any>, caseMap: Map<string, string>, permissive: boolean) {
+        const trailers: Record<string, TrailerDefinition> = {};
+        for (const [k, v] of definitions.entries()) trailers[k] = v;
+        super({
+            name: 'Schema',
+            version: '1.0',
+            namespace: '',
+            identityKey: 'Mock-id',
+            strict: !permissive,
+            permissive,
+            trailers
+        });
+    }
+    getUiKind(k: string) { return (this.getDefinition(k)?.ui?.kind || 'custom') as any; }
+    getUiColor(k: string) { return (this.getDefinition(k)?.ui?.color || 'cyan') as any; }
+}
+
+/** Passive Data Stubs. */
+export function makeTrailers(overrides: Record<string, string[]> = {}): Trailers {
+  return { ...overrides };
+}
+
+export function makeAtom(overrides: any = {}): Atom {
+    let protocols = overrides.protocols || new ProtocolMap<ProtocolState>();
     
-    const baseTarget = createQueryTarget(undefined, {
-        cwd: '/mock',
-        protocolRoot: '/mock',
-        isScoped: options.isScoped ?? false
-    });
-    
-    return new AtomRepository(
-        gitClient, registry,
-        options.queryCache || new NullQueryCache(),
-        baseTarget
-    );
-}
+    // Legacy support: if trailers provided but protocols not explicitly structured
+    if (overrides.trailers && !overrides.protocols) {
+        const pName = (overrides.protocol || 'mock').toLowerCase();
+        const trailers = overrides.trailers;
+        const state: ProtocolState = { trailers, unauthorized: {} };
+        protocols = new ProtocolMap<ProtocolState>();
+        protocols.set(pName, state);
+    }
 
-/** Helper: returns a valid QueryTargetAST for testing. */
-export function makeQueryTarget(input?: string | string[], isScoped: boolean = false): QueryTargetAST {
-    return createQueryTarget(input, {
-        cwd: '/mock',
-        protocolRoot: '/mock',
-        isScoped
-    });
-}
+    if (!(protocols instanceof Map)) {
+        const map = new ProtocolMap<ProtocolState>();
+        for (const [k, v] of Object.entries(protocols)) {
+            map.set(k, v as ProtocolState);
+        }
+        protocols = map;
+    }
 
-// --- Pure Mock Stubs (THE BRAIN) ---
-// These implement the "Logic and Defaults" for testing, without any framework dependencies.
-
-/** Stub: Create a strictly-typed stubbed GitClient object. */
-export function makeStubGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
-    return {
-        log: async () => [],
-        query: async () => [],
-        blame: async () => [],
-        commit: async () => ({ hash: 'abc123', success: true, message: 'Success' }),
-        hasStagedChanges: async () => true,
-        getRepoRoot: async () => '/mock-repo',
-        isInsideRepo: async () => true,
-        getFilesChanged: async () => new Map(),
-        getCommitsByHashes: async () => [],
-        countCommitsSince: async () => 0,
-        resolveRef: async () => 'head-hash',
-        resolveDate: async (d) => {
-            const date = new Date(d);
-            return isNaN(date.getTime()) ? null : date;
-        },
-        getHeadMessage: async () => 'message',
-        ...overrides
-    };
-}
-
-/** Stub: Create a strictly-typed stubbed Protocol object. */
-export function makeStubProtocol(overrides: Partial<IProtocol> = {}): IProtocol {
-    const name = (overrides.name || 'Mock').toLowerCase();
-    const namespace = overrides.getStorageNamespace?.() || '';
-    const identityKey = overrides.identityKey || `${name}-id`;
-    
-    return {
-        version: '1.0',
-        strict: true,
-        permissive: false,
-        identityKey,
-        getStorageNamespace: () => namespace,
-        setRegistry: () => {},
-        getDiscoveryPatterns: () => [],
-        getSearchPatterns: () => [],
-        getIdentityPattern: () => '',
-        authorize: (key: string) => key,
-        getAuthorizedKeys: () => [],
-        getAllKeys: () => [],
-        getScalarKeys: () => [],
-        getListKeys: () => [],
-        getReferenceKeys: () => [],
-        getUiKind: () => 'text' as any,
-        getUiColor: () => 'dim' as any,
-        getDefinition: () => null,
-        isCore: () => false,
-        isValidIdentity: () => true,
-        normalize: () => ({ trailers: {}, unauthorized: {} }),
-        validateState: () => [],
-        validateTrailer: () => ({ valid: true }),
-        matches: () => true,
-        claims: () => false,
-        getIdentity: () => null,
-        getFormattableDefinitions: () => ({}),
-        owns: (key: string) => {
-            const lowerKey = key.toLowerCase();
-            return lowerKey === name || 
-                   (namespace !== '' && lowerKey === namespace.toLowerCase()) ||
-                   lowerKey === identityKey.toLowerCase();
-        },
-        getStaleSignals: () => [],
-        parse: () => ({ trailers: {}, unauthorized: {} }),
+    const atom: Atom = {
+        commitHash: overrides.commitHash || 'h1',
+        author: overrides.author || 'alice',
+        date: overrides.date || new Date(),
+        subject: overrides.subject || 'feat: test',
+        body: overrides.body || '',
+        filesChanged: overrides.filesChanged || [],
         ...overrides,
-        name // Enforce canonical name AFTER overrides
+        protocols,
     };
+    return atom;
 }
 
-/** Stub: Create a strictly-typed stubbed ConfigLoader object. */
-export function makeStubConfigLoader<T = any>(overrides: Partial<IConfigLoader<T>> = {}): IConfigLoader<T> {
+export function makeRawCommit(overrides: any = {}): RawCommit {
+  const hash = overrides.hash || 'h1';
+  const id = overrides.id || 'a1b2c3d4';
+  const trailers = overrides.trailers !== undefined ? overrides.trailers : `${TEST_ID_KEY}: ${id}`;
+
+  return {
+    hash,
+    author: overrides.author || 'alice',
+    date: overrides.date || new Date().toISOString(),
+    subject: overrides.subject || 'feat: test',
+    body: overrides.body || 'body content',
+    filesChanged: overrides.filesChanged || [],
+    trailers,
+  };
+}
+
+export function makeCommitInput(overrides: Partial<CommitInput> = {}): CommitInput {
+  let trailers = overrides.trailers || new Map();
+  if (!(trailers instanceof Map)) {
+      trailers = new Map(Object.entries(trailers));
+  }
+  return {
+    subject: overrides.subject || 'feat: test',
+    body: overrides.body || 'body',
+    ...overrides,
+    trailers: trailers as HierarchicalTrailers,
+  };
+}
+
+export function makeQueryTarget(val: string | string[] = 'src/auth.ts'): QueryTargetAST {
+    if (Array.isArray(val)) return { type: 'path', resolvedPaths: val, raw:val };
+    if (typeof val === 'string' && val.includes(':')) {
+        const [path, range] = val.split(':');
+        const [start, end] = range.split('-').map(Number);
+        return { type: 'line-range', lineRange: {file:path, start, end}, raw:val, resolvedPaths: [path] };
+    }
+    return { type: 'path', resolvedPaths: [val as string], raw:val };
+}
+
+/** Stub factories for service-layer testing. */
+export function makeStubGitClient(overrides: any = {}): any {
     return {
-        loadForPath: async () => TEST_ENGINE_CONFIG as any as T,
-        loadFromFile: async () => TEST_ENGINE_CONFIG as any as T,
-        findConfigPath: async () => null,
+        query: async () => [],
+        resolveDate: async (d: string) => new Date(d),
+        getCommitsByHashes: async () => [],
+        getBlame: async () => [],
+        resolveRef: async () => 'head-hash',
+        getRepoRoot: async () => '/mock-repo',
         ...overrides
     };
 }
 
-/** Stub: Create a strictly-typed stubbed IPrompt object. */
-export function makeStubPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
+export function makeStubPrompt(overrides: any = {}): any {
     return {
-        askText: async () => '',
-        askConfirm: async () => false,
-        askChoice: async <T extends string>(m: string, choices: readonly T[]) => choices[0],
-        askMultiline: async () => '',
-        close: async () => {},
+        askConfirm: async () => true,
+        askChoice: async () => '',
+        askInput: async () => '',
         ...overrides
     };
 }
 
-/** Stub: Create a strictly-typed stubbed IOutputFormatter object. */
-export function makeStubFormatter(overrides: Partial<IOutputFormatter> = {}): IOutputFormatter {
+export function makeStubProtocol(overrides: any = {}): any {
+    const name = (overrides.name || 'Mock').toLowerCase();
+    const storageNamespace = overrides.getStorageNamespace ? overrides.getStorageNamespace() : (overrides.namespace || '');
+    
+    const p = makeProtocol({
+        ...overrides,
+        name,
+        namespace: storageNamespace
+    });
+    return p;
+}
+
+export function makeStubAtomRepository(overrides: any = {}): any {
     return {
-        formatQueryResult: () => 'formatted query result',
-        formatValidationResult: () => 'formatted validation result',
-        formatStalenessResult: () => 'formatted staleness result',
-        formatTraceResult: () => 'formatted trace result',
-        formatDoctorResult: () => 'formatted doctor result',
-        formatSuccess: (m) => m,
-        formatError: (code, messages) => messages[0]?.message || 'error',
-        formatConfig: () => 'formatted config',
+        find: async () => [],
+        findByIds: async () => [],
         ...overrides
     };
 }
 
-/** Stub: Create a strictly-typed stubbed ICommitInputReader object. */
-export function makeStubInputResolver(overrides: Partial<ICommitInputReader> = {}): ICommitInputReader {
-    return {
-        read: async () => ({ subject: 'test', trailers: new ProtocolMap() }),
-        ...overrides
-    };
-}
-
-/** Stub: Create a strictly-typed stubbed HeadIdReader. */
-export function makeStubHeadIdReader(overrides: any = {}): any {
-    return {
-        read: async () => null,
-        readIds: async () => ({}),
-        ...overrides
-    };
-}
-
-/** Stub: Create a strictly-typed stubbed Validator. */
 export function makeStubValidator(overrides: any = {}): any {
     return {
-        validate: () => [],
+        validate: async () => [],
         ...overrides
     };
 }
 
-/** Stub: Create a strictly-typed stubbed StalenessDetector. */
 export function makeStubStalenessDetector(overrides: any = {}): any {
     return {
         detect: async () => [],
@@ -408,96 +314,18 @@ export function makeStubStalenessDetector(overrides: any = {}): any {
     };
 }
 
-/** Stub: Create a functional ProtocolRegistry stub. */
-export function makeStubProtocolRegistry(protocols: readonly IProtocol[] = []): any {
-    const map = new ProtocolMap<IProtocol>();
-    for (const p of protocols) map.set(p.name, p);
-    
+export function makeStubProtocolRegistry(overrides: any = {}): any {
     return {
-        get: (name: string) => map.get(name) || null,
-        getAll: () => Array.from(map.values()),
-        detect: (trailers: string) => Array.from(map.values()).filter(p => p.claims(trailers)),
-        getClaimedKeys: () => new Set(Array.from(map.values()).flatMap(p => p.getAuthorizedKeys())),
-        getDiscoveryPatterns: () => Array.from(map.values()).flatMap(p => p.getDiscoveryPatterns()),
-        getSearchPatterns: () => [],
-        getIdentity: () => null,
-        resolveIdentity: (val: string) => ({ protocol: 'mock', id: val }),
-        getFingerprint: () => 'stub-fingerprint',
-        register: (p: IProtocol) => map.set(p.name, p),
-        getRoot: () => Array.from(map.values())[0] // Simple root stub
+        get: () => null,
+        all: () => [],
+        register: () => {},
+        ...overrides
     };
 }
 
-/** Stub: Create a functional AtomRepository stub. */
-export function makeStubAtomRepository(overrides: any = {}): any {
-    return { find: async () => [], findAll: async () => [], findById: async () => null, findByIds: async () => [], findByRange: async () => [], findByCommitHash: async () => null, findByScope: async () => [], resolveFollowLinks: async (atoms: any) => atoms, extractReferenceIds: () => [], ...overrides };
-}
-
-
-// --- Data Object Factories ---
-
-/** Factory: Create a strictly compliant CommitInput. */
-export function makeCommitInput(overrides: Partial<CommitInput> = {}): CommitInput {
-    const trailersMap = new ProtocolMap<Trailers>();
-    if (overrides.trailers) {
-        if (overrides.trailers instanceof Map) {
-            for (const [k, v] of overrides.trailers.entries()) trailersMap.set(k, v);
-        } else {
-            for (const [k, v] of Object.entries(overrides.trailers as any)) trailersMap.set(k, v as Trailers);
-        }
-    }
+export function makeStubConfigLoader(overrides: any = {}): any {
     return {
-        subject: overrides.subject ?? 'feat: test commit',
-        body: overrides.body,
-        trailers: trailersMap,
+        load: async () => TEST_ENGINE_CONFIG,
+        ...overrides
     };
-}
-
-/** Factory: Create a REAL Atom object. */
-export function makeAtom(overrides: Partial<Atom & { trailers: Trailers; id: string }> = {}): Atom {
-  const id = overrides.id ?? 'a1b2c3d4';
-  const trailers = overrides.trailers || { [TEST_ID_KEY]: [id] };
-  
-  // Force normalization to ProtocolMap
-  let protocols: ProtocolMap<ProtocolState>;
-  if (overrides.protocols) {
-      protocols = (overrides.protocols instanceof ProtocolMap)
-        ? overrides.protocols
-        : new ProtocolMap<ProtocolState>(Array.from((overrides.protocols as any).entries()));
-  } else {
-      protocols = new ProtocolMap<ProtocolState>();
-      protocols.set('mock', { trailers, unauthorized: {} });
-  }
-  
-  return {
-    commitHash: overrides.commitHash ?? 'abc12345',
-    date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
-    author: overrides.author ?? 'dev@example.com',
-    subject: overrides.subject ?? 'feat: test subject',
-    body: overrides.body ?? 'Test body.',
-    filesChanged: overrides.filesChanged ?? ['src/main.ts'],
-    protocols,
-  };
-}
-
-/** Factory: Create a REAL Trailers object. */
-export function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
-  return {
-    [TEST_ID_KEY]: overrides[TEST_ID_KEY] ?? ['a1b2c3d4'],
-    ...overrides,
-  };
-}
-
-/** Factory: Create a REAL RawCommit object. */
-export function makeRawCommit(options: { hash?: string; id?: string; trailers?: string; author?: string; date?: string; body?: string; subject?: string; filesChanged?: readonly string[]; } = {}): RawCommit {
-  const id = options.id ?? 'a1b2c3d4';
-  return {
-    hash: options.hash ?? `hash-${id}`,
-    date: options.date ?? '2025-01-15T10:00:00Z',
-    author: options.author ?? 'dev@example.com',
-    subject: options.subject ?? 'feat: test subject',
-    body: options.body ?? 'Test body.',
-    trailers: options.trailers ?? `${TEST_ID_KEY}: ${id}`.trim(),
-    filesChanged: options.filesChanged ?? []
-  };
 }

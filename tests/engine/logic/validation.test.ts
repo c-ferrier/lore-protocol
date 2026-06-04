@@ -1,11 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { evaluateHygiene, evaluateProtocolSchema, evaluateTrailerHygiene } from '../../../src/engine/logic/validation.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { 
-    TEST_ENGINE_CONFIG, 
-    TEST_PROTOCOL_DEFINITION, 
-    makeProtocol 
-} from '../engine-test-utils.js';
+import { evaluateHygiene, evaluateProtocolSchema, evaluateTrailerHygiene } from '../../../src/engine/core/logic/validation.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../src/engine/testing.js';
+
+import { describe, it, expect, vi } from 'vitest';
 
 describe('Validation Logic (Pure Functions)', () => {
   describe('evaluateHygiene', () => {
@@ -54,12 +50,15 @@ describe('Validation Logic (Pure Functions)', () => {
       
       evaluateProtocolSchema(protocol, state);
       
-      expect(spy).toHaveBeenCalledWith(state);
+      expect(spy).toHaveBeenCalledWith(state, undefined);
     });
 
     it('should catch schema violations like invalid enums', () => {
-      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
-      const state = protocol.parse('Confidence: invalid-value', undefined, true);
+      const protocol = makeProtocol({
+          ...TEST_PROTOCOL_DEFINITION,
+          trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
+      });
+      const state = protocol.parse('Confidence: invalid-value');
       
       const issues = evaluateProtocolSchema(protocol, state);
       expect(issues.some(i => i.rule === 'invalid-enum')).toBe(true);

@@ -1,24 +1,21 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Validator } from '../../../src/engine/services/validator.js';
+import { parseTrailers } from '../../../src/engine/core/logic/trailers.js';
+import { type EngineConfig } from '../../../src/engine/core/types/config.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
-import {
-  TEST_PROTOCOL_DEFINITION,
-  TEST_ENGINE_CONFIG,
-  makeProtocol,
-  makeProtocolConfig,
-  TEST_PROTOCOL_CONFIG,
-  makeMockAtomRepository,
-  makeRawCommit
-} from '../engine-test-utils.js';
-
-import type { EngineConfig, ProtocolConfig } from '../../../src/engine/types/config.js';
-import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import type { Trailers } from '../../../src/engine/types/domain.js';
+import { Validator } from '../../../src/engine/services/validator.js';
+import { 
+  TEST_ENGINE_CONFIG, 
+  TEST_PROTOCOL_DEFINITION, 
+  MOCK_CORE_TRAILERS,
+  makeProtocol, 
+  makeRawCommit 
+} from '../../../src/engine/testing.js';
+import { makeMockAtomRepository } from '../engine-test-utils.js';
+import type { ProtocolDefinition } from '../../../src/engine/core/types/protocol-definition.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const TEST_ID_KEY = "Mock-id";
 
-import * as TrailerLogic from '../../../src/engine/logic/trailers.js';
+import * as TrailerLogic from '../../../src/engine/core/logic/trailers.js';
 
 describe('Validator', () => {
   let mockAtomRepo: any;
@@ -31,7 +28,15 @@ describe('Validator', () => {
     engineConfig = { ...TEST_ENGINE_CONFIG };
 
     protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION));
+    // Register protocol with core trailers to satisfy tests
+    protocolRegistry.register(makeProtocol({
+        ...TEST_PROTOCOL_DEFINITION,
+        trailers: { 
+            ...TEST_PROTOCOL_DEFINITION.trailers, 
+            ...MOCK_CORE_TRAILERS,
+            'Ref': { description: 'ref', validation: 'reference' } as any
+        }
+    }));
     validator = new Validator(mockAtomRepo as any, engineConfig, protocolRegistry);
   });
 
@@ -41,7 +46,7 @@ describe('Validator', () => {
 
   describe('basic validation', () => {
     it('should return valid for a correct commit', async () => {
-      const commit = makeRawCommit();
+      const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: a1b2c3d4` });
       const results = await validator.validate([commit]);
 
       expect(results).toHaveLength(1);
@@ -341,8 +346,19 @@ describe('Validator', () => {
 
   describe('Rule 8: reference format', () => {
     it('should warn on invalid reference format (non-strict)', async () => {
-      const commit = makeRawCommit({ trailers: 'Ref: not-hex!\nRelated: toolong12' });
-      const results = await validator.validate([commit]);
+      const looseRegistry = new ProtocolRegistry();
+      looseRegistry.register(makeProtocol({
+          name: 'LooseFormat',
+          strict: false,
+          trailers: { 
+              [TEST_ID_KEY]: TEST_PROTOCOL_DEFINITION.trailers[TEST_ID_KEY],
+              'Ref': { description: 'R', validation: 'reference' } as any,
+              'Related': { description: 'R', validation: 'reference' } as any
+          }
+      }));
+      const looseValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, looseRegistry);
+      const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: a1b2c3d4\nRef: not-hex!\nRelated: toolong12` });
+      const results = await looseValidator.validate([commit]);
 
       const refIssues = results[0].issues.filter(
         (i) => i.rule === 'reference-format',
@@ -353,9 +369,17 @@ describe('Validator', () => {
 
     it('should error on invalid reference format (strict)', async () => {
       const strictRegistry = new ProtocolRegistry();
-      strictRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION, { strict: true }));
+      strictRegistry.register(makeProtocol({
+          name: 'StrictFormat',
+          strict: true,
+          trailers: { 
+              [TEST_ID_KEY]: TEST_PROTOCOL_DEFINITION.trailers[TEST_ID_KEY],
+              'Ref': { description: 'R', validation: 'reference' } as any,
+              'Related': { description: 'R', validation: 'reference' } as any
+          }
+      }));
       const strictValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, strictRegistry);
-      const commit = makeRawCommit({ trailers: 'Ref: not-hex!\nRelated: toolong12' });
+      const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: a1b2c3d4\nRef: not-hex!\nRelated: toolong12` });
       const results = await strictValidator.validate([commit]);
 
       const refIssues = results[0].issues.filter(
@@ -411,7 +435,10 @@ describe('Validator', () => {
     });
 
     it('should be valid even with warnings', async () => {
-      const commit = makeRawCommit({ subject: 'a'.repeat(100) });
+      const commit = makeRawCommit({ 
+          subject: 'a'.repeat(100),
+          trailers: `${TEST_ID_KEY}: a1b2c3d4`
+      });
       const results = await validator.validate([commit]);
 
       // Has a warning but no errors
@@ -452,8 +479,18 @@ describe('Validator', () => {
 
   describe('Rule 10: reference existence', () => {
     it('should warn when referenced atom does not exist (non-strict)', async () => {
-      const commit = makeRawCommit({ trailers: 'Ref: aabbccdd' });
-      const results = await validator.validate([commit]);
+      const looseRegistry = new ProtocolRegistry();
+      looseRegistry.register(makeProtocol({
+          name: 'LooseExist',
+          strict: false,
+          trailers: { 
+              [TEST_ID_KEY]: TEST_PROTOCOL_DEFINITION.trailers[TEST_ID_KEY],
+              'Ref': { description: 'R', validation: 'reference' } as any
+          }
+      }));
+      const looseValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, looseRegistry);
+      const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: a1b2c3d4\nRef: aabbccdd` });
+      const results = await looseValidator.validate([commit]);
 
       const refExistsIssues = results[0].issues.filter(
         (i) => i.rule === 'reference-exists',
@@ -465,9 +502,16 @@ describe('Validator', () => {
 
     it('should error when referenced atom does not exist (strict)', async () => {
       const strictRegistry = new ProtocolRegistry();
-      strictRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION, { strict: true }));
+      strictRegistry.register(makeProtocol({
+          name: 'StrictExist',
+          strict: true,
+          trailers: { 
+              [TEST_ID_KEY]: TEST_PROTOCOL_DEFINITION.trailers[TEST_ID_KEY],
+              'Ref': { description: 'R', validation: 'reference' } as any
+          }
+      }));
       const strictValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, strictRegistry);
-      const commit = makeRawCommit({ trailers: 'Ref: aabbccdd' });
+      const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: a1b2c3d4\nRef: aabbccdd` });
       const results = await strictValidator.validate([commit]);
 
       const refExistsIssues = results[0].issues.filter(
@@ -510,7 +554,7 @@ describe('Validator', () => {
 
   describe('Rule 11: custom trailer definitions', () => {
     it('should error when a trailer marked as required in definitions is missing', async () => {
-      const pConfig: Partial<ProtocolConfig> = {
+      const pConfig: Partial<ProtocolDefinition> = {
         strict: false,
         permissive: false,
         trailers: {
@@ -530,7 +574,7 @@ describe('Validator', () => {
     });
 
     it('should error on invalid enum value for custom trailer', async () => {
-      const pConfig: Partial<ProtocolConfig> = {
+      const pConfig: Partial<ProtocolDefinition> = {
         strict: false,
         permissive: false,
         trailers: {
@@ -555,7 +599,7 @@ describe('Validator', () => {
     });
 
     it('should error on invalid pattern for custom trailer', async () => {
-      const pConfig: Partial<ProtocolConfig> = {
+      const pConfig: Partial<ProtocolDefinition> = {
         strict: false,
         permissive: false,
         trailers: {

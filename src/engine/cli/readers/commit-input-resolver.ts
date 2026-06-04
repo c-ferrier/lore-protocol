@@ -1,14 +1,14 @@
-import type { IPrompt } from '../interfaces/prompt.js';
-import type { ICommitInputReader } from '../interfaces/commit-input-reader.js';
-import type { CommitInput } from '../types/commit.js';
+import type { IPrompt } from '../../interfaces/prompt.js';
+import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js';
+import type { CommitInput } from '../../core/types/commit.js';
 import { readFile, readFileSync } from 'node:fs';
 import { promisify } from 'node:util';
 
-import { InteractiveInputReader } from './readers/interactive-input-reader.js';
-import { JsonInputReader } from './readers/json-input-reader.js';
-import { TrailerCollectorRegistry } from './readers/collectors/trailer-collector-registry.js';
-import type { ProtocolRegistry } from './protocol-registry.js';
-import type { EngineConfig } from '../types/config.js';
+import { InteractiveInputReader } from './interactive-input-reader.js';
+import { JsonInputReader } from './json-input-reader.js';
+import { TrailerCollectorRegistry } from './collectors/trailer-collector-registry.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { EngineConfig } from '../../core/types/config.js';
 
 // Pure Logic Modules
 import { 
@@ -17,7 +17,7 @@ import {
     selectInputMode, 
     parseFlagsToInput, 
     finalizeCommitInput 
-} from '../logic/input-interpretation.js';
+} from '../../core/logic/input-interpretation.js';
 
 export { InputMode, type CommitCommandOptions };
 

@@ -1,12 +1,18 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
-import { buildLoreCli } from '../../../src/lore/cli-wrapper.js';
+import { runCli } from '../../../src/engine/index-impl.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { LoreConfigLoader } from '../../../src/lore/services/lore-config-loader.js';
+import { buildLoreCli } from '../lore-test-utils.js';
+import { makeMockProtocol } from '../../engine/engine-test-utils.js';
+
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+;
+;
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 
-import { ProtocolRegistry } from '../../../src/engine/index.js';
-import { makeMockProtocol } from '../../engine/engine-test-utils.js';
+;
+;
 
 describe('Lore CLI Wrapper (Compatibility Layer)', () => {
   const testDir = join(tmpdir(), `lore-wrapper-test-${Date.now()}`);
@@ -30,7 +36,7 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
   });
 
   it('should assemble the Lore CLI with all expected commands', async () => {
-    const { program, sharedDeps } = await buildLoreCli();
+    const { program, sharedDeps } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
 
     expect(program.name()).toBe('lore');
     const rootProtocol = sharedDeps.protocolRegistry.getRoot();
@@ -60,7 +66,7 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
     // We can verify this by checking the sharedDeps or the program options if they were stored,
     // but the most authoritative way is checking the internal wiring if we exposed it.
     // For now, verified via the assembly logic and command existence.
-    const { program } = await buildLoreCli();
+    const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
     expect(program.description()).toBe('CLI tool for the Lore protocol -- structured decision context in git commits');
   });
 
@@ -78,7 +84,7 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
 
       vi.spyOn(LoreConfigLoader.prototype, 'load').mockImplementation(localLoader.load as any);
 
-      const { program } = await buildLoreCli();
+      const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
       
       const commitCmd = program.commands.find(c => c.name() === 'commit');
       expect(commitCmd?.options.find(o => o.long === '--assisted-by')).toBeDefined();
@@ -105,7 +111,7 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
             return undefined;
         });
 
-        const { program } = await buildLoreCli();
+        const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
         const commitCmd = program.commands.find(c => c.name() === 'commit');
         
         // Assert: Lore flags are present (e.g. from the default definition, 

@@ -1,10 +1,17 @@
+import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
+import { type IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { HeadIdReader } from '../../../src/engine/services/head-id-reader.js';
+import { HeadIdReader } from '../../../src/engine/shell/git/head-id-reader.js';
+import { makeProtocol } from '../../../src/engine/testing.js';
 
-import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol } from '../engine-test-utils.js';
+;
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+;
+
+
+;
+
+;
 
 const TEST_ID_KEY = "Mock-id";
 
@@ -32,7 +39,7 @@ function createMockGitClient(headMessage: string): IGitClient {
 
 describe('HeadIdReader', () => {
   let protocolRegistry: ProtocolRegistry;
-  let protocol: Protocol;
+  let protocol: ActiveProtocol;
 
   beforeEach(() => {
     protocolRegistry = new ProtocolRegistry();

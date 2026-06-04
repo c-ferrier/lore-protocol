@@ -1,23 +1,23 @@
+import { registerDoctorCommand } from '../../../src/engine/cli/commands/doctor.js';
+import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
+import { type Atom } from '../../../src/engine/core/types/domain.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../../src/engine/testing.js';
+import { TestLogger, makeMockAtomRepository, makeMockConfigLoader, makeMockGitClient, makeMockProtocol } from '../engine-test-utils.js';
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
-import { registerDoctorCommand } from '../../../src/engine/commands/doctor.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { 
-    TEST_PROTOCOL_DEFINITION, 
-    TEST_ENGINE_CONFIG, 
-    TestLogger, 
-    makeMockAtomRepository, 
-    makeMockGitClient,
-    makeMockConfigLoader,
-    makeMockProtocol
-} from '../engine-test-utils.js';
-import type { Atom } from '../../../src/engine/types/domain.js';
+;
+;
+;
+
+;
+
 
 describe('Doctor Command', () => {
   let atomRepository: any;
   let configLoader: any;
-  let protocol: Protocol;
+  let protocol: ActiveProtocol;
 
   beforeEach(() => {
     atomRepository = makeMockAtomRepository();
@@ -25,7 +25,7 @@ describe('Doctor Command', () => {
         resolveRoot: vi.fn().mockResolvedValue('/repo'),
         findConfigPath: vi.fn().mockResolvedValue('/repo/.mock/config.toml'),
     });
-    protocol = new Protocol(TEST_PROTOCOL_DEFINITION);
+    protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
     vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
   });
 

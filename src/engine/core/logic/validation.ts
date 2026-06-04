@@ -1,16 +1,17 @@
 import type { ValidationIssue } from '../types/output.js';
 import type { EngineConfig } from '../types/config.js';
 import type { Trailers, ProtocolState } from '../types/domain.js';
-import type { IProtocol } from '../interfaces/protocol.js';
+import type { ActiveProtocol } from '../models/active-protocol.js';
+import type { IIdentityResolver } from '../types/protocol-definition.js';
 
 /**
  * Basic commit message structural hygiene.
  * Pure math check on string lengths and line counts.
  */
-export function evaluateHygiene(subject: string, body: string, config: EngineConfig): ValidationIssue[] {
+export function evaluateHygiene(subject: string = '', body: string = '', config: EngineConfig): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
-  if (!subject.trim()) {
+  if (!subject || !subject.trim()) {
     issues.push({
       severity: 'error',
       rule: 'subject-required',
@@ -18,7 +19,7 @@ export function evaluateHygiene(subject: string, body: string, config: EngineCon
     });
   }
 
-  if (subject.length > config.validation.subjectMaxLength) {
+  if (subject && subject.length > config.validation.subjectMaxLength) {
     issues.push({
       severity: 'warning',
       rule: 'subject-length',
@@ -26,7 +27,7 @@ export function evaluateHygiene(subject: string, body: string, config: EngineCon
     });
   }
 
-  const lines = body.split('\n');
+  const lines = (body || '').split('\n');
   if (lines.length > config.validation.maxMessageLines) {
     issues.push({
       severity: 'warning',
@@ -43,10 +44,11 @@ export function evaluateHygiene(subject: string, body: string, config: EngineCon
  * Pure logic -- calls the protocol's validateState which performs schema math.
  */
 export function evaluateProtocolSchema(
-  protocol: IProtocol,
+  protocol: ActiveProtocol,
   state: ProtocolState,
+  resolver?: IIdentityResolver,
 ): ValidationIssue[] {
-  return protocol.validateState(state);
+  return protocol.validateState(state, resolver);
 }
 
 /**

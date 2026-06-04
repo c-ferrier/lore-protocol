@@ -1,5 +1,5 @@
 import chalk, { Chalk, type ChalkInstance } from 'chalk';
-import { type ILogger, LogLevel } from '../interfaces/logger.js';
+import { type ILogger, LogLevel } from '../../interfaces/logger.js';
 
 /**
  * Default logger for terminal environments.

@@ -1,4 +1,4 @@
-import type { EngineConfig } from './types/config.js';
+import type { EngineConfig } from './core/types/config.js';
 
 /**
  * Baseline host-level configuration for the Decision Atom Engine.

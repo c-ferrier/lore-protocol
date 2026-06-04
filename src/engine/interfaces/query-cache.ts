@@ -1,4 +1,4 @@
-import type { QueryOptions } from '../types/query.js';
+import type { QueryOptions } from '../core/types/query.js';
 
 /**
  * Interface for the Query Cache.

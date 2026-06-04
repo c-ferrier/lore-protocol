@@ -2,8 +2,8 @@ import type { EngineConfig } from '../types/config.js';
 import type { AtomId } from '../types/domain.js';
 import type { CommitInput } from '../types/commit.js';
 import type { ValidationIssue } from '../types/output.js';
-import { ProtocolError } from '../util/errors.js';
-import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import { ProtocolError } from '../../util/errors.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import { serializeTrailers } from './trailers.js';
 import { generateId } from './identity.js';
 
@@ -29,7 +29,7 @@ export function formatCommit(
         throw new ProtocolError(`Unknown protocol "${pName}" in commit input`, 1);
     }
 
-    const ns = protocol.getStorageNamespace();
+    const ns = protocol.storageNamespace;
     const id = (existingIds && existingIds[pName]) || generateId(protocol);
 
     protocols[pName] = {
@@ -71,11 +71,11 @@ export function formatCommit(
 
   // 2. Ensure all registered protocols have an identity, even if they had no input trailers
   for (const protocol of registry.getAll()) {
-      const pName = protocol.name.toLowerCase();
+      const pName = protocol.name;
       if (protocols[pName]) continue;
 
       const id = (existingIds && existingIds[pName]) || generateId(protocol);
-      const ns = protocol.getStorageNamespace();
+      const ns = protocol.storageNamespace;
 
       protocols[pName] = {
           id,
@@ -126,11 +126,26 @@ export async function validateFormatting(
         continue;
     }
 
-    const ns = protocol.getStorageNamespace();
-    validatedProtocols.add(protocol.name.toLowerCase());
+    const ns = protocol.storageNamespace;
+    validatedProtocols.add(protocol.name);
 
     // A. Normalize: Expert categorizes raw map into domain state (Authorized vs Unauthorized)
-    const state = protocol.normalize(pTrailers, lowerClaimed);
+    let rawMapForNormalize: Record<string, string[]>;
+    if (ns) {
+        // Namespaced protocols expect their trailers inside a bucket matching their namespace
+        rawMapForNormalize = {
+            [ns]: Object.entries(pTrailers).flatMap(([k, vals]) => 
+                (vals || []).map(v => `${k}: ${v}`)
+            )
+        };
+    } else {
+        // Root protocol expects flat trailers
+        rawMapForNormalize = Object.fromEntries(
+            Object.entries(pTrailers).map(([k, vals]) => [k, [...vals]])
+        );
+    }
+    
+    const state = protocol.normalize(rawMapForNormalize, lowerClaimed);
 
     // B. Validate: Expert reviews the structured state
     const bucketIssues = protocol.validateState(state);
@@ -147,23 +162,20 @@ export async function validateFormatting(
         return true;
     });
 
-    issues.push(...filteredIssues.map(issue => ({
-        ...issue,
-        field: ns ? `${ns}:${issue.field}` : issue.field
-    })));
+    issues.push(...filteredIssues);
   }
 
   // 2. Global Integrity: Ensure all registered protocols have their requirements met
   // (even if they were missing from the input trailers map entirely)
   for (const protocol of registry.getAll()) {
-      if (validatedProtocols.has(protocol.name.toLowerCase())) continue;
+      if (validatedProtocols.has(protocol.name)) continue;
 
       // Perform validation on an empty state to catch missing required trailers
       const emptyState = protocol.normalize({}, lowerClaimed);
       const bucketIssues = protocol.validateState(emptyState);
 
       // Filter out identity issues as they are handled during build()
-      const protocolSlug = protocol.name.toLowerCase().replace(/-/g, '');
+      const protocolSlug = protocol.name.replace(/-/g, '');
       const identityRule = `${protocolSlug}-id-present`;
 
       const filteredIssues = bucketIssues.filter(issue => {
@@ -174,11 +186,7 @@ export async function validateFormatting(
           return true;
       });
 
-      const ns = protocol.getStorageNamespace();
-      issues.push(...filteredIssues.map(issue => ({
-          ...issue,
-          field: ns ? `${ns}:${issue.field}` : issue.field
-      })));
+      issues.push(...filteredIssues);
   }
 
   const lineCount = estimateLineCount(input);

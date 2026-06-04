@@ -1,8 +1,8 @@
-import { ProtocolMap } from '../../types/domain.js';
+import { ProtocolMap } from '../../core/types/domain.js';
 import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js';
-import type { CommitInput } from '../../types/commit.js';
+import type { CommitInput } from '../../core/types/commit.js';
 import { ProtocolError } from '../../util/errors.js';
-import type { ProtocolRegistry } from '../protocol-registry.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
 /**
  * Reads commit input by parsing a JSON string.

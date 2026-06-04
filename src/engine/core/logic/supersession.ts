@@ -1,5 +1,5 @@
 import { ProtocolMap, type Atom, type SupersessionStatus } from '../types/domain.js';
-import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
 /**
  * Computes supersession chains and determines which atoms are active vs. superseded.

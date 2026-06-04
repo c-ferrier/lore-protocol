@@ -1,14 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
-import { Protocol, ProtocolRegistry, type ProtocolDefinition } from '../../../src/engine/index.js';
-import { 
-  AtomRepository, 
-  NullQueryCache,
-  TEST_ENGINE_CONFIG, 
-  TEST_PROTOCOL_CONFIG, 
-  makeMockGitClient,
-  makeQueryTarget
-} from '../../engine/engine-test-utils.js';
+import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol-definition.js';
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
+import { TEST_PROTOCOL_CONFIG, makeProtocol, makeQueryTarget } from '../../../src/engine/testing.js';
 import { LoreJsonFormatter } from '../../../src/lore/formatters/lore-json-formatter.js';
+import { makeMockGitClient } from '../../engine/engine-test-utils.js';
+
+import { describe, it, expect, vi } from 'vitest';
+;
+;
+;
 
 /**
  * ARCHITECTURAL TEST: Wrapper Rebranding
@@ -30,7 +31,7 @@ describe('Lore Wrapper Rebranding Flow', () => {
       }
     };
 
-    const loreProtocol = new Protocol(loreDef, TEST_PROTOCOL_CONFIG);
+    const loreProtocol = makeProtocol(loreDef, TEST_PROTOCOL_CONFIG);
     const registry = new ProtocolRegistry();
     registry.register(loreProtocol);
 

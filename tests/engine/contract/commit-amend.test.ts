@@ -1,26 +1,21 @@
+import { registerCommitCommand } from '../../../src/engine/cli/commands/commit.js';
+import { formatCommit, validateFormatting } from '../../../src/engine/core/logic/commit-formatting.js';
+import { TEST_ENGINE_CONFIG, TEST_ID_KEY, makeCommitInput, makeProtocol, makeProtocolRegistry } from '../../../src/engine/testing.js';
+import { makeMockFormatter, makeMockGitClient, makeMockHeadIdReader, makeMockInputResolver } from '../engine-test-utils.js';
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { registerCommitCommand } from '../../../src/engine/commands/commit.js';
-import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
-import type { IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
-import type { CommitInputResolver } from '../../../src/engine/services/commit-input-resolver.js';
-import type { HeadIdReader } from '../../../src/engine/services/head-id-reader.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { 
-    TEST_ID_KEY,
-    TEST_ENGINE_CONFIG, 
-    makeProtocol, 
-    makeProtocolRegistry, 
-    makeMockGitClient, 
-    makeMockFormatter, 
-    makeMockInputResolver, 
-    makeMockHeadIdReader,
-    makeCommitInput
-} from '../engine-test-utils.js';
+;
 
-import * as FormattingLogic from '../../../src/engine/logic/commit-formatting.js';
 
-vi.mock('../../../src/engine/logic/commit-formatting.js', async (importOriginal) => {
+
+
+;
+;
+
+import * as FormattingLogic from '../../../src/engine/core/logic/commit-formatting.js';
+
+vi.mock('../../../src/engine/core/logic/commit-formatting.js', async (importOriginal) => {
     const actual = await importOriginal<any>();
     return {
         ...actual,
@@ -39,16 +34,17 @@ async function runCommitCommand(args: string[], deps: any): Promise<void> {
 function createDeps(overrides: any = {}) {
   const protocol = makeProtocol();
   const protocolRegistry = makeProtocolRegistry([protocol]);
+  const formatter = makeMockFormatter();
 
   return {
     gitClient: makeMockGitClient(),
-    getFormatter: () => makeMockFormatter(),
+    getFormatter: () => formatter,
     commitInputResolver: makeMockInputResolver(),
     headIdReader: makeMockHeadIdReader(),
     config: TEST_ENGINE_CONFIG,
     protocol,
     protocolRegistry,
-    logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
+    logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), result: vi.fn() },
     ...overrides
   };
 }

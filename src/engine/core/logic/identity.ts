@@ -1,13 +1,13 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { AtomId } from '../types/domain.js';
-import type { IProtocol } from '../interfaces/protocol.js';
-import { ConfigurationError } from '../util/errors.js';
+import type { ActiveProtocol } from '../models/active-protocol.js';
+import { ConfigurationError } from '../../util/errors.js';
 
 /**
  * Generates a unique identifier based on the protocol's generator setting.
  * Pure logic: takes protocol definition, returns new ID string.
  */
-export function generateId(protocol: IProtocol): AtomId {
+export function generateId(protocol: ActiveProtocol): AtomId {
   const def = protocol.getDefinition(protocol.identityKey);
   const strategy = def?.generator || 'hex8';
 

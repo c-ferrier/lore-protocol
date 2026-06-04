@@ -1,14 +1,14 @@
 import type { Command } from 'commander';
-import type { AtomRepository } from '../services/atom-repository.js';
-import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import { ProtocolError } from '../util/errors.js';
-import type { ILogger } from '../interfaces/logger.js';
-import type { ProtocolRegistry } from '../services/protocol-registry.js';
-import type { EngineConfig } from '../types/config.js';
+import type { AtomRepository } from '../../services/atom-repository.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import { ProtocolError } from '../../util/errors.js';
+import type { ILogger } from '../../interfaces/logger.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { EngineConfig } from '../../core/types/config.js';
 
 // Pure Logic Modules
-import { squashAtoms } from '../logic/squashing.js';
-import { formatCommit } from '../logic/commit-formatting.js';
+import { squashAtoms } from '../../core/logic/squashing.js';
+import { formatCommit } from '../../core/logic/commit-formatting.js';
 
 interface SquashCommandOptions {
   readonly subject?: string;

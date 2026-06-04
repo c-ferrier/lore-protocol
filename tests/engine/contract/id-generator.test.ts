@@ -1,6 +1,8 @@
+import { generateId } from '../../../src/engine/core/logic/identity.js';
+
 import { describe, it, expect, vi } from 'vitest';
-import { generateId } from '../../../src/engine/logic/identity.js';
-import type { IProtocol } from '../../../src/engine/interfaces/protocol.js';
+;
+
 
 describe('Identity Logic (Pure Functions)', () => {
   const HEX8_PATTERN = /^[0-9a-f]{8}$/;

@@ -1,5 +1,7 @@
+import { GitClient } from '../../../src/engine/shell/git/git-client.js';
+
 import { describe, it, expect } from 'vitest';
-import { GitClient } from '../../../src/engine/services/git-client.js';
+;
 
 describe('Git Log Combined Stream Parser (Logic)', () => {
   // Use a mock directory (not used for parsing)

@@ -1,6 +1,6 @@
 import type { IGitClient, StorageQuery } from '../interfaces/git-client.js';
-import type { SearchOptions, QueryTargetAST, QueryIdentity } from '../types/query.js';
-import type { Atom } from '../types/domain.js';
+import type { SearchOptions, QueryTargetAST, QueryIdentity } from '../core/types/query.js';
+import type { Atom } from '../core/types/domain.js';
 import { GLOBAL_CACHE_KEY } from '../util/constants.js';
 import { ProtocolError } from '../util/errors.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
@@ -8,16 +8,17 @@ import type { IQueryCache } from '../interfaces/query-cache.js';
 import { escapeRegex } from '../util/regex.js';
 
 // Pure Logic Modules
-import { hydrateAtoms, extractReferenceIds } from '../logic/hydration.js';
-import { resolveSupersession } from '../logic/supersession.js';
-import { filterAtoms, resolveFilters } from '../logic/filtering.js';
+import { hydrateAtoms, extractReferenceIds } from '../core/logic/hydration.js';
+import { resolveSupersession } from '../core/logic/supersession.js';
+import { filterAtoms, resolveFilters } from '../core/logic/filtering.js';
 import { 
     createTargetFromIdentities, 
     getCacheFingerprint, 
     isBlameTarget, 
     getGitLogArgs, 
     getGitBlameArgs 
-} from '../logic/query-targets.js';
+} from '../core/logic/query-targets.js';
+import { ProtocolQueryAdapter } from '../shell/git/protocol-query-adapter.js';
 
 /**
  * Retrieves Atoms from git history.
@@ -163,7 +164,7 @@ export class AtomRepository {
         for (const p of this.protocolRegistry.getAll()) {
             const authorizedKey = p.authorize(options.has);
             if (authorizedKey) {
-                const ns = p.getStorageNamespace();
+                const ns = p.storageNamespace;
                 const prefix = ns ? `${ns}: ` : '';
                 hasPatterns.push(`^${escapeRegex(prefix)}${escapeRegex(authorizedKey)}: `);
             }
@@ -177,7 +178,7 @@ export class AtomRepository {
         author: options.author || undefined,
         sinceDate: options.sinceDate || undefined,
         untilDate: options.untilDate || undefined,
-        limit: options.maxCommits || undefined,
+        maxCommits: options.maxCommits || undefined,
         regexPatterns,
         paths: [...paths],
     });
@@ -206,7 +207,8 @@ export class AtomRepository {
             const cached = await this.queryCache.get(headHash, fingerprint, {});
             if (cached && cached.length > 0) {
                 const raw = await this.gitClient.getCommitsByHashes(cached);
-                results.push(...hydrateAtoms(raw, this.protocolRegistry));
+                const hydrated = hydrateAtoms(raw, this.protocolRegistry);
+                results.push(...hydrated);
             } else {
                 missing.push(identity);
             }
@@ -223,7 +225,10 @@ export class AtomRepository {
       if (!id) continue;
       const protocols = pName ? [this.protocolRegistry.get(pName)!] : this.protocolRegistry.getAll();
       for (const p of protocols) {
-        if (p?.isValidIdentity(id)) patterns.push(p.getIdentityPattern(id));
+        if (p?.isValidIdentity(id)) {
+            const adapter = new ProtocolQueryAdapter(p);
+            patterns.push(adapter.getIdentityPattern(id));
+        }
       }
     }
     
@@ -276,7 +281,7 @@ export class AtomRepository {
       const blameLines = await this.gitClient.blame(range.file, range.start, range.end);
       if (blameLines.length === 0) return [];
 
-      const commitHashes = Array.from(new Set(blameLines.map(l => l.commitHash)));
+      const commitHashes = Array.from(new Set(blameLines.map((l: any) => l.commitHash as string)));
       const rawCommits = await this.gitClient.getCommitsByHashes(commitHashes);
       const hydratedAtoms = hydrateAtoms(rawCommits, this.protocolRegistry);
 
@@ -327,7 +332,7 @@ export class AtomRepository {
     const result = [...atoms];
     const visited = new Set(atoms.map((a) => a.commitHash));
     
-    // 1. Build Local Knowledge Index
+      // 1. Build Local Knowledge Index
     // This allows us to short-circuit lookups for atoms we already have in memory.
     const localKnowledge = new Map<string, Atom>();
     const indexAtoms = (list: readonly Atom[]) => {
@@ -378,7 +383,7 @@ export class AtomRepository {
           }
       }
 
-      // 3. Remote Resolution Pass (Only for identities not in memory)
+        // 3. Remote Resolution Pass (Only for identities not in memory)
       if (missingIdentities.length > 0) {
           const linkedAtoms = await this.findByIds(missingIdentities, { follow: false });
           foundAtoms.push(...linkedAtoms);

@@ -1,7 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { makeProtocol, makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+import { makeProtocol } from '../../../src/engine/testing.js';
+import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+;
+
+
+;
 
 describe('AtomRepository Batch Disambiguation', () => {
   let gitClient: any;
@@ -44,6 +51,6 @@ describe('AtomRepository Batch Disambiguation', () => {
     
     // Verify query patterns
     const query = vi.mocked(gitClient.query).mock.calls[0][0];
-    expect(query.regexPatterns).toContainEqual(['^alpha: Alpha-id: aaaa1111', '^beta: Beta-id: bbbb2222']);
+    expect(query.regexPatterns).toContainEqual(['^alpha: Alpha-id: aaaa1111$', '^beta: Beta-id: bbbb2222$']);
   });
 });

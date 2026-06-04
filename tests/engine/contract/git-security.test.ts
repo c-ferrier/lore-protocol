@@ -1,7 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtomRepository, makeMockGitClient, makeProtocol } from '../engine-test-utils.js';
+import { GitClient } from '../../../src/engine/shell/git/git-client.js';
+import { makeProtocol } from '../../../src/engine/testing.js';
+import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+;
+;
+
+;
 
 describe('Git Security (Argument Escaping)', () => {
   let gitClient: any;
@@ -14,7 +21,11 @@ describe('Git Security (Argument Escaping)', () => {
     registry.register(makeProtocol({
         name: 'Mock',
         identityKey: 'Mock-id',
-        trailers: { 'Mock-id': { description: 'ID' } }
+        permissive: true, // Need permissive mode or explicitly defined trailer
+        trailers: { 
+            'Mock-id': { description: 'ID' },
+            'Secret: ) | grep': { description: 'Malicious' } as any
+        }
     }));
     
     repository = makeAtomRepository({
@@ -59,7 +70,7 @@ describe('Git Security (Argument Escaping)', () => {
     // The 'has' filter should result in an escaped regex pattern starting with ^
     const query = gitClient.query.mock.calls[0][0];
     const found = query.regexPatterns.some((set: string[]) => 
-        set.some(p => p.includes('^Secret: \\) \\| grep'))
+        set.some(p => p.includes('^Secret: \\) \\| grep: '))
     );
     expect(found).toBe(true);
   });

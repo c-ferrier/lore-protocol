@@ -1,5 +1,7 @@
+import { parseTrailers, serializeTrailers } from '../../../src/engine/core/logic/trailers.js';
+
 import { describe, it, expect } from 'vitest';
-import { parseTrailers, serializeTrailers } from '../../../src/engine/logic/trailers.js';
+;
 
 describe('Trailer Logic (Pure Functions)', () => {
 

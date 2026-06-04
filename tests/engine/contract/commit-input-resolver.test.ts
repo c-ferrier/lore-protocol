@@ -1,9 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { CommitInputResolver } from '../../../src/engine/services/commit-input-resolver.js';
-import type { IPrompt } from '../../../src/engine/interfaces/prompt.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, TEST_ENGINE_CONFIG, makeProtocol } from '../engine-test-utils.js';
+import { CommitInputResolver } from '../../../src/engine/cli/readers/commit-input-resolver.js';
+import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
+import { type IPrompt } from '../../../src/engine/interfaces/prompt.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../../src/engine/testing.js';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+;
+
+;
+
+;
+;
 
 function createMockPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
   return {
@@ -19,7 +26,7 @@ function createMockPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
 describe('CommitInputResolver', () => {
   let resolver: CommitInputResolver;
   let prompt: IPrompt;
-  let protocol: Protocol;
+  let protocol: ActiveProtocol;
   let registry: ProtocolRegistry;
 
   beforeEach(() => {

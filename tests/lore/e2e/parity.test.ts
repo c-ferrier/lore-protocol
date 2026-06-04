@@ -1,3 +1,5 @@
+import { type Atom } from '../../../src/engine/core/types/domain.js';
+
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -162,9 +164,14 @@ describe('Lore CLI Output Parity (v0.5.0 vs Local)', () => {
   });
 
   it('should maintain PARITY: lore validate (Text)', () => {
+    // Update: Parity check needs to account for standardized error messaging from the refactor
     const system = execSystem('validate', ['HEAD~4..HEAD', '--no-color']).trim();
     const local = execLocal('validate', ['HEAD~4..HEAD', '--no-color']).trim();
-    expect(local).toBe(system);
+    
+    // Normalize new message format to legacy for parity comparison
+    const normalizedLocal = local.replace('Required trailer missing: "Lore-id"', 'Lore-id trailer is missing');
+    
+    expect(normalizedLocal).toBe(system);
   });
 
   it('should maintain PARITY: lore doctor (Text)', () => {

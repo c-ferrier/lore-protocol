@@ -1,6 +1,9 @@
+import { type ActiveTrailer } from '../../../../src/engine/core/models/active-protocol.js';
+import { ProtocolSchema } from '../../../../src/engine/testing.js';
+
 import { describe, it, expect } from 'vitest';
-import { ProtocolSchema } from '../../../../src/engine/services/protocol/protocol-schema.js';
-import type { ActiveTrailer } from '../../../../src/engine/interfaces/protocol.js';
+;
+
 
 describe('ProtocolSchema', () => {
   const createSchema = (definitions: Map<string, ActiveTrailer>, permissive = true) => {

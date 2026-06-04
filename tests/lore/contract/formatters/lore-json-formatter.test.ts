@@ -1,14 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { type Atom, type Trailers } from '../../../../src/engine/core/types/domain.js';
+import { type FormattableQueryResult } from '../../../../src/engine/core/types/output.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../../../src/engine/testing.js';
 import { LoreJsonFormatter } from '../../../../src/lore/formatters/lore-json-formatter.js';
-import { 
-    Protocol, 
-    ProtocolRegistry, 
-    type FormattableQueryResult, 
-    type Atom, 
-    type Trailers 
-} from '../../../../src/engine/index.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
-import { TEST_PROTOCOL_CONFIG } from '../../../engine/engine-test-utils.js';
+
+import { describe, it, expect, beforeEach } from 'vitest';
+;
+;
+;
+;
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -43,7 +44,7 @@ describe('LoreJsonFormatter (0.5.0 Parity)', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    registry.register(new Protocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG));
+    registry.register(makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG));
     formatter = new LoreJsonFormatter(registry);
   });
 

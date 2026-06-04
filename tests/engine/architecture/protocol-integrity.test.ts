@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest';
-import { parseFlagsToInput } from '../../../src/engine/logic/input-interpretation.js';
+import { parseFlagsToInput } from '../../../src/engine/core/logic/input-interpretation.js';
+import { type Atom, type Trailers } from '../../../src/engine/core/types/domain.js';
+import { type FormattableQueryResult } from '../../../src/engine/core/types/output.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
-import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../engine-test-utils.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
-import type { CommitCommandOptions } from '../../../src/engine/logic/input-interpretation.js';
-import type { FormattableQueryResult } from '../../../src/engine/types/output.js';
-import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
+import { describe, it, expect } from 'vitest';
+
 
 const LORE_ID_KEY = "Lore-id";
 

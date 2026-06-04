@@ -1,5 +1,7 @@
+import { makeStubGitClient, makeStubProtocol } from '../../../src/engine/testing.js';
+
 import { describe, it, expect } from 'vitest';
-import { makeStubProtocol, makeStubGitClient } from '../../../src/engine/testing.js';
+;
 
 describe('Testing Gateway Logic', () => {
   describe('makeStubProtocol', () => {
@@ -10,13 +12,14 @@ describe('Testing Gateway Logic', () => {
 
     it('should correctly capture storage namespace from a method', () => {
       const stub = makeStubProtocol({ getStorageNamespace: () => 'project' });
-      expect(stub.getStorageNamespace()).toBe('project');
+      expect(stub.storageNamespace).toBe('project');
       expect(stub.owns('project')).toBe(true);
     });
 
-    it('should implement basic owns logic based on name and namespace', () => {
+    it('should implement basic owns logic based on namespace', () => {
         const stub = makeStubProtocol({ name: 'Alpha', getStorageNamespace: () => 'ns' });
-        expect(stub.owns('alpha')).toBe(true);
+        // STRICT ISOLATION: Namespaced protocols only own their bucket.
+        expect(stub.owns('alpha')).toBe(false);
         expect(stub.owns('ns')).toBe(true);
         expect(stub.owns('other')).toBe(false);
     });

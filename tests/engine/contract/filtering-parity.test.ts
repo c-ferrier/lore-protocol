@@ -1,22 +1,35 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
+import { type Atom } from '../../../src/engine/core/types/domain.js';
+import { type SearchOptions } from '../../../src/engine/core/types/query.js';
+import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import type { SearchOptions } from '../../../src/engine/types/query.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeMockGitClient, makeQueryTarget } from '../engine-test-utils.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
-import { TEST_ID_KEY } from '../../../src/engine/testing.js';
+import { TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../src/engine/testing.js';
+import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+;
+
+
+
+;
+;
+;
+;
 
 describe('AtomRepository Filtering Parity', () => {
   let gitClient: any;
   let repo: AtomRepository;
-  let protocol: Protocol;
+  let protocol: ActiveProtocol;
   let protocolRegistry: ProtocolRegistry;
 
   beforeEach(() => {
     gitClient = makeMockGitClient();
 
-    protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+    protocol = makeProtocol({
+        ...TEST_PROTOCOL_DEFINITION,
+        trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
+    });
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
 

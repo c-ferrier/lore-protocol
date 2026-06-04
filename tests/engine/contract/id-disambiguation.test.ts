@@ -1,9 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { makeProtocol, makeAtomRepository, makeMockGitClient, makeQueryTarget } from '../engine-test-utils.js';
-import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
+import { makeProtocol } from '../../../src/engine/testing.js';
+import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+;
+;
+
+
+;
+;
 
 describe('AtomRepository Identity Disambiguation', () => {
   let gitClient: any;
@@ -112,8 +119,8 @@ describe('AtomRepository Identity Disambiguation', () => {
     // Verification: ensure the query included both possible patterns in an OR-set
     const query = vi.mocked(gitClient.query).mock.calls[0][0];
     expect(query.regexPatterns).toContainEqual([
-        '^alpha: Alpha-id: 12345678',
-        '^beta: Beta-id: 12345678'
+        '^alpha: Alpha-id: 12345678$',
+        '^beta: Beta-id: 12345678$'
     ]);
   });
 });

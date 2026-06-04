@@ -1,5 +1,7 @@
+import { camelCase, slugify, snakeCase } from '../../../src/engine/util/string.js';
+
 import { describe, it, expect } from 'vitest';
-import { slugify, snakeCase, camelCase } from '../../../src/engine/util/string.js';
+;
 
 describe('String Utilities', () => {
   describe('slugify', () => {

@@ -1,5 +1,5 @@
 import { resolve, relative, isAbsolute } from 'node:path';
-import { ProtocolError } from '../util/errors.js';
+import { ProtocolError } from '../../util/errors.js';
 
 /**
  * Normalizes a path relative to the protocolRoot.

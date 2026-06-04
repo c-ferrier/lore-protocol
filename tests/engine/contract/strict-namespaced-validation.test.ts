@@ -1,11 +1,7 @@
+import { validateFormatting } from '../../../src/engine/core/logic/commit-formatting.js';
+import { TEST_ENGINE_CONFIG, makeCommitInput, makeProtocol, makeProtocolRegistry } from '../../../src/engine/testing.js';
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { 
-    TEST_ENGINE_CONFIG, 
-    makeProtocol, 
-    makeProtocolRegistry, 
-    makeCommitInput
-} from '../engine-test-utils.js';
-import { validateFormatting } from '../../../src/engine/logic/commit-formatting.js';
 
 describe('Strict Namespaced Validation', () => {
 
@@ -15,7 +11,7 @@ describe('Strict Namespaced Validation', () => {
   it('should reject orphan trailers in a strict namespaced protocol', async () => {
     // 1. Create a STRICT, non-permissive protocol in namespace "fred"
     const strictProtocol = makeProtocol(
-        { name: 'Fred', namespace: 'fred', identityKey: 'Fred-id' },
+        { name: 'Fred', namespace: 'fred', identityKey: 'Mock-id' },
         { strict: true, permissive: false }
     );
     const registry = makeProtocolRegistry([strictProtocol]);
@@ -25,7 +21,7 @@ describe('Strict Namespaced Validation', () => {
       subject: 'feat: add feature',
       trailers: {
         'fred': { 
-            'Fred-id': ['12345678'],
+            'Mock-id': ['12345678'],
             'Orphan': ['value'] // Not defined in Fred schema
         }
       },
@@ -34,12 +30,12 @@ describe('Strict Namespaced Validation', () => {
     const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
     
     // Should report that 'Orphan' is not allowed
-    expect(issues.some(i => i.severity === 'error' && i.message.includes('not recognized'))).toBe(true);
+    expect(issues.some(i => i.severity === 'error' && i.rule === 'unauthorized-trailer' && i.field === 'fred:Orphan')).toBe(true);
   });
 
   it('should accept valid trailers in a strict namespaced protocol', async () => {
     const strictProtocol = makeProtocol(
-        { name: 'Fred', namespace: 'fred', identityKey: 'Fred-id' },
+        { name: 'Fred', namespace: 'fred', identityKey: 'Mock-id' },
         { strict: true, permissive: false }
     );
     const registry = makeProtocolRegistry([strictProtocol]);
@@ -48,14 +44,13 @@ describe('Strict Namespaced Validation', () => {
       subject: 'feat: add feature',
       trailers: {
         'fred': { 
-            'Fred-id': ['12345678']
+            'Mock-id': ['12345678']
         }
       },
     });
 
     const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
     const errors = issues.filter(i => i.severity === 'error');
-    if (errors.length !== 0) console.log('ERRORS (Strict):', errors);
     expect(errors).toHaveLength(0);
   });
 
@@ -64,16 +59,16 @@ describe('Strict Namespaced Validation', () => {
         { 
             name: 'Fred', 
             namespace: 'fred', 
-            identityKey: 'Fred-id',
+            identityKey: 'Mock-id',
             trailers: {
-                'Fred-id': { type: 'string', required: true, description: 'ID', aliases: [], ui: { kind: 'identity', color: 'dim' } as any }
+                'Mock-id': { type: 'string', required: true, description: 'ID', aliases: [], ui: { kind: 'identity', color: 'dim' } as any }
             }
         },
         { 
             strict: true, 
             permissive: false,
             trailers: {
-                'Fred-id': { description: 'ID', multivalue: false, validation: 'none', generator: 'none', required: true }
+                'Mock-id': { description: 'ID', multivalue: false, validation: 'none', generator: 'none', required: true }
             }
         }
     );
@@ -84,19 +79,19 @@ describe('Strict Namespaced Validation', () => {
       subject: 'feat: add feature',
       trailers: {
         'fred': { 
-            // Missing Fred-id
+            // Missing Mock-id
             'Other': ['val']
         }
       },
     });
 
     const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
-    expect(issues.some(i => i.rule === 'fred-id-present' && i.field === 'fred:Fred-id')).toBe(true);
+    expect(issues.some(i => i.rule === 'fred-id-present' && i.field === 'fred:Mock-id')).toBe(true);
   });
 
   it('should report unauthorized trailers in a strict namespace', async () => {
     const strictProtocol = makeProtocol(
-        { name: 'Fred', namespace: 'fred', identityKey: 'Fred-id' },
+        { name: 'Fred', namespace: 'fred', identityKey: 'Mock-id' },
         { strict: true, permissive: false }
     );
     const registry = makeProtocolRegistry([strictProtocol]);
@@ -105,7 +100,7 @@ describe('Strict Namespaced Validation', () => {
       subject: 'feat: add feature',
       trailers: {
         'fred': { 
-            'Fred-id': ['12345678'],
+            'Mock-id': ['12345678'],
             'Unknown-key': ['value'] // Truly unknown key
         }
       },

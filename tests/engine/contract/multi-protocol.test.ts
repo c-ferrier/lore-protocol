@@ -1,7 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
-import { makeAtomRepository, makeProtocol, makeMockGitClient } from '../engine-test-utils.js';
+import { makeProtocol } from '../../../src/engine/testing.js';
+import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+;
+;
+
+;
 
 describe('Multi-Protocol Integration', () => {
   let gitClient: any;
@@ -41,7 +46,7 @@ describe('Multi-Protocol Integration', () => {
     
     // Top-level 0 is the discovery OR-set
     const discoverySet = query.regexPatterns[0];
-    expect(discoverySet).toContain('^Mock-id: .+');
+    expect(discoverySet).toContain('^Mock-id: ');
     expect(discoverySet).toContain('^fred:');
   });
 

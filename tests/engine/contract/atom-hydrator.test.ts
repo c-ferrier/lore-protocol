@@ -1,12 +1,11 @@
+import { extractReferenceIds, hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
+import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
+import { TEST_ID_KEY, makeProtocol, makeProtocolRegistry, makeRawCommit } from '../../../src/engine/testing.js';
+
 import { describe, it, expect } from 'vitest';
-import { hydrateAtoms, extractReferenceIds } from '../../../src/engine/logic/hydration.js';
-import { 
-  makeRawCommit, 
-  makeProtocol, 
-  makeProtocolRegistry,
-  TEST_ID_KEY
-} from '../engine-test-utils.js';
-import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
+;
+;
+
 
 describe('AtomHydrator Contract (Logic)', () => {
   const protocol = makeProtocol();
@@ -32,12 +31,14 @@ describe('AtomHydrator Contract (Logic)', () => {
     it('should respect implicit ownership (protocols get what they define, permissive gets orphans)', () => {
       const p1 = makeProtocol({ 
         name: 'p1', 
+        namespace: 'p1',
         identityKey: 'P1-id',
         trailers: { 'P1-id': { description: 'ID' }, 'Authorized': { description: 'Auth' } } 
       }, { permissive: false });
       
       const p2 = makeProtocol({ 
         name: 'p2', 
+        namespace: '', // Root (permissive)
         permissive: true,
         identityKey: 'P2-id',
         trailers: { 'P2-id': { description: 'ID' } }
@@ -46,7 +47,7 @@ describe('AtomHydrator Contract (Logic)', () => {
       const localRegistry = makeProtocolRegistry([p1, p2]);
 
       const raw: RawCommit = makeRawCommit({
-        trailers: 'P1-id: 1\nAuthorized: val\nOrphan: stray\nP2-id: 2',
+        trailers: 'p1: P1-id: 1\np1: Authorized: val\nOrphan: stray\nP2-id: 2',
         filesChanged: ['src/main.ts']
       });
 
@@ -56,7 +57,7 @@ describe('AtomHydrator Contract (Logic)', () => {
       const state2 = atom.protocols.get('p2');
 
       expect(state1?.trailers.Authorized).toEqual(['val']);
-      expect(state2?.trailers.Orphan).toEqual(['stray']); // Orphan went to permissive protocol
+      expect(state2?.trailers.Orphan).toEqual(['stray']); // Orphan went to root permissive protocol
     });
 
     it('should strip trailers from body when body is exactly the trailer block', () => {

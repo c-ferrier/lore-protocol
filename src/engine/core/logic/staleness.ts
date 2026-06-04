@@ -1,5 +1,5 @@
 import type { StaleReason } from '../types/domain.js';
-import { STALE_SIGNAL } from '../util/constants.js';
+import { STALE_SIGNAL } from '../../util/constants.js';
 
 /**
  * Check if an atom's absolute age exceeds the threshold.

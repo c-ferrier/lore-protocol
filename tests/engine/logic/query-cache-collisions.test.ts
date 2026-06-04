@@ -1,10 +1,14 @@
+import { type SearchOptions } from '../../../src/engine/core/types/query.js';
+import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
+import { GLOBAL_CACHE_KEY } from '../../../src/engine/util/constants.js';
+
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { QueryCache } from '../../../src/engine/services/query-cache.js';
+;
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { SearchOptions } from '../../../src/engine/types/query.js';
-import { GLOBAL_CACHE_KEY } from '../../../src/engine/util/constants.js';
+
+;
 
 describe('QueryCache Collision Prevention', () => {
   let tempDir: string;

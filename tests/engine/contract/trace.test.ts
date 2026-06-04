@@ -1,18 +1,13 @@
+import { registerTraceCommand } from '../../../src/engine/cli/commands/trace.js';
+import { type IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
+import { TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, makeAtom, makeProtocol, makeProtocolRegistry } from '../../../src/engine/testing.js';
+import { TestLogger, makeMockAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { registerTraceCommand } from '../../../src/engine/commands/trace.js';
-import { 
-    makeMockAtomRepository, 
-    makeProtocolRegistry, 
-    makeProtocol,
-    makeAtom,
-    TEST_PROTOCOL_DEFINITION,
-    TEST_ID_KEY,
-    TestLogger,
-    makeMockGitClient,
-    makeMockTargetFactory
-} from '../engine-test-utils.js';
-import type { IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
+;
+;
+
 
 describe('registerTraceCommand (Integrated Expansion)', () => {
   let atomRepository: any;
@@ -25,7 +20,14 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
   beforeEach(() => {
     atomRepository = makeMockAtomRepository();
     gitClient = makeMockGitClient();
-    protocolRegistry = makeProtocolRegistry([makeProtocol(TEST_PROTOCOL_DEFINITION)]);
+    // Register protocol with 'Related' reference trailer to enable tracing
+    protocolRegistry = makeProtocolRegistry([makeProtocol({
+        ...TEST_PROTOCOL_DEFINITION,
+        trailers: {
+            ...TEST_PROTOCOL_DEFINITION.trailers,
+            'Related': { description: 'R', validation: 'reference' } as any
+        }
+    })]);
     logger = new TestLogger();
     formatter = {
         formatTraceResult: vi.fn(() => 'formatted trace'),
@@ -48,7 +50,7 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
 
     const rootAtom = makeAtom({ 
         id: id1,
-        protocols: new Map([['Mock', { 
+        protocols: new Map([['mock', { 
             trailers: { [TEST_ID_KEY]: [id1], 'Related': [id2] },
             unauthorized: {} 
         }]])
@@ -56,7 +58,7 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
 
     const relatedAtom = makeAtom({
         id: id2,
-        protocols: new Map([['Mock', { 
+        protocols: new Map([['mock', { 
             trailers: { [TEST_ID_KEY]: [id2] },
             unauthorized: {} 
         }]])

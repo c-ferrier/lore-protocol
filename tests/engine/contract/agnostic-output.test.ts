@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { type Atom } from '../../../src/engine/core/types/domain.js';
+import { type FormattableQueryResult } from '../../../src/engine/core/types/output.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { TextFormatter } from '../../../src/engine/formatters/text-formatter.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import type { FormattableQueryResult } from '../../../src/engine/types/output.js';
-import type { Atom } from '../../../src/engine/types/domain.js';
+
+import { describe, it, expect, beforeEach } from 'vitest';
+;
+;
+;
+
+
 
 describe('Agnostic Output (Zero Protocols)', () => {
   let registry: ProtocolRegistry;

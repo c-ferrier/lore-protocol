@@ -1,10 +1,14 @@
+import { registerInitCommand } from '../../../src/engine/cli/commands/init.js';
+import { type IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
+import { TestLogger } from '../engine-test-utils.js';
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { registerInitCommand } from '../../../src/engine/commands/init.js';
-import type { IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
+;
+
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
-import { TestLogger } from '../engine-test-utils.js';
+;
 
 vi.mock('node:fs/promises');
 

@@ -1,8 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { EngineBootstrapper } from '../../../../src/engine/services/engine-bootstrapper.js';
-import { TEST_ENGINE_CONFIG, makeMockProtocol } from '../../engine-test-utils.js';
+import { JsonFormatter } from '../../../../src/engine/formatters/json-formatter.js';
 import { LogLevel } from '../../../../src/engine/interfaces/logger.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { EngineBootstrapper } from '../../../../src/engine/services/engine-bootstrapper.js';
+import { EngineConfigLoader } from '../../../../src/engine/shell/fs/config-loader.js';
+import { DynamicProtocolLoader } from '../../../../src/engine/shell/fs/protocol-loader.js';
+import { resolveProtocolRoot } from '../../../../src/engine/shell/fs/root-resolver.js';
+import { GitClient } from '../../../../src/engine/shell/git/git-client.js';
+import { TEST_ENGINE_CONFIG, makeProtocol } from '../../../../src/engine/testing.js';
+import { makeMockProtocol } from '../../engine-test-utils.js';
+
+import { describe, it, expect, vi } from 'vitest';
 
 // Mock dependency services to avoid FS/Git access
 vi.mock('../../../../src/engine/services/git-client.js', () => ({
@@ -78,13 +84,18 @@ describe('EngineBootstrapper', () => {
   });
 
   it('should allow wrappers to mutate protocols via hooks', async () => {
-    const onProtocolsLoaded = vi.fn(async (protos) => [...protos, makeMockProtocol({ name: 'Hooked', namespace: '', identityKey: 'id', trailers: {} })]);
+    const onProtocolsLoaded = vi.fn(async (protos) => [...protos, makeProtocol({ 
+        name: 'Hooked', 
+        namespace: '', 
+        identityKey: 'id', 
+        trailers: { 'id': { description: 'ID', multivalue: false, validation: 'none' } } 
+    }, { strict: true })]);
     const bootstrapper = new EngineBootstrapper({ ...options, onProtocolsLoaded });
-    
+
     const { sharedDeps } = await bootstrapper.bootstrap('/mock', []);
-    
+
     expect(onProtocolsLoaded).toHaveBeenCalled();
-    expect(sharedDeps.protocolRegistry.get('Hooked')).toBeDefined();
+    expect(sharedDeps.protocolRegistry.get('hooked')).toBeDefined();
   });
 
   it('should configure the formatter based on CLI options', async () => {

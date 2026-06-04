@@ -1,18 +1,18 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { selectInputMode, parseFlagsToInput, finalizeCommitInput, InputMode } from '../../../src/engine/logic/input-interpretation.js';
+import { InputMode, finalizeCommitInput, parseFlagsToInput, selectInputMode } from '../../../src/engine/core/logic/input-interpretation.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { 
-    TEST_ENGINE_CONFIG, 
-    TEST_PROTOCOL_DEFINITION, 
-    makeProtocol 
-} from '../engine-test-utils.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../src/engine/testing.js';
+
+import { describe, it, expect, beforeEach } from 'vitest';
 
 describe('Input Interpretation Logic (Pure Functions)', () => {
   let registry: ProtocolRegistry;
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    registry.register(makeProtocol(TEST_PROTOCOL_DEFINITION));
+    registry.register(makeProtocol({
+        ...TEST_PROTOCOL_DEFINITION,
+        trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
+    }));
   });
 
   describe('selectInputMode', () => {
@@ -63,7 +63,12 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
     });
 
     it('should support qualified namespaced trailers', () => {
-        registry.register(makeProtocol({ name: 'Alpha', namespace: 'alpha', identityKey: 'A-id' }));
+        registry.register(makeProtocol({ 
+            name: 'Alpha', 
+            namespace: 'alpha', 
+            identityKey: 'A-id',
+            trailers: { 'Status': { description: 'S', multivalue: false, validation: 'none' } as any }
+        }));
         const input = parseFlagsToInput({ 
             trailer: ['alpha/A-id=abc', 'alpha/Status=active']
         }, registry);

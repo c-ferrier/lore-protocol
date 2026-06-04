@@ -1,17 +1,14 @@
-import { describe, it, expect, vi } from 'vitest';
-import { Protocol } from '../../../src/engine/services/protocol.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol-definition.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
-import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
-import { 
-  TEST_ENGINE_CONFIG, 
-  TEST_PROTOCOL_CONFIG, 
-  makeMockGitClient, 
-  makeQueryTarget 
-} from '../engine-test-utils.js';
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { Validator } from '../../../src/engine/services/validator.js';
-import type { ProtocolDefinition } from '../../../src/engine/interfaces/protocol-definition.js';
+import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, makeProtocol, makeQueryTarget } from '../../../src/engine/testing.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
+
+import { describe, it, expect, vi } from 'vitest';
+
 
 /**
  * ARCHITECTURAL TEST: Protocol Agnosticism
@@ -25,7 +22,7 @@ describe('Engine Protocol Rebranding Flow', () => {
     const fredDef: ProtocolDefinition = {
       name: 'Fred',
       version: '2.5',
-      namespace: '', 
+      namespace: 'fred', 
       identityKey: 'Fred-id',
       trailers: {
         'Fred-id': {
@@ -42,13 +39,15 @@ describe('Engine Protocol Rebranding Flow', () => {
       }
     };
 
-    const fredProtocol = new Protocol(fredDef, {
-        ...TEST_PROTOCOL_CONFIG,
-        trailers: { ...TEST_PROTOCOL_CONFIG.trailers, strict: false, permissive: true }
+    const fredProtocol = makeProtocol(fredDef, {
+        identityKey: 'Fred-id',
+        name: 'Fred',
+        namespace: 'fred',
+        trailers: { ...fredDef.trailers, strict: false, permissive: true }
     });
     const registry = new ProtocolRegistry();
     registry.register(fredProtocol);
-
+    
     // 2. Mock Storage to return a Fred commit
     const mockGit = makeMockGitClient();
     const rawFredCommit = {
@@ -57,7 +56,7 @@ describe('Engine Protocol Rebranding Flow', () => {
       author: 'fred@example.com',
       subject: 'feat: fredly change',
       body: '',
-      trailers: 'Fred-id: aabbccdd\nStatus: active',
+      trailers: 'fred: Fred-id: aabbccdd\nfred: Status: active',
       filesChanged: ['src/fred.ts']
     };
     vi.mocked(mockGit.query).mockResolvedValue([rawFredCommit]);
@@ -105,7 +104,8 @@ describe('Engine Protocol Rebranding Flow', () => {
     expect(results[0].issues).toHaveLength(0);
 
     // Negative case: invalid ID based on Fred's custom pattern
-    const badRawCommit = { ...rawFredCommit, trailers: 'Fred-id: not-hex' };
+    // 5. Verify validation of bad commit
+    const badRawCommit = { ...rawFredCommit, trailers: 'fred: Fred-id: not-hex' };
     const results2 = await validator.validate([badRawCommit]);
     const formatIssue = results2[0].issues.find(i => i.rule === 'fred-id-format');
     expect(formatIssue).toBeDefined();

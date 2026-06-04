@@ -1,12 +1,18 @@
+import { ProtocolQueryAdapter } from '../../../../src/engine/shell/git/protocol-query-adapter.js';
+import { TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../../src/engine/testing.js';
+
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ProtocolQueryAdapter } from '../../../../src/engine/services/protocol/protocol-query-adapter.js';
-import { TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../engine-test-utils.js';
+;
+;
 
 describe('ProtocolQueryAdapter', () => {
   let adapter: ProtocolQueryAdapter;
 
   beforeEach(() => {
-    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+    const protocol = makeProtocol({
+        ...TEST_PROTOCOL_DEFINITION,
+        trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
+    });
     adapter = new ProtocolQueryAdapter(protocol);
   });
 
@@ -33,7 +39,8 @@ describe('ProtocolQueryAdapter', () => {
   it('should generate namespaced search patterns', () => {
     const nsProtocol = makeProtocol({
       ...TEST_PROTOCOL_DEFINITION,
-      namespace: 'Project'
+      namespace: 'Project',
+      trailers: { 'Confidence': MOCK_CORE_TRAILERS.Confidence }
     });
     const nsAdapter = new ProtocolQueryAdapter(nsProtocol);
     const filters = [{ protocol: null, key: 'Confidence', op: 'eq' as const, value: 'high' }];

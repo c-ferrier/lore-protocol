@@ -1,4 +1,4 @@
-import { 
+import {  
     type IOutputFormatter,
     type ErrorMessage,
     type ProtocolRegistry,
@@ -8,9 +8,9 @@ import {
     type FormattableTraceResult, 
     type FormattableDoctorResult, 
     type FormattableConfigResult,
-    snakeCase,
-    createBaseFormatter
-} from '../../engine/index.js';
+    snakeCase
+ } from '../../engine/index.js';
+import { createBaseFormatter } from '../../engine/formatters/index.js';
 
 /**
  * Lore CLI 0.5.0 Legacy JSON Formatter.

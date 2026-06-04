@@ -1,246 +1,192 @@
 import { vi } from 'vitest';
 import { 
-    ProtocolMap, 
-    type Atom, 
-    type Trailers, 
-    type HierarchicalTrailers,
-    ProtocolRegistry,
-    InMemoryLogger,
-    NullQueryCache,
-    Validator,
-    StalenessDetector,
-    AtomRepository,
-    Protocol,
-    ProtocolLoader,
-    TEST_ID_KEY,
-    TEST_ENGINE_CONFIG,
-    TEST_PROTOCOL_DEFINITION,
-    TEST_PROTOCOL_CONFIG,
-    makeCommitInput,
-    makeAtom,
-    makeTrailers,
-    makeStubProtocol,
-    makeStubGitClient,
-    makeStubConfigLoader,
-    makeStubFormatter,
-    makeStubInputResolver,
-    makeStubPrompt,
+    makeProtocolRegistry, 
+    makeProtocol, 
+    makeStubGitClient, 
+    makeStubPrompt, 
+    makeStubFormatter, 
+    makeStubConfigLoader, 
+    makeStubInputResolver, 
+    makeStubHeadIdReader, 
+    makeStubAtomRepository, 
+    makeStubValidator, 
+    makeStubStalenessDetector, 
     makeStubProtocolRegistry,
-    makeStubAtomRepository,
-    makeStubHeadIdReader,
-    makeStubValidator,
-    makeStubStalenessDetector,
-    makeRawCommit,
-    makeProtocolConfig,
-    makeQueryTarget,
-    makeStubTargetContext
+    makeStubProtocol,
+    TEST_ENGINE_CONFIG
 } from '../../src/engine/testing.js';
+import { AtomRepository } from '../../src/engine/services/atom-repository.js';
+import { InMemoryLogger } from '../../src/engine/services/in-memory-logger.js';
 
-// SOURCE EVERYTHING FROM THE TESTING GATEWAY
-export * from '../../src/engine/testing.js';
+// 1. Vitest Spies (Middlemen)
+// These wrap framework-agnostic stubs in Vitest mock functions.
 
-/**
- * =============================================================================
- * VITEST-SPECIFIC MOCK FACTORIES (THE BRIDGE)
- * =============================================================================
- * These factories rely on the Vitest `vi.fn()` global.
- * 
- * DESIGN PRINCIPLE: "LOCAL EYES"
- * These factories contain ZERO business logic or default values.
- * They simply wrap the "Brain" (the framework-agnostic stubs from the testing 
- * gateway) in Vitest spy dashboards (vi.fn()).
- * =============================================================================
- */
-
-// -----------------------------------------------------------------------------
-// SPY WRAPPERS (Adding observability to engine stubs)
-// -----------------------------------------------------------------------------
-
-/** Factory: Create a PURE MOCK GitClient (vi.fn() object). */
 export function makeMockGitClient(overrides: any = {}): any {
     const stub = makeStubGitClient(overrides);
-    return {
-        ...stub,
-        log: vi.fn(stub.log),
+    return { 
+        ...stub, 
         query: vi.fn(stub.query),
-        blame: vi.fn(stub.blame),
-        commit: vi.fn(stub.commit),
-        hasStagedChanges: vi.fn(stub.hasStagedChanges),
-        getRepoRoot: vi.fn(stub.getRepoRoot),
-        isInsideRepo: vi.fn(stub.isInsideRepo),
-        getFilesChanged: vi.fn(stub.getFilesChanged),
-        getCommitsByHashes: vi.fn(stub.getCommitsByHashes),
-        countCommitsSince: vi.fn(stub.countCommitsSince),
-        resolveRef: vi.fn(stub.resolveRef),
         resolveDate: vi.fn(stub.resolveDate),
-        getHeadMessage: vi.fn(stub.getHeadMessage)
+        getCommitsByHashes: vi.fn(stub.getCommitsByHashes),
+        blame: vi.fn(stub.blame),
+        getFilesChanged: vi.fn(async () => new Map()),
+        resolveRef: vi.fn(stub.resolveRef),
+        getRepoRoot: vi.fn(stub.getRepoRoot),
+        hasStagedChanges: vi.fn(async () => true),
+        isInsideRepo: vi.fn(async () => true),
+        getHeadMessage: vi.fn(async () => 'feat: head'),
+        countCommitsSince: vi.fn(async () => 0),
+        log: vi.fn(async () => []),
+        commit: vi.fn(async () => ({ hash: 'new-hash', message: 'new message' }))
     };
 }
 
-/** Factory: Create a PURE MOCK ProtocolRegistry (vi.fn() object). */
-export function makeMockProtocolRegistry(overrides: any = {}): any {
-    const stub = makeStubProtocolRegistry();
+export function makeMockProtocolRegistry(protocols: any[] = []): any {
+    const registry = makeProtocolRegistry(protocols);
+    return registry;
+}
+
+export function makeMockQueryCache(overrides: any = {}): any {
     return {
-        ...stub,
-        get: vi.fn(stub.get),
-        getAll: vi.fn(stub.getAll),
-        detect: vi.fn(stub.detect),
-        getClaimedKeys: vi.fn(stub.getClaimedKeys),
-        getDiscoveryPatterns: vi.fn(stub.getDiscoveryPatterns),
-        getSearchPatterns: vi.fn(stub.getSearchPatterns),
-        getIdentity: vi.fn(stub.getIdentity),
-        resolveIdentity: vi.fn(stub.resolveIdentity),
-        getFingerprint: vi.fn(stub.getFingerprint),
-        register: vi.fn(stub.register),
+        get: vi.fn().mockResolvedValue(null),
+        set: vi.fn().mockResolvedValue(undefined),
+        clear: vi.fn().mockResolvedValue(undefined),
         ...overrides
     };
 }
 
-/** Factory: Create a PURE MOCK QueryCache (vi.fn() object). */
-export function makeMockQueryCache(overrides: any = {}): any {
-  return {
-    get: vi.fn(async () => null),
-    set: vi.fn(async () => {}),
-    clear: vi.fn(async () => {}),
-    ...overrides
-  };
-}
-
-/** Factory: Create a PURE MOCK ConfigLoader (vi.fn() object). */
 export function makeMockConfigLoader(overrides: any = {}): any {
     const stub = makeStubConfigLoader(overrides);
-    return {
-        ...stub,
-        loadForPath: vi.fn(stub.loadForPath),
-        loadFromFile: vi.fn(stub.loadFromFile),
-        findConfigPath: vi.fn(stub.findConfigPath)
+    return { 
+        ...stub, 
+        load: vi.fn(stub.load),
+        findConfigPath: vi.fn(async () => null),
     };
 }
 
-/** Factory: Create a PURE MOCK OutputFormatter (vi.fn() object). */
 export function makeMockFormatter(overrides: any = {}): any {
-    const stub = makeStubFormatter(overrides);
     return {
-        ...stub,
-        formatQueryResult: vi.fn(stub.formatQueryResult),
-        formatValidationResult: vi.fn(stub.formatValidationResult),
-        formatStalenessResult: vi.fn(stub.formatStalenessResult),
-        formatTraceResult: vi.fn(stub.formatTraceResult),
-        formatDoctorResult: vi.fn(stub.formatDoctorResult),
-        formatSuccess: vi.fn(stub.formatSuccess),
-        formatError: vi.fn(stub.formatError),
-        formatConfig: vi.fn(stub.formatConfig)
-    };
-}
-
-/** Factory: Create a PURE MOCK AtomRepository (vi.fn() object). */
-export function makeMockAtomRepository(overrides: any = {}): any {
-    const stub = makeStubAtomRepository(overrides);
-    return {
-        ...stub,
-        find: vi.fn(stub.find),
-        findAll: vi.fn(stub.findAll),
-        findById: vi.fn(stub.findById),
-        findByIds: vi.fn(stub.findByIds),
-        findByRange: vi.fn(stub.findByRange),
-        findByCommitHash: vi.fn(stub.findByCommitHash),
-        findByScope: vi.fn(stub.findByScope),
-        resolveFollowLinks: vi.fn(stub.resolveFollowLinks),
-        extractReferenceIds: vi.fn(stub.extractReferenceIds)
-    };
-}
-
-/** Factory: Create a PURE MOCK Prompt (vi.fn() object). */
-export function makeMockPrompt(overrides: any = {}): any {
-    const stub = makeStubPrompt(overrides);
-    return {
-        ...stub,
-        askText: vi.fn(stub.askText),
-        askConfirm: vi.fn(stub.askConfirm),
-        askChoice: vi.fn(stub.askChoice),
-        askMultiline: vi.fn(stub.askMultiline),
-        close: vi.fn(stub.close)
-    };
-}
-
-/** Factory: Create a PURE MOCK HeadIdReader (vi.fn() object). */
-export function makeMockHeadIdReader(overrides: any = {}): any {
-    const stub = makeStubHeadIdReader(overrides);
-    return {
-        ...stub,
-        read: vi.fn(stub.read),
-        readIds: vi.fn(stub.readIds)
-    };
-}
-
-/** Factory: Create a PURE MOCK CommitInputResolver (vi.fn() object). */
-export function makeMockInputResolver(overrides: any = {}): any {
-    const stub = makeStubInputResolver(overrides);
-    return {
-        ...stub,
-        read: vi.fn(stub.read)
-    };
-}
-
-/** Factory: Create a PURE MOCK StalenessDetector (vi.fn() object). */
-export function makeMockStalenessDetector(overrides: any = {}): any {
-    const stub = makeStubStalenessDetector(overrides);
-    return {
-        ...stub,
-        detect: vi.fn(stub.detect)
-    };
-}
-
-/** Factory: Create a PURE MOCK Validator (vi.fn() object). */
-export function makeMockValidator(overrides: any = {}): any {
-    const stub = makeStubValidator(overrides);
-    return {
-        ...stub,
-        validate: vi.fn(stub.validate)
-    };
-}
-
-/** Factory: Create a PURE MOCK Protocol (vi.fn() object). */
-export function makeMockProtocol(overrides: any = {}): any {
-    const stub = makeStubProtocol(overrides);
-    return {
-        ...stub,
-        getStorageNamespace: vi.fn(stub.getStorageNamespace),
-        setRegistry: vi.fn(stub.setRegistry),
-        getDiscoveryPatterns: vi.fn(stub.getDiscoveryPatterns),
-        getSearchPatterns: vi.fn(stub.getSearchPatterns),
-        getIdentityPattern: vi.fn(stub.getIdentityPattern),
-        authorize: vi.fn(stub.authorize),
-        getAuthorizedKeys: vi.fn(stub.getAuthorizedKeys),
-        getAllKeys: vi.fn(stub.getAllKeys),
-        getScalarKeys: vi.fn(stub.getScalarKeys),
-        getListKeys: vi.fn(stub.getListKeys),
-        getReferenceKeys: vi.fn(stub.getReferenceKeys),
-        getUiKind: vi.fn(stub.getUiKind),
-        getUiColor: vi.fn(stub.getUiColor),
-        getDefinition: vi.fn(stub.getDefinition),
-        isCore: vi.fn(stub.isCore),
-        isValidIdentity: vi.fn(stub.isValidIdentity),
-        normalize: vi.fn(stub.normalize),
-        validateState: vi.fn(stub.validateState),
-        validateTrailer: vi.fn(stub.validateTrailer),
-        matches: vi.fn(stub.matches),
-        claims: vi.fn(stub.claims),
-        getIdentity: vi.fn(stub.getIdentity),
-        getFormattableDefinitions: vi.fn(stub.getFormattableDefinitions),
-        owns: vi.fn(stub.owns),
-        getStaleSignals: vi.fn(stub.getStaleSignals),
-        parse: vi.fn(stub.parse)
-    };
-}
-
-/** A real in-memory logger for checking output in tests. */
-export const TestLogger = InMemoryLogger;
-
-/** Helper for generating query options. */
-export function makeQueryOptions(overrides: any = {}): any {
-    return {
-        filters: [],
+        formatQueryResult: vi.fn().mockReturnValue(''),
+        formatValidationResult: vi.fn().mockReturnValue(''),
+        formatStalenessResult: vi.fn().mockReturnValue(''),
+        formatTraceResult: vi.fn().mockReturnValue(''),
+        formatConfigResult: vi.fn().mockReturnValue(''),
+        formatDoctorResult: vi.fn().mockReturnValue(''),
+        formatSuccess: vi.fn().mockReturnValue(''),
+        formatError: vi.fn().mockReturnValue(''),
         ...overrides
     };
+}
+
+export function makeMockAtomRepository(overrides: any = {}): any {
+    const stub = makeStubAtomRepository(overrides);
+    return { ...stub, find: vi.fn(stub.find), findByIds: vi.fn(stub.findByIds) };
+}
+
+export function makeMockPrompt(overrides: any = {}): any {
+    const stub = makeStubPrompt(overrides);
+    return { 
+        ...stub, 
+        askConfirm: vi.fn(stub.askConfirm), 
+        askChoice: vi.fn(stub.askChoice), 
+        askInput: vi.fn(stub.askInput) 
+    };
+}
+
+export function makeMockHeadIdReader(overrides: any = {}): any {
+    return {
+        readIds: vi.fn().mockResolvedValue({}),
+        ...overrides
+    };
+}
+
+export function makeMockInputResolver(overrides: any = {}): any {
+    return {
+        resolve: vi.fn().mockResolvedValue({}),
+        read: vi.fn().mockResolvedValue({ subject: 'test', trailers: new Map() }),
+        ...overrides
+    };
+}
+
+export function makeMockStalenessDetector(overrides: any = {}): any {
+    const stub = makeStubStalenessDetector(overrides);
+    return { ...stub, detect: vi.fn(stub.detect) };
+}
+
+export function makeMockValidator(overrides: any = {}): any {
+    const stub = makeStubValidator(overrides);
+    return { ...stub, validate: vi.fn(stub.validate) };
+}
+
+export function makeMockProtocol(overrides: any = {}): any {
+    const stub = makeStubProtocol(overrides);
+    
+    // Helper to either use provided mock or wrap stub method
+    const wrap = (key: string) => {
+        if (overrides[key] && (overrides[key]._isMockFunction || typeof overrides[key] === 'function')) {
+            return overrides[key];
+        }
+        return vi.fn(stub[key].bind(stub));
+    };
+
+    const mock = {
+        name: stub.name,
+        version: stub.version,
+        strict: stub.strict,
+        permissive: stub.permissive,
+        identityKey: stub.identityKey,
+        storageNamespace: stub.storageNamespace,
+        authorize: wrap('authorize'),
+        getAuthorizedKeys: wrap('getAuthorizedKeys'),
+        getScalarKeys: wrap('getScalarKeys'),
+        getListKeys: wrap('getListKeys'),
+        getReferenceKeys: wrap('getReferenceKeys'),
+        getDefinition: wrap('getDefinition'),
+        owns: wrap('owns'),
+        isRoot: wrap('isRoot'),
+        isValidIdentity: wrap('isValidIdentity'),
+        parse: wrap('parse'),
+        normalize: wrap('normalize'),
+        getIdentity: wrap('getIdentity'),
+        validateState: wrap('validateState'),
+        validateTrailer: wrap('validateTrailer'),
+        isCore: wrap('isCore'),
+        matches: wrap('matches'),
+        getFormattableDefinitions: wrap('getFormattableDefinitions'),
+        getStaleSignals: wrap('getStaleSignals'),
+        getDiscoveryPatterns: wrap('getDiscoveryPatterns'),
+        getSearchPatterns: wrap('getSearchPatterns'),
+        claims: wrap('claims'),
+    };
+    return mock;
+}
+
+export const createMockProtocol = makeMockProtocol;
+export const TestLogger = InMemoryLogger;
+
+// 2. Specialized Helper wrappers
+
+export function makeAtomRepository(options: any = {}): AtomRepository {
+    const registry = options.registry || makeProtocolRegistry([makeProtocol({ name: 'RepoMock' })]);
+    const gitClient = options.gitClient || makeMockGitClient();
+    const cache = options.cache || makeMockQueryCache();
+    
+    const baseTarget = options.baseTarget || {
+        raw: '',
+        type: 'global' as const,
+        resolvedPaths: []
+    };
+
+    return new AtomRepository(
+        gitClient,
+        registry,
+        cache,
+        baseTarget
+    );
+}
+
+export function makeQueryOptions(overrides: any = {}): any {
+  return {
+    ...overrides
+  };
 }

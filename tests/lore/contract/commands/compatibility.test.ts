@@ -1,8 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Command } from 'commander';
+import { executePathQuery } from '../../../../src/engine/cli/commands/helpers/path-query.js';
 import { registerContextCommand } from '../../../../src/lore/commands/context.js';
 import { registerConstraintsCommand } from '../../../../src/lore/commands/constraints.js';
-import { executePathQuery } from '../../../../src/engine/index.js';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { Command } from 'commander';
+;
+;
+;
 import * as engineExports from '../../../../src/engine/index.js';
 
 describe('Lore Compatibility Command Registration', () => {

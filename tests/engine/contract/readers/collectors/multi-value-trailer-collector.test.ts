@@ -1,6 +1,9 @@
+import { MultiValueTrailerCollector } from '../../../../../src/engine/cli/readers/collectors/multi-value-trailer-collector.js';
 import { makeMockPrompt } from '../../../engine-test-utils.js';
+
+;
 import { describe, it, expect, vi } from 'vitest';
-import { MultiValueTrailerCollector } from '../../../../../src/engine/services/readers/collectors/multi-value-trailer-collector.js';
+;
 
 describe('MultiValueTrailerCollector', () => {
   const config = {

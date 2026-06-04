@@ -1,5 +1,8 @@
+import { type Atom } from '../../../src/engine/core/types/domain.js';
+import { EngineConfigLoader } from '../../../src/engine/shell/fs/config-loader.js';
+
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { EngineConfigLoader } from '../../../src/engine/services/config-loader.js';
+;
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

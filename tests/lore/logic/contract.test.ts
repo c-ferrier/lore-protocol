@@ -1,5 +1,7 @@
+import { buildLoreCli } from '../lore-test-utils.js';
+
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { buildLoreCli } from '../../../src/lore/cli-wrapper.js';
+;
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -209,7 +211,7 @@ describe('Lore CLI 0.5.0 Exhaustive Compatibility Contract', () => {
   });
 
   it('should maintain CONTRACT: Global options must match exactly', async () => {
-    const { program } = await buildLoreCli();
+    const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
     const globalExpected = LORE_050_STATE['help'].options;
     
     for (const expected of globalExpected) {
@@ -221,7 +223,7 @@ describe('Lore CLI 0.5.0 Exhaustive Compatibility Contract', () => {
   });
 
   it('should maintain CONTRACT: All commands and their options must match 0.5.0 exactly', async () => {
-    const { program } = await buildLoreCli();
+    const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
 
     for (const [cmdName, cmdContract] of Object.entries(LORE_050_STATE)) {
       if (cmdName === 'help') continue;

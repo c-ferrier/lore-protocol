@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { StalenessDetector } from '../../../src/engine/services/staleness-detector.js';
+import { type Atom } from '../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { StalenessDetector } from '../../../src/engine/services/staleness-detector.js';
+import { TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 import { STALE_SIGNAL } from '../../../src/engine/util/constants.js';
-import type { Atom } from '../../../src/engine/types/domain.js';
-import { TEST_ENGINE_CONFIG, makeMockProtocol } from '../engine-test-utils.js';
+import { makeMockProtocol } from '../engine-test-utils.js';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
   let registry: ProtocolRegistry;
@@ -16,8 +18,8 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
     subject: 'feat: multi-protocol atom',
     body: '',
     protocols: new Map([
-        ['mock', { name: 'Mock', version: '1.0', identityKey: 'Mock-id', trailers: {} }],
-        ['sec', { name: 'Sec', version: '1.0', identityKey: 'CVE-id', trailers: {} }]
+        ['mockstale', { trailers: {}, unauthorized: {} }],
+        ['secstale', { trailers: {}, unauthorized: {} }]
     ]),
     filesChanged: [],
   };
@@ -30,7 +32,8 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
   it('should aggregate staleness signals from multiple protocols for a single atom', async () => {
     // 1. Mock protocol identifies an expired hint
     const mockProtocol = makeMockProtocol({
-        name: 'Mock',
+        name: 'MockStale',
+        namespace: 'mockstale',
         getStaleSignals: vi.fn().mockReturnValue([{ 
             signal: 'expired-hint', 
             description: '[Mock] Hint expired' 
@@ -39,7 +42,8 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
 
     // 2. Security protocol identifies low confidence
     const secProtocol = makeMockProtocol({
-        name: 'Sec',
+        name: 'SecStale',
+        namespace: 'secstale',
         getStaleSignals: vi.fn().mockReturnValue([{ 
             signal: STALE_SIGNAL.DRIFT, 
             description: '[Sec] Schema drift' 

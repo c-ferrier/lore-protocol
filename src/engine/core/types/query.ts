@@ -55,14 +55,8 @@ export interface PathQueryOptions {
  * Supported logical operations for search filters.
  */
 export type FilterOperator = 
-  | 'eq';   // Equals (default)
-  // | 'ne'   // Not Equals
-  // | 'in'   // Member of set
-  // | 'nin'  // Not a member of set
-  // | 're'   // Regex match
-  // | 'gt'   // Greater than
-  // | 'lt'   // Less than
-  // | 'has'; // Key presence (existence)
+  | 'eq'    // Equals (default)
+  | 'has';  // Key presence (existence)
 
 /**
  * A structured filter that can be explicitly routed to a specific protocol.

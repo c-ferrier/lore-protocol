@@ -5,7 +5,7 @@ import type {
   FormattableTraceResult,
   FormattableDoctorResult,
   FormattableConfigResult,
-} from '../types/output.js';
+} from '../core/types/output.js';
 
 export interface ErrorMessage {
   readonly severity: 'error' | 'warning';

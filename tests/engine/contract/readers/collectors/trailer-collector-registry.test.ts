@@ -1,31 +1,32 @@
-import { makeMockPrompt, TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol } from '../../../engine-test-utils.js';
+import { MultiValueTrailerCollector } from '../../../../../src/engine/cli/readers/collectors/multi-value-trailer-collector.js';
+import { TrailerCollectorRegistry } from '../../../../../src/engine/cli/readers/collectors/trailer-collector-registry.js';
+import { TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../../../src/engine/testing.js';
+
 import { describe, it, expect } from 'vitest';
-import { TrailerCollectorRegistry } from '../../../../../src/engine/services/readers/collectors/trailer-collector-registry.js';
-import { Protocol } from '../../../../../src/engine/services/protocol.js';
 
 describe('TrailerCollectorRegistry', () => {
+  const CORE_SCHEMA = {
+      ...TEST_PROTOCOL_DEFINITION.trailers,
+      ...MOCK_CORE_TRAILERS,
+      'Ref': { description: 'R', multivalue: true } as any,
+      'Depends-on': { description: 'D', multivalue: true } as any
+  };
+
   it('should create default collectors for core trailers', () => {
-    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+    const protocol = makeProtocol({ trailers: CORE_SCHEMA });
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
-    // Default core trailers count in Mock (Constraint, Confidence, Related, Ref, Supersedes, Depends-on, Ref)
-    // Actually it is: Constraint, Confidence, Related, Supersedes, Depends-on, Ref (6)
-    // Plus any others... let's count:
-    // 1. Constraint
-    // 2. Confidence
-    // 3. Related
-    // 4. Supersedes
-    // 5. Depends-on
-    // 6. Ref
+    // 6 core: Constraint, Confidence, Related, Supersedes, Depends-on, Ref
     expect(collectors.length).toBe(6);
     expect(collectors.map(c => c.key)).toContain('Constraint');
     expect(collectors.map(c => c.key)).toContain('Confidence');
   });
 
   it('should add custom collectors from definitions', () => {
-    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
+    const protocol = makeProtocol({
       trailers: {
+          ...CORE_SCHEMA,
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const },
           'Squad': { description: 'Squad name', multivalue: true, validation: 'none' as const }
       }
@@ -39,7 +40,7 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should handle multi-value enum collectors', () => {
-    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
+    const protocol = makeProtocol({
       trailers: {
           'Features': { 
             description: 'Features', 
@@ -59,8 +60,9 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should create collectors for simple custom trailers', () => {
-    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
+    const protocol = makeProtocol({
       trailers: {
+          ...CORE_SCHEMA,
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const },
           'Team': { description: '', multivalue: true, validation: 'none' as const }
       }
@@ -74,7 +76,7 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should sort collectors based on metadata order', () => {
-    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
+    const protocol = makeProtocol({
       trailers: {
           'First': { description: 'f', multivalue: false, validation: 'none' as const, prompt: { order: 1 } },
           'Last': { description: 'l', multivalue: false, validation: 'none' as const, prompt: { order: 10000 } }

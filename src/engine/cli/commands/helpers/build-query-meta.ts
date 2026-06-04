@@ -1,5 +1,5 @@
-import type { Atom } from '../../types/domain.js';
-import type { QueryMeta } from '../../types/query.js';
+import type { Atom } from '../../../core/types/domain.js';
+import type { QueryMeta } from '../../../core/types/query.js';
 
 /**
  * Build QueryMeta from a set of atoms.

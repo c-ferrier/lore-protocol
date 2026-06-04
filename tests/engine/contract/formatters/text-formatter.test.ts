@@ -1,17 +1,12 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { ActiveProtocol } from '../../../../src/engine/core/models/active-protocol.js';
+import { type Atom, type Trailers } from '../../../../src/engine/core/types/domain.js';
+import { type FormattableDoctorResult, type FormattableQueryResult, type FormattableStalenessResult, type FormattableTraceResult, type FormattableValidationResult } from '../../../../src/engine/core/types/output.js';
 import { TextFormatter } from '../../../../src/engine/formatters/text-formatter.js';
-import { Protocol } from '../../../../src/engine/services/protocol.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol, makeMockProtocol } from '../../engine-test-utils.js';
+import { makeProtocol } from '../../../../src/engine/testing.js';
+import { makeMockProtocol } from '../../engine-test-utils.js';
 
-import type { Atom, Trailers, SupersessionStatus } from '../../../../src/engine/types/domain.js';
-import type {
-  FormattableQueryResult,
-  FormattableValidationResult,
-  FormattableStalenessResult,
-  FormattableTraceResult,
-  FormattableDoctorResult,
-} from '../../../../src/engine/types/output.js';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 const TEST_ID_KEY = "Mock-id";
 
@@ -50,7 +45,7 @@ function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
 
 describe('TextFormatter', () => {
   let registry: ProtocolRegistry;
-  let protocol: Protocol;
+  let protocol: ActiveProtocol;
   let formatter: TextFormatter;
 
   beforeEach(() => {

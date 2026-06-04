@@ -1,5 +1,7 @@
-import { describe, it, expect } from 'vitest';
 import { getEngineVersion } from '../../../src/engine/util/version.js';
+
+import { describe, it, expect } from 'vitest';
+;
 
 describe('Version Utilities', () => {
   it('should return a default version in development mode', () => {

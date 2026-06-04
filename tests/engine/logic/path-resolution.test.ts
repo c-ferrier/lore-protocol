@@ -1,6 +1,8 @@
+import { normalizePathToRoot } from '../../../src/engine/core/logic/path-resolution.js';
+
 import { describe, it, expect } from 'vitest';
 import { resolve } from 'node:path';
-import { normalizePathToRoot } from '../../../src/engine/logic/path-resolution.js';
+;
 
 describe('Path Resolution Logic (Pure Functions)', () => {
   const mockRoot = resolve('/work/project');

@@ -1,14 +1,14 @@
 import type { AtomRepository } from './atom-repository.js';
-import type { EngineConfig } from '../types/config.js';
+import type { EngineConfig } from '../core/types/config.js';
 import type { IGitClient, RawCommit } from '../interfaces/git-client.js';
-import type { CommitValidationResult, ValidationIssue } from '../types/output.js';
-import type { Trailers, ProtocolState } from '../types/domain.js';
-import type { QueryIdentity } from '../types/query.js';
-import type { IProtocol } from '../interfaces/protocol.js';
+import type { CommitValidationResult, ValidationIssue } from '../core/types/output.js';
+import type { Trailers, ProtocolState } from '../core/types/domain.js';
+import type { QueryIdentity } from '../core/types/query.js';
+import {  ActiveProtocol  } from '../core/models/active-protocol.js';
 
 import type { ProtocolRegistry } from './protocol-registry.js';
-import { parseTrailers } from '../logic/trailers.js';
-import { evaluateHygiene, evaluateProtocolSchema, evaluateTrailerHygiene } from '../logic/validation.js';
+import { parseTrailers } from '../core/logic/trailers.js';
+import { evaluateHygiene, evaluateProtocolSchema, evaluateTrailerHygiene } from '../core/logic/validation.js';
 
 /**
  * Validates existing git commits for protocol compliance.
@@ -56,9 +56,9 @@ export class Validator {
       // 2. Multi-Protocol Validation
       for (const protocol of protocols) {
         // Validation needs to see everything (even invalid values) to report errors
-        const state = protocol.parse(raw.trailers, claimedKeys, true);
+        const state = protocol.parse(raw.trailers, claimedKeys);
         
-        issues.push(...evaluateProtocolSchema(protocol, state));
+        issues.push(...evaluateProtocolSchema(protocol, state, this.protocolRegistry));
         await this.validateReferenceExistence(protocol, state.trailers, issues);
       }
 
@@ -84,13 +84,13 @@ export class Validator {
    * This is the only part of validation that requires I/O (AtomRepository).
    */
   private async validateReferenceExistence(
-    protocol: IProtocol,
+    protocol: ActiveProtocol,
     trailers: Trailers,
     issues: ValidationIssue[],
   ): Promise<void> {
     const refKeys = protocol.getReferenceKeys();
     const identitiesToCheck: Array<{ key: string; identity: QueryIdentity }> = [];
-    const protocolName = protocol.name.toLowerCase();
+    const protocolName = protocol.name;
 
     for (const key of refKeys) {
       const values = trailers[key] || [];

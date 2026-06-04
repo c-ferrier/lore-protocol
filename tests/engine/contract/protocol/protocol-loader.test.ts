@@ -1,8 +1,13 @@
+import { type EngineConfig, type TrailerDefinition } from '../../../../src/engine/core/types/config.js';
+import { type ProtocolDefinition } from '../../../../src/engine/core/types/protocol-definition.js';
+import { ProtocolLoader } from '../../../../src/engine/shell/fs/protocol-loader.js';
+import { TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
+
 import { describe, it, expect, vi } from 'vitest';
-import { ProtocolLoader } from '../../../../src/engine/services/protocol/protocol-loader.js';
-import type { ProtocolDefinition } from '../../../../src/engine/interfaces/protocol-definition.js';
-import type { EngineConfig } from '../../../../src/engine/types/config.js';
-import { TEST_ENGINE_CONFIG } from '../../engine-test-utils.js';
+;
+
+
+;
 
 describe('ProtocolLoader', () => {
   const createMockDynamicLoader = (protocols: ProtocolDefinition[]) => ({

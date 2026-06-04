@@ -1,7 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { JsonInputReader } from '../../../../src/engine/services/readers/json-input-reader.js';
+import { JsonInputReader } from '../../../../src/engine/cli/readers/json-input-reader.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeProtocol } from '../../engine-test-utils.js';
+import { makeProtocol } from '../../../../src/engine/testing.js';
+import { ProtocolError } from '../../../../src/engine/util/errors.js';
+
+;
+import { describe, it, expect, beforeEach } from 'vitest';
+;
+;
+;
 
 
 describe('JsonInputReader', () => {

@@ -1,28 +1,27 @@
 import { Command } from 'commander';
 import { join } from 'node:path';
-import { ProtocolRegistry } from './protocol-registry.js';
-import { Protocol } from './protocol.js';
+import {  ProtocolRegistry  } from './protocol-registry.js';
+import {  ActiveProtocol  } from '../core/models/active-protocol.js';
 import { AtomRepository } from './atom-repository.js';
-import { QueryCache } from './query-cache.js';
+import { QueryCache } from '../shell/fs/query-cache.js';
 import { LogLevel } from '../interfaces/logger.js';
-import { TerminalLogger } from './terminal-logger.js';
+import { TerminalLogger } from '../cli/io/terminal-logger.js';
 import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, QUERY_CACHE_DIR, PROTOCOLS_DIR_NAME } from '../util/constants.js';
 import { StalenessDetector } from './staleness-detector.js';
 import { Validator } from './validator.js';
-import { TerminalPrompt } from './terminal-prompt.js';
-import { CommitInputResolver } from './commit-input-resolver.js';
-import { HeadIdReader } from './head-id-reader.js';
-import { resolveProtocolRoot } from './root-resolver.js';
-import { DynamicProtocolLoader } from './protocol-loader.js';
-import { ProtocolLoader } from './protocol/protocol-loader.js';
+import { TerminalPrompt } from '../cli/io/terminal-prompt.js';
+import { CommitInputResolver } from '../cli/readers/commit-input-resolver.js';
+import { HeadIdReader } from '../shell/git/head-id-reader.js';
+import { resolveProtocolRoot } from '../shell/fs/root-resolver.js';
+import { DynamicProtocolLoader, ProtocolLoader } from '../shell/fs/protocol-loader.js';
 import { getEngineVersion } from '../util/version.js';
 
 // Pure Logic Modules
-import { createQueryTarget } from '../logic/query-targets.js';
+import { createQueryTarget } from '../core/logic/query-targets.js';
 import { JsonFormatter } from '../formatters/json-formatter.js';
 import { TextFormatter } from '../formatters/text-formatter.js';
-import { GitClient } from './git-client.js';
-import { EngineConfigLoader } from './config-loader.js';
+import { GitClient } from '../shell/git/git-client.js';
+import { EngineConfigLoader } from '../shell/fs/config-loader.js';
 
 import {
   registerWhyCommand,
@@ -36,11 +35,11 @@ import {
   registerCacheCommand,
   registerConfigCommand,
   registerDoctorCommand,
-} from '../commands/index.js';
+} from '../cli/commands/index.js';
 
 import type { IGitClient } from '../interfaces/git-client.js';
-import type { ProtocolDefinition } from '../interfaces/protocol-definition.js';
-import type { EngineConfig } from '../types/config.js';
+import type { ProtocolDefinition } from '../core/types/protocol-definition.js';
+import type { EngineConfig } from '../core/types/config.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { ILogger } from '../interfaces/logger.js';
@@ -55,7 +54,7 @@ export interface EngineOptions {
   staticProtocols: ProtocolDefinition[];
   jsonFormatterFactory?: (registry: ProtocolRegistry) => IOutputFormatter;
   textFormatterFactory?: (registry: ProtocolRegistry, options: { color: boolean }) => IOutputFormatter;
-  
+
   onConfigLoaded?: (config: EngineConfig) => Promise<EngineConfig>;
   onProtocolsLoaded?: (protocols: ProtocolDefinition[]) => Promise<ProtocolDefinition[]>;
 
@@ -79,21 +78,31 @@ export class EngineBootstrapper {
     const logger = this.options.logger || new TerminalLogger(this.options.logLevel ?? LogLevel.INFO, useColor);
 
     const program = new Command();
+    const engineDir = this.options.engineDirName;
+    const configFile = this.options.configFileName;
 
     // 1. Resolve Roots
     const tempGitClient = new GitClient(cwd);
-    const engineConfigLoader = new EngineConfigLoader(this.options.engineDirName, this.options.configFileName, this.options.defaultConfig);
+    const engineConfigLoader = new EngineConfigLoader(
+        engineDir, 
+        configFile, 
+        this.options.defaultConfig
+    );
     const { protocolRoot, gitRoot } = await resolveProtocolRoot(cwd, engineConfigLoader, tempGitClient);
     const activeRoot = protocolRoot || cwd;
 
-    // 2. Load Engine Configuration
+    // 2. Load Engine Configuration - ensure defaults are used if file is missing
     let config = await engineConfigLoader.loadForPath(activeRoot);
+    if (!config || Object.keys(config).length === 0) {
+        config = { ...this.options.defaultConfig };
+    }
+
     if (this.options.onConfigLoaded) {
       config = await this.options.onConfigLoaded(config);
     }
 
     // 3. Load & Merge Protocols using the new ProtocolLoader
-    const protocolsDir = join(activeRoot, this.options.engineDirName, PROTOCOLS_DIR_NAME);
+    const protocolsDir = join(activeRoot, engineDir, PROTOCOLS_DIR_NAME);
     const protocolLoader = new ProtocolLoader(
         new DynamicProtocolLoader(protocolsDir),
         this.options.staticProtocols || []
@@ -123,7 +132,7 @@ export class EngineBootstrapper {
     const protocolRegistry = new ProtocolRegistry();
     
     for (const def of allProtocols) {
-      protocolRegistry.register(new Protocol(def));
+      protocolRegistry.register(new ActiveProtocol(def));
     }
     
     const queryCache: IQueryCache = new QueryCache(

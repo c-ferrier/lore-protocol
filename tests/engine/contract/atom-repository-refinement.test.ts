@@ -1,9 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import type { RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import type { SearchOptions } from '../../../src/engine/types/query.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeMockGitClient, makeQueryTarget } from '../engine-test-utils.js';
+import { TEST_PROTOCOL_DEFINITION, makeProtocol, makeQueryTarget } from '../../../src/engine/testing.js';
+import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+;
+;
+
+
+
+;
 
 const TEST_ID_KEY = "Mock-id";
 
@@ -15,7 +22,21 @@ describe('AtomRepository Refinement', () => {
   beforeEach(() => {
     gitClient = makeMockGitClient();
     protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION));
+    
+    // Register protocol with 'Related' trailer
+    const protocolDef = {
+        ...TEST_PROTOCOL_DEFINITION,
+        trailers: {
+            ...TEST_PROTOCOL_DEFINITION.trailers,
+            'Related': {
+                description: 'Related reference.',
+                multivalue: true,
+                validation: 'reference' as any,
+                isCore: true
+            }
+        }
+    };
+    protocolRegistry.register(makeProtocol(protocolDef));
 
     repo = makeAtomRepository({
         gitClient,
@@ -110,7 +131,7 @@ describe('AtomRepository Refinement', () => {
       
       // Verification: Second call to Git was for the linked ID
       const secondCallQuery = vi.mocked(gitClient.query).mock.calls[1][0];
-      expect(secondCallQuery.regexPatterns).toContainEqual(['^Mock-id: bbbbbbbb']);
+      expect(secondCallQuery.regexPatterns).toContainEqual(['^Mock-id: bbbbbbbb$']);
     });
   });
 

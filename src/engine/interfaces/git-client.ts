@@ -13,6 +13,7 @@ export interface StorageQuery {
   readonly sinceDate?: Date;
   readonly untilDate?: Date;
   readonly limit?: number;
+  readonly maxCommits?: number;
   /** 
    * High-level regex patterns structured for boolean logic.
    * Top-level array items are AND'ed (multiple --grep flags).

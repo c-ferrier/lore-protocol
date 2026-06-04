@@ -1,5 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { checkForUpdates } from '../../../src/engine/util/update-check.js';
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+;
 import updateNotifier from 'simple-update-notifier';
 
 vi.mock('simple-update-notifier');

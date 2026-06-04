@@ -1,19 +1,20 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
+import { createTargetFromIdentities } from '../../../src/engine/core/logic/query-targets.js';
+import { type Atom } from '../../../src/engine/core/types/domain.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { 
-  makeMockGitClient, 
-  makeRawCommit,
-  makeAtom,
-  makeProtocol,
-  makeQueryTarget,
-  ProtocolRegistry,
-  TEST_ID_KEY
-} from '../engine-test-utils.js';
-import { QueryCache } from '../../../src/engine/services/query-cache.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
+import { makeAtom, makeProtocol, makeQueryTarget, makeRawCommit } from '../../../src/engine/testing.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+;
+;
+;
 import { rmSync, mkdirSync } from 'node:fs';
 
-import { createTargetFromIdentities } from '../../../src/engine/logic/query-targets.js';
-import * as HydrationLogic from '../../../src/engine/logic/hydration.js';
+;
+import * as HydrationLogic from '../../../src/engine/core/logic/hydration.js';
 
 describe('Query Cache Combined Fidelity (Contract)', () => {
   const testDir = '.test-cache-fidelity';
@@ -54,9 +55,15 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
 
     vi.mocked(gitClient.resolveRef).mockResolvedValue(headHash);
     
+    const mockAtomState = makeAtom({ 
+        commitHash: 'abc', 
+        filesChanged: commit.filesChanged,
+        protocols: new Map([['mock', { trailers: { 'Mock-id': ['id1'] }, unauthorized: {} }]]) 
+    });
+
     // 1. First run: Perform full Discovery + Fetch
     vi.mocked(gitClient.query).mockResolvedValue([commit]);
-    vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([makeAtom({ commitHash: 'abc', filesChanged: commit.filesChanged })]);
+    vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
     vi.spyOn(cache, 'get').mockResolvedValue(null);
     
     const target = makeQueryTarget('src/logic.ts');
@@ -67,7 +74,7 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     vi.mocked(gitClient.query).mockClear();
     vi.spyOn(cache, 'get').mockResolvedValue(['abc']);
     vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit]);
-    vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([makeAtom({ commitHash: 'abc', filesChanged: commit.filesChanged })]);
+    vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
     
     const result = await repo.find(target, { cache: true });
     
@@ -89,9 +96,14 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     const id = '12345678'; // Must be valid 8-char hex
     const commit = makeRawCommit({ hash: 'hash123', id });
 
+    const mockAtomState = makeAtom({ 
+        id,
+        protocols: new Map([['mock', { trailers: { 'Mock-id': [id] }, unauthorized: {} }]])
+    });
+
     vi.mocked(gitClient.resolveRef).mockResolvedValue(headHash);
     vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit]);
-    vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([makeAtom({ id })]);
+    vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
 
     // 1. Initial run: Fill cache
     vi.spyOn(cache, 'get').mockResolvedValue(null);
@@ -103,7 +115,7 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     // 2. Second run: Cache hit
     vi.mocked(gitClient.query).mockClear();
     vi.spyOn(cache, 'get').mockResolvedValue(['hash123']);
-    vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([makeAtom({ id })]);
+    vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
 
     const result = await repo.find(target, { cache: true });
 

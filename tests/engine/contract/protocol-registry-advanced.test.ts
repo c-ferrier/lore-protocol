@@ -1,6 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeProtocol } from '../engine-test-utils.js';
+import { makeProtocol } from '../../../src/engine/testing.js';
+
+import { describe, it, expect, beforeEach } from 'vitest';
+;
+;
 
 describe('ProtocolRegistry Advanced', () => {
   let registry: ProtocolRegistry;

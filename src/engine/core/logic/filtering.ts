@@ -1,6 +1,6 @@
 import type { Atom } from '../types/domain.js';
 import type { SearchOptions, QualifiedFilter, FilterOperator } from '../types/query.js';
-import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
 /**
  * Normalizes raw filter inputs into a structured QualifiedFilter AST.
@@ -67,7 +67,7 @@ function parseFilterKey(raw: string): { protocol: string | null, key: string, op
     key = parts[0];
     const opStr = parts[1].toLowerCase();
     
-    if (opStr === 'eq') {
+    if (opStr === 'eq' || opStr === 'has') {
       op = opStr as FilterOperator;
     }
   }

@@ -1,34 +1,37 @@
+import { ActiveProtocol } from '../../../../src/engine/core/models/active-protocol.js';
+import { type ProtocolDefinition } from '../../../../src/engine/core/types/protocol-definition.js';
+import { type IProtocol } from '../../../../src/engine/core/types/protocol-definition.js';
+
 import { describe, it, expect, vi } from 'vitest';
-import { ProtocolInterpreter } from '../../../../src/engine/services/protocol/protocol-interpreter.js';
-import type { IProtocol } from '../../../../src/engine/interfaces/protocol.js';
 
 describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
   
-  const createMockProtocol = (overrides: Partial<IProtocol> = {}) => ({
-    name: 'Mock',
-    namespace: '',
-    identityKey: 'Mock-id',
-    permissive: true,
-    getAuthorizedKeys: vi.fn(() => []),
-    getDefinition: vi.fn(),
-    authorize: vi.fn(key => key),
-    owns: vi.fn(() => true),
-    isValidIdentity: vi.fn((id: string) => /^[0-9a-f]{8}$/.test(id)),
-    ...overrides
-  } as unknown as IProtocol);
+  const createMockProtocol = (definitionOverrides: Partial<ProtocolDefinition> = {}) => {
+    const definition: ProtocolDefinition = {
+        name: 'Mock',
+        version: '1.0',
+        namespace: '',
+        identityKey: 'Mock-id',
+        strict: false,
+        permissive: true,
+        trailers: {},
+        ...definitionOverrides
+    };
+    return new ActiveProtocol(definition);
+  };
 
   it('should handle multiple triggers on a single trailer', () => {
-    const protocol = createMockProtocol({
-      getAuthorizedKeys: () => ['Status'],
-      getDefinition: (key: string) => ({
-          key, description: '', multivalue: true,
-          stale_if: [
-              { kind: 'value-equals', value: 'deprecated', signal: 'is-deprecated' },
-              { kind: 'date-expired', signal: 'past-deadline' }
-          ]
-      } as any)
+    const interpreter = createMockProtocol({
+      trailers: {
+        'Status': {
+            description: '', multivalue: true, validation: 'none',
+            stale_if: [
+                { kind: 'value-equals', value: 'deprecated', signal: 'is-deprecated' },
+                { kind: 'date-expired', signal: 'past-deadline' }
+            ]
+        } as any
+      }
     });
-    const interpreter = new ProtocolInterpreter(protocol);
 
     const now = new Date(2025, 0, 1);
     const atom: any = {
@@ -39,21 +42,20 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
     };
 
     const signals = interpreter.getStaleSignals(atom, now, new Map());
-    // Should trigger BOTH: value-equals ('deprecated') and date-expired ('2024-01-01')
     expect(signals).toHaveLength(2);
     expect(signals.map(s => s.signal)).toContain('is-deprecated');
     expect(signals.map(s => s.signal)).toContain('past-deadline');
   });
 
   it('should handle multi-value trailers by evaluating triggers against each value', () => {
-    const protocol = createMockProtocol({
-      getAuthorizedKeys: () => ['Tags'],
-      getDefinition: (key: string) => ({
-          key, description: '', multivalue: true,
-          stale_if: { kind: 'value-equals', value: 'stale-tag' }
-      } as any)
+    const interpreter = createMockProtocol({
+      trailers: {
+        'Tags': {
+            description: '', multivalue: true, validation: 'none',
+            stale_if: { kind: 'value-equals', value: 'stale-tag' }
+        } as any
+      }
     });
-    const interpreter = new ProtocolInterpreter(protocol);
 
     const atom: any = {
       protocols: new Map([['mock', { 
@@ -63,21 +65,20 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
     };
 
     const signals = interpreter.getStaleSignals(atom, new Date(), new Map());
-    // Should trigger twice for 'stale-tag'
     expect(signals).toHaveLength(2);
   });
 
   it('should support cross-protocol "reference-superseded" checks with qualified IDs', () => {
-    const protocol = createMockProtocol({
+    const interpreter = createMockProtocol({
       name: 'Lore',
       identityKey: 'Lore-id',
-      getAuthorizedKeys: () => ['Depends-on'],
-      getDefinition: (key: string) => ({
-          key, description: '', multivalue: true,
-          stale_if: { kind: 'reference-superseded' }
-      } as any)
+      trailers: {
+        'Depends-on': {
+            description: '', multivalue: true, validation: 'reference',
+            stale_if: { kind: 'reference-superseded' }
+        } as any
+      }
     });
-    const interpreter = new ProtocolInterpreter(protocol);
 
     // Global map showing a security atom being superseded
     const globalMap = new Map([
@@ -98,16 +99,16 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
   });
 
   it('should correctly handle "reference-superseded" when supersededBy is a qualified ID', () => {
-    const protocol = createMockProtocol({
+    const interpreter = createMockProtocol({
       name: 'Mock',
       identityKey: 'Mock-id',
-      getAuthorizedKeys: () => ['Supersedes'],
-      getDefinition: (key: string) => ({
-          key, description: '', multivalue: true,
-          stale_if: { kind: 'reference-superseded' }
-      } as any)
+      trailers: {
+        'Supersedes': {
+            description: '', multivalue: true, validation: 'reference',
+            stale_if: { kind: 'reference-superseded' }
+        } as any
+      }
     });
-    const interpreter = new ProtocolInterpreter(protocol);
 
     const globalMap = new Map([
         ['mock', new Map([['deadbeef', { superseded: true, supersededBy: 'mock/a1b2c3d4' }]])]
@@ -121,19 +122,18 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
     };
 
     const signals = interpreter.getStaleSignals(atom, new Date(), globalMap);
-    // Should be empty because 'mock/a1b2c3d4' is us
     expect(signals).toHaveLength(0);
   });
 
   it('should ignore stale_if triggers on unauthorized trailers', () => {
-    const protocol = createMockProtocol({
-      getAuthorizedKeys: () => ['Authorized'],
-      getDefinition: (key: string) => ({
-          key, description: '', multivalue: false,
-          stale_if: { kind: 'value-equals', value: 'stale' }
-      } as any)
+    const interpreter = createMockProtocol({
+      trailers: {
+        'Authorized': {
+            description: '', multivalue: false,
+            stale_if: { kind: 'value-equals', value: 'stale' }
+        } as any
+      }
     });
-    const interpreter = new ProtocolInterpreter(protocol);
 
     const atom: any = {
       protocols: new Map([['mock', { 

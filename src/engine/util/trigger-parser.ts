@@ -41,8 +41,8 @@ export class TriggerParser {
 
     while ((match = this.TRIGGER_PATTERN.exec(text)) !== null) {
       triggers.push({
-        key: match[1],
-        value: match[2],
+        key: match[1].trim(),
+        value: match[2].trim(),
       });
       lastIndex = this.TRIGGER_PATTERN.lastIndex;
     }
@@ -70,6 +70,44 @@ export class TriggerParser {
    */
   static strip(text: string): string {
     return text.replace(this.TRIGGER_PATTERN, '').trim();
+  }
+
+  /**
+   * Parses a raw commit message or trailer block into a map of keys and values.
+   */
+  static parseTrailers(raw: string): Record<string, string[]> {
+    const trailers: Record<string, string[]> = {};
+    const lines = raw.split('\n');
+    let lastKey: string | null = null;
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed === '') {
+        lastKey = null;
+        continue;
+      }
+
+      // Continuation line detection (must start with at least 2 spaces)
+      if (lastKey && line.startsWith('  ')) {
+        const values = trailers[lastKey];
+        if (values && values.length > 0) {
+            const lastIdx = values.length - 1;
+            // Preserve the newline and exactly the spaces provided (usually 2+)
+            values[lastIdx] = `${values[lastIdx]}\n${line}`;
+        }
+        continue;
+      }
+
+      const match = trimmed.match(/^([A-Za-z0-9][A-Za-z0-9-]*):\s*(.*)$/);
+      if (match) {
+        lastKey = match[1];
+        const value = match[2].trim();
+        trailers[lastKey] = [...(trailers[lastKey] || []), value];
+      } else {
+        lastKey = null;
+      }
+    }
+    return trailers;
   }
 }
 

@@ -1,8 +1,16 @@
+import { getCacheFingerprint } from '../../../src/engine/core/logic/query-targets.js';
+import { type IGitClient } from '../../../src/engine/interfaces/git-client.js';
+import { type IQueryCache } from '../../../src/engine/interfaces/query-cache.js';
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { makeQueryTarget } from '../../../src/engine/testing.js';
+import { makeAtomRepository, makeMockGitClient, makeMockQueryCache } from '../engine-test-utils.js';
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
-import type { IQueryCache } from '../../../src/engine/interfaces/query-cache.js';
-import { makeAtomRepository, makeMockGitClient, makeMockQueryCache, makeQueryTarget } from '../engine-test-utils.js';
-import { GLOBAL_CACHE_KEY } from '../../../src/engine/util/constants.js';
+
+
+
+;
+;
 
 describe('AtomRepository Cache Isolation', () => {
   let gitClient: IGitClient;

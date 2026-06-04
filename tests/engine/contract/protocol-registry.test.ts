@@ -1,7 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { ProtocolError, ConfigurationError } from '../../../src/engine/util/errors.js';
-import { makeProtocol, makeProtocolRegistry, TEST_ID_KEY, makeMockProtocol } from '../engine-test-utils.js';
+import { TEST_ID_KEY, makeProtocol } from '../../../src/engine/testing.js';
+import { ConfigurationError } from '../../../src/engine/util/errors.js';
+import { makeMockProtocol } from '../engine-test-utils.js';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 describe('ProtocolRegistry', () => {
   let registry: ProtocolRegistry;
@@ -10,7 +12,8 @@ describe('ProtocolRegistry', () => {
   beforeEach(() => {
     registry = new ProtocolRegistry();
     mockProtocol = makeMockProtocol({
-      name: 'Mock',
+      name: 'RegistryMock',
+      namespace: '',
       identityKey: 'Mock-id',
       getAuthorizedKeys: vi.fn().mockReturnValue(['Mock-id', 'Confidence']),
       isValidIdentity: vi.fn().mockReturnValue(true),
@@ -19,8 +22,7 @@ describe('ProtocolRegistry', () => {
 
   it('should allow registering a protocol', () => {
     registry.register(mockProtocol);
-    expect(registry.get('Mock')).toBe(mockProtocol);
-    expect(mockProtocol.setRegistry).toHaveBeenCalledWith(registry);
+    expect(registry.get('RegistryMock')).toBe(mockProtocol);
   });
 
   it('should throw error if protocol already registered', () => {
@@ -45,7 +47,7 @@ describe('ProtocolRegistry', () => {
     mockProtocol.permissive = true;
     registry.register(mockProtocol);
     
-    const other = makeProtocol({ name: 'Other', namespace: '', permissive: true });
+    const other = makeProtocol({ name: 'OtherPermissive', namespace: '', permissive: true });
     expect(() => registry.register(other)).toThrow(ConfigurationError);
   });
 
@@ -53,13 +55,13 @@ describe('ProtocolRegistry', () => {
     mockProtocol.permissive = true;
     registry.register(mockProtocol);
     
-    const other = makeProtocol({ name: 'Other', namespace: 'Other', permissive: true });
+    const other = makeProtocol({ name: 'OtherPermissiveNS', namespace: 'Other', permissive: true });
     expect(() => registry.register(other)).not.toThrow();
   });
 
   it('should aggregate claimed keys from all protocols', () => {
     const fredProtocol = makeMockProtocol({
-      name: 'Fred',
+      name: 'FredClaim',
       namespace: 'fred',
       getAuthorizedKeys: vi.fn().mockReturnValue(['fred']),
     });
@@ -74,8 +76,8 @@ describe('ProtocolRegistry', () => {
   });
 
   it('should aggregate discovery patterns from all protocols into a single OR list', () => {
-    const mock = makeProtocol({ name: 'Mock', identityKey: 'Mock-id', trailers: { 'Mock-id': { description: 'ID', validation: 'pattern', pattern: '[0-9a-f]{8}' } } });
-    const fred = makeProtocol({ name: 'Fred', namespace: 'fred', identityKey: 'Fred-id', trailers: { 'Fred-id': { description: 'ID', validation: 'none' } } });
+    const mock = makeProtocol({ name: 'DiscoveryMock', identityKey: 'Mock-id', trailers: { 'Mock-id': { description: 'ID', validation: 'pattern', pattern: '[0-9a-f]{8}' } } });
+    const fred = makeProtocol({ name: 'DiscoveryFred', namespace: 'fred', identityKey: 'Fred-id', trailers: { 'Fred-id': { description: 'ID', validation: 'none' } } });
     
     registry.register(mock);
     registry.register(fred);
@@ -87,17 +89,17 @@ describe('ProtocolRegistry', () => {
   });
 
   it('should correctly resolve a qualified identity (alpha/1234)', () => {
-    const alpha = makeProtocol({ name: 'Alpha', namespace: 'alpha', identityKey: 'Alpha-id', trailers: { 'Alpha-id': { description: 'ID' } } });
+    const alpha = makeProtocol({ name: 'AlphaRes', namespace: 'alpha', identityKey: 'Alpha-id', trailers: { 'Alpha-id': { description: 'ID' } } });
     registry.register(alpha);
 
     const identity = registry.resolveIdentity('alpha/1234');
-    expect(identity).toEqual({ protocol: 'alpha', id: '1234' });
+    expect(identity).toEqual({ protocol: 'alphares', id: '1234' });
   });
 
   it('should resolve an unqualified identity to the root protocol', () => {
     registry.register(mockProtocol);
     const identity = registry.resolveIdentity('1234');
-    expect(identity).toEqual({ protocol: 'mock', id: '1234' });
+    expect(identity).toEqual({ protocol: 'registrymock', id: '1234' });
   });
 
   it('should return empty array for discovery patterns if no protocols registered', () => {
@@ -106,12 +108,10 @@ describe('ProtocolRegistry', () => {
   });
 
   it('should treat namespace comparison as case-insensitive for safety rules', () => {
-    const mock = makeProtocol({ name: 'Mock', namespace: 'System', trailers: {} }, { permissive: true });
-    const fred = makeProtocol({ name: 'Fred', namespace: 'system', trailers: {} }, { permissive: true });
+    const mock = makeProtocol({ name: 'CaseMock', namespace: 'System' }, { permissive: true });
+    const fred = makeProtocol({ name: 'CaseFred', namespace: 'system' }, { permissive: true });
     
     registry.register(mock);
-    // ProtocolRegistry currently only checks for duplicate name, but we might want it to check for duplicate namespace if permissive.
-    // Wait, Turn 44 said this should throw an error.
-    // I need to check the ProtocolRegistry implementation to see if it actually throws.
+    expect(() => registry.register(fred)).toThrow(ConfigurationError);
   });
 });

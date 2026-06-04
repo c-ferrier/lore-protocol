@@ -1,5 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { LoreConfigLoader } from '../../../../src/lore/services/lore-config-loader.js';
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+;
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

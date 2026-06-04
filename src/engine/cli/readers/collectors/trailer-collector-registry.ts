@@ -1,28 +1,22 @@
 import type { ITrailerCollector } from '../../../interfaces/trailer-collector.js';
-import type { TrailerDefinition } from '../../../types/config.js';
+import type { TrailerDefinition } from '../../../core/types/config.js';
 import { MultiValueTrailerCollector } from './multi-value-trailer-collector.js';
 import { EnumChoiceTrailerCollector } from './enum-choice-trailer-collector.js';
-import { IProtocol } from '../../../interfaces/protocol.js';
+import {  ActiveProtocol  } from '../../../core/models/active-protocol.js';
 
 /**
  * Registry and factory for trailer collectors.
- *
- * Collectors are created in the correct prompt order defined by the protocol metadata.
- *
- * GRASP: Creator -- centralizes collector instantiation with protocol knowledge.
- * SOLID: SRP -- only responsible for collector instantiation.
- * SOLID: OCP -- new collector types can be added by extending the factory.
  */
 export class TrailerCollectorRegistry {
-  constructor(private readonly protocol: IProtocol) {}
+  constructor(private readonly protocol: ActiveProtocol) {}
 
   /**
    * Returns a list of collectors for all authorized trailers.
-   */
+ */
   getCollectors(): ITrailerCollector[] {
     const collectors: ITrailerCollector[] = [];
     const authorizedKeys = this.protocol.getAuthorizedKeys();
-    const namespace = this.protocol.getStorageNamespace();
+    const namespace = this.protocol.storageNamespace;
     const protocolName = this.protocol.name.toLowerCase();
 
     // Iterate through all authorized keys in protocol-defined order
@@ -75,7 +69,7 @@ export class TrailerCollectorRegistry {
 /**
  * Functional wrapper for the registry.
  */
-export function createTrailerCollectors(protocol: IProtocol): ITrailerCollector[] {
+export function createTrailerCollectors(protocol: ActiveProtocol): ITrailerCollector[] {
   const registry = new TrailerCollectorRegistry(protocol);
   return registry.getCollectors();
 }

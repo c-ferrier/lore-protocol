@@ -1,15 +1,24 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { formatCommit, validateFormatting } from '../../../src/engine/logic/commit-formatting.js';
+import { formatCommit, validateFormatting } from '../../../src/engine/core/logic/commit-formatting.js';
+import { generateId } from '../../../src/engine/core/logic/identity.js';
+import { serializeTrailers } from '../../../src/engine/core/logic/trailers.js';
+import { type EngineConfig } from '../../../src/engine/core/types/config.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { 
-    TEST_PROTOCOL_DEFINITION, 
-    TEST_ENGINE_CONFIG, 
-    makeProtocol, 
-    makeCommitInput,
-} from '../engine-test-utils.js';
-import type { EngineConfig } from '../../../src/engine/types/config.js';
-import * as IdentityLogic from '../../../src/engine/logic/identity.js';
-import * as TrailerLogic from '../../../src/engine/logic/trailers.js';
+  TEST_ENGINE_CONFIG, 
+  TEST_PROTOCOL_DEFINITION, 
+  MOCK_CORE_TRAILERS,
+  makeCommitInput, 
+  makeProtocol 
+} from '../../../src/engine/testing.js';
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+;
+;
+
+;
+
+import * as IdentityLogic from '../../../src/engine/core/logic/identity.js';
+import * as TrailerLogic from '../../../src/engine/core/logic/trailers.js';
 
 const TEST_ID_KEY = "Mock-id";
 
@@ -22,7 +31,11 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
     engineConfig = { ...TEST_ENGINE_CONFIG };
 
     protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION));
+    // Register protocol with core trailers to satisfy tests expecting Confidence/Constraint
+    protocolRegistry.register(makeProtocol({
+        ...TEST_PROTOCOL_DEFINITION,
+        trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
+    }));
     
     // Default deterministic ID for tests
     idSpy = vi.spyOn(IdentityLogic, 'generateId').mockReturnValue('a1b2c3d4');

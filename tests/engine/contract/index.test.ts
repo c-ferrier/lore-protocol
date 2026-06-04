@@ -1,11 +1,17 @@
+import { type Atom } from '../../../src/engine/core/types/domain.js';
+import { runCli } from '../../../src/engine/index-impl.js';
+import { resolveProtocolRoot } from '../../../src/engine/shell/fs/root-resolver.js';
+import { TEST_ENGINE_DIR, assertIsolatedEngine } from '../../../src/engine/testing.js';
+import { ENGINE_CONFIG_FILENAME } from '../../../src/engine/util/constants.js';
+
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
-import { runCli } from '../../../src/engine/index.js';
+;
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import * as rootResolver from '../../../src/engine/services/root-resolver.js';
-import { TEST_ENGINE_DIR, assertIsolatedEngine } from '../engine-test-utils.js';
-import { ENGINE_CONFIG_FILENAME } from '../../../src/engine/util/constants.js';
+import * as rootResolver from '../../../src/engine/shell/fs/root-resolver.js';
+;
+;
 
 describe('Engine Assembly (Agnostic Bootstrap)', () => {
   const testDir = join(tmpdir(), `engine-bootstrap-${Date.now()}`);
@@ -54,7 +60,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     const customProtocol = sharedDeps.protocolRegistry.get('custom');
     expect(customProtocol).toBeDefined();
     expect(customProtocol?.name).toBe('custom');
-    expect(customProtocol?.getStorageNamespace()).toBe('custom');
+    expect(customProtocol?.storageNamespace).toBe('custom');
     
     // Verify services are wired correctly
     expect(sharedDeps.atomRepository).toBeDefined();

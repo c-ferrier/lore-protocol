@@ -1,16 +1,16 @@
 import type { Command } from 'commander';
-import type { AtomRepository } from '../services/atom-repository.js';
-import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { SupersessionStatus } from '../types/domain.js';
-import type { QueryResult, QueryMeta } from '../types/query.js';
-import type { FormattableQueryResult } from '../types/output.js';
-import { ProtocolError } from '../util/errors.js';
+import type { AtomRepository } from '../../services/atom-repository.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { SupersessionStatus } from '../../core/types/domain.js';
+import type { QueryResult, QueryMeta } from '../../core/types/query.js';
+import type { FormattableQueryResult } from '../../core/types/output.js';
+import { ProtocolError } from '../../util/errors.js';
 import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/path-query.js';
 import { mergeOptions } from './helpers/merge-options.js';
-import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
 // Pure Logic Modules
-import { createQueryTarget } from '../logic/query-targets.js';
+import { createQueryTarget } from '../../core/logic/query-targets.js';
 
 /**
  * Register the `why <target>` command.

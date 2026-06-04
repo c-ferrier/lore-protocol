@@ -1,15 +1,15 @@
 import type { Command } from 'commander';
-import type { AtomRepository } from '../services/atom-repository.js';
-import type { IConfigLoader } from '../interfaces/config-loader.js';
-import type { IGitClient } from '../interfaces/git-client.js';
-import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { FormattableDoctorResult, DoctorCheck } from '../types/output.js';
-import type { IProtocol } from '../interfaces/protocol.js';
-import type { ProtocolRegistry } from '../services/protocol-registry.js';
-import type { ILogger } from '../interfaces/logger.js';
-import type { Atom } from '../types/domain.js';
-import { ENGINE_CONFIG_SCHEMA } from '../types/config.js';
-import { analyzeConfigGaps } from '../util/config-analyzer.js';
+import type { AtomRepository } from '../../services/atom-repository.js';
+import type { IConfigLoader } from '../../interfaces/config-loader.js';
+import type { IGitClient } from '../../interfaces/git-client.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { FormattableDoctorResult, DoctorCheck } from '../../core/types/output.js';
+import {  ActiveProtocol  } from '../../core/models/active-protocol.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { ILogger } from '../../interfaces/logger.js';
+import type { Atom } from '../../core/types/domain.js';
+import { ENGINE_CONFIG_SCHEMA } from '../../core/types/config.js';
+import { analyzeConfigGaps } from '../../util/config-analyzer.js';
 import { parse as parseToml } from 'smol-toml';
 import { readFile } from 'node:fs/promises';
 import { access } from 'node:fs/promises';
@@ -163,7 +163,7 @@ function checkAtoms(atoms: Atom[]): DoctorCheck {
 
 async function checkProtocolIntegrity(
   atomRepository: AtomRepository,
-  protocol: IProtocol,
+  protocol: ActiveProtocol,
   atoms: Atom[]
 ): Promise<DoctorCheck> {
   const counts = new Map<string, number>();
@@ -206,7 +206,7 @@ async function checkProtocolIntegrity(
 async function checkProtocolReferences(
   atomRepository: AtomRepository,
   protocolRegistry: ProtocolRegistry,
-  protocol: IProtocol,
+  protocol: ActiveProtocol,
   atoms: Atom[]
 ): Promise<DoctorCheck> {
   const orphaned: string[] = [];

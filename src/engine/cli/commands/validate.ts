@@ -1,9 +1,9 @@
 import type { Command } from 'commander';
-import type { Validator } from '../services/validator.js';
-import type { IGitClient } from '../interfaces/git-client.js';
-import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { CommitValidationResult, FormattableValidationResult, ValidationIssue } from '../types/output.js';
-import type { IProtocol } from '../interfaces/protocol.js';
+import type { Validator } from '../../services/validator.js';
+import type { IGitClient } from '../../interfaces/git-client.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { CommitValidationResult, FormattableValidationResult, ValidationIssue } from '../../core/types/output.js';
+import {  ActiveProtocol  } from '../../core/models/active-protocol.js';
 
 interface ValidateCommandOptions {
   readonly since?: string;

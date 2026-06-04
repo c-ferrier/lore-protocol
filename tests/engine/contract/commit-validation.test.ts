@@ -1,15 +1,11 @@
+import { registerCommitCommand } from '../../../src/engine/cli/commands/commit.js';
+import { TEST_ENGINE_CONFIG, makeProtocolRegistry } from '../../../src/engine/testing.js';
+import { makeMockFormatter, makeMockGitClient, makeMockHeadIdReader, makeMockInputResolver, makeMockProtocol } from '../engine-test-utils.js';
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { registerCommitCommand } from '../../../src/engine/commands/commit.js';
-import { 
-    TEST_ENGINE_CONFIG, 
-    makeMockProtocol,
-    makeProtocolRegistry, 
-    makeMockGitClient, 
-    makeMockFormatter, 
-    makeMockInputResolver, 
-    makeMockHeadIdReader 
-} from '../engine-test-utils.js';
+;
+;
 
 function createDeps(overrides: any = {}) {
   const protocol = makeMockProtocol();

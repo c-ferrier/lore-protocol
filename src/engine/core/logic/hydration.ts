@@ -1,8 +1,8 @@
 import { ProtocolMap, type Atom, type ProtocolState } from '../types/domain.js';
-import type { RawCommit } from '../interfaces/git-client.js';
-import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import type { RawCommit } from '../../interfaces/git-client.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import type { QueryIdentity } from '../types/query.js';
-import { escapeRegex } from '../util/regex.js';
+import { escapeRegex } from '../../util/regex.js';
 
 /**
  * Hydrates raw Git commit data into domain-rich Atoms.
@@ -49,7 +49,7 @@ export function hydrateAtoms(rawCommits: readonly RawCommit[], registry: Protoco
 export function extractReferenceIds(atoms: readonly Atom[], registry: ProtocolRegistry): QueryIdentity[] {
   const identities: QueryIdentity[] = [];
   const seen = new Set<string>();
-  
+
   for (const atom of atoms) {
     for (const [pName, state] of atom.protocols) {
       const protocol = registry.get(pName);
@@ -61,12 +61,12 @@ export function extractReferenceIds(atoms: readonly Atom[], registry: ProtocolRe
         for (const val of values) {
           try {
             const identity = registry.resolveIdentity(val, pName);
-            const key = `${identity.protocol}/${identity.id}`;
-            if (!seen.has(key)) {
-              seen.add(key);
+            const idKey = `${identity.protocol}/${identity.id}`;
+            if (!seen.has(idKey)) {
+              seen.add(idKey);
               identities.push(identity);
             }
-          } catch {
+          } catch (e) {
             // Skip invalid references during extraction (they will be caught by validator)
           }
         }
@@ -76,7 +76,6 @@ export function extractReferenceIds(atoms: readonly Atom[], registry: ProtocolRe
 
   return identities;
 }
-
 /**
  * Remove the trailer block from the commit body to avoid redundant display.
  */

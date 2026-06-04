@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { TerminalLogger } from '../../../src/engine/services/terminal-logger.js';
+import { TerminalLogger } from '../../../src/engine/cli/io/terminal-logger.js';
 import { LogLevel } from '../../../src/engine/interfaces/logger.js';
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+;
+;
 
 describe('TerminalLogger', () => {
   let stdoutSpy: any;

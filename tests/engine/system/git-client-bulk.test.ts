@@ -1,5 +1,7 @@
+import { GitClient } from '../../../src/engine/shell/git/git-client.js';
+
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { GitClient } from '../../../src/engine/services/git-client.js';
+;
 import { execSync } from 'node:child_process';
 import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';

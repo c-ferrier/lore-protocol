@@ -1,14 +1,13 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { type IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import { StalenessDetector } from '../../../src/engine/services/staleness-detector.js';
-import { 
-    makeMockGitClient, 
-    makeProtocolRegistry, 
-    makeProtocol, 
-    makeAtom, 
-    TEST_ENGINE_CONFIG,
-    TEST_ID_KEY
-} from '../engine-test-utils.js';
+import { TEST_ENGINE_CONFIG, makeAtom, makeProtocol, makeProtocolRegistry } from '../../../src/engine/testing.js';
 import { STALE_SIGNAL } from '../../../src/engine/util/constants.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+;
+;
+;
 
 describe('StalenessDetector Orchestration (Contract)', () => {
   let gitClient: any;

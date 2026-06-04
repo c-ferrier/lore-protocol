@@ -1,4 +1,4 @@
-import { TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../util/constants.js';
+import { TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../../util/constants.js';
 
 export type TrailerUiKind = (typeof TRAILER_UI_KINDS)[number];
 export type TrailerUiColor = (typeof TRAILER_UI_COLORS)[number];
@@ -116,13 +116,3 @@ export const ENGINE_CONFIG_SCHEMA: Record<string, string[]> = {
   protocols: [], // Dynamic section
 };
 
-/**
- * Runtime configuration for a specific protocol instance.
- * Merges static ProtocolDefinition with user overrides.
- */
-export interface ProtocolConfig {
-  readonly version?: string;
-  readonly strict?: boolean;
-  readonly permissive?: boolean;
-  readonly trailers?: Record<string, TrailerDefinition>;
-}

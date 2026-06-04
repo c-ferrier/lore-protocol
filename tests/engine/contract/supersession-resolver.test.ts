@@ -1,8 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { resolveSupersession, filterActiveAtoms } from '../../../src/engine/logic/supersession.js';
+import { filterActiveAtoms, resolveSupersession } from '../../../src/engine/core/logic/supersession.js';
+import { type Atom, type Trailers } from '../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_PROTOCOL_DEFINITION, makeProtocol } from '../engine-test-utils.js';
-import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
+import { TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../../src/engine/testing.js';
+
+import { describe, it, expect, beforeEach } from 'vitest';
+;
+;
+;
+
 
 const TEST_ID_KEY = "Mock-id";
 

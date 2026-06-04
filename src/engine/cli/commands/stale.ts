@@ -1,16 +1,16 @@
 import type { Command } from 'commander';
-import type { AtomRepository } from '../services/atom-repository.js';
-import type { StalenessDetector } from '../services/staleness-detector.js';
-import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { Atom } from '../types/domain.js';
-import type { PathQueryOptions } from '../types/query.js';
-import type { FormattableStalenessResult } from '../types/output.js';
-import { STALE_SIGNAL } from '../util/constants.js';
+import type { AtomRepository } from '../../services/atom-repository.js';
+import type { StalenessDetector } from '../../services/staleness-detector.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { Atom } from '../../core/types/domain.js';
+import type { PathQueryOptions } from '../../core/types/query.js';
+import type { FormattableStalenessResult } from '../../core/types/output.js';
+import { STALE_SIGNAL } from '../../util/constants.js';
 import { mergeOptions } from './helpers/merge-options.js';
-import type { ILogger } from '../interfaces/logger.js';
+import type { ILogger } from '../../interfaces/logger.js';
 
 // Pure Logic Modules
-import { createQueryTarget } from '../logic/query-targets.js';
+import { createQueryTarget } from '../../core/logic/query-targets.js';
 
 interface StaleCommandOptions {
   readonly olderThan?: string;

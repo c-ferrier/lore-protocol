@@ -1,14 +1,23 @@
+import { createQueryTarget } from '../../../src/engine/core/logic/query-targets.js';
+import { type Atom } from '../../../src/engine/core/types/domain.js';
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
+import { GitClient } from '../../../src/engine/shell/git/git-client.js';
+import { makeProtocol } from '../../../src/engine/testing.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { GitClient } from '../../../src/engine/services/git-client.js';
-import { Protocol } from '../../../src/engine/services/protocol.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { NullQueryCache } from '../../../src/engine/services/query-cache.js';
-import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { createQueryTarget } from '../../../src/engine/logic/query-targets.js';
+;
+;
+;
+;
+;
+;
+;
 
 describe('Multi-Target Atom Discovery', () => {
   let testDir: string;
@@ -52,7 +61,7 @@ describe('Multi-Target Atom Discovery', () => {
   beforeEach(() => {
     gitClient = new GitClient(testDir);
     const registry = new ProtocolRegistry();
-    registry.register(new Protocol(LoreProtocolDefinition));
+    registry.register(makeProtocol(LoreProtocolDefinition));
     
     const context = {
         cwd: testDir,

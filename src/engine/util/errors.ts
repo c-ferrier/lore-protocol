@@ -1,4 +1,4 @@
-import type { ValidationIssue } from '../types/output.js';
+import type { ValidationIssue } from '../core/types/output.js';
 
 export class ProtocolError extends Error {
   constructor(

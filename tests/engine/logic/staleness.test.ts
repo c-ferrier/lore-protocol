@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { evaluateAgeSignal, evaluateDriftSignal, parseDuration, formatAge } from '../../../src/engine/logic/staleness.js';
+import { evaluateAgeSignal, evaluateDriftSignal, formatAge, parseDuration } from '../../../src/engine/core/logic/staleness.js';
+import { type Atom } from '../../../src/engine/core/types/domain.js';
 import { STALE_SIGNAL } from '../../../src/engine/util/constants.js';
+
+import { describe, it, expect } from 'vitest';
+;
+;
 
 describe('Staleness Logic (Pure Functions)', () => {
 

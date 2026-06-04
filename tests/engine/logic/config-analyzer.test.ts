@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'vitest';
 import { analyzeConfigGaps } from '../../../src/engine/util/config-analyzer.js';
+import { camelCase } from '../../../src/engine/util/string.js';
+
+import { describe, it, expect } from 'vitest';
+;
 
 describe('analyzeConfigGaps', () => {
   const schema = {

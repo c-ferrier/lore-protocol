@@ -1,13 +1,12 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { Protocol } from '../../../src/engine/services/protocol.js';
-import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { serializeTrailers } from '../../../src/engine/logic/trailers.js';
+import { serializeTrailers } from '../../../src/engine/core/logic/trailers.js';
+import { type Atom, type Trailers } from '../../../src/engine/core/types/domain.js';
+import { type FormattableQueryResult } from '../../../src/engine/core/types/output.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../engine-test-utils.js';
+import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../../src/engine/testing.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
-import type { FormattableQueryResult } from '../../../src/engine/types/output.js';
-import type { Atom, Trailers } from '../../../src/engine/types/domain.js';
+import { describe, it, expect } from 'vitest';
 
 const LORE_ID_KEY = "Lore-id";
 
@@ -17,7 +16,7 @@ const LORE_ID_KEY = "Lore-id";
 describe('Flat Protocol Boundaries', () => {
   describe('Canonical Ordering', () => {
     it('should always serialize in protocol-defined order regardless of insertion order', () => {
-      const protocol = new Protocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
+      const protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
       // Input in "wrong" order
       const trailers = {
         'Tested': ['T1'],
@@ -42,7 +41,7 @@ describe('Flat Protocol Boundaries', () => {
 
   describe('JSON Normalization Matrix', () => {
     it('should correctly coerce core scalars and preserve all other arrays', () => {
-      const protocol = new Protocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
+      const protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
       const registry = new ProtocolRegistry();
       registry.register(protocol);
       const formatter = new JsonFormatter(registry);
@@ -108,7 +107,7 @@ describe('Flat Protocol Boundaries', () => {
 
   describe('Key Case Resilience', () => {
     it('should treat trailers as case-insensitive for core mapping', () => {
-      const protocol = new Protocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
+      const protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
 
       // User provides lowercase 'confidence'
       const raw = `${LORE_ID_KEY}: abc\nconfidence: low`;

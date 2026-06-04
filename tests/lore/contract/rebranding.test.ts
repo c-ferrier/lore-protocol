@@ -1,5 +1,7 @@
+import { buildLoreCli } from '../lore-test-utils.js';
+
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
-import { buildLoreCli } from '../../../src/lore/cli-wrapper.js';
+;
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
@@ -10,7 +12,9 @@ describe('Lore CLI Rebranding (Wrapper Logic)', () => {
 
   beforeAll(() => {
     mkdirSync(testDir, { recursive: true });
+    mkdirSync(join(testDir, '.atom'), { recursive: true });
     writeFileSync(pkgPath, JSON.stringify({ version: '0.5.0' }));
+    writeFileSync(join(testDir, '.atom', 'config.toml'), '');
     
     vi.stubGlobal('process', {
       ...process,
@@ -25,7 +29,7 @@ describe('Lore CLI Rebranding (Wrapper Logic)', () => {
   });
 
   it('should hide --subject and show --intent in help output', async () => {
-    const { program } = await buildLoreCli();
+    const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
     const commitCmd = program.commands.find(c => c.name() === 'commit')!;
 
     const subjectOpt = commitCmd.options.find(o => o.long === '--subject');
@@ -42,7 +46,7 @@ describe('Lore CLI Rebranding (Wrapper Logic)', () => {
   });
 
   it('should map --intent value to subject internally via preAction hook', async () => {
-    const { program } = await buildLoreCli();
+    const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
     const commitCmd = program.commands.find(c => c.name() === 'commit')!;
 
     // Stub the action to prevent it from actually running (and calling process.exit)
@@ -50,20 +54,20 @@ describe('Lore CLI Rebranding (Wrapper Logic)', () => {
 
     // 1. Trigger the preAction hooks by parsing user-style arguments
     await program.parseAsync(['commit', '--intent', 'my decision'], { from: 'user' });
-    
+
     // 2. Verify that the 'subject' option now has the value of 'intent'
     const opts = commitCmd.opts();
     expect(opts.subject).toBe('my decision');
   });
 
   it('should prioritize --subject if both are somehow provided (edge case)', async () => {
-    const { program } = await buildLoreCli();
+    const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
     const commitCmd = program.commands.find(c => c.name() === 'commit')!;
-    
+
     commitCmd.action(vi.fn());
 
     await program.parseAsync(['commit', '--subject', 'direct', '--intent', 'alias'], { from: 'user' });
-    
+
     const opts = commitCmd.opts();
     expect(opts.subject).toBe('alias');
   });

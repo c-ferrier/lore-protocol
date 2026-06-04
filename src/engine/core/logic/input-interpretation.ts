@@ -1,9 +1,9 @@
 import type { CommitInput } from '../types/commit.js';
-import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import type { EngineConfig } from '../types/config.js';
-import { ProtocolMap } from '../util/protocol-map.js';
-import { slugify, camelCase } from '../util/string.js';
-import { ProtocolError } from '../util/errors.js';
+import { ProtocolMap } from '../models/protocol-map.js';
+import { slugify, camelCase } from '../../util/string.js';
+import { ProtocolError } from '../../util/errors.js';
 
 /**
  * The modes of commit input resolution, ordered by priority.
@@ -63,7 +63,7 @@ export function parseFlagsToInput(options: CommitCommandOptions, registry: Proto
     // 1. Dynamically map all authorized trailers from registered flags
     for (const protocol of protocols) {
         const authorizedKeys = protocol.getAuthorizedKeys();
-        const ns = protocol.getStorageNamespace();
+        const ns = protocol.storageNamespace;
         const protocolName = protocol.name;
 
         for (const key of authorizedKeys) {

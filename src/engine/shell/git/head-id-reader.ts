@@ -1,7 +1,7 @@
-import type { IGitClient } from '../interfaces/git-client.js';
-import type { ProtocolRegistry } from './protocol-registry.js';
-import type { AtomId } from '../types/domain.js';
-import { parseTrailers } from '../logic/trailers.js';
+import type { IGitClient } from '../../interfaces/git-client.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { AtomId } from '../../core/types/domain.js';
+import { parseTrailers } from '../../core/logic/trailers.js';
 
 /**
  * Utility to read protocol identities from the HEAD commit.

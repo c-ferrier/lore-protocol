@@ -1,7 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
-import { runCli } from '../../../src/engine/index.js';
-import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, TEST_ENGINE_DIR, assertIsolatedEngine } from '../engine-test-utils.js';
+import { runCli } from '../../../src/engine/index-impl.js';
+import { TEST_ENGINE_CONFIG, TEST_ENGINE_DIR, TEST_PROTOCOL_DEFINITION, assertIsolatedEngine } from '../../../src/engine/testing.js';
 import { ENGINE_CONFIG_FILENAME } from '../../../src/engine/util/constants.js';
+
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from 'vitest';
+;
+
+;
+;
 import { resolve } from 'node:path';
 
 describe('Cache Bypass Integration (--no-cache)', () => {

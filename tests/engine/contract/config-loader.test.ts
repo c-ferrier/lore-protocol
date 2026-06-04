@@ -1,5 +1,7 @@
+import { EngineConfigLoader } from '../../../src/engine/shell/fs/config-loader.js';
+
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { EngineConfigLoader } from '../../../src/engine/services/config-loader.js';
+;
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

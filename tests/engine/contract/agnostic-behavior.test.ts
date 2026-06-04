@@ -1,9 +1,13 @@
+import { type Atom } from '../../../src/engine/core/types/domain.js';
+import { runCli } from '../../../src/engine/index-impl.js';
+import { TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { runCli } from '../../../src/engine/index.js';
+;
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { TEST_ENGINE_CONFIG } from '../engine-test-utils.js';
+;
 
 describe('Agnostic Behavior (Zero Protocols)', () => {
   const testDir = join(tmpdir(), `agnostic-test-${Date.now()}`);

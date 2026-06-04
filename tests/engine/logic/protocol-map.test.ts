@@ -1,5 +1,7 @@
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
+
 import { describe, it, expect } from 'vitest';
-import { ProtocolMap } from '../../../src/engine/types/domain.js';
+;
 
 describe('ProtocolMap (Case-Insensitive Logical Identity)', () => {
   it('should normalize keys to lowercase on set', () => {

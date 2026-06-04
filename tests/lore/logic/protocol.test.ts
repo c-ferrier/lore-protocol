@@ -1,15 +1,19 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
+import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { Protocol } from '../../../src/engine/index.js';
-import { TEST_PROTOCOL_CONFIG } from '../../engine/engine-test-utils.js';
+
+import { describe, it, expect, beforeEach } from 'vitest';
+;
+;
+;
 
 const LORE_ID_KEY = 'Lore-id';
 
 describe('LoreProtocolDefinition', () => {
-  let protocol: Protocol;
+  let protocol: ActiveProtocol;
 
   beforeEach(() => {
-    protocol = new Protocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
+    protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
   });
 
   it(`should have CLI metadata for all standard trailers except ${LORE_ID_KEY}`, () => {

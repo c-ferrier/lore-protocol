@@ -1,18 +1,18 @@
 import { Command } from 'commander';
-import type { IGitClient } from '../interfaces/git-client.js';
-import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { EngineConfig, TrailerDefinition } from '../types/config.js';
-import { ProtocolError } from '../util/errors.js';
-import type { CommitInputResolver } from '../services/commit-input-resolver.js';
-import type { HeadIdReader } from '../services/head-id-reader.js';
-import type { ILogger } from '../interfaces/logger.js';
+import type { IGitClient } from '../../interfaces/git-client.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { EngineConfig, TrailerDefinition } from '../../core/types/config.js';
+import { ProtocolError } from '../../util/errors.js';
+import type { CommitInputResolver } from '../readers/commit-input-resolver.js';
+import type { HeadIdReader } from '../../shell/git/head-id-reader.js';
+import type { ILogger } from '../../interfaces/logger.js';
 import { mergeOptions } from './helpers/merge-options.js';
-import type { AtomId } from '../types/domain.js';
-import { ProtocolRegistry } from '../services/protocol-registry.js';
-import { slugify } from '../util/string.js';
+import type { AtomId } from '../../core/types/domain.js';
+import {  ProtocolRegistry  } from '../../services/protocol-registry.js';
+import { slugify } from '../../util/string.js';
 
 // Pure Logic Modules
-import { formatCommit, validateFormatting } from '../logic/commit-formatting.js';
+import { formatCommit, validateFormatting } from '../../core/logic/commit-formatting.js';
 
 /**
  * CLI Options for the commit command.

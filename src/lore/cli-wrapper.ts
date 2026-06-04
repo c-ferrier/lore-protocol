@@ -14,13 +14,12 @@ import {
     checkForUpdates,
     camelCase,
     type EngineConfig, 
-    type ProtocolConfig, 
     type TrailerDefinition, 
     type ValueDefinition, 
     type TrailerUiKind, 
-    type TrailerUiColor,
+    type TrailerUiColor, 
     type ProtocolDefinition
-} from '../engine/index.js';
+    } from '../engine/index.js';
 import { LoreProtocolDefinition } from './protocol-definition.js';
 import { LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from './defaults.js';
 import { registerInitCommand } from './commands/init.js';
@@ -70,30 +69,66 @@ export async function buildLoreCli() {
     // Hook: Merge legacy .lore/config.toml settings into engine config
     onConfigLoaded: async (config: EngineConfig): Promise<EngineConfig> => {
         if (!legacyData) return config;
-        
-        // 1. Translate Legacy LoreConfig to EngineConfig overrides
-        const validation: any = {};
-        if (legacyData.validation?.strict !== undefined) validation.strict = legacyData.validation.strict;
-        if (legacyData.validation?.max_message_lines !== undefined) validation.maxMessageLines = legacyData.validation.max_message_lines;
-        if (legacyData.validation?.intent_max_length !== undefined) validation.subjectMaxLength = legacyData.validation.intent_max_length;
 
-        const stale: any = {};
-        if (legacyData.stale?.older_than) stale.olderThan = legacyData.stale.older_than;
-        if (legacyData.stale?.drift_threshold) stale.driftThreshold = legacyData.stale.drift_threshold;
+        let result = config;
 
-        const output: any = {};
-        if (legacyData.output?.default_format) output.defaultFormat = legacyData.output.default_format;
+        // Manual deep patch for engine config to ensure overrides persist
+        if (legacyData.validation) {
+            result = {
+                ...result,
+                validation: {
+                    ...result.validation,
+                    ...(legacyData.validation.max_message_lines !== undefined && { maxMessageLines: legacyData.validation.max_message_lines }),
+                    ...(legacyData.validation.intent_max_length !== undefined && { subjectMaxLength: legacyData.validation.intent_max_length })
+                }
+            };
+        }
 
-        const follow: any = {};
-        if (legacyData.follow?.max_depth !== undefined) follow.maxDepth = legacyData.follow.max_depth;
+        if (legacyData.stale) {
+            result = {
+                ...result,
+                stale: {
+                    ...result.stale,
+                    ...(legacyData.stale.older_than && { olderThan: legacyData.stale.older_than }),
+                    ...(legacyData.stale.drift_threshold && { driftThreshold: legacyData.stale.drift_threshold })
+                }
+            };
+        }
 
-        const cli: any = {};
-        if (legacyData.cli?.update_check !== undefined) cli.updateCheck = legacyData.cli.update_check;
+        if (legacyData.output) {
+            result = {
+                ...result,
+                output: {
+                    ...result.output,
+                    ...(legacyData.output.default_format && { defaultFormat: legacyData.output.default_format })
+                }
+            };
+        }
+
+        if (legacyData.follow) {
+            result = {
+                ...result,
+                follow: {
+                    ...result.follow,
+                    ...(legacyData.follow.max_depth !== undefined && { maxDepth: legacyData.follow.max_depth })
+                }
+            };
+        }
+
+        if (legacyData.cli) {
+            result = {
+                ...result,
+                cli: {
+                    ...result.cli,
+                    ...(legacyData.cli.update_check !== undefined && { updateCheck: legacyData.cli.update_check })
+                }
+            };
+        }
 
         // 2. Translate Legacy Lore Protocols to Engine protocols bucket
         const loreOverrides: any = {
             version: legacyData.protocol?.version || '1.0',
-            strict: false,
+            strict: legacyData.validation?.strict !== undefined ? legacyData.validation.strict : false,
             trailers: {}
         };
 
@@ -126,19 +161,16 @@ export async function buildLoreCli() {
         }
 
         loreOverrides.permissive = !hasCustomTrailers;
-
-        return {
-            ...config,
-            validation: { ...config.validation, ...validation },
-            stale: { ...config.stale, ...stale },
-            cli: { ...config.cli, ...cli },
-            follow: { ...config.follow, ...follow },
-            output: { ...config.output, ...output } as any,
+        
+        result = {
+            ...result,
             protocols: {
-                ...config.protocols,
-                Lore: loreOverrides
+                ...result.protocols,
+                lore: loreOverrides
             }
         };
+
+        return result;
     },
   };
 
@@ -199,7 +231,9 @@ export async function buildLoreCli() {
   if (versionOpt) (versionOpt as any).description = 'output the version number';
 
   // 0.5.0 missing global no-op
-  program.option('--no-update-notifier', 'Disable update notification');
+  if (!program.options.some(o => o.long === '--no-update-notifier')) {
+    program.option('--no-update-notifier', 'Disable update notification');
+  }
 
   // Dynamic Flag Generation
   // The Wrapper explicitly surfaces protocol properties as friendly CLI flags.
@@ -281,7 +315,9 @@ export async function buildLoreCli() {
               (subjectOpt as any).hidden = true;
               (subjectOpt as any).description = 'Primary subject line (why the change was made)';
           }
-          cmd.option('--intent <text>', 'Intent line (why the change was made)');
+          if (!cmd.options.some(o => o.long === '--intent')) {
+            cmd.option('--intent <text>', 'Intent line (why the change was made)');
+          }
           cmd.hook('preAction', (thisCommand) => {
               const opts = thisCommand.opts();
               if (opts.intent) thisCommand.setOptionValue('subject', opts.intent);
@@ -374,9 +410,15 @@ export async function buildLoreCli() {
           hideOpt('--filter');
 
           // Re-add Lore semantic filters
-          cmd.option('--confidence <level>', 'Filter by confidence: low, medium, high');
-          cmd.option('--scope-risk <level>', 'Filter by scope-risk: narrow, moderate, wide');
-          cmd.option('--reversibility <level>', 'Filter by reversibility: clean, migration-needed, irreversible');
+          if (!cmd.options.some(o => o.long === '--confidence')) {
+            cmd.option('--confidence <level>', 'Filter by confidence: low, medium, high');
+          }
+          if (!cmd.options.some(o => o.long === '--scope-risk')) {
+            cmd.option('--scope-risk <level>', 'Filter by scope-risk: narrow, moderate, wide');
+          }
+          if (!cmd.options.some(o => o.long === '--reversibility')) {
+            cmd.option('--reversibility <level>', 'Filter by reversibility: clean, migration-needed, irreversible');
+          }
 
           cmd.hook('preAction', (thisCommand) => {
               const opts = thisCommand.opts();
@@ -391,7 +433,9 @@ export async function buildLoreCli() {
       }
       if (name === 'stale') {
           cmd.description('Flag potentially outdated knowledge');
-          cmd.option('--low-confidence', 'Flag low-confidence atoms');
+          if (!cmd.options.some(o => o.long === '--low-confidence')) {
+            cmd.option('--low-confidence', 'Flag low-confidence atoms');
+          }
           hideOpt('--until');
           
           cmd.hook('preAction', (thisCommand) => {
@@ -405,7 +449,9 @@ export async function buildLoreCli() {
           cmd.description('Merge atoms for squash-merge preparation');
           const subjectOpt = cmd.options.find(o => o.long === '--subject');
           if (subjectOpt) (subjectOpt as any).hidden = true;
-          cmd.option('--intent <text>', 'Override the intent line of the merged message');
+          if (!cmd.options.some(o => o.long === '--intent')) {
+            cmd.option('--intent <text>', 'Override the intent line of the merged message');
+          }
           hideOpt('--until');
           cmd.hook('preAction', (thisCommand) => {
               const opts = thisCommand.opts();

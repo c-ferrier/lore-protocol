@@ -1,12 +1,13 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { squashAtoms } from '../../../src/engine/logic/squashing.js';
+import { squashAtoms } from '../../../src/engine/core/logic/squashing.js';
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { 
-    makeProtocol, 
-    makeAtom,
-    TEST_ID_KEY,
-    ProtocolMap
-} from '../engine-test-utils.js';
+import { TEST_ID_KEY, makeAtom, makeProtocol } from '../../../src/engine/testing.js';
+
+import { describe, it, expect, beforeEach } from 'vitest';
+;
+;
+
+;
 
 describe('Squashing Logic (Pure Functions)', () => {
   let registry: ProtocolRegistry;

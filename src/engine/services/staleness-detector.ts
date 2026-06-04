@@ -1,11 +1,11 @@
 import type { IGitClient } from '../interfaces/git-client.js';
-import type { EngineConfig } from '../types/config.js';
-import type { Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
+import type { EngineConfig } from '../core/types/config.js';
+import type { Atom, SupersessionStatus, StaleReason } from '../core/types/domain.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
-import type { StaleAtomReport } from '../types/output.js';
+import type { StaleAtomReport } from '../core/types/output.js';
 
 // Pure Logic Modules
-import { evaluateAgeSignal, evaluateDriftSignal } from '../logic/staleness.js';
+import { evaluateAgeSignal, evaluateDriftSignal } from '../core/logic/staleness.js';
 
 /**
  * Orchestrator for analyzing Atoms to detect "staleness" signals.

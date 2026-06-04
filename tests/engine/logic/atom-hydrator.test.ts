@@ -1,6 +1,9 @@
+import { extractReferenceIds, hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtom, makeProtocol, makeProtocolRegistry, makeRawCommit } from '../../../src/engine/testing.js';
+
 import { describe, it, expect } from 'vitest';
-import { hydrateAtoms, extractReferenceIds } from '../../../src/engine/logic/hydration.ts';
-import { makeProtocol, makeProtocolRegistry, makeAtom, makeRawCommit } from '../engine-test-utils.js';
+;
+;
 
 describe('AtomHydrator Logic (Pure Functions)', () => {
   const protocol = makeProtocol({
@@ -66,8 +69,12 @@ describe('AtomHydrator Logic (Pure Functions)', () => {
 
   describe('extractReferenceIds', () => {
       it('should extract unique identities from atom protocol state', () => {
-          // Use the 'mock' protocol which has 'Related' defined as a reference key in TEST_PROTOCOL_DEFINITION
-          const mockProtocol = makeProtocol(); 
+          const mockProtocol = makeProtocol({
+              trailers: {
+                  ...TEST_PROTOCOL_DEFINITION.trailers,
+                  'Related': { description: 'R', validation: 'reference' } as any
+              }
+          }); 
           const localRegistry = makeProtocolRegistry([mockProtocol]);
 
           const atom = makeAtom({

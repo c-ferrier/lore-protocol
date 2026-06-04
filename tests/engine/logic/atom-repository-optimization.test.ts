@@ -1,13 +1,9 @@
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { makeAtom, makeProtocol, makeProtocolRegistry, makeRawCommit } from '../../../src/engine/testing.js';
+import { makeAtomRepository, makeMockGitClient, makeMockQueryCache } from '../engine-test-utils.js';
+
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { 
-  makeAtomRepository, 
-  makeRawCommit, 
-  makeAtom, 
-  makeProtocolRegistry, 
-  makeProtocol, 
-  makeMockGitClient,
-  makeMockQueryCache 
-} from '../engine-test-utils.js';
+;
 
 describe('AtomRepository Performance Optimizations', () => {
   let repo: any;
@@ -22,7 +18,7 @@ describe('AtomRepository Performance Optimizations', () => {
     ]);
     gitClient = makeMockGitClient();
     cache = makeMockQueryCache();
-    repo = makeAtomRepository({ registry, gitClient, queryCache: cache });
+    repo = makeAtomRepository({ registry, gitClient, cache });
   });
 
   describe('Atomic Identity Caching (Partial Hits)', () => {
@@ -37,12 +33,17 @@ describe('AtomRepository Performance Optimizations', () => {
       const commit2 = makeRawCommit({ hash: 'hash2', id: id2 });
 
       // Mock Cache: id1 exists, id2 is missing
-      vi.spyOn(cache, 'get').mockImplementation(async (_head, fingerprint) => {
-        if (fingerprint.includes(id1)) return ['hash1'];
+      vi.spyOn(cache, 'get').mockImplementation(async (head: string, fingerprint: string) => {
+        if (fingerprint === `identity:mock/${id1}`) return ['hash1'];
         return null;
       });
 
-      vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit1]);
+      vi.mocked(gitClient.getCommitsByHashes).mockImplementation(async (hashes: string[]) => {
+        const out = [];
+        if (hashes.includes('hash1')) out.push(commit1);
+        if (hashes.includes('hash2')) out.push(commit2);
+        return out;
+      });
       vi.mocked(gitClient.query).mockResolvedValue([commit2]);
 
       // Specify protocol to avoid pattern bloat from registry.getAll()
@@ -106,8 +107,9 @@ describe('AtomRepository Performance Optimizations', () => {
       vi.mocked(gitClient.query).mockClear();
       
       const ghostAtom = makeAtom({ id: 'ghost' });
-      // Add a link to the naked 'shared-id' in the root protocol
-      (ghostAtom.protocols.get('mock') as any).trailers['Related'] = ['shared-id'];
+      const ghostMockState = ghostAtom.protocols.get('mock') || { trailers: {}, unauthorized: {} };
+      ghostMockState.trailers['Related'] = ['shared-id'];
+      ghostAtom.protocols.set('mock', ghostMockState as any);
       
       await repo.resolveFollowLinks([ghostAtom, atom], 1);
       

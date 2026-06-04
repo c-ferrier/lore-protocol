@@ -1,11 +1,16 @@
+import { createTrailerCollectors } from '../../../../src/engine/cli/readers/collectors/trailer-collector-registry.js';
+import { InteractiveInputReader } from '../../../../src/engine/cli/readers/interactive-input-reader.js';
+import { TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../../src/engine/testing.js';
+import { makeMockPrompt } from '../../engine-test-utils.js';
+
 import { describe, it, expect, vi } from 'vitest';
-import { InteractiveInputReader } from '../../../../src/engine/services/readers/interactive-input-reader.js';
-import { createTrailerCollectors } from '../../../../src/engine/services/readers/collectors/trailer-collector-registry.js';
-import type { IPrompt } from '../../../../src/engine/interfaces/prompt.js';
-import { Protocol } from '../../../../src/engine/services/protocol.js';
-import { TEST_PROTOCOL_DEFINITION, TEST_ENGINE_CONFIG, makeProtocol, makeMockPrompt } from '../../engine-test-utils.js';
 
 describe('InteractiveInputReader', () => {
+  const CORE_SCHEMA = {
+      ...TEST_PROTOCOL_DEFINITION.trailers,
+      ...MOCK_CORE_TRAILERS
+  };
+
   describe('full flow', () => {
     it('should collect all fields when user accepts everything', async () => {
       let confirmCallIndex = 0;
@@ -48,7 +53,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeProtocol(TEST_PROTOCOL_DEFINITION)));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeProtocol({ trailers: CORE_SCHEMA })));
       const result = await reader.read();
 
       expect(result.subject).toBe('refactor auth module');
@@ -68,7 +73,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeProtocol(TEST_PROTOCOL_DEFINITION)));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeProtocol({ trailers: CORE_SCHEMA })));
       const result = await reader.read();
 
       expect(result.subject).toBe('minimal subject');
@@ -113,7 +118,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeProtocol(TEST_PROTOCOL_DEFINITION)));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeProtocol({ trailers: CORE_SCHEMA })));
       const result = await reader.read();
 
       expect(result.trailers.get('mock').Constraint).toEqual([

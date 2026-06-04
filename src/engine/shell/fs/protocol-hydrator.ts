@@ -1,5 +1,5 @@
-import type { TrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../types/config.js';
-import { TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../util/constants.js';
+import type { TrailerDefinition, ValueDefinition, TrailerUiKind, TrailerUiColor } from '../../core/types/config.js';
+import { TRAILER_UI_KINDS, TRAILER_UI_COLORS } from '../../util/constants.js';
 
 /**
  * Utility to hydrate raw objects into formal TrailerDefinitions.
@@ -15,7 +15,6 @@ export class ProtocolHydrator {
    */
   static hydrateTrailer(key: string, raw: any): TrailerDefinition {
     if (!raw || typeof raw !== 'object') {
-      // Degraded state: return a generic definition
       return {
         description: typeof raw === 'string' ? raw : `Trailer: ${key}`,
         multivalue: true,
@@ -27,7 +26,7 @@ export class ProtocolHydrator {
 
     // 1. Resolve Validation Type & Aliases
     let validation: 'values' | 'pattern' | 'reference' | 'none' = 'none';
-    const rawVal = def.validation || def.type; // 'type' is a common alias
+    const rawVal = def.validation || def.type;
     if (rawVal === 'values' || rawVal === 'options' || rawVal === 'enum') {
       validation = 'values';
     } else if (rawVal === 'pattern' || rawVal === 'regex') {
@@ -52,15 +51,14 @@ export class ProtocolHydrator {
         : undefined,
     } : undefined;
 
-    // 4. Construct Final Object (Filtering unknown keys)
-    return {
+    // 4. Construct Final Object
+    const result: any = {
       description: typeof def.description === 'string' ? def.description : '',
       multivalue: typeof def.multivalue === 'boolean' ? def.multivalue : false,
       validation,
       values: this.hydrateValues(def.values || def.options),
       pattern: typeof def.pattern === 'string' ? def.pattern : undefined,
       required: typeof def.required === 'boolean' ? def.required : false,
-      isCore: typeof def.isCore === 'boolean' ? def.isCore : false,
       directives,
       ui,
       cli: def.cli ? {
@@ -77,6 +75,14 @@ export class ProtocolHydrator {
       crossProtocol: typeof def.crossProtocol === 'boolean' ? def.crossProtocol : undefined,
       stale_if: def.stale_if,
     };
+
+    // Rule: Only include isCore if explicitly provided. 
+    // This allows merges to preserve the original isCore value from the base schema.
+    if (typeof def.isCore === 'boolean') {
+        result.isCore = def.isCore;
+    }
+
+    return result as TrailerDefinition;
   }
 
   /**

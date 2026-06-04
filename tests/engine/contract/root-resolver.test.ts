@@ -1,11 +1,14 @@
+import { resolveProtocolRoot } from '../../../src/engine/shell/fs/root-resolver.js';
+import { makeMockConfigLoader, makeMockGitClient } from '../engine-test-utils.js';
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { resolveProtocolRoot } from '../../../src/engine/services/root-resolver.js';
-import type { ConfigLoader } from '../../../src/engine/services/config-loader.js';
-import type { IGitClient } from '../../../src/engine/interfaces/git-client.js';
+;
+
+
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { makeMockGitClient, makeMockConfigLoader } from '../engine-test-utils.js';
+;
 
 describe('resolveProtocolRoot', () => {
   let tempDir: string;

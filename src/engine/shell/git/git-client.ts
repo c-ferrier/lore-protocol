@@ -1,8 +1,8 @@
 import { execFile as execFileCb } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { IGitClient, RawCommit, BlameLine, CommitResult, CommitOptions, StorageQuery } from '../interfaces/git-client.js';
-import { GitError } from '../util/errors.js';
-import { escapeRegex } from '../util/regex.js';
+import type { IGitClient, RawCommit, BlameLine, CommitResult, CommitOptions, StorageQuery } from '../../interfaces/git-client.js';
+import { GitError } from '../../util/errors.js';
+import { escapeRegex } from '../../util/regex.js';
 
 const execFile = promisify(execFileCb);
 

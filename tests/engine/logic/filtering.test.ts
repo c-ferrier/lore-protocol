@@ -1,10 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
-import { filterAtoms, resolveFilters, resolveFilterStrings } from '../../../src/engine/logic/filtering.js';
+import { filterAtoms, resolveFilterStrings, resolveFilters } from '../../../src/engine/core/logic/filtering.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeMockProtocol, makeAtom } from '../engine-test-utils.js';
+import { makeAtom } from '../../../src/engine/testing.js';
+import { makeMockProtocol } from '../engine-test-utils.js';
+
+import { describe, it, expect, vi } from 'vitest';
+;
+;
+;
 
 describe('Filtering Logic (Pure Functions)', () => {
-  const registry = new ProtocolRegistry();
+  let registry: ProtocolRegistry;
   
   const createMockMatches = (authorizeFn: (key: string) => string | null) => (state: any, filters: any[]) => {
       const filter = filters[0];
@@ -25,14 +30,6 @@ describe('Filtering Logic (Pure Functions)', () => {
       return null;
   };
 
-  const protocol = makeMockProtocol({
-      name: 'mock',
-      owns: vi.fn((key: string) => ['mock-id', 'confidence'].includes(key.toLowerCase())),
-      authorize: vi.fn(mockAuthorize),
-      matches: vi.fn(createMockMatches(mockAuthorize))
-  });
-  registry.register(protocol);
-
   const fredAuthorize = (key: string) => {
       const k = key.toLowerCase();
       if (k === 'fred-id') return 'Fred-id';
@@ -40,13 +37,29 @@ describe('Filtering Logic (Pure Functions)', () => {
       return null;
   };
 
-  const fredProtocol = makeMockProtocol({
-      name: 'fred',
-      owns: vi.fn((key: string) => ['fred-id', 'team'].includes(key.toLowerCase())),
-      authorize: vi.fn(fredAuthorize),
-      matches: vi.fn(createMockMatches(fredAuthorize))
+  beforeEach(() => {
+    registry = new ProtocolRegistry();
+    
+    // P1: Root protocol
+    const protocol = makeMockProtocol({
+        name: 'mock',
+        namespace: '',
+        owns: vi.fn((key: string) => ['mock-id', 'confidence'].includes(key.toLowerCase())),
+        authorize: vi.fn(mockAuthorize),
+        matches: vi.fn(createMockMatches(mockAuthorize))
+    });
+    registry.register(protocol);
+
+    // P2: Namespaced protocol (must be namespaced to avoid collision with root protocol)
+    const fredProtocol = makeMockProtocol({
+        name: 'fred',
+        namespace: 'fred',
+        owns: vi.fn((key: string) => ['fred-id', 'team'].includes(key.toLowerCase())),
+        authorize: vi.fn(fredAuthorize),
+        matches: vi.fn(createMockMatches(fredAuthorize))
+    });
+    registry.register(fredProtocol);
   });
-  registry.register(fredProtocol);
 
   describe('resolveFilters', () => {
     it('should resolve simple key=value pairs', () => {
@@ -120,7 +133,7 @@ describe('Filtering Logic (Pure Functions)', () => {
       const strings = ['confidence'];
       const filters = resolveFilterStrings(strings, registry);
       expect(filters).toEqual([
-        { protocol: 'mock', key: 'confidence', op: 'eq', value: 'true' }
+        { protocol: 'mock', key: 'confidence', op: 'has', value: 'true' }
       ]);
     });
   });
@@ -206,7 +219,8 @@ describe('Filtering Logic (Pure Functions)', () => {
       const atom = makeAtom({ id: 'a1' });
       atom.subject = 'fix: the login bug';
       atom.body = 'Detailed notes here.';
-      (atom.protocols.get('mock') as any).trailers['Confidence'] = ['high priority'];
+      // Ensure the 'mock' protocol state exists
+      atom.protocols.set('mock', { trailers: { 'Confidence': ['high priority'] }, unauthorized: {} });
 
       expect(filterAtoms([atom], { text: 'login' }, registry)).toHaveLength(1);
       expect(filterAtoms([atom], { text: 'notes' }, registry)).toHaveLength(1);

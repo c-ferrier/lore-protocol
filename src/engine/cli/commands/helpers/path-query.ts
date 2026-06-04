@@ -1,16 +1,16 @@
 import type { Command } from 'commander';
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { EngineConfig } from '../../types/config.js';
-import type { Atom, SupersessionStatus } from '../../types/domain.js';
-import type { PathQueryOptions, QueryResult } from '../../types/query.js';
-import type { FormattableQueryResult } from '../../types/output.js';
+import type { AtomRepository } from '../../../services/atom-repository.js';
+import type { IOutputFormatter } from '../../../interfaces/output-formatter.js';
+import type { EngineConfig } from '../../../core/types/config.js';
+import type { Atom, SupersessionStatus } from '../../../core/types/domain.js';
+import type { PathQueryOptions, QueryResult } from '../../../core/types/query.js';
+import type { FormattableQueryResult } from '../../../core/types/output.js';
 import { buildQueryMeta } from './build-query-meta.js';
-import type { ILogger } from '../../interfaces/logger.js';
-import { ProtocolError } from '../../util/errors.js';
+import type { ILogger } from '../../../interfaces/logger.js';
+import { ProtocolError } from '../../../util/errors.js';
 
 // Pure Logic Modules
-import { createQueryTarget } from '../../logic/query-targets.js';
+import { createQueryTarget } from '../../../core/logic/query-targets.js';
 
 /** Parse a CLI value as a strict positive integer; rejects non-numeric trailing chars. */
 export function parsePositiveInt(value: string): number {

@@ -9,9 +9,10 @@ import type {
   FormattableDoctorResult,
   FormattableConfigResult,
   FormattableTrailerDefinition,
-} from '../types/output.js';
-import type { Atom, AtomId } from '../types/domain.js';
+} from '../core/types/output.js';
+import type { Atom, AtomId } from '../core/types/domain.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import { getFormattableDefinitions } from '../cli/io/protocol-ui.js';
 
 /**
  * Strategy implementation for human-readable terminal output.
@@ -41,7 +42,7 @@ export class TextFormatter implements IOutputFormatter {
     for (const atom of result.atoms) {
       // Find a representative ID for the header (root preferred)
       const rootProtocol = this.protocolRegistry.getRoot();
-      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
+      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name) : null;
       
       let id = rootProtocol?.getIdentity(primaryState);
       if (!id) {
@@ -318,10 +319,10 @@ export class TextFormatter implements IOutputFormatter {
 
     // 1. Iterate by Protocol Registration Order (from Registry)
     for (const protocol of this.protocolRegistry.getAll()) {
-      const state = atom.protocols.get(protocol.name.toLowerCase());
+      const state = atom.protocols.get(protocol.name);
       if (!state) continue;
 
-      const definitions = protocol.getFormattableDefinitions();
+      const definitions = getFormattableDefinitions(protocol);
       const authorizedKeys = protocol.getAuthorizedKeys();
       const allStateKeys = new Set(Object.keys(state.trailers));
       const identityKey = protocol.identityKey;

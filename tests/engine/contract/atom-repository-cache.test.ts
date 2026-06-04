@@ -1,10 +1,18 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
+import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import type { IGitClient, RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtomRepository, makeProtocol, makeMockGitClient, makeAtom, makeQueryTarget } from '../engine-test-utils.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtom, makeProtocol } from '../../../src/engine/testing.js';
+import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
 
-import * as HydrationLogic from '../../../src/engine/logic/hydration.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+;
+
+
+;
+;
+
+import * as HydrationLogic from '../../../src/engine/core/logic/hydration.js';
 
 const TEST_ID_KEY = "Mock-id";
 

@@ -1,9 +1,11 @@
+import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
+
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { QueryCache } from '../../../src/engine/services/query-cache.js';
+;
 import { mkdtemp, rm, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { QueryOptions } from '../../../src/engine/types/query.js';
+
 
 describe('QueryCache', () => {
   let tempDir: string;
