@@ -1,49 +1,50 @@
 import { vi } from 'vitest';
 import { 
-    makeProtocolRegistry, 
-    makeProtocol, 
-    makeStubGitClient, 
-    makeStubPrompt, 
-    makeStubFormatter, 
-    makeStubConfigLoader, 
-    makeStubInputResolver, 
-    makeStubHeadIdReader, 
-    makeStubAtomRepository, 
-    makeStubValidator, 
-    makeStubStalenessDetector, 
-    makeStubProtocolRegistry,
-    makeStubProtocol,
+    makeProtocolRegistry as stubProtocolRegistry, 
+    makeProtocol as stubProtocol, 
+    makeStubGitClient as stubGitClient, 
+    makeStubPrompt as stubPrompt, 
+    makeStubConfigLoader as stubConfigLoader, 
+    makeStubAtomRepository as stubAtomRepository, 
+    makeStubValidator as stubValidator, 
+    makeStubStalenessDetector as stubStalenessDetector, 
+    makeStubProtocolRegistry as stubProtocolRegistryStub,
+    makeStubProtocol as stubProtocolStub,
     TEST_ENGINE_CONFIG,
-    createProtocolContext
+    createProtocolContext,
+    makeRawCommit,
+    makeQueryTarget,
+    makeAtomRepository as realAtomRepository,
+    makeAtom,
+    ActiveProtocol
 } from '../../src/engine/testing.js';
-import { AtomRepository } from '../../src/engine/services/atom-repository.js';
-import { InMemoryLogger } from '../../src/engine/services/in-memory-logger.js';
+import type { ProtocolDefinition, ProtocolContext } from '../../src/engine/core/types/protocol-definition.js';
 
 // 1. Vitest Spies (Middlemen)
 // These wrap framework-agnostic stubs in Vitest mock functions.
 
 export function makeMockGitClient(overrides: any = {}): any {
-    const stub = makeStubGitClient(overrides);
+    const stub = stubGitClient(overrides);
     return { 
         ...stub, 
         query: vi.fn(stub.query),
         resolveDate: vi.fn(stub.resolveDate),
         getCommitsByHashes: vi.fn(stub.getCommitsByHashes),
         blame: vi.fn(stub.blame),
-        getFilesChanged: vi.fn(async () => new Map()),
+        getFilesChanged: vi.fn(stub.getFilesChanged),
         resolveRef: vi.fn(stub.resolveRef),
         getRepoRoot: vi.fn(stub.getRepoRoot),
-        hasStagedChanges: vi.fn(async () => true),
-        isInsideRepo: vi.fn(async () => true),
-        getHeadMessage: vi.fn(async () => 'feat: head'),
-        countCommitsSince: vi.fn(async () => 0),
-        log: vi.fn(async () => []),
-        commit: vi.fn(async () => ({ hash: 'new-hash', message: 'new message' }))
+        hasStagedChanges: vi.fn(stub.hasStagedChanges),
+        isInsideRepo: vi.fn(stub.isInsideRepo),
+        getHeadMessage: vi.fn(stub.getHeadMessage),
+        countCommitsSince: vi.fn(stub.countCommitsSince),
+        log: vi.fn(stub.log),
+        commit: vi.fn(stub.commit)
     };
 }
 
 export function makeMockProtocolRegistry(protocols: any[] = []): any {
-    const registry = makeProtocolRegistry(protocols);
+    const registry = stubProtocolRegistry(protocols);
     return registry;
 }
 
@@ -57,10 +58,10 @@ export function makeMockQueryCache(overrides: any = {}): any {
 }
 
 export function makeMockConfigLoader(overrides: any = {}): any {
-    const stub = makeStubConfigLoader(overrides);
+    const stub = stubConfigLoader(overrides);
     return { 
         ...stub, 
-        load: vi.fn(stub.load),
+        loadForPath: vi.fn(stub.loadForPath),
         findConfigPath: vi.fn(async () => null),
     };
 }
@@ -72,6 +73,7 @@ export function makeMockFormatter(overrides: any = {}): any {
         formatStalenessResult: vi.fn().mockReturnValue(''),
         formatTraceResult: vi.fn().mockReturnValue(''),
         formatConfigResult: vi.fn().mockReturnValue(''),
+        formatConfig: vi.fn().mockReturnValue(''),
         formatDoctorResult: vi.fn().mockReturnValue(''),
         formatSuccess: vi.fn().mockReturnValue(''),
         formatError: vi.fn().mockReturnValue(''),
@@ -80,7 +82,7 @@ export function makeMockFormatter(overrides: any = {}): any {
 }
 
 export function makeMockAtomRepository(overrides: any = {}): any {
-    const stub = makeStubAtomRepository(overrides);
+    const stub = stubAtomRepository(overrides);
     const mock: any = { 
         ...stub, 
         find: vi.fn(stub.find), 
@@ -89,13 +91,13 @@ export function makeMockAtomRepository(overrides: any = {}): any {
             const results = await mock.findByIds([id], opts);
             return results[0] || null;
         }),
-        findByCommitHash: vi.fn(async (hash: string) => null)
+        findByCommitHash: vi.fn(stub.findByCommitHash)
     };
     return mock;
 }
 
 export function makeMockPrompt(overrides: any = {}): any {
-    const stub = makeStubPrompt(overrides);
+    const stub = stubPrompt(overrides);
     return { 
         ...stub, 
         askConfirm: vi.fn(stub.askConfirm), 
@@ -121,93 +123,79 @@ export function makeMockInputResolver(overrides: any = {}): any {
 
 export function makeMockStalenessDetector(overrides: any = {}): any {
     const stub = makeStubStalenessDetector(overrides);
-    return { ...stub, detect: vi.fn(stub.detect) };
+    return {
+        ...stub,
+        analyze: vi.fn(stub.analyze)
+    };
 }
 
-export function makeMockValidator(overrides: any = {}): any {
-    const stub = makeStubValidator(overrides);
-    return { ...stub, validate: vi.fn(stub.validate) };
+export function makeMockProtocol(overrides: Partial<ProtocolDefinition> = {}): ActiveProtocol {
+  return stubProtocol(overrides);
 }
 
-export function makeMockProtocol(overrides: any = {}): any {
-    const stub = makeStubProtocol(overrides);
-    const ctx = createProtocolContext(stub.def);
-    
-    // Helper to either use provided mock or wrap stub method
-    const wrap = (key: string) => {
-        if (overrides[key] && (overrides[key]._isMockFunction || typeof overrides[key] === 'function')) {
-            return overrides[key];
-        }
-        const member = (stub as any)[key];
-        if (typeof member === 'function') {
-            return vi.fn(member.bind(stub));
-        }
-        return member;
-    };
-
-    const mock = {
-        name: stub.name,
-        version: stub.version,
-        strict: stub.strict,
-        permissive: stub.permissive,
-        identityKey: stub.identityKey,
-        storageNamespace: stub.storageNamespace,
-        context: stub, // Self-referential context
-        def: stub.def,
-        caseMap: ctx.caseMap,
-        isRoot: ctx.isRoot,
-        storagePrefix: ctx.storagePrefix,
-        authorize: wrap('authorize'),
-        getAuthorizedKeys: wrap('getAuthorizedKeys'),
-        getScalarKeys: wrap('getScalarKeys'),
-        getListKeys: wrap('getListKeys'),
-        getReferenceKeys: wrap('getReferenceKeys'),
-        getDefinition: wrap('getDefinition'),
-        owns: wrap('owns'),
-        isRootProtocol: wrap('isRootProtocol'),
-        isValidIdentity: wrap('isValidIdentity'),
-        parse: wrap('parse'),
-        normalize: wrap('normalize'),
-        getIdentity: wrap('getIdentity'),
-        validateState: wrap('validateState'),
-        validateTrailer: wrap('validateTrailer'),
-        isCore: wrap('isCore'),
-        matches: wrap('matches'),
-        getFormattableDefinitions: wrap('getFormattableDefinitions'),
-        getStaleSignals: wrap('getStaleSignals'),
-        getDiscoveryPatterns: wrap('getDiscoveryPatterns'),
-        getSearchPatterns: wrap('getSearchPatterns'),
-        claims: wrap('claims'),
-    };
-    return mock;
+export function makeMockProtocolContext(overrides: Partial<ProtocolDefinition> = {}): ProtocolContext {
+    return stubProtocol(overrides).context;
 }
 
-export const createMockProtocol = makeMockProtocol;
-export const TestLogger = InMemoryLogger;
+// Level 2 Tests often need the real repository but with mocks injected
+export function makeAtomRepository(deps: any = {}) {
+    return realAtomRepository(deps);
+}
 
-// 2. Specialized Helper wrappers
+/** Mock logger that captures all output for inspection. Supports multiple naming conventions. */
+export class TestLogger {
+    public logs: string[] = [];
+    public infoLogs: string[] = [];
+    public results: string[] = [];
+    public resultLogs: string[] = [];
+    public warnings: string[] = [];
+    public errors: string[] = [];
 
-export function makeAtomRepository(options: any = {}): AtomRepository {
-    const registry = options.registry || makeProtocolRegistry([makeProtocol({ name: 'RepoMock' })]);
-    const gitClient = options.gitClient || makeMockGitClient();
-    const cache = options.cache || makeMockQueryCache();
-    
-    const baseTarget = options.baseTarget || {
-        raw: '',
-        type: 'global' as const,
-        resolvedPaths: []
+    info(msg: string) { 
+        this.logs.push(msg); 
+        this.infoLogs.push(msg);
+    }
+    warn(msg: string) { this.warnings.push(msg); }
+    error(msg: string) { this.errors.push(msg); }
+    result(msg: string) { 
+        this.results.push(msg); 
+        this.resultLogs.push(msg);
+    }
+}
+
+// Named Exports for Level 2 Tests
+export { 
+    makeRawCommit, 
+    makeQueryTarget, 
+    makeAtom, 
+    TEST_ENGINE_CONFIG, 
+    createProtocolContext,
+    ActiveProtocol 
+};
+
+/** Helper to create search options. */
+export function makeSearchOptions(overrides: any = {}): any {
+    return {
+        filters: [],
+        follow: false,
+        cache: true,
+        ...overrides
     };
-
-    return new AtomRepository(
-        gitClient,
-        registry,
-        cache,
-        baseTarget
-    );
 }
 
 export function makeQueryOptions(overrides: any = {}): any {
-  return {
-    ...overrides
-  };
+    return makeSearchOptions(overrides);
 }
+
+// Shims for backward compatibility (Mock versions preferred in tests)
+export const makeProtocolRegistry = makeMockProtocolRegistry;
+export const makeProtocol = makeMockProtocol;
+export const makeStubProtocol = stubProtocolStub;
+export const makeStubGitClient = makeMockGitClient;
+export const makeFormatter = makeMockFormatter;
+export const makeConfigLoader = makeMockConfigLoader;
+export const makePrompt = makeMockPrompt;
+export const makeMockValidator = (overrides: any = {}) => {
+    const stub = stubValidator(overrides);
+    return { ...stub, validate: vi.fn(stub.validate) };
+};

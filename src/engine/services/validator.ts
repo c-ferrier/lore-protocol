@@ -4,14 +4,19 @@ import type { RawCommit } from '../interfaces/git-client.js';
 import type { CommitValidationResult, ValidationIssue } from '../core/types/output.js';
 import type { Trailers, ProtocolState } from '../core/types/domain.js';
 import type { QueryIdentity } from '../core/types/query.js';
-import type { IProtocol } from '../core/types/protocol-definition.js';
+import type { ProtocolContext } from '../core/types/protocol-definition.js';
 
 import type { ProtocolRegistry } from './protocol-registry.js';
 import { parseTrailers } from '../core/logic/trailers.js';
 import { 
     evaluateHygiene, 
     evaluateTrailerHygiene, 
+    validateProtocolState,
+    validateProtocolTrailer
 } from '../core/logic/validation.js';
+import { normalizeTrailers } from '../core/logic/normalization.js';
+import { getProtocolIdentity } from '../core/logic/identity.js';
+import { getAuthorizedKeys, getReferenceKeys } from '../core/logic/protocols.js';
 
 /**
  * Validates existing git commits for protocol compliance.
@@ -57,12 +62,12 @@ export class Validator {
       issues.push(...evaluateHygiene(raw.subject, raw.body, this.config));
 
       // 2. Multi-Protocol Validation
-      for (const p of protocols) {
+      for (const ctx of protocols) {
         // Validation needs to see everything (even invalid values) to report errors
-        const state = p.normalize(trailers, claimedKeys);
+        const state = normalizeTrailers(trailers, ctx, claimedKeys);
         
-        issues.push(...p.validateState(state, this.protocolRegistry));
-        await this.validateReferenceExistence(p, state.trailers, issues);
+        issues.push(...validateProtocolState(state, ctx.def, this.protocolRegistry));
+        await this.validateReferenceExistence(ctx, state.trailers, issues);
       }
 
       // 3. Generic Trailer Hygiene (Logic)
@@ -70,11 +75,11 @@ export class Validator {
 
       // Final ID for UI parity (prefer root namespace or first protocol)
       const primary = this.protocolRegistry.getRoot() || protocols[0];
-      const primaryState = primary ? primary.normalize(trailers, claimedKeys) : null;
+      const primaryState = primary ? normalizeTrailers(trailers, primary, claimedKeys) : null;
       
       let displayId = null;
       if (primary && primaryState) {
-          displayId = primary.getIdentity(primaryState);
+          displayId = getProtocolIdentity(primaryState, primary);
       }
 
       return {
@@ -91,13 +96,13 @@ export class Validator {
    * This is the only part of validation that requires I/O (AtomRepository).
    */
   private async validateReferenceExistence(
-    p: IProtocol,
+    ctx: ProtocolContext,
     trailers: Trailers,
     issues: ValidationIssue[],
   ): Promise<void> {
-    const refKeys = p.getAuthorizedKeys().filter(k => p.getDefinition(k)?.validation === 'reference');
+    const refKeys = getReferenceKeys(ctx);
     const identitiesToCheck: Array<{ key: string; identity: QueryIdentity }> = [];
-    const protocolName = p.name;
+    const protocolName = ctx.def.name;
 
     for (const key of refKeys) {
       const values = trailers[key] || [];
@@ -105,7 +110,7 @@ export class Validator {
       for (const val of values) {
         try {
           // Check if format is valid before checking existence
-          const validResult = p.validateTrailer(key, val, this.protocolRegistry);
+          const validResult = validateProtocolTrailer(key, val, ctx.def, this.protocolRegistry);
           if (!validResult.valid) continue;
 
           // resolveIdentity is safe here because validateTrailer already passed
@@ -126,10 +131,10 @@ export class Validator {
     const foundKeys = new Set<string>();
     for (const atom of foundAtoms) {
       for (const [pName, state] of atom.protocols) {
-        const targetP = this.protocolRegistry.get(pName);
-        if (!targetP) continue;
+        const targetCtx = this.protocolRegistry.get(pName);
+        if (!targetCtx) continue;
 
-        const atomId = targetP.getIdentity(state);
+        const atomId = getProtocolIdentity(state, targetCtx);
         if (atomId) foundKeys.add(`${pName.toLowerCase()}/${atomId}`);
       }
     }
@@ -139,10 +144,10 @@ export class Validator {
       const lookupKey = `${(identity.protocol || protocolName).toLowerCase()}/${identity.id}`;
       if (!foundKeys.has(lookupKey)) {
         issues.push({
-          severity: p.strict ? 'error' : 'warning',
+          severity: ctx.def.strict ? 'error' : 'warning',
           rule: 'reference-exists',
           field: key,
-          message: `[${p.name.toLowerCase()}] Referenced id "${identity.id}"${identity.protocol ? ` in protocol "${identity.protocol}"` : ''} in ${key} was not found in history`,
+          message: `[${ctx.def.name.toLowerCase()}] Referenced id "${identity.id}"${identity.protocol ? ` in protocol "${identity.protocol}"` : ''} in ${key} was not found in history`,
         });
       }
     }

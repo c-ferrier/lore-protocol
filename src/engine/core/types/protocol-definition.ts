@@ -13,7 +13,7 @@ import type { QualifiedFilter, QueryIdentity } from './query.js';
  */
 export interface IIdentityResolver {
     resolveIdentity(val: string, currentProtocol: string): QueryIdentity;
-    get(name: string): IProtocol | undefined;
+    get(name: string): ProtocolContext | undefined;
 }
 
 /**
@@ -32,6 +32,7 @@ export interface ProtocolDefinition {
 
 /**
  * Operationally optimized view of a Protocol.
+ * Created once per protocol at bootstrap to avoid repetitive casing/string math.
  */
 export interface ProtocolContext {
     readonly def: ProtocolDefinition;
@@ -42,6 +43,20 @@ export interface ProtocolContext {
     readonly storagePrefix: string;
     /** Map of hydrated trailer definitions indexed by canonical key */
     readonly trailers: Map<string, TrailerDefinition & { key: string }>;
+
+    // Convenience properties
+    readonly name: string;
+    readonly version: string;
+    readonly strict: boolean;
+    readonly permissive: boolean;
+    readonly identityKey: string;
+    readonly storageNamespace: string;
+
+    // Logic Hooks (allows mocking in tests while defaulting to pure logic)
+    validateState(state: ProtocolState, resolver?: IIdentityResolver): ValidationIssue[];
+    validateTrailer(key: string, value: string, resolver?: IIdentityResolver): { valid: boolean; message?: string; rule?: string };
+    getStaleSignals(atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[];
+    getAuthorizedKeys(): string[];
 }
 
 /**
@@ -49,12 +64,7 @@ export interface ProtocolContext {
  * Combines optimized context with behavioral methods.
  */
 export interface IProtocol extends ProtocolContext {
-    readonly name: string;
-    readonly version: string;
-    readonly strict: boolean;
-    readonly permissive: boolean;
-    readonly identityKey: string;
-    readonly storageNamespace: string;
+    readonly context: ProtocolContext;
     
     authorize(key: string): string | null;
     isValidIdentity(id: string): boolean;
@@ -70,8 +80,6 @@ export interface IProtocol extends ProtocolContext {
     owns(key: string): boolean;
     isRootProtocol(): boolean;
     normalize(rawMap: Record<string, readonly string[]>, claimedKeys?: Set<string>): ProtocolState;
-    validateState(state: ProtocolState, resolver?: IIdentityResolver): ValidationIssue[];
-    validateTrailer(key: string, value: string, resolver?: IIdentityResolver): { valid: boolean; message?: string; rule?: string };
     isCore(key: string): boolean;
     matches(state: ProtocolState, filters: readonly QualifiedFilter[]): boolean;
     claims(raw: string): boolean;

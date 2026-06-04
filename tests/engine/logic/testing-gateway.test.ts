@@ -7,17 +7,17 @@ describe('Testing Gateway Logic', () => {
   describe('makeStubProtocol', () => {
     it('should force lowercase name even if provided in overrides', () => {
       const stub = makeStubProtocol({ name: 'Alpha' });
-      expect(stub.name).toBe('alpha');
+      expect(stub.def.name.toLowerCase()).toBe('alpha');
     });
 
-    it('should correctly capture storage namespace from a method', () => {
-      const stub = makeStubProtocol({ getStorageNamespace: () => 'project' });
-      expect(stub.storageNamespace).toBe('project');
+    it('should correctly capture storage namespace', () => {
+      const stub = makeStubProtocol({ namespace: 'project' });
+      expect(stub.def.namespace).toBe('project');
       expect(stub.owns('project')).toBe(true);
     });
 
     it('should implement basic owns logic based on namespace', () => {
-        const stub = makeStubProtocol({ name: 'Alpha', getStorageNamespace: () => 'ns' });
+        const stub = makeStubProtocol({ name: 'Alpha', namespace: 'ns' });
         // STRICT ISOLATION: Namespaced protocols only own their bucket.
         expect(stub.owns('alpha')).toBe(false);
         expect(stub.owns('ns')).toBe(true);

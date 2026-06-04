@@ -10,6 +10,10 @@ import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import type { ILogger } from '../../interfaces/logger.js';
 import { mergeOptions } from './helpers/merge-options.js';
 
+// Pure Logic Modules
+import { getProtocolIdentity } from '../../core/logic/identity.js';
+import { getReferenceKeys } from '../../core/logic/protocols.js';
+
 /**
  * Register the trace command.
  * Follows decision relationships (Related, Depends-on, Supersedes) to build a graph.
@@ -46,7 +50,8 @@ export function registerTraceCommand(
           const pName = identity.protocol?.toLowerCase() || '';
           const state = a.protocols.get(pName) || a.protocols.get(identity.protocol || '');
           if (!state) return false;
-          const atomId = protocolRegistry.get(pName)?.getIdentity(state);
+          const p = protocolRegistry.get(pName);
+          const atomId = p ? getProtocolIdentity(state, p) : null;
           return atomId === identity.id;
       }) || atoms[0];
 
@@ -69,16 +74,16 @@ export function registerTraceCommand(
           const p = protocolRegistry.get(pName);
           if (!p) continue;
 
-          const currentId = p.getIdentity(state);
+          const currentId = getProtocolIdentity(state, p);
           if (!currentId) continue;
 
-          for (const key of p.getReferenceKeys()) {
+          for (const key of getReferenceKeys(p)) {
             const refs = state.trailers[key] || [];
             for (const refId of refs) {
                 // Find the target atom in our pre-resolved set
                 const targetAtom = atoms.find(a => {
                     const targetState = a.protocols.get(pName.toLowerCase()) || a.protocols.get(pName);
-                    return targetState && p.getIdentity(targetState) === refId;
+                    return targetState && getProtocolIdentity(targetState, p) === refId;
                 });
 
                 edges.push({

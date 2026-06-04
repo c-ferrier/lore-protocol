@@ -1,71 +1,75 @@
 import { ProtocolMap, type Atom, type SupersessionStatus } from '../core/types/domain.js';
 import type { QualifiedFilter, QueryIdentity } from '../core/types/query.js';
 import { ProtocolError, ConfigurationError } from '../util/errors.js';
-import type { ProtocolDefinition, IIdentityResolver, IProtocol } from '../core/types/protocol-definition.js';
-import { ActiveProtocol } from '../core/models/active-protocol.js';
+import type { ProtocolDefinition, ProtocolContext, IIdentityResolver } from '../core/types/protocol-definition.js';
+import { createProtocolContext } from '../core/logic/protocols.js';
+import { 
+    getDiscoveryPatterns, 
+    getSearchPatterns, 
+    claimsTrailers 
+} from '../shell/git/protocol-query-adapter.js';
+import { authorizeKey } from '../core/logic/ownership.js';
+import { getProtocolIdentity } from '../core/logic/identity.js';
+import { isValidProtocolIdentity } from '../core/logic/validation.js';
 
 /**
  * Orchestrates multiple decision protocols using the Strict Isolation Model.
  * 
  * DESIGN: Each namespace (including root "") can have EXACTLY one protocol.
  * This ensures deterministic data ownership and zero ambiguity during discovery.
+ * 
+ * SRP: Central repository for ProtocolContext data.
  */
 export class ProtocolRegistry implements IIdentityResolver {
-  private readonly protocols = new ProtocolMap<IProtocol>();
-  private readonly namespaceMap = new Map<string, IProtocol>();
+  private readonly protocols = new ProtocolMap<ProtocolContext>();
+  private readonly namespaceMap = new Map<string, ProtocolContext>();
 
   /**
-   * Register a new protocol definition or instance.
+   * Register a new protocol definition or context.
+   * Preserves existing context objects (useful for mocks in tests).
    */
-  register(input: ProtocolDefinition | IProtocol): void {
-     let protocol: IProtocol;
+  register(input: ProtocolDefinition | ProtocolContext | { def: ProtocolDefinition }): void {
+     const def = (input as any).def || input;
+     const ctx = (input as any).caseMap ? (input as ProtocolContext) : createProtocolContext(def);
      
-     if ('authorize' in input && typeof input.authorize === 'function') {
-         // It's already an IProtocol (ActiveProtocol or Mock)
-         protocol = input;
-     } else {
-         // It's a raw definition, wrap it
-         protocol = new ActiveProtocol(input as ProtocolDefinition);
-     }
-
-     const name = protocol.name.toLowerCase();
-     const ns = protocol.storageNamespace.toLowerCase();
+     const name = def.name.toLowerCase();
+     const ns = (def.namespace ?? '').toLowerCase();
 
      if (this.protocols.has(name)) {
-       throw new ConfigurationError(`Protocol "${protocol.name}" is already registered`);
+       throw new ConfigurationError(`Protocol "${def.name}" is already registered`);
      }
 
      const existingForNs = this.namespaceMap.get(ns);
      if (existingForNs) {
        const nsDisplay = ns === '' ? 'root' : `"${ns}"`;
        throw new ConfigurationError(
-         `Namespace Conflict: Cannot register protocol "${protocol.name}". ` +
-         `Protocol "${existingForNs.name}" is already registered for namespace ${nsDisplay}.`
+         `Namespace Conflict: Cannot register protocol "${def.name}". ` +
+         `Protocol "${existingForNs.def.name}" is already registered for namespace ${nsDisplay}.`
        );
      }
 
-     this.protocols.set(name, protocol);
-     this.namespaceMap.set(ns, protocol);
+     this.protocols.set(name, ctx);
+     this.namespaceMap.set(ns, ctx);
   }
 
   /**
-   * Find a protocol by name.
+   * Find a protocol context by name.
    */
-  get(name: string): IProtocol | undefined {
+  get(name: string): ProtocolContext | undefined {
     return this.protocols.get(name.toLowerCase());
   }
 
   /**
-   * Find a protocol by its storage namespace.
+   * Find a protocol context by its storage namespace.
    */
-  getByNamespace(ns: string): IProtocol | undefined {
+  getByNamespace(ns: string): ProtocolContext | undefined {
     return this.namespaceMap.get(ns.toLowerCase());
   }
 
   /**
-   * Return all registered protocols.
+   * Return all registered protocol contexts.
    */
-  getAll(): IProtocol[] {
+  getAll(): ProtocolContext[] {
     return Array.from(this.protocols.values());
   }
 
@@ -79,7 +83,7 @@ export class ProtocolRegistry implements IIdentityResolver {
     const state = atom.protocols.get(root.name.toLowerCase()) || atom.protocols.get(root.name);
     if (!state) return null;
 
-    return root.getIdentity(state);
+    return getProtocolIdentity(state, root);
   }
 
   /**
@@ -87,12 +91,13 @@ export class ProtocolRegistry implements IIdentityResolver {
    */
   getClaimedKeys(): Set<string> {
     const claimed = new Set<string>();
-    for (const p of this.getAll()) {
-      const ns = p.storageNamespace;
+    for (const ctx of this.getAll()) {
+      const ns = ctx.storageNamespace;
       if (ns !== '') {
         claimed.add(ns.toLowerCase());
       } else {
-        for (const k of p.getAuthorizedKeys()) {
+        // Map all authorized keys from the context
+        for (const k of ctx.getAuthorizedKeys()) {
           claimed.add(k.toLowerCase());
         }
       }
@@ -103,8 +108,8 @@ export class ProtocolRegistry implements IIdentityResolver {
   /**
    * Detect which protocols claim a set of raw trailers.
    */
-  detect(rawTrailers: string): IProtocol[] {
-    return this.getAll().filter((p) => p.claims(rawTrailers));
+  detect(rawTrailers: string): ProtocolContext[] {
+    return this.getAll().filter((ctx) => claimsTrailers(rawTrailers, ctx));
   }
 
   /**
@@ -112,8 +117,8 @@ export class ProtocolRegistry implements IIdentityResolver {
    */
   getDiscoveryPatterns(): string[] {
     const patterns: string[] = [];
-    for (const p of this.getAll()) {
-      patterns.push(...p.getDiscoveryPatterns());
+    for (const ctx of this.getAll()) {
+      patterns.push(...getDiscoveryPatterns(ctx));
     }
     return patterns;
   }
@@ -128,15 +133,15 @@ export class ProtocolRegistry implements IIdentityResolver {
       const orSet: string[] = [];
 
       if (filter.protocol) {
-        const p = this.get(filter.protocol);
-        if (p) {
-          const pPatterns = p.getSearchPatterns([filter]);
+        const ctx = this.get(filter.protocol);
+        if (ctx) {
+          const pPatterns = getSearchPatterns([filter], ctx);
           for (const set of pPatterns) orSet.push(...set);
         }
       } else {
         const target = this.resolveKey(filter.key);
         if (target) {
-            const pPatterns = target.getSearchPatterns([filter]);
+            const pPatterns = getSearchPatterns([filter], target);
             for (const set of pPatterns) orSet.push(...set);
         }
       }
@@ -150,12 +155,12 @@ export class ProtocolRegistry implements IIdentityResolver {
   }
 
   /**
-   * Resolves a trailer key to its owning protocol.
+   * Resolves a trailer key to its owning protocol context.
    */
-  resolveKey(key: string): IProtocol | undefined {
+  resolveKey(key: string): ProtocolContext | undefined {
     // 1. Check all protocol schemas
-    for (const p of this.protocols.values()) {
-        if (p.authorize(key)) return p;
+    for (const ctx of this.protocols.values()) {
+        if (authorizeKey(key, ctx)) return ctx;
     }
 
     // 2. Check namespace keys
@@ -173,23 +178,23 @@ export class ProtocolRegistry implements IIdentityResolver {
   resolveIdentity(id: string, contextProtocol?: string): QueryIdentity {
     if (id.includes('/')) {
       const [prefix, suffix] = id.split('/', 2);
-      const p = this.get(prefix) || this.getByNamespace(prefix);
-      if (!p) {
+      const ctx = this.get(prefix) || this.getByNamespace(prefix);
+      if (!ctx) {
         throw new ProtocolError(`Unknown protocol prefix: "${prefix}" in identity "${id}"`, 1);
       }
-      return { id: suffix, protocol: p.name };
+      return { id: suffix, protocol: ctx.name };
     }
 
     if (contextProtocol) {
-      const p = this.get(contextProtocol);
-      if (p && p.isValidIdentity(id)) {
-        return { id, protocol: p.name };
+      const ctx = this.get(contextProtocol);
+      if (ctx && isValidProtocolIdentity(id, ctx.def)) {
+        return { id, protocol: ctx.name };
       }
     }
 
     // Deterministic lookup: who owns this ID format?
-    for (const p of this.getAll()) {
-        if (p.isValidIdentity(id)) return { id, protocol: p.name };
+    for (const ctx of this.getAll()) {
+        if (isValidProtocolIdentity(id, ctx.def)) return { id, protocol: ctx.name };
     }
 
     const root = this.getRoot();
@@ -202,15 +207,15 @@ export class ProtocolRegistry implements IIdentityResolver {
    * Generates a stable fingerprint of all registered protocols and their versions.
    */
   getFingerprint(): string {
-    const protocols = this.getAll().map(p => `${p.name}@${p.version}`);
+    const protocols = this.getAll().map(ctx => `${ctx.name}@${ctx.version}`);
     protocols.sort();
     return protocols.join(';');
   }
 
   /**
-   * Returns the "Root" protocol (global namespace).
+   * Returns the "Root" protocol context (global namespace).
    */
-  getRoot(): IProtocol | undefined {
+  getRoot(): ProtocolContext | undefined {
     return this.namespaceMap.get('');
   }
 }

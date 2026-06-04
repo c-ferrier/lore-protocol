@@ -11,14 +11,14 @@ export function resolveSupersession(atoms: readonly Atom[], registry: ProtocolRe
   const atomByQualifiedId = new Map<string, Atom>();
 
   // 1. Initialize global status map and ID lookup
-  for (const p of registry.getAll()) {
-    const pName = p.name.toLowerCase();
+  for (const ctx of registry.getAll()) {
+    const pName = ctx.def.name.toLowerCase();
     const statusMap = new Map<string, SupersessionStatus>();
     globalStatusMap.set(pName, statusMap);
 
     for (const atom of atoms) {
       const state = atom.protocols.get(pName);
-      const id = getProtocolIdentity(state, p);
+      const id = getProtocolIdentity(state, ctx);
       if (id) {
         statusMap.set(id, { superseded: false, supersededBy: [] });
         atomByQualifiedId.set(`${pName}/${id}`, atom);
@@ -30,10 +30,10 @@ export function resolveSupersession(atoms: readonly Atom[], registry: ProtocolRe
   // 2. Resolve direct and transitive supersessions globally
   for (const atom of atoms) {
     for (const [pName, state] of atom.protocols) {
-      const p = registry.get(pName);
-      if (!p) continue;
+      const ctx = registry.get(pName);
+      if (!ctx) continue;
 
-      const id = getProtocolIdentity(state, p);
+      const id = getProtocolIdentity(state, ctx);
       if (!id) continue;
       const qualifiedId = `${pName.toLowerCase()}/${id}`;
 
@@ -136,10 +136,10 @@ export function filterActiveAtoms(
       const state = atom.protocols.get(pName);
       if (!state) continue;
 
-      const p = registry.get(pName);
-      if (!p) continue;
+      const ctx = registry.get(pName);
+      if (!ctx) continue;
 
-      const id = getProtocolIdentity(state, p);
+      const id = getProtocolIdentity(state, ctx);
 
       if (id) {
         hasProtocolMatch = true;

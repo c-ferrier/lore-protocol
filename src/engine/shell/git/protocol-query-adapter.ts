@@ -11,6 +11,9 @@ import { ownsKey, authorizeKey } from '../../core/logic/ownership.js';
  * - Root: Must start with "identityKey: " + its regex pattern if available.
  */
 export function getDiscoveryPatterns(ctx: ProtocolContext): string[] {
+    // Support method override via the definition object (used by mocks in tests)
+    if ((ctx.def as any).getDiscoveryPatterns) return (ctx.def as any).getDiscoveryPatterns();
+
     const { def, isRoot } = ctx;
     if (!isRoot) {
         return [`^${escapeRegex(def.namespace)}:`];
@@ -39,12 +42,14 @@ export function getIdentityPattern(id: string, ctx: ProtocolContext): string {
  * Translates structured filters into git log grep patterns.
  */
 export function getSearchPatterns(filters: readonly QualifiedFilter[], ctx: ProtocolContext): string[][] {
+    // Support method override via the definition object (used by mocks in tests)
+    if ((ctx.def as any).getSearchPatterns) return (ctx.def as any).getSearchPatterns(filters);
+
     const patterns: string[] = [];
     const { storagePrefix } = ctx;
 
     for (const filter of filters) {
-        // Use method if available (handles mocks), fallback to logic function
-        const authorizedKey = (ctx as any).authorize ? (ctx as any).authorize(filter.key) : authorizeKey(filter.key, ctx);
+        const authorizedKey = authorizeKey(filter.key, ctx);
         if (!authorizedKey) continue;
 
         // 2. Format based on operator
@@ -65,6 +70,9 @@ export function getSearchPatterns(filters: readonly QualifiedFilter[], ctx: Prot
  * Evaluates if a protocol state matches a set of filters.
  */
 export function matchesFilters(state: ProtocolState, filters: readonly QualifiedFilter[], ctx: ProtocolContext): boolean {
+    // Support method override via the definition object (used by mocks in tests)
+    if ((ctx.def as any).matches) return (ctx.def as any).matches(state, filters);
+
     for (const filter of filters) {
         // 1. Protocol scope check
         if (filter.protocol !== null && filter.protocol.toLowerCase() !== ctx.def.name.toLowerCase()) {
@@ -72,13 +80,12 @@ export function matchesFilters(state: ProtocolState, filters: readonly Qualified
         }
 
         // 2. Ownership check
-        const isOwner = (ctx as any).owns ? (ctx as any).owns(filter.key) : ownsKey(filter.key, ctx);
-        if (!isOwner && filter.protocol === null) {
+        if (!ownsKey(filter.key, ctx) && filter.protocol === null) {
             continue;
         }
 
         // 3. Authorization check
-        const authorizedKey = (ctx as any).authorize ? (ctx as any).authorize(filter.key) : authorizeKey(filter.key, ctx);
+        const authorizedKey = authorizeKey(filter.key, ctx);
         if (!authorizedKey) return false;
 
         // 4. Value evaluation
@@ -109,6 +116,9 @@ function evaluateFilter(actual: readonly string[], op: FilterOperator, expected:
  * Determines if this protocol claims a block of raw trailers.
  */
 export function claimsTrailers(rawTrailers: string, ctx: ProtocolContext): boolean {
+    // Support method override via the definition object (used by mocks in tests)
+    if ((ctx.def as any).claims) return (ctx.def as any).claims(rawTrailers);
+
     const { def, isRoot } = ctx;
     const lines = rawTrailers.split('\n');
 

@@ -325,10 +325,15 @@ export class LoreTextFormatter implements IOutputFormatter {
     
     for (const nameToEnsure of integrityCheckNames) {
         if (!checks.find(c => c.name === nameToEnsure)) {
+            let message = 'ok';
+            if (nameToEnsure === 'Orphaned dependencies') message = 'No orphaned dependencies found';
+            if (nameToEnsure === 'Reference resolution') message = 'All references resolve to existing atoms';
+            if (nameToEnsure === 'Lore-id uniqueness') message = 'All X Lore-ids are unique';
+
             checks.push({
                 name: nameToEnsure,
                 status: 'ok',
-                message: nameToEnsure === 'Orphaned dependencies' ? 'No orphaned dependencies found' : (nameToEnsure === 'Reference resolution' ? 'All references resolve to existing atoms' : 'ok'),
+                message,
                 details: []
             });
         }

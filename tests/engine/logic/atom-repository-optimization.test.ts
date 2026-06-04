@@ -33,7 +33,7 @@ describe('AtomRepository Performance Optimizations', () => {
       const commit2 = makeRawCommit({ hash: 'hash2', id: id2 });
 
       // Mock Cache: id1 exists, id2 is missing
-      vi.spyOn(cache, 'get').mockImplementation(async (head: string, fingerprint: string) => {
+      cache.get = vi.fn(async (head: string, fingerprint: string) => {
         if (fingerprint === `identity:mock/${id1}`) return ['hash1'];
         return null;
       });

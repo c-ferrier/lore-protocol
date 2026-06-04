@@ -1,27 +1,15 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { ProtocolMap, type ProtocolName } from './core/models/protocol-map.js';
+import { existsSync, mkdirSync } from 'node:fs';
+import { ProtocolMap } from './core/models/protocol-map.js';
 import { ActiveProtocol } from './core/models/active-protocol.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
 import { ProtocolLoader } from './shell/fs/protocol-loader.js';
-import { TriggerParser, parseTriggerHints } from './util/trigger-parser.js';
-import { 
-    getDiscoveryPatterns, 
-    getSearchPatterns, 
-    claimsTrailers 
-} from './shell/git/protocol-query-adapter.js';
-import type { ProtocolDefinition, IIdentityResolver, IProtocol } from './core/types/protocol-definition.js';
-import type { EngineConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition, StaleIfCondition } from './core/types/config.js';
-import type { ProtocolState, Atom, SupersessionStatus, StaleReason, Trailers, HierarchicalTrailers } from './core/types/domain.js';
+import type { ProtocolDefinition, IIdentityResolver, IProtocol, ProtocolContext } from './core/types/protocol-definition.js';
+import type { EngineConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition } from './core/types/config.js';
+import type { Atom, SupersessionStatus, StaleReason, ProtocolState } from './core/types/domain.js';
+import type { RawCommit as IGitRawCommit } from './interfaces/git-client.js';
+import type { QueryTargetAST, QueryIdentity } from './core/types/query.js';
 import type { CommitInput } from './core/types/commit.js';
-import type { FormattableQueryResult, FormattableValidationResult, FormattableStalenessResult, FormattableTraceResult, FormattableConfigResult, FormattableDoctorResult, FormattableTrailerDefinition } from './core/types/output.js';
-import type { QueryTargetAST, QueryIdentity, QualifiedFilter, FilterOperator, SearchOptions } from './core/types/query.js';
-import type { RawCommit } from './interfaces/git-client.js';
-import { 
-    GLOBAL_CACHE_KEY, 
-    ENGINE_CONFIG_FILENAME, 
-    ENGINE_DIR_NAME, 
-    STALE_SIGNAL 
-} from './util/constants.js';
+import { AtomRepository } from './services/atom-repository.js';
 
 import { 
     createProtocolContext,
@@ -34,6 +22,8 @@ import {
 } from './core/logic/protocols.js';
 import { authorizeKey, ownsKey, isBucketOwner } from './core/logic/ownership.js';
 import { normalizeTrailers } from './core/logic/normalization.js';
+import { getProtocolIdentity } from './core/logic/identity.js';
+import { getProtocolStaleSignals } from './core/logic/staleness.js';
 
 export { 
     createProtocolContext,
@@ -71,7 +61,6 @@ export const TEST_ENGINE_CONFIG: EngineConfig = {
   cli: { updateCheck: false, cache: true, queryCache: true, queryCachePruneThreshold: 100 },
   protocols: {},
 };
-
 
 /** A generic root, permissive protocol schema definition. */
 export const TEST_PROTOCOL_DEFINITION: ProtocolDefinition = {
@@ -123,12 +112,9 @@ export function makeProtocol(
     configOverrides: any = {}
 ): ActiveProtocol {
     const name = overrides.name || configOverrides.name || 'Mock';
-    
-    // 1. Prepare Base Schema (Isolation: don't inject mock trailers if custom ones provided)
     const trailers = { ...(overrides.trailers ?? TEST_PROTOCOL_DEFINITION.trailers) };
-    
-    // 2. Ensure identity key is in the schema to prevent normalization failures
     const identityKey = overrides.identityKey || TEST_PROTOCOL_DEFINITION.identityKey;
+    
     if (!trailers[identityKey]) {
         trailers[identityKey] = { description: 'ID', multivalue: false, validation: 'none' } as any;
     }
@@ -141,14 +127,13 @@ export function makeProtocol(
         trailers
     };
 
-    // 3. Prepare Config Override (Strip name to prevent accidental registry collisions)
-    const { name: _ignoredName, ...safeConfig } = configOverrides;
-
     const finalized = ProtocolLoader.applyOverrides([baseDef as any], { 
-        [name.toLowerCase()]: safeConfig
+        [name.toLowerCase()]: configOverrides
     })[0];
     
-    return new ActiveProtocol(finalized);
+    // Support method injection via definition for Level 2 Tests
+    const instance = new ActiveProtocol(finalized);
+    return instance;
 }
 
 /** Helper: returns a REAL ProtocolRegistry instance. */
@@ -169,28 +154,210 @@ export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = 
   };
 }
 
-/** Legacy/Compatibility shims for older tests. */
-export class ProtocolInterpreter {
-    constructor(public p: ActiveProtocol) {}
-    normalize(raw: any, claimed?: any) { 
-        return this.p.normalize(raw, claimed); 
-    }
-    getIdentity(state: any) { 
-        const id = this.p.getIdentity(state);
-        if (!id) return null;
-        return this.p.storageNamespace !== '' ? `${this.p.storageNamespace}/${id}` : id;
-    }
-    getStaleSignals(atom: any, now: Date, map: any) { return this.p.getStaleSignals(atom, now, map); }
-    getDiscoveryPatterns() { return this.p.getDiscoveryPatterns(); }
-    getSearchPatterns(f: any) { return this.p.getSearchPatterns(f); }
-    claims(raw: string) { return this.p.claims(raw); }
-    isRoot() { return this.p.isRoot; }
+/** Helper to create a raw commit object. */
+export function makeRawCommit(overrides: any = {}): IGitRawCommit {
+    const hash = overrides.hash || 'h1';
+    const id = overrides.id || 'a1b2c3d4';
+    const trailers = overrides.trailers !== undefined ? overrides.trailers : `${TEST_ID_KEY}: ${id}`;
+  
+    return {
+      hash,
+      author: overrides.author || 'alice',
+      date: overrides.date || new Date().toISOString(),
+      subject: overrides.subject || 'feat: test',
+      body: overrides.body || 'body content',
+      trailers,
+      filesChanged: overrides.files || overrides.filesChanged || [],
+    };
 }
 
-export class ProtocolValidator {
-    constructor(public p: ActiveProtocol) {}
-    validateState(state: any, resolver?: any) { return this.p.validateState(state, resolver); }
-    validateTrailer(key: string, val: string, resolver?: any) { return this.p.validateTrailer(key, val, resolver); }
+/** Helper to create a QueryTargetAST. Handles string, array, or object input for test compatibility. */
+export function makeQueryTarget(val: string | string[] | Partial<QueryTargetAST> = 'all'): QueryTargetAST {
+    if (Array.isArray(val)) return { type: 'path', resolvedPaths: val, raw: String(val) };
+    
+    if (typeof val === 'string') {
+        if (val === 'all') return { type: 'global', raw: 'all', resolvedPaths: [] };
+        if (val.includes(':')) {
+            const [path, range] = val.split(':');
+            const [start, end] = range.split('-').map(Number);
+            return { type: 'line-range', lineRange: { file: path, start, end }, raw: val, resolvedPaths: [path] };
+        }
+        return { type: 'path', resolvedPaths: [val], raw: val };
+    }
+    
+    return {
+        type: 'global',
+        raw: 'all',
+        resolvedPaths: [],
+        ...val
+    } as QueryTargetAST;
+}
+
+/** Stub Git Client for I/O tests. Framework-agnostic. */
+export function makeStubGitClient(overrides: any = {}) {
+  const vi = (globalThis as any).vi;
+  return {
+    getRepoRoot: async () => '/mock-repo',
+    resolveRef: async () => 'head-hash',
+    resolveDate: async (d: string) => new Date(d),
+    log: async () => [],
+    query: async () => [],
+    blame: async () => [],
+    getCommitsByHashes: async () => [],
+    commit: async () => ({ hash: 'new-hash', message: 'commit msg', success: true }),
+    hasStagedChanges: async () => true,
+    isInsideRepo: async () => true,
+    countCommitsSince: async () => 0,
+    getHeadMessage: async () => 'feat: head',
+    getFilesChanged: async () => new Map(),
+    ...overrides,
+  };
+}
+
+/** Lightweight stub for testing services that need a protocol but not its full logic. */
+export function makeStubProtocol(overrides: any = {}): IProtocol {
+    const p = makeProtocol(overrides);
+    
+    // Explicitly apply overrides to the instance to allow method/property mocking
+    // while preserving the ActiveProtocol prototype for functional delegation.
+    Object.assign(p, overrides);
+    
+    if (overrides.namespace) {
+        (p as any).def = { ...p.def, namespace: overrides.namespace };
+        (p as any).storageNamespace = overrides.namespace;
+    }
+    return p;
+}
+
+/** Stub Atom Repository. */
+export function makeStubAtomRepository(overrides: any = {}) {
+    const vi = (globalThis as any).vi;
+    return {
+        find: async () => [],
+        findByIds: async () => [],
+        findById: async () => null,
+        findByCommitHash: async () => null,
+        ...overrides
+    };
+}
+
+/** Stub Validator. */
+export function makeStubValidator(overrides: any = {}) {
+    const vi = (globalThis as any).vi;
+    return {
+        validate: async () => [],
+        ...overrides
+    };
+}
+
+/** Stub Staleness Detector. */
+export function makeStubStalenessDetector(overrides: any = {}) {
+    const vi = (globalThis as any).vi;
+    return {
+        analyze: async () => [],
+        ...overrides
+    };
+}
+
+/** Stub Protocol Registry. */
+export function makeStubProtocolRegistry(overrides: any = {}) {
+    const vi = (globalThis as any).vi;
+    const registry = new ProtocolRegistry();
+    return {
+        ...registry,
+        ...overrides
+    };
+}
+
+/** Stub Prompt UI. */
+export function makeStubPrompt(overrides: any = {}) {
+    const vi = (globalThis as any).vi;
+    return {
+        askConfirm: async () => true,
+        askChoice: async () => '',
+        askInput: async () => '',
+        ...overrides
+    };
+}
+
+/** Stub Config Loader. */
+export function makeStubConfigLoader(overrides: any = {}) {
+    const vi = (globalThis as any).vi;
+    return {
+        loadForPath: async () => TEST_ENGINE_CONFIG,
+        ...overrides
+    };
+}
+
+/** Helper to create a REAL AtomRepository instance with stubs. */
+export function makeAtomRepository(deps: any = {}) {
+    return new AtomRepository(
+        deps.gitClient || makeStubGitClient(),
+        deps.protocolRegistry || deps.registry || new ProtocolRegistry(),
+        deps.queryCache || deps.cache || { get: async () => null, set: async () => {} },
+        deps.baseTarget || makeQueryTarget()
+    );
+}
+
+/** Null Object for Query Cache. */
+export class NullQueryCache {
+    async get() { return null; }
+    async set() {}
+}
+
+export function makeAtom(overrides: any = {}): Atom {
+    const protocols = new ProtocolMap<ProtocolState>();
+    
+    if (overrides.protocols) {
+        const entries: [string, any][] = (overrides.protocols instanceof Map) 
+            ? Array.from(overrides.protocols.entries()) 
+            : Object.entries(overrides.protocols);
+            
+        for (const [name, state] of entries) {
+            protocols.set(name.toLowerCase(), state as any);
+        }
+    } else {
+        // Convenience: map 'id' and 'trailers' to 'mock' protocol state
+        const id = overrides.id || 'a1b2c3d4';
+        const rawTrailers = overrides.trailers || { [TEST_ID_KEY]: [id] };
+        protocols.set('mock', {
+            trailers: rawTrailers,
+            unauthorized: {}
+        });
+    }
+
+    return {
+        commitHash: overrides.commitHash || 'h1',
+        date: overrides.date || new Date(),
+        author: overrides.author || 'alice',
+        subject: overrides.subject || 'feat: test',
+        body: overrides.body || '',
+        filesChanged: overrides.filesChanged || [],
+        protocols,
+    };
+}
+
+/** Helper to create a CommitInput. */
+export function makeCommitInput(overrides: any = {}): CommitInput {
+    const { trailers: rawTrailers, ...rest } = overrides;
+    const trailers = new Map<string, Record<string, string[]>>();
+    
+    if (rawTrailers) {
+        const entries: [string, any][] = (rawTrailers instanceof Map) 
+            ? Array.from(rawTrailers.entries()) 
+            : Object.entries(rawTrailers);
+            
+        for (const [p, t] of entries) {
+            trailers.set(p.toLowerCase(), t as any);
+        }
+    }
+    
+    return {
+        subject: rest.subject || 'feat: test',
+        body: rest.body || '',
+        ...rest,
+        trailers,
+    };
 }
 
 export class ProtocolSchema extends ActiveProtocol {
@@ -211,152 +378,9 @@ export class ProtocolSchema extends ActiveProtocol {
     getUiColor(k: string) { return (this.getDefinition(k)?.ui?.color || 'cyan') as any; }
 }
 
-/** Passive Data Stubs. */
-export function makeTrailers(overrides: Record<string, string[]> = {}): Trailers {
-  return { ...overrides };
-}
-
-export function makeAtom(overrides: any = {}): Atom {
-    let protocols = overrides.protocols || new ProtocolMap<ProtocolState>();
-    
-    // Legacy support: if trailers provided but protocols not explicitly structured
-    if (overrides.trailers && !overrides.protocols) {
-        const pName = (overrides.protocol || 'mock').toLowerCase();
-        const trailers = overrides.trailers;
-        const state: ProtocolState = { trailers, unauthorized: {} };
-        protocols = new ProtocolMap<ProtocolState>();
-        protocols.set(pName, state);
-    }
-
-    if (!(protocols instanceof Map)) {
-        const map = new ProtocolMap<ProtocolState>();
-        for (const [k, v] of Object.entries(protocols)) {
-            map.set(k, v as ProtocolState);
-        }
-        protocols = map;
-    }
-
-    const atom: Atom = {
-        commitHash: overrides.commitHash || 'h1',
-        author: overrides.author || 'alice',
-        date: overrides.date || new Date(),
-        subject: overrides.subject || 'feat: test',
-        body: overrides.body || '',
-        filesChanged: overrides.filesChanged || [],
-        ...overrides,
-        protocols,
-    };
-    return atom;
-}
-
-export function makeRawCommit(overrides: any = {}): RawCommit {
-  const hash = overrides.hash || 'h1';
-  const id = overrides.id || 'a1b2c3d4';
-  const trailers = overrides.trailers !== undefined ? overrides.trailers : `${TEST_ID_KEY}: ${id}`;
-
-  return {
-    hash,
-    author: overrides.author || 'alice',
-    date: overrides.date || new Date().toISOString(),
-    subject: overrides.subject || 'feat: test',
-    body: overrides.body || 'body content',
-    filesChanged: overrides.filesChanged || [],
-    trailers,
-  };
-}
-
-export function makeCommitInput(overrides: Partial<CommitInput> = {}): CommitInput {
-  let trailers = overrides.trailers || new Map();
-  if (!(trailers instanceof Map)) {
-      trailers = new Map(Object.entries(trailers));
-  }
-  return {
-    subject: overrides.subject || 'feat: test',
-    body: overrides.body || 'body',
-    ...overrides,
-    trailers: trailers as HierarchicalTrailers,
-  };
-}
-
-export function makeQueryTarget(val: string | string[] = 'src/auth.ts'): QueryTargetAST {
-    if (Array.isArray(val)) return { type: 'path', resolvedPaths: val, raw:val };
-    if (typeof val === 'string' && val.includes(':')) {
-        const [path, range] = val.split(':');
-        const [start, end] = range.split('-').map(Number);
-        return { type: 'line-range', lineRange: {file:path, start, end}, raw:val, resolvedPaths: [path] };
-    }
-    return { type: 'path', resolvedPaths: [val as string], raw:val };
-}
-
-/** Stub factories for service-layer testing. */
-export function makeStubGitClient(overrides: any = {}): any {
-    return {
-        query: async () => [],
-        resolveDate: async (d: string) => new Date(d),
-        getCommitsByHashes: async () => [],
-        getBlame: async () => [],
-        resolveRef: async () => 'head-hash',
-        getRepoRoot: async () => '/mock-repo',
-        ...overrides
-    };
-}
-
-export function makeStubPrompt(overrides: any = {}): any {
-    return {
-        askConfirm: async () => true,
-        askChoice: async () => '',
-        askInput: async () => '',
-        ...overrides
-    };
-}
-
-export function makeStubProtocol(overrides: any = {}): any {
-    const name = (overrides.name || 'Mock').toLowerCase();
-    const storageNamespace = overrides.getStorageNamespace ? overrides.getStorageNamespace() : (overrides.namespace || '');
-    
-    const p = makeProtocol({
-        ...overrides,
-        name,
-        namespace: storageNamespace
-    });
-    return p;
-}
-
-export function makeStubAtomRepository(overrides: any = {}): any {
-    return {
-        find: async () => [],
-        findById: async () => null,
-        findByIds: async () => [],
-        ...overrides
-    };
-}
-
-export function makeStubValidator(overrides: any = {}): any {
-    return {
-        validate: async () => [],
-        ...overrides
-    };
-}
-
-export function makeStubStalenessDetector(overrides: any = {}): any {
-    return {
-        detect: async () => [],
-        ...overrides
-    };
-}
-
-export function makeStubProtocolRegistry(overrides: any = {}): any {
-    return {
-        get: () => null,
-        all: () => [],
-        register: () => {},
-        ...overrides
-    };
-}
-
-export function makeStubConfigLoader(overrides: any = {}): any {
-    return {
-        load: async () => TEST_ENGINE_CONFIG,
-        ...overrides
-    };
+export class ProtocolInterpreter {
+    constructor(private readonly p: ProtocolContext) {}
+    normalize(raw: any, claimed?: any) { return normalizeTrailers(raw, this.p, claimed); }
+    getIdentity(state: any) { return getProtocolIdentity(state, this.p); }
+    getStaleSignals(atom: any, now: any, map: any) { return getProtocolStaleSignals(this.p, atom, now, map); }
 }

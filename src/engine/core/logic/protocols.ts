@@ -1,6 +1,9 @@
-import type { ProtocolDefinition, ProtocolContext } from '../types/protocol-definition.js';
-import type { FormattableTrailerDefinition } from '../types/output.js';
+import type { ProtocolDefinition, ProtocolContext, IIdentityResolver } from '../types/protocol-definition.js';
+import type { FormattableTrailerDefinition, ValidationIssue } from '../types/output.js';
+import type { ProtocolState, Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
 import { ProtocolHydrator } from '../../shell/fs/protocol-hydrator.js';
+import { validateProtocolState, validateProtocolTrailer } from './validation.js';
+import { getProtocolStaleSignals } from './staleness.js';
 
 /**
  * Transforms a serializable ProtocolDefinition into an operationally optimized ProtocolContext.
@@ -21,25 +24,55 @@ export function createProtocolContext(def: ProtocolDefinition): ProtocolContext 
         trailers.set(key, { ...hydrated, key, isCore });
     }
 
-    return {
+    const ctx: ProtocolContext = {
         def,
         caseMap,
         trailers,
         isRoot: namespace === '',
         storagePrefix: namespace !== '' ? `${namespace}: ` : '',
+        
+        // Populate convenience properties
+        name: def.name.toLowerCase(),
+        version: def.version,
+        strict: def.strict ?? true,
+        permissive: def.permissive ?? false,
+        identityKey: def.identityKey,
+        storageNamespace: namespace,
+
+        // Logic Hooks - These check def for overrides to support mocks in tests
+        validateState: (state: ProtocolState, resolver?: IIdentityResolver) => 
+            (def as any).validateState ? (def as any).validateState(state, resolver) : validateProtocolState(state, def, resolver),
+        
+        validateTrailer: (key: string, val: string, resolver?: IIdentityResolver) => 
+            (def as any).validateTrailer ? (def as any).validateTrailer(key, val, resolver) : validateProtocolTrailer(key, val, def, resolver),
+            
+        getStaleSignals: (atom: Atom, now: Date, map: Map<string, Map<string, SupersessionStatus>>) => 
+            (def as any).getStaleSignals ? (def as any).getStaleSignals(atom, now, map) : getProtocolStaleSignals(ctx, atom, now, map),
+            
+        getAuthorizedKeys: () => 
+            (def as any).getAuthorizedKeys ? (def as any).getAuthorizedKeys() : getProtocolAuthorizedKeys(ctx),
     };
+
+    return ctx;
 }
 
 /**
  * Returns all trailer keys explicitly defined in the protocol schema.
- * Result is sorted numerically by 'prompt.order' (ascending).
+ * Pure logic: strictly uses context data.
  */
-export function getAuthorizedKeys(ctx: ProtocolContext): string[] {
+export function getProtocolAuthorizedKeys(ctx: ProtocolContext): string[] {
     return Array.from(ctx.trailers.keys()).sort((a, b) => {
         const orderA = ctx.trailers.get(a)?.prompt?.order ?? 1000;
         const orderB = ctx.trailers.get(b)?.prompt?.order ?? 1000;
         return orderA - orderB;
     });
+}
+
+/**
+ * Public wrapper for authorized keys.
+ */
+export function getAuthorizedKeys(ctx: ProtocolContext): string[] {
+    return ctx.getAuthorizedKeys();
 }
 
 /**

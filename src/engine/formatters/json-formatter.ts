@@ -34,7 +34,7 @@ export class JsonFormatter implements IOutputFormatter {
     const subjectKey = this.getSubjectKey();
 
     const results = result.atoms.map((atom) => {
-      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) || atom.protocols.get(rootProtocol.name) : null;
+      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.def.name.toLowerCase()) || atom.protocols.get(rootProtocol.def.name) : null;
 
       return {
         commit: atom.commitHash,
@@ -261,7 +261,7 @@ export class JsonFormatter implements IOutputFormatter {
     visibleTrailers: readonly string[] | 'all'
   ): Record<string, any> {
     const p = this.protocolRegistry.get(protocolName);
-    const id = p ? getProtocolIdentity(state, p.context) : null;
+    const id = p ? getProtocolIdentity(state, p) : null;
 
     return {
       id,

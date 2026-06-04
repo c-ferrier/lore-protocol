@@ -82,7 +82,7 @@ export function registerCommitCommand(
       // Identify any dynamic protocol-specific flags passed
       const protocolFlags = new Set<string>();
       for (const p of protocolRegistry.getAll()) {
-          const authorizedKeys = getAuthorizedKeys(p.context);
+          const authorizedKeys = getAuthorizedKeys(p);
           for (const key of authorizedKeys) {
               const def = p.trailers.get(key);
               if (def) protocolFlags.add(def.cli?.flag || slugify(key));

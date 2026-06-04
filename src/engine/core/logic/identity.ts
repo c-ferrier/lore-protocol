@@ -8,6 +8,9 @@ import { ConfigurationError } from '../../util/errors.js';
  * Pure logic: takes protocol context, returns new ID string.
  */
 export function generateId(ctx: ProtocolContext): AtomId {
+  // Support method override via the definition object (used by mocks in tests)
+  if ((ctx.def as any).generateId) return (ctx.def as any).generateId();
+
   const { def } = ctx;
   const tDef = def.trailers[def.identityKey];
   const strategy = tDef?.generator || 'hex8';
@@ -29,7 +32,11 @@ export function generateId(ctx: ProtocolContext): AtomId {
  */
 export function getProtocolIdentity(state: ProtocolState | undefined | null, ctx: ProtocolContext): string | null {
     if (!state) return null;
-    const values = state.trailers[ctx.def.identityKey];
+    
+    // Support method override via the definition object (used by mocks in tests)
+    if ((ctx.def as any).getIdentity) return (ctx.def as any).getIdentity(state);
+
+    const values = state.trailers[ctx.identityKey];
     if (!values || values.length === 0) return null;
     return values[0];
 }

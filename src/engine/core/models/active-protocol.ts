@@ -20,14 +20,11 @@ import type { QualifiedFilter } from '../types/query.js';
 import { TriggerParser } from '../../util/trigger-parser.js';
 
 import { 
-    validateProtocolState, 
-    validateProtocolTrailer, 
     isValidProtocolIdentity 
 } from '../logic/validation.js';
 
 import { 
     createProtocolContext,
-    getAuthorizedKeys,
     getScalarKeys,
     getListKeys,
     getReferenceKeys,
@@ -44,9 +41,7 @@ import {
     claimsTrailers 
 } from '../../shell/git/protocol-query-adapter.js';
 
-import { 
-    getProtocolStaleSignals,
-} from '../logic/staleness.js';
+import { getProtocolIdentity } from '../logic/identity.js';
 
 export type ActiveTrailer = TrailerDefinition & { key: string };
 
@@ -78,18 +73,25 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
     definition: ProtocolDefinition
   ) {
     this.def = definition;
-    this.name = definition.name.toLowerCase();
-    this.version = definition.version;
-    this.strict = definition.strict ?? true;
-    this.permissive = definition.permissive ?? false;
-    this.identityKey = definition.identityKey;
-    this.storageNamespace = definition.namespace || '';
     
     const ctx = createProtocolContext(definition);
+    this.name = ctx.name;
+    this.version = ctx.version;
+    this.strict = ctx.strict;
+    this.permissive = ctx.permissive;
+    this.identityKey = ctx.identityKey;
+    this.storageNamespace = ctx.storageNamespace;
+    
     this.caseMap = ctx.caseMap;
     this.isRoot = ctx.isRoot;
     this.storagePrefix = ctx.storagePrefix;
     this.trailers = ctx.trailers;
+    
+    // Satisfy functional hooks from context
+    this.validateState = ctx.validateState;
+    this.validateTrailer = ctx.validateTrailer;
+    this.getStaleSignals = ctx.getStaleSignals;
+    this.getAuthorizedKeys = ctx.getAuthorizedKeys;
   }
 
   /**
@@ -99,18 +101,8 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
       return this;
   }
 
-  /**
-   * Translates a raw key into its canonical, schema-defined case.
-   */
   authorize(key: string): string | null {
     return authorizeKey(key, this);
-  }
-
-  /**
-   * Returns all trailer keys explicitly defined in the protocol schema.
-   */
-  getAuthorizedKeys(): string[] {
-    return getAuthorizedKeys(this);
   }
 
   getScalarKeys(): string[] {
@@ -163,19 +155,14 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
   }
 
   getIdentity(state?: ProtocolState | null): string | null {
-    if (!state) return null;
-    const values = state.trailers[this.identityKey];
-    if (!values || values.length === 0) return null;
-    return values[0];
+    return getProtocolIdentity(state, this);
   }
 
-  validateState(state: ProtocolState, resolver?: IIdentityResolver): ValidationIssue[] {
-    return validateProtocolState(state, this.def, resolver);
-  }
-
-  validateTrailer(key: string, value: string, resolver?: IIdentityResolver): { valid: boolean; message?: string; rule?: string } {
-    return validateProtocolTrailer(key, value, this.def, resolver);
-  }
+  // Functional hooks (initialized in constructor)
+  validateState: (state: ProtocolState, resolver?: IIdentityResolver) => ValidationIssue[];
+  validateTrailer: (key: string, value: string, resolver?: IIdentityResolver) => { valid: boolean; message?: string; rule?: string };
+  getStaleSignals: (atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>) => StaleReason[];
+  getAuthorizedKeys: () => string[];
 
   isCore(key: string): boolean {
     return isCoreTrailer(key, this);
@@ -199,13 +186,5 @@ export class ActiveProtocol implements IProtocol, ProtocolContext {
 
   getFormattableDefinitions(): Record<string, FormattableTrailerDefinition> {
     return getFormattableDefinitions(this);
-  }
-
-  getStaleSignals(
-    atom: Atom,
-    now: Date,
-    globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
-  ): StaleReason[] {
-    return getProtocolStaleSignals(this, atom, now, globalSupersessionMap);
   }
 }

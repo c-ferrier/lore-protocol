@@ -9,7 +9,7 @@ import type {
   FormattableDoctorResult,
   FormattableConfigResult,
 } from '../core/types/output.js';
-import type { Atom } from '../core/types/domain.js';
+import type { Atom, ProtocolState } from '../core/types/domain.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
 import { getProtocolIdentity } from '../core/logic/identity.js';
 import { getAuthorizedKeys } from '../core/logic/protocols.js';
@@ -42,14 +42,14 @@ export class TextFormatter implements IOutputFormatter {
     for (const atom of result.atoms) {
       // Find a representative ID for the header (root preferred)
       const rootProtocol = this.protocolRegistry.getRoot();
-      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) || atom.protocols.get(rootProtocol.name) : null;
+      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.def.name.toLowerCase()) || atom.protocols.get(rootProtocol.def.name) : null;
       
-      let id = rootProtocol ? getProtocolIdentity(primaryState, rootProtocol.context) : undefined;
+      let id = (rootProtocol && primaryState) ? getProtocolIdentity(primaryState, rootProtocol) : undefined;
       if (!id) {
           // Try to find ANY protocol identity
           for (const [name, state] of atom.protocols) {
               const p = this.protocolRegistry.get(name);
-              id = p ? getProtocolIdentity(state, p.context) : undefined;
+              id = p ? getProtocolIdentity(state, p) : undefined;
               if (id) break;
           }
       }
@@ -139,8 +139,8 @@ export class TextFormatter implements IOutputFormatter {
 
     for (const report of data.atoms) {
       const rootProtocol = this.protocolRegistry.getRoot();
-      const state = rootProtocol ? report.atom.protocols.get(rootProtocol.name.toLowerCase()) || report.atom.protocols.get(rootProtocol.name) : null;
-      const id = rootProtocol ? getProtocolIdentity(state, rootProtocol) : report.atom.commitHash.slice(0, 8);
+      const state = rootProtocol ? report.atom.protocols.get(rootProtocol.def.name.toLowerCase()) || report.atom.protocols.get(rootProtocol.def.name) : null;
+      const id = (rootProtocol && state) ? getProtocolIdentity(state, rootProtocol) : report.atom.commitHash.slice(0, 8);
 
       const dateStr = report.atom.date.toISOString().slice(0, 10);
       lines.push(`${this.color('yellow')}STALE${this.color('reset')}  ${this.color('bright')}${id || ''} (${dateStr})${this.color('reset')}`);
@@ -158,8 +158,8 @@ export class TextFormatter implements IOutputFormatter {
   formatTraceResult(data: FormattableTraceResult): string {
     const lines: string[] = [];
     const rootProtocol = this.protocolRegistry.getRoot();
-    const state = rootProtocol ? data.root.protocols.get(rootProtocol.name.toLowerCase()) || data.root.protocols.get(rootProtocol.name) : null;
-    const rootId = rootProtocol ? getProtocolIdentity(state, rootProtocol) : data.root.commitHash.slice(0, 8);
+    const state = rootProtocol ? data.root.protocols.get(rootProtocol.def.name.toLowerCase()) || data.root.protocols.get(rootProtocol.def.name) : null;
+    const rootId = (rootProtocol && state) ? getProtocolIdentity(state, rootProtocol) : data.root.commitHash.slice(0, 8);
 
     lines.push(`${this.c.bold('Decision Trace:')} ${rootId}`);
     lines.push(this.c.dim(`${data.root.commitHash} - ${data.root.author}`));
@@ -262,19 +262,19 @@ export class TextFormatter implements IOutputFormatter {
       const p = this.protocolRegistry.get(pName);
       if (!p) continue;
 
-      const authorizedKeys = p.getAuthorizedKeys();
+      const authorizedKeys = getAuthorizedKeys(p);
       const allStateKeys = Object.keys(state.trailers);
       const renderedKeys = new Set<string>();
 
       for (const key of authorizedKeys) {
-        const id = p.getIdentity(state);
-        if (key === p.identityKey && id === headerId) continue;
+        const id = getProtocolIdentity(state, p);
+        if (key === p.def.identityKey && id === headerId) continue;
         if (!shouldShow(key)) continue;
 
         const values = state.trailers[key];
         if (!values || values.length === 0) continue;
 
-        const def = p.getDefinition(key);
+        const def = p.trailers.get(key);
         const colorName = def?.ui?.color || 'dim';
         const color = this.getTrailerColor(colorName);
         
@@ -291,8 +291,8 @@ export class TextFormatter implements IOutputFormatter {
       for (const key of allStateKeys) {
           if (renderedKeys.has(key)) continue;
           
-          const id = p.getIdentity(state);
-          if (key === p.identityKey && id === headerId) continue;
+          const id = getProtocolIdentity(state, p);
+          if (key === p.def.identityKey && id === headerId) continue;
           if (!shouldShow(key)) continue;
 
           const values = state.trailers[key];

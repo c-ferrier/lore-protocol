@@ -51,8 +51,11 @@ export function getProtocolStaleSignals(
     now: Date,
     globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
 ): StaleReason[] {
+    // Support method override via the definition object (used by mocks in tests)
+    if ((ctx.def as any).getStaleSignals) return (ctx.def as any).getStaleSignals(atom, now, globalSupersessionMap);
+
     const reasons: StaleReason[] = [];
-    const pName = ctx.def.name.toLowerCase();
+    const pName = ctx.name;
     const state = atom.protocols.get(pName) || atom.protocols.get(ctx.def.name);
     if (!state) return reasons;
 
@@ -92,7 +95,7 @@ export function evaluateStaleCondition(
         if (TriggerParser.strip(value) === condition.value) {
           return {
             signal: condition.signal || STALE_SIGNAL.VALUE_MATCH,
-            description: `[${ctx.def.name.toLowerCase()}] Atom is marked as ${key}: ${condition.value}`
+            description: `[${ctx.name}] Atom is marked as ${key}: ${condition.value}`
           };
         }
         break;
@@ -102,7 +105,7 @@ export function evaluateStaleCondition(
         if (hints.until && now > hints.until) {
           return {
             signal: condition.signal || STALE_SIGNAL.EXPIRED_HINT,
-            description: `[${ctx.def.name.toLowerCase()}] ${key} "${value}" has expired`
+            description: `[${ctx.name}] ${key} "${value}" has expired`
           };
         }
         break;
@@ -112,13 +115,13 @@ export function evaluateStaleCondition(
           const currentId = getProtocolIdentity(state, ctx);
 
           let targetId = value;
-          let targetPName = ctx.def.name;
+          let targetPName = ctx.name;
           if (value.includes('/')) {
             const [prefix, suffix] = value.split('/', 2);
             targetPName = prefix.toLowerCase();
             targetId = suffix;
           }
-          const isLocal = targetPName.toLowerCase() === ctx.def.name.toLowerCase();
+          const isLocal = targetPName.toLowerCase() === ctx.name.toLowerCase();
           const targetStatusMap = globalSupersessionMap.get(targetPName.toLowerCase());
           const status = targetStatusMap?.get(targetId);
 
@@ -133,7 +136,7 @@ export function evaluateStaleCondition(
             if (isBySomeoneElse) {
                 return {
                     signal: condition.signal || STALE_SIGNAL.ORPHANED_DEP,
-                    description: `[${ctx.def.name.toLowerCase()}] Dependency "${value}" (in ${key}) has been superseded by ${status.supersededBy.join(', ')}`,
+                    description: `[${ctx.name}] Dependency "${value}" (in ${key}) has been superseded by ${status.supersededBy.join(', ')}`,
                 };
             }
           }

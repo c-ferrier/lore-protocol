@@ -15,8 +15,6 @@ import {
     createTargetFromIdentities, 
     getCacheFingerprint, 
     isBlameTarget, 
-    getGitLogArgs, 
-    getGitBlameArgs 
 } from '../core/logic/query-targets.js';
 import { getIdentityPattern } from '../shell/git/protocol-query-adapter.js';
 import { authorizeKey } from '../core/logic/ownership.js';
@@ -26,6 +24,8 @@ import { isValidProtocolIdentity } from '../core/logic/validation.js';
 /**
  * Retrieves Atoms from git history.
  * The central query engine for all protocol-related git log queries.
+ * 
+ * SRP: Focused on Git history I/O and query orchestration.
  */
 export class AtomRepository {
   constructor(
@@ -275,7 +275,7 @@ export class AtomRepository {
    */
   private async discoveryByBlame(target: QueryTargetAST): Promise<Atom[]> {
       const range = target.lineRange;
-      if (!range) throw new ProtocolError(`Target "${target.raw}" is not a valid line range`, 1);
+      if (!range) throw new ProtocolError(`Target "${target.raw}" is not a valid range`, 1);
 
       const blameLines = await this.gitClient.blame(range.file, range.start, range.end);
       if (blameLines.length === 0) return [];
@@ -339,7 +339,8 @@ export class AtomRepository {
             
             for (const [pName, state] of atom.protocols) {
                 const ctx = this.protocolRegistry.get(pName);
-                const id = getProtocolIdentity(state, ctx!);
+                if (!ctx) continue;
+                const id = getProtocolIdentity(state, ctx);
                 if (id) {
                     localKnowledge.set(`${pName.toLowerCase()}/${id}`, atom);
                     if (pName.toLowerCase() === rootName) {
