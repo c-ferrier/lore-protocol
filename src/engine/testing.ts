@@ -1,6 +1,5 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { ProtocolMap } from './core/models/protocol-map.js';
-import { ActiveProtocol } from './core/models/active-protocol.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
 import { ProtocolLoader } from './shell/fs/protocol-loader.js';
 import type { ProtocolDefinition, IIdentityResolver, ProtocolContext } from './core/types/protocol-definition.js';
@@ -106,11 +105,14 @@ export const MOCK_CORE_TRAILERS: Record<string, TrailerDefinition> = {
     }
 };
 
-/** Helper: returns a REAL ActiveProtocol instance. */
+/** 
+ * Helper: returns a REAL ProtocolContext object.
+ * Replaces the legacy ActiveProtocol factory.
+ */
 export function makeProtocol(
     overrides: Partial<ProtocolDefinition> = {},
     configOverrides: any = {}
-): ActiveProtocol {
+): ProtocolContext {
     const name = overrides.name || configOverrides.name || 'Mock';
     const trailers = { ...(overrides.trailers ?? TEST_PROTOCOL_DEFINITION.trailers) };
     const identityKey = overrides.identityKey || TEST_PROTOCOL_DEFINITION.identityKey;
@@ -131,9 +133,7 @@ export function makeProtocol(
         [name.toLowerCase()]: configOverrides
     })[0];
     
-    // Support method injection via definition for Level 2 Tests
-    const instance = new ActiveProtocol(finalized);
-    return instance;
+    return createProtocolContext(finalized);
 }
 
 /** Helper: returns a REAL ProtocolRegistry instance. */

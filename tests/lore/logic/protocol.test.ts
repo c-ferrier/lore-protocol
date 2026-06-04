@@ -3,7 +3,8 @@ import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../../src/engine/testing.
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { 
     getScalarKeys, 
-    getListKeys 
+    getListKeys,
+    getFormattableDefinitions
 } from '../../../src/engine/core/logic/protocols.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -18,7 +19,7 @@ describe('LoreProtocolDefinition', () => {
   });
 
   it(`should have CLI metadata for all standard trailers except ${LORE_ID_KEY}`, () => {
-    const definitions = protocol.getFormattableDefinitions();
+    const definitions = getFormattableDefinitions(protocol);
     for (const [key, def] of Object.entries(definitions)) {
       if (key === LORE_ID_KEY) continue;
       
@@ -30,7 +31,7 @@ describe('LoreProtocolDefinition', () => {
   });
 
   it(`should have prompt metadata for all standard trailers except ${LORE_ID_KEY}`, () => {
-    const definitions = protocol.getFormattableDefinitions();
+    const definitions = getFormattableDefinitions(protocol);
     for (const [key, def] of Object.entries(definitions)) {
       if (key === LORE_ID_KEY) continue;
       
@@ -47,7 +48,7 @@ describe('LoreProtocolDefinition', () => {
   });
 
   it('should have UI kinds and colors for all standard trailers', () => {
-    const definitions = protocol.getFormattableDefinitions();
+    const definitions = getFormattableDefinitions(protocol);
     for (const [key, def] of Object.entries(definitions)) {
       expect(def.ui, `Trailer "${key}" is missing UI metadata`).toBeDefined();
       expect(def.ui?.color, `Trailer "${key}" is missing a UI color`).toBeDefined();

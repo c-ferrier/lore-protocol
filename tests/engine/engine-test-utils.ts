@@ -14,7 +14,6 @@ import {
     makeQueryTarget,
     makeAtomRepository as realAtomRepository,
     makeAtom,
-    ActiveProtocol,
     makeMockContext as stubMockContext
 } from '../../src/engine/testing.js';
 import type { ProtocolDefinition, ProtocolContext } from '../../src/engine/core/types/protocol-definition.js';
@@ -128,7 +127,7 @@ export function makeMockStalenessDetector(overrides: any = {}): any {
     };
 }
 
-export function makeMockProtocol(overrides: Partial<ProtocolDefinition> = {}): ActiveProtocol {
+export function makeMockProtocol(overrides: Partial<ProtocolDefinition> = {}): any {
   return stubProtocol(overrides);
 }
 
@@ -190,8 +189,7 @@ export {
     makeQueryTarget, 
     makeAtom, 
     TEST_ENGINE_CONFIG, 
-    createProtocolContext,
-    ActiveProtocol 
+    createProtocolContext 
 };
 
 /** Helper to create search options. */

@@ -1,15 +1,15 @@
-import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeProtocol } from '../../../src/engine/testing.js';
+import { makeProtocol, normalizeTrailers } from '../../../src/engine/testing.js';
 import { getSearchPatterns } from '../../../src/engine/shell/git/protocol-query-adapter.js';
 import { ownsKey } from '../../../src/engine/core/logic/ownership.js';
+import { TriggerParser } from '../../../src/engine/util/trigger-parser.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
 describe('Hierarchical Namespacing Logic', () => {
   let registry: ProtocolRegistry;
-  let rootProtocol: ActiveProtocol;
-  let projectProtocol: ActiveProtocol;
+  let rootProtocol: any;
+  let projectProtocol: any;
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
@@ -62,7 +62,7 @@ describe('Hierarchical Namespacing Logic', () => {
   describe('Parsing (History)', () => {
     it('should unpack namespaced trailers correctly', () => {
       const raw = 'Project: Project-id: abcd1234\nProject: Team: Backend';
-      const state = projectProtocol.parse(raw);
+      const state = normalizeTrailers(TriggerParser.parseTrailers(raw), projectProtocol);
 
       expect(state.trailers['Project-id']).toEqual(['abcd1234']);
       expect(state.trailers.Team).toEqual(['Backend']);
@@ -71,7 +71,7 @@ describe('Hierarchical Namespacing Logic', () => {
 
     it('should flag unrecognized trailers in namespace as unauthorized when strict', () => {
       const raw = 'Project: Tream: typo\nProject: Team: Backend';
-      const state = projectProtocol.parse(raw);
+      const state = normalizeTrailers(TriggerParser.parseTrailers(raw), projectProtocol);
 
       expect(state.trailers.Team).toEqual(['Backend']);
       expect(state.unauthorized.Tream).toEqual(['typo']);
@@ -86,7 +86,7 @@ describe('Hierarchical Namespacing Logic', () => {
       }, { strict: false, permissive: true } as any);
       
       const raw = 'Project: Custom: value';
-      const state = permissiveProject.parse(raw);
+      const state = normalizeTrailers(TriggerParser.parseTrailers(raw), permissiveProject);
 
       expect(state.trailers.Custom).toEqual(['value']);
       expect(Object.keys(state.unauthorized)).toHaveLength(0);
@@ -94,7 +94,7 @@ describe('Hierarchical Namespacing Logic', () => {
 
     it('root protocol should ignore namespaced trailers', () => {
       const raw = 'Project: Team: Backend\nLore-id: deadbeef';
-      const state = rootProtocol.parse(raw);
+      const state = normalizeTrailers(TriggerParser.parseTrailers(raw), rootProtocol);
 
       expect(state.trailers['Lore-id']).toEqual(['deadbeef']);
       expect(state.trailers['Project']).toBeUndefined();
@@ -102,7 +102,7 @@ describe('Hierarchical Namespacing Logic', () => {
 
     it('root protocol should flag orphans as unauthorized when strict', () => {
       const raw = 'Unknown: value';
-      const state = rootProtocol.parse(raw);
+      const state = normalizeTrailers(TriggerParser.parseTrailers(raw), rootProtocol);
 
       expect(state.trailers.Unknown).toBeUndefined();
       expect(state.unauthorized.Unknown).toEqual(['value']);
@@ -115,7 +115,7 @@ describe('Hierarchical Namespacing Logic', () => {
         }, { strict: false, permissive: true } as any);
   
         const raw = 'Unknown: value';
-        const state = permissiveRoot.parse(raw);
+        const state = normalizeTrailers(TriggerParser.parseTrailers(raw), permissiveRoot);
   
         expect(state.trailers.Unknown).toEqual(['value']);
         expect(Object.keys(state.unauthorized)).toHaveLength(0);

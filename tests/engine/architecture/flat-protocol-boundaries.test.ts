@@ -3,8 +3,9 @@ import { type Atom, type Trailers } from '../../../src/engine/core/types/domain.
 import { type FormattableQueryResult } from '../../../src/engine/core/types/output.js';
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../../src/engine/testing.js';
+import { TEST_PROTOCOL_CONFIG, makeProtocol, normalizeTrailers } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
+import { TriggerParser } from '../../../src/engine/util/trigger-parser.js';
 
 import { describe, it, expect } from 'vitest';
 
@@ -94,7 +95,7 @@ describe('Flat Protocol Boundaries', () => {
         }
       });
       const raw = `${LORE_ID_KEY}: abc\nAuthorized: yes\nUnauthorized: no`;
-      const result = protocol.parse(raw);
+      const result = normalizeTrailers(TriggerParser.parseTrailers(raw), protocol);
       const parsed = result.trailers;
 
       expect(parsed['Authorized']).toEqual(['yes']);
@@ -111,7 +112,7 @@ describe('Flat Protocol Boundaries', () => {
 
       // User provides lowercase 'confidence'
       const raw = `${LORE_ID_KEY}: abc\nconfidence: low`;
-      const result = protocol.parse(raw);
+      const result = normalizeTrailers(TriggerParser.parseTrailers(raw), protocol);
       const parsed = result.trailers;
 
       // Should be mapped to the canonical PascalCase key
