@@ -2,6 +2,7 @@ import { ProtocolMap, type ProtocolName } from './protocol-map.js';
 import { ProtocolHydrator } from '../../shell/fs/protocol-hydrator.js';
 import type { 
     ProtocolDefinition, 
+    ProtocolContext,
     IIdentityResolver, 
     IProtocol 
 } from '../types/protocol-definition.js';
@@ -29,6 +30,10 @@ import {
     isValidProtocolIdentity 
 } from '../logic/validation.js';
 
+import { createProtocolContext } from '../logic/protocols.js';
+import { getQualifiedKey, isBucketOwner, ownsKey, authorizeKey } from '../logic/ownership.js';
+import { normalizeTrailers } from '../logic/normalization.js';
+
 export type ActiveTrailer = TrailerDefinition & { key: string };
 
 /**
@@ -46,7 +51,7 @@ export class ActiveProtocol implements IProtocol {
   public readonly storageNamespace: string;
 
   private readonly definitions = new Map<string, TrailerDefinition & { key: string }>();
-  private readonly caseMap = new Map<string, string>();
+  private readonly context: ProtocolContext;
 
   constructor(
     private readonly definition: ProtocolDefinition
@@ -58,6 +63,7 @@ export class ActiveProtocol implements IProtocol {
     this.identityKey = definition.identityKey;
     this.storageNamespace = definition.namespace || '';
     
+    this.context = createProtocolContext(definition);
     this.loadDefinitions();
   }
 
@@ -68,9 +74,7 @@ export class ActiveProtocol implements IProtocol {
    * - Otherwise: Returns null (unauthorized).
    */
   authorize(key: string): string | null {
-    const canonical = this.caseMap.get(key.toLowerCase());
-    if (canonical) return canonical;
-    return (this.isRoot() && this.permissive) ? key : null;
+    return authorizeKey(key, this.context);
   }
 
   /**
@@ -120,7 +124,7 @@ export class ActiveProtocol implements IProtocol {
    * Root: "" (e.g. "Confidence: ")
    */
   getStoragePrefix(): string {
-    return this.storageNamespace !== '' ? `${this.storageNamespace}: ` : '';
+    return this.context.storagePrefix;
   }
 
   /**
@@ -129,8 +133,7 @@ export class ActiveProtocol implements IProtocol {
    * Root: "Key"
    */
   getQualifiedKey(key: string): string {
-    if (this.isRoot()) return key;
-    return key === this.storageNamespace ? key : `${this.storageNamespace}:${key}`;
+    return getQualifiedKey(key, this.context);
   }
 
   /**
@@ -138,7 +141,7 @@ export class ActiveProtocol implements IProtocol {
    * E.g. for Jira protocol, matches "Jira".
    */
   isBucketOwner(key: string): boolean {
-    return this.storageNamespace !== '' && key.toLowerCase() === this.storageNamespace.toLowerCase();
+    return isBucketOwner(key, this.context);
   }
 
   /**
@@ -148,29 +151,16 @@ export class ActiveProtocol implements IProtocol {
    * - Root protocols own their identityKey and everything in their schema.
    */
   owns(key: string): boolean {
-    const lowerKey = key.toLowerCase();
-    
-    if (this.isBucketOwner(lowerKey)) return true;
-    if (!this.isRoot()) return false;
-    
-    // Root Context: Global Landlord
-    if (lowerKey === this.identityKey.toLowerCase()) return true;
-    if (this.caseMap.has(lowerKey)) return true;
-    if (lowerKey === this.name) return true;
-    
-    return false;
+    return ownsKey(key, this.context);
   }
 
   /**
    * Returns true if this protocol operates in the global (root) namespace.
    */
   isRoot(): boolean {
-    return this.storageNamespace === '';
+    return this.context.isRoot;
   }
 
-  /**
-   * Validates if a string matches the protocol's identity format.
-   */
   /**
    * Validates if a string matches the protocol's identity format.
    */
@@ -194,73 +184,7 @@ export class ActiveProtocol implements IProtocol {
    * @param claimedKeys Set of keys (namespaces or core trailers) reserved by OTHER protocols.
    */
   normalize(rawMap: Record<string, readonly string[]>, claimedKeys?: Set<string>): ProtocolState {
-    const normalized: Record<string, string[]> = {};
-    const unauthorized: Record<string, string[]> = {};
-    const lowerClaimed = new Set(Array.from(claimedKeys || []).map(k => k.toLowerCase()));
-
-    for (const [key, values] of Object.entries(rawMap)) {
-      const lowerKey = key.toLowerCase();
-
-      // CASE 1: Namespaced Bucket
-      // If I own this bucket, I strictly parse the internal key-value pairs.
-      if (this.isBucketOwner(lowerKey)) {
-        for (const nestedRaw of values) {
-          const match = nestedRaw.match(/^([A-Za-z0-9][A-Za-z0-9-]*):\s*(.*)$/);
-          if (!match) {
-            unauthorized['invalid-format'] = [...(unauthorized['invalid-format'] || []), nestedRaw];
-            continue;
-          }
-          const innerKey = match[1];
-          const innerValue = match[2];
-          const lowerInnerKey = innerKey.toLowerCase();
-          
-          const authorizedKey = this.caseMap.get(lowerInnerKey);
-          if (authorizedKey) {
-            // Rule: Strict claim within namespace
-            normalized[authorizedKey] = [...(normalized[authorizedKey] || []), innerValue];
-          } else if (this.permissive) {
-            // Rule: Permissive fallback for this namespace
-            normalized[innerKey] = [...(normalized[innerKey] || []), innerValue];
-          } else {
-            // Strictly unauthorized within our bucket
-            unauthorized[innerKey] = [...(unauthorized[innerKey] || []), innerValue];
-          }
-        }
-        continue;
-      }
-
-      // CASE 2: Global/Root Context
-      // Namespaced protocols ignore EVERYTHING at the top level.
-      if (!this.isRoot()) {
-          continue;
-      }
-
-      // If someone ELSE owns this key (another protocol's namespace), we MUST ignore it.
-      if (lowerClaimed.has(lowerKey) && !this.owns(key)) {
-          continue;
-      }
-
-      // Root Sovereignty & Permissive Landlord logic
-      const authorizedKey = this.authorize(key);
-      if (authorizedKey) {
-          const inSchema = this.definitions.has(authorizedKey);
-          if (inSchema || this.permissive) {
-            normalized[authorizedKey] = [...(normalized[authorizedKey] || []), ...values];
-            continue;
-          }
-      }
-
-      // Root Catch-all (Rule 2.2: if permissive and unclaimed)
-      if (this.permissive) {
-          normalized[key] = [...(normalized[key] || []), ...values];
-          continue;
-      }
-
-      // Root Strictly Unauthorized (typos or orphaned namespaces in strict mode)
-      unauthorized[key] = [...(unauthorized[key] || []), ...values];
-    }
-
-    return { trailers: normalized, unauthorized };
+    return normalizeTrailers(rawMap, this.context, claimedKeys);
   }
 
   getIdentity(state?: ProtocolState | null): string | null {
@@ -428,7 +352,6 @@ export class ActiveProtocol implements IProtocol {
       // Ensure isCore defaults to false if not specified
       const isCore = hydrated.isCore ?? false;
       this.definitions.set(key, { ...hydrated, key, isCore });
-      this.caseMap.set(key.toLowerCase(), key);
     }
   }
 }

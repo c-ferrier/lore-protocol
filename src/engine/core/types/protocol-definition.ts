@@ -61,3 +61,16 @@ export interface ProtocolDefinition {
   readonly identityKey: string;
   readonly trailers: Record<string, TrailerDefinition>;
 }
+
+/**
+ * Operationally optimized view of a Protocol.
+ * Created once per protocol at bootstrap to avoid repetitive casing/string math.
+ */
+export interface ProtocolContext {
+    readonly def: ProtocolDefinition;
+    /** Map of lowercased_key -> CanonicalKey from schema */
+    readonly caseMap: Map<string, string>;
+    readonly isRoot: boolean;
+    /** "Namespace: " or "" */
+    readonly storagePrefix: string;
+}
