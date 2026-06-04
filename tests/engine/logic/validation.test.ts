@@ -1,6 +1,6 @@
 import { evaluateHygiene, evaluateProtocolSchema, evaluateTrailerHygiene } from '../../../src/engine/core/logic/validation.js';
 import { normalizeTrailers } from '../../../src/engine/core/logic/normalization.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../src/engine/testing.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeMockContext } from '../../../src/engine/testing.js';
 
 import { describe, it, expect, vi } from 'vitest';
 
@@ -44,29 +44,33 @@ describe('Validation Logic (Pure Functions)', () => {
   });
 
   describe('evaluateProtocolSchema', () => {
-    it('should delegate to protocol.validateState', () => {
-      const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
-      const state = protocol.parse('Mock-id: abc12345');
-      const spy = vi.spyOn(protocol, 'validateState');
+    it('should delegate to protocol.validateState hook', () => {
+      const spy = vi.fn().mockReturnValue([]);
+      const protocol = makeMockContext({ 
+          ...TEST_PROTOCOL_DEFINITION, 
+          validateState: spy 
+      });
+      const state = { trailers: { 'Mock-id': ['abc12345'] }, unauthorized: {} };
       
-      evaluateProtocolSchema(protocol, state);
+      evaluateProtocolSchema(protocol as any, state);
       
       expect(spy).toHaveBeenCalledWith(state, undefined);
     });
 
     it('should catch schema violations like invalid enums', () => {
-      const protocol = makeProtocol({
+      const protocol = makeMockContext({
           ...TEST_PROTOCOL_DEFINITION,
           trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
       });
-      const state = protocol.parse('Confidence: invalid-value');
+      const state = normalizeTrailers({ Confidence: ['invalid-value'] }, protocol);
       
-      const issues = evaluateProtocolSchema(protocol, state);
+      const issues = evaluateProtocolSchema(protocol as any, state);
       expect(issues.some(i => i.rule === 'invalid-enum')).toBe(true);
     });
 
     it('should catch missing required trailers in strict mode', () => {
-        const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
+        const protocol = makeMockContext({
+            ...TEST_PROTOCOL_DEFINITION,
             strict: true,
             trailers: { 
                 Confidence: { description: '', multivalue: false, validation: 'none', required: true }
@@ -74,7 +78,7 @@ describe('Validation Logic (Pure Functions)', () => {
         });
         const state = normalizeTrailers({ 'Mock-id': ['a1'] }, protocol);
         
-        const issues = evaluateProtocolSchema(protocol, state);
+        const issues = evaluateProtocolSchema(protocol as any, state);
         expect(issues.some(i => i.rule === 'required-trailer')).toBe(true);
     });
   });

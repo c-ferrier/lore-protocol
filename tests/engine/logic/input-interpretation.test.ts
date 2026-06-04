@@ -1,6 +1,6 @@
 import { InputMode, finalizeCommitInput, parseFlagsToInput, selectInputMode } from '../../../src/engine/core/logic/input-interpretation.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../src/engine/testing.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeMockContext } from '../../../src/engine/testing.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
@@ -9,7 +9,7 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    registry.register(makeProtocol({
+    registry.register(makeMockContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
     }));
@@ -63,7 +63,7 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
     });
 
     it('should support qualified namespaced trailers', () => {
-        registry.register(makeProtocol({ 
+        registry.register(makeMockContext({ 
             name: 'Alpha', 
             namespace: 'alpha', 
             identityKey: 'A-id',

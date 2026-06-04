@@ -1,12 +1,12 @@
 import { extractReferenceIds, hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtom, makeProtocol, makeProtocolRegistry, makeRawCommit } from '../../../src/engine/testing.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtom, makeMockContext, makeProtocolRegistry, makeRawCommit } from '../../../src/engine/testing.js';
 
 import { describe, it, expect } from 'vitest';
 ;
 ;
 
 describe('AtomHydrator Logic (Pure Functions)', () => {
-  const protocol = makeProtocol({
+  const protocol = makeMockContext({
     name: 'test',
     version: '1.0',
     identityKey: 'Id',
@@ -17,7 +17,7 @@ describe('AtomHydrator Logic (Pure Functions)', () => {
     }
   });
 
-  const registry = makeProtocolRegistry([protocol]);
+  const registry = makeProtocolRegistry([protocol as any]);
 
   describe('hydrateAtoms (Trailer Stripping)', () => {
     const hydrate = (body: string, trailers: string) => {
@@ -69,13 +69,13 @@ describe('AtomHydrator Logic (Pure Functions)', () => {
 
   describe('extractReferenceIds', () => {
       it('should extract unique identities from atom protocol state', () => {
-          const mockProtocol = makeProtocol({
+          const mockProtocol = makeMockContext({
               trailers: {
                   ...TEST_PROTOCOL_DEFINITION.trailers,
                   'Related': { description: 'R', validation: 'reference' } as any
               }
           }); 
-          const localRegistry = makeProtocolRegistry([mockProtocol]);
+          const localRegistry = makeProtocolRegistry([mockProtocol as any]);
 
           const atom = makeAtom({
               protocols: new Map([['mock', { 

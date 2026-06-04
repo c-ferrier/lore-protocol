@@ -1,7 +1,7 @@
 import { squashAtoms } from '../../../src/engine/core/logic/squashing.js';
 import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_ID_KEY, makeAtom, makeProtocol } from '../../../src/engine/testing.js';
+import { TEST_ID_KEY, makeAtom, makeMockContext } from '../../../src/engine/testing.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 ;
@@ -44,7 +44,7 @@ describe('Squashing Logic (Pure Functions)', () => {
 
   describe('Trailer Merging Strategies', () => {
     beforeEach(() => {
-        registry.register(makeProtocol({
+        registry.register(makeMockContext({
             name: 'mock',
             trailers: {
                 'Confidence': { description: 'conf', squash: 'rank-max', values: { 'low': {}, 'medium': {}, 'high': {} } },
@@ -98,8 +98,8 @@ describe('Squashing Logic (Pure Functions)', () => {
   });
 
   it('should synthesize context for multiple protocols simultaneously', () => {
-    registry.register(makeProtocol({ name: 'Alpha', namespace: 'alpha', identityKey: 'A-id' }));
-    registry.register(makeProtocol({ name: 'Beta', namespace: 'beta', identityKey: 'B-id' }));
+    registry.register(makeMockContext({ name: 'Alpha', namespace: 'alpha', identityKey: 'A-id' }));
+    registry.register(makeMockContext({ name: 'Beta', namespace: 'beta', identityKey: 'B-id' }));
 
     const a1 = makeAtom({ 
         id: 'id1', 

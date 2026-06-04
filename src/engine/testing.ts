@@ -147,11 +147,42 @@ export function makeProtocolRegistry(protocols: ProtocolDefinition[] = []): Prot
 
 /** Helper to create a ProtocolDefinition with deep partial overrides. */
 export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = {}): ProtocolDefinition {
+  const trailers = { ...TEST_PROTOCOL_DEFINITION.trailers, ...(overrides.trailers || {}) };
+  const identityKey = overrides.identityKey || TEST_PROTOCOL_DEFINITION.identityKey;
+
+  if (!trailers[identityKey]) {
+    trailers[identityKey] = { description: 'ID', multivalue: false, validation: 'none' } as any;
+  }
+
   return {
     ...TEST_PROTOCOL_DEFINITION,
     ...overrides,
-    trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...(overrides.trailers || {}) },
+    identityKey,
+    trailers
   };
+}
+
+/**
+ * Creates a pure ProtocolContext for testing with optional mock logic hooks.
+ */
+export function makeMockContext(overrides: Partial<ProtocolDefinition> & {
+    validateState?: any;
+    validateTrailer?: any;
+    getStaleSignals?: any;
+    getAuthorizedKeys?: any;
+} = {}): ProtocolContext {
+    const { validateState, validateTrailer, getStaleSignals, getAuthorizedKeys, ...defOverrides } = overrides;
+    
+    const def = makeProtocolDefinition(defOverrides);
+    const ctx = createProtocolContext(def);
+    
+    // Inject mock hooks if provided
+    if (validateState) (ctx as any).validateState = validateState;
+    if (validateTrailer) (ctx as any).validateTrailer = validateTrailer;
+    if (getStaleSignals) (ctx as any).getStaleSignals = getStaleSignals;
+    if (getAuthorizedKeys) (ctx as any).getAuthorizedKeys = getAuthorizedKeys;
+    
+    return ctx;
 }
 
 /** Helper to create a raw commit object. */

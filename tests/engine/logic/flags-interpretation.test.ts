@@ -1,21 +1,21 @@
 import { parseFlagsToInput } from '../../../src/engine/core/logic/input-interpretation.js';
-import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
 import { 
   TEST_PROTOCOL_DEFINITION, 
   MOCK_CORE_TRAILERS,
-  makeProtocol, 
+  makeMockContext, 
   makeProtocolRegistry 
 } from '../../../src/engine/testing.js';
 import { ProtocolError } from '../../../src/engine/util/errors.js';
+import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
 describe('parseFlagsToInput (Pure Logic)', () => {
-  let protocol: ActiveProtocol;
+  let protocol: ProtocolContext;
 
   beforeEach(() => {
     // Satisfy tests that expect Confidence/Constraint/Related
-    protocol = makeProtocol({
+    protocol = makeMockContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
     });
@@ -30,7 +30,7 @@ describe('parseFlagsToInput (Pure Logic)', () => {
       related: ['id3'],
     };
 
-    const result = parseFlagsToInput(options, makeProtocolRegistry([protocol]));
+    const result = parseFlagsToInput(options, makeProtocolRegistry([protocol as any]));
 
     expect(result.subject).toBe('feat: add auth');
     expect(result.body).toBe('Detailed description');
@@ -41,48 +41,48 @@ describe('parseFlagsToInput (Pure Logic)', () => {
   });
 
   it('should support qualified trailers (Protocol/Key=Value)', () => {
-    const p1 = makeProtocol({ name: 'P1', namespace: 'p1', trailers: { Status: { description: 'S' } } });
-    const p2 = makeProtocol({ name: 'P2', namespace: 'p2', trailers: { Status: { description: 'S' } } });
+    const p1 = makeMockContext({ name: 'P1', namespace: 'p1', trailers: { Status: { description: 'S' } } });
+    const p2 = makeMockContext({ name: 'P2', namespace: 'p2', trailers: { Status: { description: 'S' } } });
     
     const options: any = {
         trailer: ['P1/Status=active', 'P2/Status=pending']
     };
 
-    const result = parseFlagsToInput(options, makeProtocolRegistry([p1, p2]));
+    const result = parseFlagsToInput(options, makeProtocolRegistry([p1 as any, p2 as any]));
 
     expect(result.trailers?.get('p1').Status).toEqual(['active']);
     expect(result.trailers?.get('p2').Status).toEqual(['pending']);
   });
 
   it('should default unqualified trailers to the root protocol if it is the only owner', () => {
-    const p1 = makeProtocol({ name: 'Root', namespace: '', trailers: { Status: { description: 'S' } } });
-    const p2 = makeProtocol({ name: 'NS', namespace: 'ns', trailers: { Other: { description: 'O' } } });
+    const p1 = makeMockContext({ name: 'Root', namespace: '', trailers: { Status: { description: 'S' } } });
+    const p2 = makeMockContext({ name: 'NS', namespace: 'ns', trailers: { Other: { description: 'O' } } });
     
     const options: any = {
         trailer: ['Status=active']
     };
 
-    const result = parseFlagsToInput(options, makeProtocolRegistry([p1, p2]));
+    const result = parseFlagsToInput(options, makeProtocolRegistry([p1 as any, p2 as any]));
     expect(result.trailers?.get('root').Status).toEqual(['active']);
   });
 
   it('should default subject to empty string when undefined', () => {
-    const result = parseFlagsToInput({}, makeProtocolRegistry([protocol]));
+    const result = parseFlagsToInput({}, makeProtocolRegistry([protocol as any]));
     expect(result.subject).toBe('');
   });
 
   it('should leave body undefined when not provided', () => {
-    const result = parseFlagsToInput({ subject: 't' }, makeProtocolRegistry([protocol]));
+    const result = parseFlagsToInput({ subject: 't' }, makeProtocolRegistry([protocol as any]));
     expect(result.body).toBeUndefined();
   });
 
   it('should leave array trailers undefined when not provided', () => {
-    const result = parseFlagsToInput({ subject: 't' }, makeProtocolRegistry([protocol]));
+    const result = parseFlagsToInput({ subject: 't' }, makeProtocolRegistry([protocol as any]));
     expect(result.trailers?.get('mock')?.Constraint).toBeUndefined();
   });
 
   it('should leave enum trailers undefined when not provided', () => {
-    const result = parseFlagsToInput({ subject: 't' }, makeProtocolRegistry([protocol]));
+    const result = parseFlagsToInput({ subject: 't' }, makeProtocolRegistry([protocol as any]));
     expect(result.trailers?.get('mock')?.Confidence).toBeUndefined();
   });
 
@@ -93,7 +93,7 @@ describe('parseFlagsToInput (Pure Logic)', () => {
       constraint: ['c1'],
     };
 
-    const result = parseFlagsToInput(options, makeProtocolRegistry([protocol]));
+    const result = parseFlagsToInput(options, makeProtocolRegistry([protocol as any]));
 
     const mockGroup = result.trailers?.get('mock') || {};
     expect(mockGroup.Confidence).toEqual(['medium']);
@@ -101,7 +101,8 @@ describe('parseFlagsToInput (Pure Logic)', () => {
   });
 
   it('should map auto-generated flags for simple custom trailers', () => {
-    const customProtocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
+    const customProtocol = makeMockContext({
+      ...TEST_PROTOCOL_DEFINITION,
       trailers: { 
           'Squad': { description: '', multivalue: true, validation: 'none' },
           'Team-Name': { description: '', multivalue: true, validation: 'none' }
@@ -113,7 +114,7 @@ describe('parseFlagsToInput (Pure Logic)', () => {
       teamName: 'Omega',
     };
 
-    const result = parseFlagsToInput(options, makeProtocolRegistry([customProtocol]));
+    const result = parseFlagsToInput(options, makeProtocolRegistry([customProtocol as any]));
 
     const mockGroup = result.trailers?.get('mock') || {};
     expect(mockGroup.Squad).toEqual(['Alpha']);
@@ -121,7 +122,8 @@ describe('parseFlagsToInput (Pure Logic)', () => {
   });
 
   it('should prioritize explicit cli flags over automatic ones', () => {
-    const customProtocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
+    const customProtocol = makeMockContext({
+      ...TEST_PROTOCOL_DEFINITION,
       trailers: {
           Department: {
             description: 'dept',
@@ -136,14 +138,15 @@ describe('parseFlagsToInput (Pure Logic)', () => {
       dept: 'Eng',
     };
 
-    const result = parseFlagsToInput(options, makeProtocolRegistry([customProtocol]));
+    const result = parseFlagsToInput(options, makeProtocolRegistry([customProtocol as any]));
 
     const mockGroup = result.trailers?.get('mock') || {};
     expect(mockGroup.Department).toEqual(['Eng']);
   });
 
   it('should automatically slugify custom trailer keys into CLI flags', () => {
-    const customProtocol = makeProtocol(TEST_PROTOCOL_DEFINITION, {
+    const customProtocol = makeMockContext({
+      ...TEST_PROTOCOL_DEFINITION,
       trailers: {
           'Regulatory-Compliance': {
             description: 'Check for compliance',
@@ -157,7 +160,7 @@ describe('parseFlagsToInput (Pure Logic)', () => {
       regulatoryCompliance: ['GDPR', 'HIPAA'],
     };
 
-    const result = parseFlagsToInput(options as any, makeProtocolRegistry([customProtocol]));
+    const result = parseFlagsToInput(options as any, makeProtocolRegistry([customProtocol as any]));
 
     const mockGroup = result.trailers?.get('mock') || {};
     expect(mockGroup['Regulatory-Compliance']).toEqual(['GDPR', 'HIPAA']);
@@ -170,14 +173,14 @@ describe('parseFlagsToInput (Pure Logic)', () => {
       trailer: ['Confidence=high', 'Department=Eng'],
     };
 
-    const result = parseFlagsToInput(options, makeProtocolRegistry([makeProtocol({
+    const result = parseFlagsToInput(options, makeProtocolRegistry([makeMockContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: { 
             ...TEST_PROTOCOL_DEFINITION.trailers, 
             ...MOCK_CORE_TRAILERS,
             'Department': { description: 'D' } 
         }
-    })]));
+    }) as any]));
 
     const mockGroup = result.trailers?.get('mock') || {};
     expect(mockGroup.Confidence).toEqual(['low', 'high']);

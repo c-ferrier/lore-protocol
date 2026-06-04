@@ -8,7 +8,7 @@ import {
   TEST_PROTOCOL_DEFINITION, 
   MOCK_CORE_TRAILERS,
   makeCommitInput, 
-  makeProtocol 
+  makeMockContext 
 } from '../../../src/engine/testing.js';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -32,7 +32,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
 
     protocolRegistry = new ProtocolRegistry();
     // Register protocol with core trailers to satisfy tests expecting Confidence/Constraint
-    protocolRegistry.register(makeProtocol({
+    protocolRegistry.register(makeMockContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
     }));
@@ -142,7 +142,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
     });
 
     it('should NOT report missing identity key if it has a generator', async () => {
-        const genProtocol = makeProtocol({
+        const genProtocol = makeMockContext({
             name: 'Gen',
             identityKey: 'Gen-id',
             trailers: {
@@ -163,8 +163,8 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
   describe('Namespacing & Multiple Protocols', () => {
     it('should correctly namespace trailers for multiple protocols', () => {
         const registry = new ProtocolRegistry();
-        registry.register(makeProtocol({ name: 'Alpha', namespace: 'alpha', identityKey: 'Alpha-id' }));
-        registry.register(makeProtocol({ name: 'Beta', namespace: 'beta', identityKey: 'Beta-id' }));
+        registry.register(makeMockContext({ name: 'Alpha', namespace: 'alpha', identityKey: 'Alpha-id' }));
+        registry.register(makeMockContext({ name: 'Beta', namespace: 'beta', identityKey: 'Beta-id' }));
 
         const input = makeCommitInput({
             subject: 'multi-protocol',

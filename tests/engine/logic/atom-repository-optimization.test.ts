@@ -1,5 +1,5 @@
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { makeAtom, makeProtocol, makeProtocolRegistry, makeRawCommit } from '../../../src/engine/testing.js';
+import { makeAtom, makeMockContext, makeProtocolRegistry, makeRawCommit } from '../../../src/engine/testing.js';
 import { makeAtomRepository, makeMockGitClient, makeMockQueryCache } from '../engine-test-utils.js';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -13,8 +13,8 @@ describe('AtomRepository Performance Optimizations', () => {
 
   beforeEach(() => {
     registry = makeProtocolRegistry([
-      makeProtocol({ name: 'mock', identityKey: 'Mock-id', permissive: true, namespace: '' }),
-      makeProtocol({ name: 'fred', identityKey: 'Fred-id', permissive: true, namespace: 'fred' })
+      makeMockContext({ name: 'mock', identityKey: 'Mock-id', permissive: true, namespace: '' }),
+      makeMockContext({ name: 'fred', identityKey: 'Fred-id', permissive: true, namespace: 'fred' })
     ]);
     gitClient = makeMockGitClient();
     cache = makeMockQueryCache();

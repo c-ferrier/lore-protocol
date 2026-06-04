@@ -16,7 +16,8 @@ import {
     makeQueryTarget,
     makeAtomRepository as realAtomRepository,
     makeAtom,
-    ActiveProtocol
+    ActiveProtocol,
+    makeMockContext as stubMockContext
 } from '../../src/engine/testing.js';
 import type { ProtocolDefinition, ProtocolContext } from '../../src/engine/core/types/protocol-definition.js';
 
@@ -133,8 +134,24 @@ export function makeMockProtocol(overrides: Partial<ProtocolDefinition> = {}): A
   return stubProtocol(overrides);
 }
 
-export function makeMockProtocolContext(overrides: Partial<ProtocolDefinition> = {}): ProtocolContext {
-    return stubProtocol(overrides).context;
+export function makeMockProtocolContext(overrides: any = {}): ProtocolContext {
+    // If the caller didn't provide a mock function but provided values, we should ideally handle it.
+    // For now, we'll just wrap the stub.
+    const hooks: any = {};
+    if (overrides.validateState && typeof overrides.validateState === 'function' && !overrides.validateState.mock) {
+        hooks.validateState = vi.fn(overrides.validateState);
+    }
+    if (overrides.validateTrailer && typeof overrides.validateTrailer === 'function' && !overrides.validateTrailer.mock) {
+        hooks.validateTrailer = vi.fn(overrides.validateTrailer);
+    }
+    if (overrides.getStaleSignals && typeof overrides.getStaleSignals === 'function' && !overrides.getStaleSignals.mock) {
+        hooks.getStaleSignals = vi.fn(overrides.getStaleSignals);
+    }
+    if (overrides.getAuthorizedKeys && typeof overrides.getAuthorizedKeys === 'function' && !overrides.getAuthorizedKeys.mock) {
+        hooks.getAuthorizedKeys = vi.fn(overrides.getAuthorizedKeys);
+    }
+
+    return stubMockContext({ ...overrides, ...hooks });
 }
 
 // Level 2 Tests often need the real repository but with mocks injected
