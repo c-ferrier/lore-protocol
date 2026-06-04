@@ -1,6 +1,9 @@
 import type { Atom } from '../types/domain.js';
 import type { SearchOptions, QualifiedFilter, FilterOperator } from '../types/query.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { escapeRegex } from '../../util/regex.js';
+import { matchesFilters, getSearchPatterns } from '../../shell/git/protocol-query-adapter.js';
+import { ownsKey } from './ownership.js';
 
 /**
  * Normalizes raw filter inputs into a structured QualifiedFilter AST.
@@ -38,7 +41,7 @@ export function resolveFilters(raw: Record<string, any>, registry: ProtocolRegis
     if (!protocol) {
         const owner = registry.resolveKey(key);
         if (owner) {
-            protocol = owner.name.toLowerCase();
+            protocol = owner.def.name.toLowerCase();
         }
     }
     
@@ -84,12 +87,6 @@ function parseFilterKey(raw: string): { protocol: string | null, key: string, op
 
 /**
  * Applies authoritative application-level filtering to a collection of atoms.
- * 
- * GRASP: Information Expert -- knows how to match atoms against search criteria.
- * SOLID: SRP -- only responsible for filtering logic, no git interaction or formatting.
- *
- * This function provides the "Authoritative Pass" in the discovery pipeline, 
- * ensuring absolute precision after Git's coarse --grep pass.
  */
 export function filterAtoms(atoms: readonly Atom[], options: SearchOptions, registry: ProtocolRegistry): Atom[] {
   return atoms.filter((atom) => atomMatchesOptions(atom, options, registry));
@@ -154,9 +151,9 @@ function atomMatchesOptions(atom: Atom, options: SearchOptions, registry: Protoc
       if (filter.protocol) {
         const protocolName = filter.protocol;
         const state = atom.protocols.get(protocolName);
-        const protocol = registry.get(protocolName);
+        const ctx = registry.get(protocolName);
         
-        if (protocol && state && protocol.matches(state, [filter])) {
+        if (ctx && state && matchesFilters(state, [filter], ctx)) {
           filterMatched = true;
         }
       } 
@@ -164,9 +161,9 @@ function atomMatchesOptions(atom: Atom, options: SearchOptions, registry: Protoc
       else {
         // Try all protocols that claimed this atom, but only those that own the key
         for (const [name, state] of atom.protocols) {
-          const protocol = registry.get(name);
-          if (protocol && protocol.owns(filter.key)) {
-            if (protocol.matches(state, [filter])) {
+          const ctx = registry.get(name);
+          if (ctx && ownsKey(filter.key, ctx)) {
+            if (matchesFilters(state, [filter], ctx)) {
               filterMatched = true;
               break;
             }
@@ -206,8 +203,6 @@ function atomMatchesText(atom: Atom, query: string): boolean {
 
 /**
  * Extract the scope from a conventional commit subject line.
- * Pattern: `type(scope): description`
- * Returns null if no scope is found.
  */
 function extractScope(subject: string): string | null {
   const match = subject.match(/^[a-zA-Z]+\(([^)]+)\)/);

@@ -13,7 +13,8 @@ import {
     makeStubStalenessDetector, 
     makeStubProtocolRegistry,
     makeStubProtocol,
-    TEST_ENGINE_CONFIG
+    TEST_ENGINE_CONFIG,
+    createProtocolContext
 } from '../../src/engine/testing.js';
 import { AtomRepository } from '../../src/engine/services/atom-repository.js';
 import { InMemoryLogger } from '../../src/engine/services/in-memory-logger.js';
@@ -80,7 +81,17 @@ export function makeMockFormatter(overrides: any = {}): any {
 
 export function makeMockAtomRepository(overrides: any = {}): any {
     const stub = makeStubAtomRepository(overrides);
-    return { ...stub, find: vi.fn(stub.find), findByIds: vi.fn(stub.findByIds) };
+    const mock: any = { 
+        ...stub, 
+        find: vi.fn(stub.find), 
+        findByIds: vi.fn(stub.findByIds),
+        findById: vi.fn(async (id: any, opts: any) => {
+            const results = await mock.findByIds([id], opts);
+            return results[0] || null;
+        }),
+        findByCommitHash: vi.fn(async (hash: string) => null)
+    };
+    return mock;
 }
 
 export function makeMockPrompt(overrides: any = {}): any {
@@ -120,13 +131,18 @@ export function makeMockValidator(overrides: any = {}): any {
 
 export function makeMockProtocol(overrides: any = {}): any {
     const stub = makeStubProtocol(overrides);
+    const ctx = createProtocolContext(stub.def);
     
     // Helper to either use provided mock or wrap stub method
     const wrap = (key: string) => {
         if (overrides[key] && (overrides[key]._isMockFunction || typeof overrides[key] === 'function')) {
             return overrides[key];
         }
-        return vi.fn(stub[key].bind(stub));
+        const member = (stub as any)[key];
+        if (typeof member === 'function') {
+            return vi.fn(member.bind(stub));
+        }
+        return member;
     };
 
     const mock = {
@@ -136,6 +152,11 @@ export function makeMockProtocol(overrides: any = {}): any {
         permissive: stub.permissive,
         identityKey: stub.identityKey,
         storageNamespace: stub.storageNamespace,
+        context: stub, // Self-referential context
+        def: stub.def,
+        caseMap: ctx.caseMap,
+        isRoot: ctx.isRoot,
+        storagePrefix: ctx.storagePrefix,
         authorize: wrap('authorize'),
         getAuthorizedKeys: wrap('getAuthorizedKeys'),
         getScalarKeys: wrap('getScalarKeys'),
@@ -143,7 +164,7 @@ export function makeMockProtocol(overrides: any = {}): any {
         getReferenceKeys: wrap('getReferenceKeys'),
         getDefinition: wrap('getDefinition'),
         owns: wrap('owns'),
-        isRoot: wrap('isRoot'),
+        isRootProtocol: wrap('isRootProtocol'),
         isValidIdentity: wrap('isValidIdentity'),
         parse: wrap('parse'),
         normalize: wrap('normalize'),

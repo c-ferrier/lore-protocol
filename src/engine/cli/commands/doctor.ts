@@ -1,251 +1,185 @@
 import type { Command } from 'commander';
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { IConfigLoader } from '../../interfaces/config-loader.js';
 import type { IGitClient } from '../../interfaces/git-client.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { FormattableDoctorResult, DoctorCheck } from '../../core/types/output.js';
-import {  ActiveProtocol  } from '../../core/models/active-protocol.js';
+import type { EngineConfig } from '../../core/types/config.js';
+import type { AtomRepository } from '../../services/atom-repository.js';
+import type { FormattableDoctorResult } from '../../core/types/output.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import type { ILogger } from '../../interfaces/logger.js';
-import type { Atom } from '../../core/types/domain.js';
-import { ENGINE_CONFIG_SCHEMA } from '../../core/types/config.js';
-import { analyzeConfigGaps } from '../../util/config-analyzer.js';
-import { parse as parseToml } from 'smol-toml';
-import { readFile } from 'node:fs/promises';
-import { access } from 'node:fs/promises';
+import { getGitLogArgs } from '../../core/logic/query-targets.js';
+import { getProtocolIdentity } from '../../core/logic/identity.js';
+import { normalizeTrailers } from '../../core/logic/normalization.js';
+import { getReferenceKeys } from '../../core/logic/protocols.js';
 
 /**
  * Register the doctor command.
- * Performs automated health checks on the decision repository.
+ * Performs deep health checks on the repository state.
  */
 export function registerDoctorCommand(
   program: Command,
   deps: {
-    atomRepository: AtomRepository;
-    configLoader: IConfigLoader;
     gitClient: IGitClient;
+    atomRepository: AtomRepository;
     protocolRegistry: ProtocolRegistry;
     getFormatter: () => IOutputFormatter;
-    cacheDir: string;
-    defaultConfig: any;
+    config: EngineConfig;
     logger: ILogger;
   },
 ): void {
   program
     .command('doctor')
-    .description('Check the health of the decision repository')
+    .description('Health check: broken refs, config issues')
     .action(async () => {
-      const { atomRepository, configLoader, gitClient, protocolRegistry, getFormatter, cacheDir, defaultConfig, logger } = deps;
-      const formatter = getFormatter();
-      const checks: DoctorCheck[] = [];
+      const { gitClient, atomRepository, protocolRegistry, getFormatter, logger } = deps;
+      
+      const checks: Array<{ name: string; status: 'ok' | 'error' | 'warning'; message: string; details: string[] }> = [];
 
-      // 1. Git Repository Check
-      checks.push(await checkGitRepo(gitClient));
-
-      // 2. Configuration Check
-      checks.push(await checkConfig(configLoader, defaultConfig));
-
-      // 3. Cache Directory Check
-      const cacheExists = await fileExists(cacheDir);
-      checks.push({
-          name: 'Local Cache',
-          status: cacheExists ? 'ok' : 'warning',
-          message: cacheExists ? 'Cache directory initialized' : 'Cache directory missing',
-          details: cacheExists ? [] : ['Using defaults']
-      });
-
-      // 4. Multi-Protocol Checks
-      const isRepo = await gitClient.isInsideRepo();
-      if (isRepo) {
-          const atoms = await atomRepository.find(undefined, { maxCommits: 500 });
-          
-          // a. General Discovery Check
-          checks.push(checkAtoms(atoms));
-
-          for (const protocol of protocolRegistry.getAll()) {
-              checks.push(await checkProtocolIntegrity(atomRepository, protocol, atoms));
-              checks.push(await checkProtocolReferences(atomRepository, protocolRegistry, protocol, atoms));
-          }
+      // 1. Git Connectivity
+      try {
+        const root = await gitClient.getRepoRoot();
+        checks.push({
+          name: 'Git Connectivity',
+          status: 'ok',
+          message: `Repository root: ${root}`,
+          details: [],
+        });
+      } catch (err) {
+        checks.push({
+          name: 'Git Connectivity',
+          status: 'error',
+          message: 'Not in a git repository or git not found',
+          details: [err instanceof Error ? err.message : String(err)],
+        });
       }
 
-      const summary = {
-        total: checks.length,
-        errors: checks.filter((c) => c.status === 'error').length,
-        warnings: checks.filter((c) => c.status === 'warning').length,
-        info: checks.filter((c) => c.status === 'info').length,
-      };
-
-      const doctorResult: FormattableDoctorResult = {
-        status: summary.errors > 0 ? 'unhealthy' : 'healthy',
-        checks,
-        summary,
-      };
-
-      logger.result(formatter.formatDoctorResult(doctorResult));
-    });
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function checkGitRepo(gitClient: IGitClient): Promise<DoctorCheck> {
-  const isRepo = await gitClient.isInsideRepo();
-  if (!isRepo) {
-    return {
-      name: 'Git Repository',
-      status: 'error',
-      message: 'Not a git repository. Decisions must be stored in git.',
-      details: [],
-    };
-  }
-  return {
-    name: 'Git Repository',
-    status: 'ok',
-    message: 'Valid git repository found',
-    details: [],
-  };
-}
-
-async function checkConfig(configLoader: IConfigLoader, defaultConfig: any): Promise<DoctorCheck> {
-  const configPath = await configLoader.findConfigPath(process.cwd());
-  if (!configPath) {
-    return {
-      name: 'Configuration',
-      status: 'warning',
-      message: 'No local config file found. Using default protocol rules.',
-      details: [],
-    };
-  }
-
-  const details: string[] = [];
-  try {
-      const content = await readFile(configPath, 'utf-8');
-      const parsed = parseToml(content) as any;
-      const { missing } = analyzeConfigGaps(parsed, ENGINE_CONFIG_SCHEMA, defaultConfig);
-      if (missing.length > 0) {
-          details.push('Missing engine options:');
-          details.push(...missing.map(m => `  - ${m}`));
+      // 2. Configuration & Protocols
+      const protocols = protocolRegistry.getAll();
+      if (protocols.length === 0) {
+        checks.push({
+          name: 'Configuration',
+          status: 'warning',
+          message: 'No protocols registered',
+          details: ['The engine is running in agnostic mode with no schema enforcement.'],
+        });
+      } else {
+        checks.push({
+          name: 'Configuration',
+          status: 'ok',
+          message: `${protocols.length} protocol(s) active: ${protocols.map(p => p.name).join(', ')}`,
+          details: protocols.map(p => `  - ${p.name} v${p.version} (${p.storageNamespace || 'root'})`),
+        });
       }
-  } catch {
-      details.push('Failed to parse config for gap analysis');
-  }
 
-  return {
-    name: 'Configuration',
-    status: details.length > 0 ? 'warning' : 'ok',
-    message: details.length > 0 ? `Config file found with gaps at ${configPath}` : `Found and parsed ${configPath}`,
-    details,
-  };
-}
-
-function checkAtoms(atoms: Atom[]): DoctorCheck {
-  if (atoms.length === 0) {
-    return {
-      name: 'Decision Atoms',
-      status: 'info',
-      message: 'No atoms found in the last 500 commits.',
-      details: [],
-    };
-  }
-  return {
-    name: 'Decision Atoms',
-    status: 'ok',
-    message: `Discovered ${atoms.length} atoms in the last 500 commits`,
-    details: [],
-  };
-}
-
-async function checkProtocolIntegrity(
-  atomRepository: AtomRepository,
-  protocol: ActiveProtocol,
-  atoms: Atom[]
-): Promise<DoctorCheck> {
-  const counts = new Map<string, number>();
-  const protocolName = protocol.name.toLowerCase();
-
-  for (const atom of atoms) {
-    const state = atom.protocols.get(protocolName);
-    if (!state) continue;
-
-    const id = protocol.getIdentity(state);
-    if (id) {
-      counts.set(id, (counts.get(id) || 0) + 1);
-    }
-  }
-
-  const duplicates: string[] = [];
-  for (const [id, count] of counts.entries()) {
-    if (count > 1) {
-      duplicates.push(`${protocol.identityKey} "${id}" appears ${count} times`);
-    }
-  }
-
-  if (duplicates.length > 0) {
-    return {
-      name: `Identity Integrity (${protocol.name})`,
-      status: 'error',
-      message: `duplicate ${protocol.identityKey}(s) found`,
-      details: duplicates,
-    };
-  }
-
-  return {
-    name: `Identity Integrity (${protocol.name})`,
-    status: 'ok',
-    message: 'ok',
-    details: [],
-  };
-}
-
-async function checkProtocolReferences(
-  atomRepository: AtomRepository,
-  protocolRegistry: ProtocolRegistry,
-  protocol: ActiveProtocol,
-  atoms: Atom[]
-): Promise<DoctorCheck> {
-  const orphaned: string[] = [];
-  const refKeys = protocol.getReferenceKeys();
-  const protocolName = protocol.name.toLowerCase();
-
-  for (const atom of atoms) {
-    const state = atom.protocols.get(protocolName);
-    if (!state) continue;
-
-    for (const key of refKeys) {
-      const ids = state.trailers[key] || [];
-      for (const id of ids) {
-        try {
-          const identity = protocolRegistry.resolveIdentity(id, protocolName);
-          const target = await atomRepository.findById(identity);
-          if (!target) {
-            orphaned.push(`${protocol.identityKey} "${id}" referenced by ${atom.commitHash.slice(0, 8)} (${key}) not found`);
-          }
-        } catch (err) {
-          orphaned.push(`Invalid reference "${id}" in ${atom.commitHash.slice(0, 8)} (${key}): ${err instanceof Error ? err.message : String(err)}`);
+      // 3. Scan for "Broken Links" and "Duplicates"
+      try {
+        const atoms = await atomRepository.find(undefined, { maxCommits: 500 });
+        
+        // 3a. Identity Integrity (Uniqueness)
+        const idCounts = new Map<string, string[]>(); // qualifiedId -> commitHashes[]
+        for (const atom of atoms) {
+            for (const [pName, state] of atom.protocols) {
+                const p = protocolRegistry.get(pName);
+                if (!p) continue;
+                const id = p.getIdentity(state);
+                if (id) {
+                    const fullId = `${pName.toLowerCase()}/${id}`;
+                    const existing = idCounts.get(fullId) || [];
+                    idCounts.set(fullId, [...existing, atom.commitHash]);
+                }
+            }
         }
+
+        const duplicates = Array.from(idCounts.entries()).filter(([_, hashes]) => hashes.length > 1);
+        if (duplicates.length > 0) {
+            checks.push({
+              name: 'Identity Integrity',
+              status: 'error',
+              message: `Found ${duplicates.length} duplicate identities`,
+              details: duplicates.map(([id, hashes]) => `  - ${id} is used in commits: ${hashes.join(', ')}`),
+            });
+        } else {
+            const totalIds = Array.from(idCounts.keys()).length;
+            checks.push({
+              name: 'Identity Integrity',
+              status: 'ok',
+              message: `All ${totalIds} identities are unique`,
+              details: [],
+            });
+        }
+
+        // 3b. Reference Integrity (Broken Links)
+        const knownIds = new Set(idCounts.keys());
+        const brokenRefs: Array<{ commit: string, key: string, id: string, pName: string }> = [];
+
+        // We need to re-parse raw trailers to find references because Atoms only store normalized data
+        const logPatterns = protocolRegistry.getDiscoveryPatterns();
+        const rawCommits = await gitClient.query({
+            regexPatterns: [logPatterns],
+            maxCommits: 500
+        });
+
+        for (const raw of rawCommits) {
+          const detected = protocolRegistry.detect(raw.trailers);
+          for (const p of detected) {
+            const parsed = p.normalize(Object.fromEntries(
+                raw.trailers.split('\n').map(l => {
+                  const [k, ...v] = l.split(':');
+                  return [k.trim(), [v.join(':').trim()]];
+                })
+            ));
+
+            for (const key of p.getReferenceKeys()) {
+                const refs = parsed.trailers[key] || [];
+                for (const val of refs) {
+                    try {
+                        const identity = protocolRegistry.resolveIdentity(val, p.name);
+                        const lookupKey = `${identity.protocol.toLowerCase()}/${identity.id}`;
+                        if (!knownIds.has(lookupKey)) {
+                            brokenRefs.push({ commit: raw.hash, key, id: val, pName: p.name });
+                        }
+                    } catch { /* skip */ }
+                }
+            }
+          }
+        }
+
+        if (brokenRefs.length > 0) {
+            checks.push({
+              name: 'Reference Integrity',
+              status: 'error',
+              message: `Found ${brokenRefs.length} broken cross-references`,
+              details: brokenRefs.map(r => `  - ${r.commit.slice(0, 8)}: "${r.id}" (referenced in ${r.key}) was not found`),
+            });
+        } else {
+            checks.push({
+              name: 'Reference Integrity',
+              status: 'ok',
+              message: 'All cross-protocol references are resolvable',
+              details: [],
+            });
+        }
+
+      } catch (err) {
+        checks.push({
+          name: 'History Integrity',
+          status: 'error',
+          message: 'Failed to complete history scan',
+          details: [err instanceof Error ? err.message : String(err)],
+        });
       }
-    }
-  }
 
-  if (orphaned.length > 0) {
-    return {
-      name: `Reference Integrity (${protocol.name})`,
-      status: 'error',
-      message: 'broken reference(s) found',
-      details: orphaned,
-    };
-  }
+      const formattable: FormattableDoctorResult = {
+        status: checks.some(c => c.status === 'error') ? 'unhealthy' : 'healthy',
+        checks,
+        summary: {
+          total: checks.length,
+          errors: checks.filter(c => c.status === 'error').length,
+          warnings: checks.filter(c => c.status === 'warning').length,
+          info: checks.filter(c => c.status === 'ok').length,
+        },
+      };
 
-  return {
-    name: `Reference Integrity (${protocol.name})`,
-    status: 'ok',
-    message: 'ok',
-    details: [],
-  };
+      const formatter = getFormatter();
+      logger.result(formatter.formatDoctorResult(formattable));
+    });
 }

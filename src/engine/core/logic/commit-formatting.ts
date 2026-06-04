@@ -1,11 +1,12 @@
 import type { EngineConfig } from '../types/config.js';
-import type { AtomId } from '../types/domain.js';
+import type { AtomId, ProtocolState } from '../types/domain.js';
 import type { CommitInput } from '../types/commit.js';
 import type { ValidationIssue } from '../types/output.js';
 import { ProtocolError } from '../../util/errors.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import { serializeTrailers } from './trailers.js';
 import { generateId } from './identity.js';
+import { normalizeTrailers } from './normalization.js';
 
 /**
  * Builds a full git commit message with subject, body, and trailer block.
@@ -23,35 +24,35 @@ export function formatCommit(
 
   // 1. Map logically grouped input into physical storage buckets
   for (const [pName, pTrailers] of input.trailers.entries()) {
-    const protocol = registry.get(pName);
+    const p = registry.get(pName);
     
-    if (!protocol) {
+    if (!p) {
         throw new ProtocolError(`Unknown protocol "${pName}" in commit input`, 1);
     }
 
-    const ns = protocol.storageNamespace;
-    const id = (existingIds && existingIds[pName]) || generateId(protocol);
+    const ns = p.storageNamespace;
+    const id = (existingIds && existingIds[pName]) || generateId(p);
 
     protocols[pName] = {
       id,
-      identity_key: protocol.identityKey,
-      version: protocol.version,
+      identity_key: p.identityKey,
+      version: p.version,
     };
 
     // Add identity trailer to the appropriate Git scope
     if (ns) {
         const existing = serializedTrailers[ns] || [];
-        existing.push(`${protocol.identityKey}: ${id}`);
+        existing.push(`${p.identityKey}: ${id}`);
         serializedTrailers[ns] = existing;
         if (!displayOrder.includes(ns)) displayOrder.push(ns);
     } else {
-        serializedTrailers[protocol.identityKey] = [id];
-        displayOrder.push(protocol.identityKey);
+        serializedTrailers[p.identityKey] = [id];
+        displayOrder.push(p.identityKey);
     }
 
     // Collect other authorized keys from input
     for (const [key, values] of Object.entries(pTrailers)) {
-      if (key === protocol.identityKey) continue;
+      if (key === p.identityKey) continue;
       
       if (values && values.length > 0) {
         if (ns) {
@@ -70,27 +71,27 @@ export function formatCommit(
   }
 
   // 2. Ensure all registered protocols have an identity, even if they had no input trailers
-  for (const protocol of registry.getAll()) {
-      const pName = protocol.name;
+  for (const p of registry.getAll()) {
+      const pName = p.name;
       if (protocols[pName]) continue;
 
-      const id = (existingIds && existingIds[pName]) || generateId(protocol);
-      const ns = protocol.storageNamespace;
+      const id = (existingIds && existingIds[pName]) || generateId(p);
+      const ns = p.storageNamespace;
 
       protocols[pName] = {
           id,
-          identity_key: protocol.identityKey,
-          version: protocol.version,
+          identity_key: p.identityKey,
+          version: p.version,
       };
 
       if (ns) {
           const existing = serializedTrailers[ns] || [];
-          existing.push(`${protocol.identityKey}: ${id}`);
+          existing.push(`${p.identityKey}: ${id}`);
           serializedTrailers[ns] = existing;
           if (!displayOrder.includes(ns)) displayOrder.push(ns);
       } else {
-          serializedTrailers[protocol.identityKey] = [id];
-          displayOrder.push(protocol.identityKey);
+          serializedTrailers[p.identityKey] = [id];
+          displayOrder.push(p.identityKey);
       }
   }
 
@@ -120,14 +121,14 @@ export async function validateFormatting(
 
   // 1. Validate protocols present in the input
   for (const [pName, pTrailers] of input.trailers.entries()) {
-    const protocol = registry.get(pName);
+    const p = registry.get(pName);
     
-    if (!protocol) {
+    if (!p) {
         continue;
     }
 
-    const ns = protocol.storageNamespace;
-    validatedProtocols.add(protocol.name);
+    const ns = p.storageNamespace;
+    validatedProtocols.add(p.name);
 
     // A. Normalize: Expert categorizes raw map into domain state (Authorized vs Unauthorized)
     let rawMapForNormalize: Record<string, string[]>;
@@ -145,18 +146,18 @@ export async function validateFormatting(
         );
     }
     
-    const state = protocol.normalize(rawMapForNormalize, lowerClaimed);
+    const state = p.normalize(rawMapForNormalize, lowerClaimed);
 
     // B. Validate: Expert reviews the structured state
-    const bucketIssues = protocol.validateState(state);
+    const bucketIssues = p.validateState(state, registry);
 
     // C. Post-process: Filter out "missing identity" errors if the protocol provides a generator
-    const protocolSlug = protocol.name.toLowerCase().replace(/-/g, '');
+    const protocolSlug = p.name.toLowerCase().replace(/-/g, '');
     const identityRule = `${protocolSlug}-id-present`;
 
     const filteredIssues = bucketIssues.filter(issue => {
-        if (issue.rule === identityRule || (issue.rule === 'required-trailer' && issue.field === protocol.identityKey)) {
-            const def = protocol.getDefinition(protocol.identityKey);
+        if (issue.rule === identityRule || (issue.rule === 'required-trailer' && issue.field === p.identityKey)) {
+            const def = p.getDefinition(p.identityKey);
             if (def?.generator && def.generator !== 'none') return false;
         }
         return true;
@@ -167,20 +168,20 @@ export async function validateFormatting(
 
   // 2. Global Integrity: Ensure all registered protocols have their requirements met
   // (even if they were missing from the input trailers map entirely)
-  for (const protocol of registry.getAll()) {
-      if (validatedProtocols.has(protocol.name)) continue;
+  for (const p of registry.getAll()) {
+      if (validatedProtocols.has(p.name)) continue;
 
       // Perform validation on an empty state to catch missing required trailers
-      const emptyState = protocol.normalize({}, lowerClaimed);
-      const bucketIssues = protocol.validateState(emptyState);
+      const emptyState = p.normalize({}, lowerClaimed);
+      const bucketIssues = p.validateState(emptyState, registry);
 
       // Filter out identity issues as they are handled during build()
-      const protocolSlug = protocol.name.replace(/-/g, '');
+      const protocolSlug = p.name.toLowerCase().replace(/-/g, '');
       const identityRule = `${protocolSlug}-id-present`;
 
       const filteredIssues = bucketIssues.filter(issue => {
-          if (issue.rule === identityRule || (issue.rule === 'required-trailer' && issue.field === protocol.identityKey)) {
-              const def = protocol.getDefinition(protocol.identityKey);
+          if (issue.rule === identityRule || (issue.rule === 'required-trailer' && issue.field === p.identityKey)) {
+              const def = p.getDefinition(p.identityKey);
               if (def?.generator && def.generator !== 'none') return false;
           }
           return true;

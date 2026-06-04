@@ -1,9 +1,9 @@
-import type { TrailerDefinition } from './config.js';
+import type { TrailerDefinition, StaleIfCondition } from './config.js';
 import type { 
-    Atom, 
-    StaleReason, 
-    SupersessionStatus, 
-    ProtocolState 
+    ProtocolState, 
+    Atom,
+    SupersessionStatus,
+    StaleReason,
 } from './domain.js';
 import type { ValidationIssue, FormattableTrailerDefinition } from './output.js';
 import type { QualifiedFilter, QueryIdentity } from './query.js';
@@ -17,39 +17,7 @@ export interface IIdentityResolver {
 }
 
 /**
- * Functional interface for a Protocol implementation.
- */
-export interface IProtocol {
-    readonly name: string;
-    readonly version: string;
-    readonly strict: boolean;
-    readonly permissive: boolean;
-    readonly identityKey: string;
-    readonly storageNamespace: string;
-
-    authorize(key: string): string | null;
-    getAuthorizedKeys(): string[];
-    getScalarKeys(): string[];
-    getListKeys(): string[];
-    getReferenceKeys(): string[];
-    getDefinition(key: string): TrailerDefinition | null;
-    owns(key: string): boolean;
-    isRoot(): boolean;
-    isValidIdentity(id: string): boolean;
-    parse(raw: string, claimedKeys?: Set<string>): ProtocolState;
-    normalize(rawMap: Record<string, readonly string[]>, claimedKeys?: Set<string>): ProtocolState;
-    getIdentity(state?: ProtocolState | null): string | null;
-    validateState(state: ProtocolState, resolver?: IIdentityResolver): ValidationIssue[];
-    validateTrailer(key: string, value: string, resolver?: IIdentityResolver): { valid: boolean; message?: string; rule?: string };
-    isCore(key: string): boolean;
-    matches(state: ProtocolState, filters: readonly QualifiedFilter[]): boolean;
-    getFormattableDefinitions(): Record<string, FormattableTrailerDefinition>;
-    getStaleSignals(atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[];
-}
-
-/**
  * Static definition for a protocol's metadata and schema.
- * Allows protocols to be defined as pluggable objects.
  */
 export interface ProtocolDefinition {
   readonly name: string;
@@ -64,7 +32,6 @@ export interface ProtocolDefinition {
 
 /**
  * Operationally optimized view of a Protocol.
- * Created once per protocol at bootstrap to avoid repetitive casing/string math.
  */
 export interface ProtocolContext {
     readonly def: ProtocolDefinition;
@@ -73,4 +40,41 @@ export interface ProtocolContext {
     readonly isRoot: boolean;
     /** "Namespace: " or "" */
     readonly storagePrefix: string;
+}
+
+/**
+ * Domain model for a Protocol.
+ * Combines optimized context with behavioral methods.
+ */
+export interface IProtocol extends ProtocolContext {
+    readonly name: string;
+    readonly version: string;
+    readonly strict: boolean;
+    readonly permissive: boolean;
+    readonly identityKey: string;
+    readonly storageNamespace: string;
+    
+    authorize(key: string): string | null;
+    isValidIdentity(id: string): boolean;
+    getIdentity(state?: ProtocolState | null): string | null;
+    getAuthorizedKeys(): string[];
+    getScalarKeys(): string[];
+    getListKeys(): string[];
+    getReferenceKeys(): string[];
+    getDefinition(key: string): TrailerDefinition | null;
+    getStoragePrefix(): string;
+    getQualifiedKey(key: string): string;
+    isBucketOwner(key: string): boolean;
+    owns(key: string): boolean;
+    isRootProtocol(): boolean;
+    normalize(rawMap: Record<string, readonly string[]>, claimedKeys?: Set<string>): ProtocolState;
+    validateState(state: ProtocolState, resolver?: IIdentityResolver): ValidationIssue[];
+    validateTrailer(key: string, value: string, resolver?: IIdentityResolver): { valid: boolean; message?: string; rule?: string };
+    isCore(key: string): boolean;
+    matches(state: ProtocolState, filters: readonly QualifiedFilter[]): boolean;
+    claims(raw: string): boolean;
+    getDiscoveryPatterns(): string[];
+    getSearchPatterns(filters: readonly QualifiedFilter[]): string[][];
+    getFormattableDefinitions(): Record<string, FormattableTrailerDefinition>;
+    getStaleSignals(atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[];
 }

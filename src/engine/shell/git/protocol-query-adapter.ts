@@ -1,4 +1,4 @@
-import type { ProtocolContext } from '../../core/types/protocol-definition.js';
+import type { ProtocolContext, IProtocol } from '../../core/types/protocol-definition.js';
 import type { QualifiedFilter, FilterOperator } from '../../core/types/query.js';
 import type { ProtocolState } from '../../core/types/domain.js';
 import { escapeRegex } from '../../util/regex.js';
@@ -32,8 +32,7 @@ export function getDiscoveryPatterns(ctx: ProtocolContext): string[] {
  * Generates a specific pattern to find a single identity.
  */
 export function getIdentityPattern(id: string, ctx: ProtocolContext): string {
-    const { def, storagePrefix } = ctx;
-    return `^${escapeRegex(storagePrefix)}${escapeRegex(def.identityKey)}: ${escapeRegex(id)}$`;
+    return `^${escapeRegex(ctx.storagePrefix)}${escapeRegex(ctx.def.identityKey)}: ${escapeRegex(id)}$`;
 }
 
 /**
@@ -44,8 +43,8 @@ export function getSearchPatterns(filters: readonly QualifiedFilter[], ctx: Prot
     const { storagePrefix } = ctx;
 
     for (const filter of filters) {
-        // 1. Authorize the key for this protocol
-        const authorizedKey = authorizeKey(filter.key, ctx);
+        // Use method if available (handles mocks), fallback to logic function
+        const authorizedKey = (ctx as any).authorize ? (ctx as any).authorize(filter.key) : authorizeKey(filter.key, ctx);
         if (!authorizedKey) continue;
 
         // 2. Format based on operator
@@ -72,13 +71,14 @@ export function matchesFilters(state: ProtocolState, filters: readonly Qualified
             continue;
         }
 
-        // 2. Ownership check: If we don't own it and it's root search, ignore it (always matches)
-        if (!ownsKey(filter.key, ctx) && filter.protocol === null) {
+        // 2. Ownership check
+        const isOwner = (ctx as any).owns ? (ctx as any).owns(filter.key) : ownsKey(filter.key, ctx);
+        if (!isOwner && filter.protocol === null) {
             continue;
         }
 
         // 3. Authorization check
-        const authorizedKey = authorizeKey(filter.key, ctx);
+        const authorizedKey = (ctx as any).authorize ? (ctx as any).authorize(filter.key) : authorizeKey(filter.key, ctx);
         if (!authorizedKey) return false;
 
         // 4. Value evaluation

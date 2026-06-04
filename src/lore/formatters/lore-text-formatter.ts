@@ -11,6 +11,8 @@ import {
     type ErrorMessage
  } from '../../engine/index.js';
 import { createBaseFormatter } from '../../engine/formatters/index.js';
+import { getProtocolIdentity } from '../../engine/core/logic/identity.js';
+import { getAuthorizedKeys } from '../../engine/core/logic/protocols.js';
 import chalk from 'chalk';
 
 /**
@@ -66,7 +68,7 @@ export class LoreTextFormatter implements IOutputFormatter {
     for (const atom of result.atoms) {
       const loreState = atom.protocols.get('lore');
       const id = (loreState && loreProtocol) 
-        ? (loreProtocol.getIdentity(loreState) || atom.commitHash.slice(0, 8))
+        ? (getProtocolIdentity(loreState, loreProtocol) || atom.commitHash.slice(0, 8))
         : atom.commitHash.slice(0, 8);
 
       const status = id ? (loreState?.supersession || { superseded: false, supersededBy: [] }) : { superseded: false, supersededBy: [] };
@@ -91,7 +93,7 @@ export class LoreTextFormatter implements IOutputFormatter {
       if (loreState && loreProtocol) {
           // Use the priority order defined in the protocol (Core + Custom)
           // 0.5.0 Parity: Suppress ad-hoc/permissive trailers. Only show authorized ones.
-          const authorizedKeys = loreProtocol.getAuthorizedKeys();
+          const authorizedKeys = getAuthorizedKeys(loreProtocol);
           
           for (const key of authorizedKeys) {
               if (key === 'Lore-id') continue;
@@ -161,7 +163,7 @@ export class LoreTextFormatter implements IOutputFormatter {
       const { atom } = report;
       const loreState = atom.protocols.get('lore');
       const id = (loreState && loreProtocol)
-          ? (loreProtocol.getIdentity(loreState) || atom.commitHash.slice(0, 8))
+          ? (getProtocolIdentity(loreState, loreProtocol) || atom.commitHash.slice(0, 8))
           : atom.commitHash.slice(0, 8);
       
       const dateStr = atom.date.toISOString().slice(0, 10);
@@ -191,14 +193,15 @@ export class LoreTextFormatter implements IOutputFormatter {
     
     const renderNode = (node: Atom, depth: number, prefix: string = '') => {
       const loreState = node.protocols.get('lore');
-      const id = (loreState) 
-          ? (this.registry.get('lore')?.getIdentity(loreState) || node.commitHash.slice(0, 8))
+      const loreProtocol = this.registry.get('lore');
+      const id = (loreState && loreProtocol) 
+          ? (getProtocolIdentity(loreState, loreProtocol) || node.commitHash.slice(0, 8))
           : node.commitHash.slice(0, 8);
       
       lines.push(`${prefix}${id} ${node.subject}`);
       
       const nodeHashPrefix = node.commitHash.slice(0, 8);
-      const nodeId = loreState ? this.registry.get('lore')?.getIdentity(loreState) : null;
+      const nodeId = (loreState && loreProtocol) ? getProtocolIdentity(loreState, loreProtocol) : null;
 
       const edges = data.edges.filter(e => e.from === nodeId || e.from === nodeHashPrefix);
       for (let i = 0; i < edges.length; i++) {
@@ -209,8 +212,8 @@ export class LoreTextFormatter implements IOutputFormatter {
           const connector = isLast ? '└──' : '├──';
           
           const targetLoreState = target.protocols.get('lore');
-          const targetId = targetLoreState 
-              ? (this.registry.get('lore')?.getIdentity(targetLoreState) || target.commitHash.slice(0, 8))
+          const targetId = (targetLoreState && loreProtocol)
+              ? (getProtocolIdentity(targetLoreState, loreProtocol) || target.commitHash.slice(0, 8))
               : target.commitHash.slice(0, 8);
           
           lines.push(`${prefix}${connector} [${edge.relationship}] ${targetId} ${target.subject}`);
@@ -268,8 +271,7 @@ export class LoreTextFormatter implements IOutputFormatter {
         if (patternMatch) {
           // If it's a Lore identity failure that didn't hit the specific ID rule above
           if (issue.rule.endsWith('-id-format')) {
-              const idVal = message.match(/"([^"]+)"/)?.[1] || ''; // This is tricky, we don't have the value easily here
-              // Fallback to a generic valid-looking Lore message if we can't reconstruct perfectly
+              // const idVal = message.match(/"([^"]+)"/)?.[1] || '';
           }
         }
 
@@ -287,17 +289,46 @@ export class LoreTextFormatter implements IOutputFormatter {
 
   formatDoctorResult(data: FormattableDoctorResult): string {
     const lines: string[] = [];
-    const checks = data.checks.filter(c => c.name !== 'Git Repository' && c.name !== 'Local Cache' && c.name !== 'Decision Atoms');
+    const excluded = ['Git Repository', 'Local Cache', 'Decision Atoms', 'Git Connectivity', 'Protocols'];
+    const checks = data.checks
+        .filter(c => !excluded.includes(c.name))
+        .map(c => {
+            let name = c.name;
+            let details = [...c.details];
+            let message = c.message;
+
+            if (name === 'Configuration') {
+                name = 'Config file';
+                details = []; // Lore 0.5.0 had no details for config check
+                if (c.status === 'ok') message = 'ok';
+            }
+            if (name === 'Identity Integrity') {
+                name = 'Lore-id uniqueness';
+                if (c.status === 'ok') {
+                    // All X identities are unique
+                    message = c.message.replace('identities', 'Lore-ids');
+                }
+            }
+            if (name === 'Reference Integrity') {
+                name = 'Reference resolution';
+                if (c.status === 'ok') message = 'All references resolve to existing atoms';
+            }
+            if (name === 'Orphaned dependencies') {
+                if (c.status === 'ok') message = 'No orphaned dependencies found';
+            }
+
+            return { ...c, name, message, details };
+        });
 
     // 0.5.0 Parity: Ensure all three integrity checks are present
     const integrityCheckNames = ['Lore-id uniqueness', 'Reference resolution', 'Orphaned dependencies'];
     
     for (const nameToEnsure of integrityCheckNames) {
-        if (!checks.find(c => c.name.startsWith(nameToEnsure) || (nameToEnsure === 'Lore-id uniqueness' && c.name.includes('Identity')) || (nameToEnsure === 'Reference resolution' && c.name.includes('Reference')))) {
+        if (!checks.find(c => c.name === nameToEnsure)) {
             checks.push({
                 name: nameToEnsure,
                 status: 'ok',
-                message: nameToEnsure === 'Orphaned dependencies' ? 'No orphaned dependencies found' : 'ok',
+                message: nameToEnsure === 'Orphaned dependencies' ? 'No orphaned dependencies found' : (nameToEnsure === 'Reference resolution' ? 'All references resolve to existing atoms' : 'ok'),
                 details: []
             });
         }
@@ -326,42 +357,11 @@ export class LoreTextFormatter implements IOutputFormatter {
         default:
           statusLabel = this.c.dim((check.status as string || 'unknown').toUpperCase());
       }
-      
-      let name = check.name;
-      let message = check.message;
-
-      if (name === 'Configuration') {
-          name = 'Config file';
-          if (checkStatus === 'ok') {
-              message = check.message;
-          }
-          if (checkStatus === 'warning') {
-              // 0.5.0 parity: if we have legacy config but no engine config, it's OK for Lore
-              statusLabel = this.c.green('OK');
-              checkStatus = 'ok';
-              message = 'Found and parsed .lore/config.toml';
-          }
-      }
-      if (name.startsWith('Identity Integrity')) {
-          name = 'Lore-id uniqueness';
-          if (checkStatus === 'ok') {
-              const countMatch = check.message.match(/\d+/);
-              const count = countMatch ? countMatch[0] : '0';
-              message = `All ${count} Lore-ids are unique`;
-          }
-      }
-      if (name.startsWith('Reference Integrity')) {
-          name = 'Reference resolution';
-          if (checkStatus === 'ok') message = 'All references resolve to existing atoms';
-      }
-      if (name === 'Orphaned dependencies') {
-          if (checkStatus === 'ok') message = 'No orphaned dependencies found';
-      }
 
       if (checkStatus === 'warning') warningCount++;
       if (checkStatus === 'error') errorCount++;
 
-      lines.push(`${statusLabel}  ${name}: ${message}`);
+      lines.push(`${statusLabel}  ${check.name}: ${check.message}`);
 
       for (const detail of check.details || []) {
         lines.push(`  ${this.c.dim(detail)}`);

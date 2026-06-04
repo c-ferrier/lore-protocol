@@ -67,55 +67,55 @@ export function registerCommitCommand(
     
     const isNoEdit = options.edit === false;
 
-    try {
-      if (isNoEdit && !options.amend) {
-        throw new ProtocolError('--no-edit can only be used with --amend', 1);
+    if (isNoEdit && !options.amend) {
+      throw new ProtocolError('--no-edit can only be used with --amend', 1);
+    }
+
+    const formatter = getFormatter();
+
+    if (options.amend && isNoEdit) {
+      // Validation: --no-edit is mutually exclusive with any flag that changes atom data
+      const hasCoreInput = !!(options.subject || options.body || options.file || options.interactive);
+      const hasTrailers = !!(options.trailer && options.trailer.length > 0);
+
+      // Identify any dynamic protocol-specific flags passed
+      const protocolFlags = new Set<string>();
+      for (const p of protocolRegistry.getAll()) {
+          for (const key of p.getAuthorizedKeys()) {
+              const def = p.getDefinition(key);
+              if (def) protocolFlags.add(def.cli?.flag || slugify(key));
+          }
+      }
+      
+      const hasProtocolInput = Object.keys(options).some(k => {
+          if (!protocolFlags.has(k)) return false;
+          const val = options[k];
+          if (Array.isArray(val)) return val.length > 0;
+          return !!val;
+      });
+
+      if (hasCoreInput || hasTrailers || hasProtocolInput) {
+        throw new ProtocolError('--no-edit keeps the existing message unchanged; it cannot be combined with other input flags', 1);
       }
 
-      const formatter = getFormatter();
-
-      if (options.amend && isNoEdit) {
-        // Validation: --no-edit is mutually exclusive with any flag that changes atom data
-        const hasCoreInput = !!(options.subject || options.body || options.file || options.interactive);
-        const hasTrailers = !!(options.trailer && options.trailer.length > 0);
-
-        // Identify any dynamic protocol-specific flags passed
-        const protocolFlags = new Set<string>();
-        for (const p of protocolRegistry.getAll()) {
-            for (const key of p.getAuthorizedKeys()) {
-                const def = p.getDefinition(key) as TrailerDefinition;
-                protocolFlags.add(def.cli?.flag || slugify(key));
-            }
-        }
-        
-        const hasProtocolInput = Object.keys(options).some(k => {
-            if (!protocolFlags.has(k)) return false;
-            const val = options[k];
-            if (Array.isArray(val)) return val.length > 0;
-            return !!val;
-        });
-
-        if (hasCoreInput || hasTrailers || hasProtocolInput) {
-          throw new ProtocolError('--no-edit keeps the existing message unchanged; it cannot be combined with other input flags', 1);
-        }
-
-        const hasStaged = await gitClient.hasStagedChanges();
-        if (!hasStaged) {
-          throw new ProtocolError('No staged changes to commit. Use `git add` to stage files.', 3);
-        }
-
-        const result = await gitClient.commit('', { amend: true, noEdit: true });
-        console.log(formatter.formatSuccess(result.message, { hash: result.hash }));
-        return;
+      const hasStaged = await gitClient.hasStagedChanges();
+      if (!hasStaged) {
+        throw new ProtocolError('No staged changes to commit. Use `git add` to stage files.', 3);
       }
 
-// Normal path
-if (!options.amend) {
-  const hasStaged = await gitClient.hasStagedChanges();
-  if (!hasStaged) {
-    throw new ProtocolError('No staged changes to commit. Use `git add` to stage files.', 3);
-  }
-}
+      const result = await gitClient.commit('', { amend: true, noEdit: true });
+      console.log(formatter.formatSuccess(result.message, { hash: result.hash }));
+      return;
+    }
+
+    // Normal path
+    if (!options.amend) {
+      const hasStaged = await gitClient.hasStagedChanges();
+      if (!hasStaged) {
+        throw new ProtocolError('No staged changes to commit. Use `git add` to stage files.', 3);
+      }
+    }
+
     const input = await commitInputResolver.read(options);
 
     // Validate input before building
@@ -133,30 +133,15 @@ if (!options.amend) {
     const { message, protocols } = formatCommit(input, config, protocolRegistry, existingIds);
     const result = await gitClient.commit(message, { amend: options.amend });
 
-// Log warnings if any (non-fatal)
-const warnings = validationIssues.filter(i => i.severity === 'warning');
-if (warnings.length > 0) {
-    const { logger } = deps;
-    for (const w of warnings) logger.warn(w.message);
-}
+    // Log warnings if any (non-fatal)
+    const warnings = validationIssues.filter(i => i.severity === 'warning');
+    if (warnings.length > 0) {
+        for (const w of warnings) logger.warn(w.message);
+    }
 
-console.log(formatter.formatSuccess(result.message, { 
-  hash: result.hash,
-  protocols 
-}));
-} catch (error) {
-if (error instanceof ProtocolError) {
-  const formatter = getFormatter();
-  console.error(formatter.formatError(error.exitCode || 1, [{ severity: 'error', message: error.message }]));
-
-  // Use commander's error handling if possible, or only exit if not in test
-  if ((command as any)._exitCallback) {
-      throw error;
-  }
-  process.exit(error.exitCode || 1);
-}
-throw error;
-}
-
+    console.log(formatter.formatSuccess(result.message, { 
+      hash: result.hash,
+      protocols 
+    }));
   });
 }

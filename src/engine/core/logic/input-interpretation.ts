@@ -4,6 +4,7 @@ import type { EngineConfig } from '../types/config.js';
 import { ProtocolMap } from '../models/protocol-map.js';
 import { slugify, camelCase } from '../../util/string.js';
 import { ProtocolError } from '../../util/errors.js';
+import { authorizeKey } from './ownership.js';
 
 /**
  * The modes of commit input resolution, ordered by priority.
@@ -48,7 +49,6 @@ export function selectInputMode(options: CommitCommandOptions): InputMode {
     return InputMode.Flags;
   }
   
-  // Note: Stdin vs Interactive check still requires TTY check in the service shell.
   return InputMode.Stdin;
 }
 
@@ -61,18 +61,19 @@ export function parseFlagsToInput(options: CommitCommandOptions, registry: Proto
     const protocols = registry.getAll();
 
     // 1. Dynamically map all authorized trailers from registered flags
-    for (const protocol of protocols) {
-        const authorizedKeys = protocol.getAuthorizedKeys();
-        const ns = protocol.storageNamespace;
-        const protocolName = protocol.name;
+    for (const ctx of protocols) {
+        const { def } = ctx;
+        const authorizedKeys = Object.keys(def.trailers);
+        const ns = def.namespace;
+        const protocolName = def.name;
 
         for (const key of authorizedKeys) {
-            if (key === protocol.identityKey) continue;
+            if (key === def.identityKey) continue;
 
-            const def = protocol.getDefinition(key);
-            if (!def) continue;
+            const tDef = def.trailers[key];
+            if (!tDef) continue;
 
-            const shortFlag = def.cli?.flag || slugify(key);
+            const shortFlag = tDef.cli?.flag || slugify(key);
             const fullFlag = ns ? `${slugify(ns)}:${shortFlag}` : shortFlag;
             
             const camelShort = camelCase(shortFlag);
@@ -84,11 +85,11 @@ export function parseFlagsToInput(options: CommitCommandOptions, registry: Proto
                              (options as Record<string, unknown>)[shortFlag];
 
             if (flagValue !== undefined && flagValue !== null) {
-                const pMap = trailersMap.get(protocolName) ?? {};
+                const pMap = trailersMap.get(protocolName.toLowerCase()) || trailersMap.get(protocolName) || {};
                 pMap[key] = Array.isArray(flagValue) 
                     ? flagValue.map(v => String(v)) 
                     : [String(flagValue)];
-                trailersMap.set(protocolName, pMap);
+                trailersMap.set(protocolName.toLowerCase(), pMap);
             }
         }
     }
@@ -97,30 +98,30 @@ export function parseFlagsToInput(options: CommitCommandOptions, registry: Proto
     const catchAllEntries = parseCustomTrailers(options.trailer);
     for (const entry of catchAllEntries) {
         const { protocolName: entryProtocolName, key, values } = entry;
-        let targetProtocol = entryProtocolName 
+        let targetCtx = entryProtocolName 
             ? registry.get(entryProtocolName) 
             : registry.resolveKey(key);
 
-        if (targetProtocol) {
-            const authorizedKey = targetProtocol.authorize(key);
+        if (targetCtx) {
+            const authorizedKey = authorizeKey(key, targetCtx);
             if (authorizedKey) {
-                const pName = targetProtocol.name;
-                const pMap = trailersMap.get(pName) ?? {};
+                const pName = targetCtx.def.name.toLowerCase();
+                const pMap = trailersMap.get(pName) || {};
                 const existing = pMap[authorizedKey] || [];
                 pMap[authorizedKey] = [...existing, ...values];
                 trailersMap.set(pName, pMap);
                 continue;
             }
-            if (entryProtocolName && !targetProtocol) {
+            if (entryProtocolName) {
                 throw new ProtocolError(`Unknown protocol prefix "${entryProtocolName}" in trailer "${key}"`, 1);
             }
         }
 
         // C. Orphan Fallback (Permissive Root)
-        const rootProtocol = registry.getRoot();
-        if (rootProtocol?.permissive) {
-            const pName = rootProtocol.name;
-            const pMap = trailersMap.get(pName) ?? {};
+        const root = registry.getRoot();
+        if (root?.def.permissive) {
+            const pName = root.def.name.toLowerCase();
+            const pMap = trailersMap.get(pName) || {};
             const existing = pMap[key] || [];
             pMap[key] = [...existing, ...values];
             trailersMap.set(pName, pMap);

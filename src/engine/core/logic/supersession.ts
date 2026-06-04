@@ -1,5 +1,6 @@
 import { ProtocolMap, type Atom, type SupersessionStatus } from '../types/domain.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { getProtocolIdentity } from './identity.js';
 
 /**
  * Computes supersession chains and determines which atoms are active vs. superseded.
@@ -10,17 +11,17 @@ export function resolveSupersession(atoms: readonly Atom[], registry: ProtocolRe
   const atomByQualifiedId = new Map<string, Atom>();
 
   // 1. Initialize global status map and ID lookup
-  for (const protocol of registry.getAll()) {
-    const pName = protocol.name;
+  for (const p of registry.getAll()) {
+    const pName = p.name.toLowerCase();
     const statusMap = new Map<string, SupersessionStatus>();
     globalStatusMap.set(pName, statusMap);
 
     for (const atom of atoms) {
       const state = atom.protocols.get(pName);
-      const id = protocol.getIdentity(state);
+      const id = getProtocolIdentity(state, p);
       if (id) {
         statusMap.set(id, { superseded: false, supersededBy: [] });
-        atomByQualifiedId.set(`${pName.toLowerCase()}/${id}`, atom);
+        atomByQualifiedId.set(`${pName}/${id}`, atom);
       }
     }
   }
@@ -29,10 +30,10 @@ export function resolveSupersession(atoms: readonly Atom[], registry: ProtocolRe
   // 2. Resolve direct and transitive supersessions globally
   for (const atom of atoms) {
     for (const [pName, state] of atom.protocols) {
-      const protocol = registry.get(pName);
-      if (!protocol) continue;
+      const p = registry.get(pName);
+      if (!p) continue;
 
-      const id = protocol.getIdentity(state);
+      const id = getProtocolIdentity(state, p);
       if (!id) continue;
       const qualifiedId = `${pName.toLowerCase()}/${id}`;
 
@@ -42,7 +43,7 @@ export function resolveSupersession(atoms: readonly Atom[], registry: ProtocolRe
           const targetPName = targetIdentity.protocol || pName;
           const targetQualifiedId = `${targetPName.toLowerCase()}/${targetIdentity.id}`;
 
-          const targetStatusMap = globalStatusMap.get(targetPName);
+          const targetStatusMap = globalStatusMap.get(targetPName.toLowerCase());
           if (targetStatusMap?.has(targetIdentity.id)) {
             // 3. Mark direct supersession
             // Format supersededBy: omit prefix if it matches the target protocol
@@ -100,7 +101,7 @@ function resolveTransitiveChain(
         const targetPName = targetIdentity.protocol || pName;
         const targetQualifiedId = `${targetPName.toLowerCase()}/${targetIdentity.id}`;
 
-        const targetStatusMap = globalStatusMap.get(targetPName);
+        const targetStatusMap = globalStatusMap.get(targetPName.toLowerCase());
         if (targetStatusMap?.has(targetIdentity.id)) {
           const status = targetStatusMap.get(targetIdentity.id)!;
           
@@ -135,10 +136,10 @@ export function filterActiveAtoms(
       const state = atom.protocols.get(pName);
       if (!state) continue;
 
-      const protocol = registry.get(pName);
-      if (!protocol) continue;
+      const p = registry.get(pName);
+      if (!p) continue;
 
-      const id = protocol.getIdentity(state);
+      const id = getProtocolIdentity(state, p);
 
       if (id) {
         hasProtocolMatch = true;

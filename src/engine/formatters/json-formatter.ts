@@ -6,10 +6,10 @@ import type {
   FormattableTraceResult,
   FormattableDoctorResult,
   FormattableConfigResult,
-  FormattableTrailerDefinition,
 } from '../core/types/output.js';
 import type { Atom, ProtocolState } from '../core/types/domain.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import { getProtocolIdentity } from '../core/logic/identity.js';
 
 /**
  * Strategy implementation for JSON output.
@@ -34,7 +34,7 @@ export class JsonFormatter implements IOutputFormatter {
     const subjectKey = this.getSubjectKey();
 
     const results = result.atoms.map((atom) => {
-      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name) : null;
+      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) || atom.protocols.get(rootProtocol.name) : null;
 
       return {
         commit: atom.commitHash,
@@ -253,13 +253,13 @@ export class JsonFormatter implements IOutputFormatter {
     protocolName: string,
     visibleTrailers: readonly string[] | 'all'
   ): Record<string, any> {
-    const protocolObj = this.protocolRegistry.get(protocolName);
-    const id = protocolObj ? protocolObj.getIdentity(state) : null;
+    const p = this.protocolRegistry.get(protocolName);
+    const id = p ? getProtocolIdentity(state, p) : null;
 
     return {
       id,
-      identity_key: protocolObj?.identityKey ?? null,
-      version: protocolObj?.version ?? '1.0',
+      identity_key: p?.identityKey ?? null,
+      version: p?.version ?? '1.0',
       trailers: this.serializeTrailers(state, protocolName, visibleTrailers),
       unauthorized: { ...state.unauthorized },
     };
@@ -276,8 +276,8 @@ export class JsonFormatter implements IOutputFormatter {
   ): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     const trailers = state.trailers;
-    const protocolObj = this.protocolRegistry.get(protocolName);
-    const identityKey = protocolObj?.identityKey;
+    const p = this.protocolRegistry.get(protocolName);
+    const identityKey = p?.identityKey;
 
     const shouldShow = (key: string): boolean => {
       if (visibleTrailers === 'all') return true;
@@ -289,7 +289,7 @@ export class JsonFormatter implements IOutputFormatter {
       if (!shouldShow(key)) continue;
       if (!values || values.length === 0) continue;
       
-      const def = protocolObj?.getDefinition(key);
+      const def = p?.getDefinition(key);
       const isScalar = def && !def.multivalue;
 
       result[key] = isScalar ? values[0] : [...values];

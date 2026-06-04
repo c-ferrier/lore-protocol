@@ -11,6 +11,7 @@ import {
     snakeCase
  } from '../../engine/index.js';
 import { createBaseFormatter } from '../../engine/formatters/index.js';
+import { getProtocolIdentity } from '../../engine/core/logic/identity.js';
 
 /**
  * Lore CLI 0.5.0 Legacy JSON Formatter.
@@ -30,17 +31,17 @@ export class LoreJsonFormatter implements IOutputFormatter {
 
   formatQueryResult(data: FormattableQueryResult): string {
     const loreProtocol = this.protocolRegistry.get('lore');
-    const version = loreProtocol?.version ?? '1.0';
+    const version = loreProtocol?.def.version ?? '1.0';
 
     const results = data.result.atoms.map((atom) => {
       const loreState = atom.protocols.get('lore');
-      const loreId = loreState ? loreProtocol?.getIdentity(loreState) : null;
-      const status = loreId ? (loreState?.supersession || { superseded: false, supersededBy: [] }) : { superseded: false, supersededBy: [] };
+      const loreId = (loreState && loreProtocol) ? getProtocolIdentity(loreState, loreProtocol) : null;
+      const status = (loreState && loreState.supersession) ? loreState.supersession : { superseded: false, supersededBy: [] };
 
       const trailers: Record<string, any> = {};
-      if (loreState) {
+      if (loreState && loreProtocol) {
           for (const [key, values] of Object.entries(loreState.trailers)) {
-              const def = loreProtocol?.getDefinition(key);
+              const def = loreProtocol.def.trailers[key];
               const isScalar = def && !def.multivalue;
               trailers[snakeCase(key)] = isScalar ? values[0] : [...values];
           }
@@ -87,15 +88,15 @@ export class LoreJsonFormatter implements IOutputFormatter {
     const loreProtocol = this.protocolRegistry.get('lore');
     
     return JSON.stringify({
-      lore_version: loreProtocol?.version ?? '1.0',
+      lore_version: loreProtocol?.def.version ?? '1.0',
       stale_atoms: data.atoms.map((report) => {
         const loreState = report.atom.protocols.get('lore');
-        const loreId = loreState ? loreProtocol?.getIdentity(loreState) : null;
+        const loreId = (loreState && loreProtocol) ? getProtocolIdentity(loreState, loreProtocol) : null;
 
         const trailers: Record<string, any> = {};
-        if (loreState) {
+        if (loreState && loreProtocol) {
             for (const [key, values] of Object.entries(loreState.trailers)) {
-                const def = loreProtocol?.getDefinition(key);
+                const def = loreProtocol.def.trailers[key];
                 const isScalar = def && !def.multivalue;
                 trailers[snakeCase(key)] = isScalar ? values[0] : [...values];
             }
@@ -146,7 +147,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
 
     return JSON.stringify(
       {
-        lore_version: this.protocolRegistry.get('lore')?.version ?? '1.0',
+        lore_version: this.protocolRegistry.get('lore')?.def.version ?? '1.0',
         checks,
         summary: {
           errors,
@@ -162,7 +163,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
   formatSuccess(_message: string, data?: Record<string, unknown>): string {
     const hash = (data?.hash as string) ?? '';
     return JSON.stringify({
-      lore_version: this.protocolRegistry.get('lore')?.version ?? '1.0',
+      lore_version: this.protocolRegistry.get('lore')?.def.version ?? '1.0',
       success: true,
       message: `Commit created: ${hash}`,
       hash: hash
@@ -171,7 +172,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
 
   formatError(code: number, messages: readonly ErrorMessage[]): string {
     return JSON.stringify({
-      lore_version: this.protocolRegistry.get('lore')?.version ?? '1.0',
+      lore_version: this.protocolRegistry.get('lore')?.def.version ?? '1.0',
       error: true,
       code,
       messages: messages.map(m => ({

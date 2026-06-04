@@ -1,15 +1,16 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import type { AtomId } from '../types/domain.js';
-import type { ActiveProtocol } from '../models/active-protocol.js';
+import type { AtomId, ProtocolState } from '../types/domain.js';
+import type { ProtocolContext } from '../types/protocol-definition.js';
 import { ConfigurationError } from '../../util/errors.js';
 
 /**
  * Generates a unique identifier based on the protocol's generator setting.
- * Pure logic: takes protocol definition, returns new ID string.
+ * Pure logic: takes protocol context, returns new ID string.
  */
-export function generateId(protocol: ActiveProtocol): AtomId {
-  const def = protocol.getDefinition(protocol.identityKey);
-  const strategy = def?.generator || 'hex8';
+export function generateId(ctx: ProtocolContext): AtomId {
+  const { def } = ctx;
+  const tDef = def.trailers[def.identityKey];
+  const strategy = tDef?.generator || 'hex8';
 
   switch (strategy) {
     case 'hex8':
@@ -17,8 +18,18 @@ export function generateId(protocol: ActiveProtocol): AtomId {
     case 'uuid':
       return randomUUID();
     case 'none':
-      throw new ConfigurationError(`Protocol "${protocol.name}" does not support automatic identity generation (generator is 'none').`);
+      throw new ConfigurationError(`Protocol "${def.name}" does not support automatic identity generation (generator is 'none').`);
     default:
-      throw new ConfigurationError(`Unknown generator strategy "${strategy}" for protocol "${protocol.name}".`);
+      throw new ConfigurationError(`Unknown generator strategy "${strategy}" for protocol "${def.name}".`);
   }
+}
+
+/**
+ * Extracts the primary identity value from a protocol state.
+ */
+export function getProtocolIdentity(state: ProtocolState | undefined | null, ctx: ProtocolContext): string | null {
+    if (!state) return null;
+    const values = state.trailers[ctx.def.identityKey];
+    if (!values || values.length === 0) return null;
+    return values[0];
 }

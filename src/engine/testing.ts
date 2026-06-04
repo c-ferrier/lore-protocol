@@ -23,6 +23,32 @@ import {
     STALE_SIGNAL 
 } from './util/constants.js';
 
+import { 
+    createProtocolContext,
+    getAuthorizedKeys,
+    getScalarKeys,
+    getListKeys,
+    getReferenceKeys,
+    isCoreTrailer,
+    getFormattableDefinitions
+} from './core/logic/protocols.js';
+import { authorizeKey, ownsKey, isBucketOwner } from './core/logic/ownership.js';
+import { normalizeTrailers } from './core/logic/normalization.js';
+
+export { 
+    createProtocolContext,
+    getAuthorizedKeys,
+    getScalarKeys,
+    getListKeys,
+    getReferenceKeys,
+    isCoreTrailer,
+    getFormattableDefinitions,
+    authorizeKey,
+    ownsKey,
+    isBucketOwner,
+    normalizeTrailers
+};
+
 /** Key for the standard baseline protocol ID. */
 export const TEST_ID_KEY = 'Mock-id';
 
@@ -126,7 +152,7 @@ export function makeProtocol(
 }
 
 /** Helper: returns a REAL ProtocolRegistry instance. */
-export function makeProtocolRegistry(protocols: ActiveProtocol[] = []): ProtocolRegistry {
+export function makeProtocolRegistry(protocols: ProtocolDefinition[] = []): ProtocolRegistry {
   const registry = new ProtocolRegistry();
   for (const p of protocols) {
     registry.register(p);
@@ -158,7 +184,7 @@ export class ProtocolInterpreter {
     getDiscoveryPatterns() { return this.p.getDiscoveryPatterns(); }
     getSearchPatterns(f: any) { return this.p.getSearchPatterns(f); }
     claims(raw: string) { return this.p.claims(raw); }
-    isRoot() { return this.p.isRoot(); }
+    isRoot() { return this.p.isRoot; }
 }
 
 export class ProtocolValidator {
@@ -299,6 +325,7 @@ export function makeStubProtocol(overrides: any = {}): any {
 export function makeStubAtomRepository(overrides: any = {}): any {
     return {
         find: async () => [],
+        findById: async () => null,
         findByIds: async () => [],
         ...overrides
     };

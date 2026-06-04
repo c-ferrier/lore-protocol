@@ -56,6 +56,17 @@ export type { IOutputFormatter, ErrorMessage } from './interfaces/output-formatt
 
 // --- Pure Logic Modules (@experimental) ---
 // Explicitly export key functions to provide a stable surface and avoid cycle noise
+export { 
+    createProtocolContext,
+    getAuthorizedKeys,
+    getScalarKeys,
+    getListKeys,
+    getReferenceKeys,
+    isCoreTrailer,
+    getFormattableDefinitions
+} from './core/logic/protocols.js';
+export { getQualifiedKey, isBucketOwner, ownsKey, authorizeKey } from './core/logic/ownership.js';
+export { normalizeTrailers } from './core/logic/normalization.js';
 export { hydrateAtoms, extractReferenceIds } from './core/logic/hydration.js';
 export { resolveSupersession, filterActiveAtoms } from './core/logic/supersession.js';
 export { generateId } from './core/logic/identity.js';

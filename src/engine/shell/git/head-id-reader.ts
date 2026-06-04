@@ -2,6 +2,9 @@ import type { IGitClient } from '../../interfaces/git-client.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import type { AtomId } from '../../core/types/domain.js';
 import { parseTrailers } from '../../core/logic/trailers.js';
+import { normalizeTrailers } from '../../core/logic/normalization.js';
+import { getProtocolIdentity } from '../../core/logic/identity.js';
+import { isValidProtocolIdentity, validateProtocolTrailer } from '../../core/logic/validation.js';
 
 /**
  * Utility to read protocol identities from the HEAD commit.
@@ -26,11 +29,11 @@ export class HeadIdReader {
       const trailers = parseTrailers(log[0].trailers);
       const results: Record<string, AtomId> = {};
 
-      for (const protocol of this.protocolRegistry.getAll()) {
-        const state = protocol.normalize(trailers);
-        const id = protocol.getIdentity(state);
-        if (id && protocol.isValidIdentity(id)) {
-            results[protocol.name.toLowerCase()] = id;
+      for (const ctx of this.protocolRegistry.getAll()) {
+        const state = normalizeTrailers(trailers, ctx);
+        const id = getProtocolIdentity(state, ctx);
+        if (id && isValidProtocolIdentity(id, ctx.def)) {
+            results[ctx.def.name.toLowerCase()] = id;
         }
       }
       
@@ -47,6 +50,6 @@ export class HeadIdReader {
     const ids = await this.readIds();
     const first = this.protocolRegistry.getAll()[0];
     if (!first) return null;
-    return ids[first.name.toLowerCase()] || null;
+    return ids[first.def.name.toLowerCase()] || null;
   }
 }

@@ -8,11 +8,10 @@ import type {
   FormattableTraceResult,
   FormattableDoctorResult,
   FormattableConfigResult,
-  FormattableTrailerDefinition,
 } from '../core/types/output.js';
-import type { Atom, AtomId } from '../core/types/domain.js';
+import type { Atom } from '../core/types/domain.js';
 import type { ProtocolRegistry } from '../services/protocol-registry.js';
-import { getFormattableDefinitions } from '../cli/io/protocol-ui.js';
+import { getProtocolIdentity } from '../core/logic/identity.js';
 
 /**
  * Strategy implementation for human-readable terminal output.
@@ -42,14 +41,14 @@ export class TextFormatter implements IOutputFormatter {
     for (const atom of result.atoms) {
       // Find a representative ID for the header (root preferred)
       const rootProtocol = this.protocolRegistry.getRoot();
-      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name) : null;
+      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.name.toLowerCase()) || atom.protocols.get(rootProtocol.name) : null;
       
-      let id = rootProtocol?.getIdentity(primaryState);
+      let id = rootProtocol ? getProtocolIdentity(primaryState, rootProtocol) : undefined;
       if (!id) {
           // Try to find ANY protocol identity
           for (const [name, state] of atom.protocols) {
               const p = this.protocolRegistry.get(name);
-              id = p?.getIdentity(state) || undefined;
+              id = p ? getProtocolIdentity(state, p) : undefined;
               if (id) break;
           }
       }
@@ -112,7 +111,7 @@ export class TextFormatter implements IOutputFormatter {
 
     lines.push('');
     const summaryParts: string[] = [
-      `${data.summary.commitsChecked} commits checked`,
+      `${data.summary.commitsChecked} commit${data.summary.commitsChecked === 1 ? '' : 's'} checked`,
     ];
     if (data.summary.errors > 0) {
       summaryParts.push(this.c.red(`${data.summary.errors} errors`));
@@ -120,68 +119,61 @@ export class TextFormatter implements IOutputFormatter {
     if (data.summary.warnings > 0) {
       summaryParts.push(this.c.yellow(`${data.summary.warnings} warnings`));
     }
+
     if (data.summary.errors === 0 && data.summary.warnings === 0) {
       summaryParts.push(this.c.green('all valid'));
     }
-    lines.push(summaryParts.join(', '));
+
+    lines.push(this.c.dim(summaryParts.join(', ')));
 
     return lines.join('\n');
   }
 
   formatStalenessResult(data: FormattableStalenessResult): string {
     const lines: string[] = [];
-
+    
     if (data.atoms.length === 0) {
-      lines.push(this.c.green('No stale atoms found.'));
-      return lines.join('\n');
+        return this.c.green('No stale atoms found.');
     }
 
     for (const report of data.atoms) {
       const rootProtocol = this.protocolRegistry.getRoot();
-      const state = rootProtocol ? report.atom.protocols.get(rootProtocol.name.toLowerCase()) : null;
-      const id = rootProtocol?.getIdentity(state) || 'Unknown';
-      
-      const dateStr = this.formatDate(report.atom.date);
-      lines.push(
-        this.c.yellow('STALE') +
-          `  ${this.c.bold(id)} (${dateStr})`,
-      );
-      lines.push(`  ${this.c.dim(report.atom.subject)}`);
+      const state = rootProtocol ? report.atom.protocols.get(rootProtocol.name.toLowerCase()) || report.atom.protocols.get(rootProtocol.name) : null;
+      const id = rootProtocol ? getProtocolIdentity(state, rootProtocol) : report.atom.commitHash.slice(0, 8);
+
+      const dateStr = report.atom.date.toISOString().slice(0, 10);
+      lines.push(`${this.c.yellow('STALE')}  ${this.c.bold(id || '')} (${dateStr})`);
+      lines.push(`  ${report.atom.subject}`);
+
       for (const reason of report.reasons) {
-        lines.push(`  ${this.c.yellow('\u26A0')} ${reason.description}`);
+        lines.push(`  ${this.c.yellow('!')} ${reason.description}`);
       }
       lines.push('');
     }
 
-    return lines.join('\n');
+    return lines.join('\n').trimEnd();
   }
 
   formatTraceResult(data: FormattableTraceResult): string {
     const lines: string[] = [];
-
     const rootProtocol = this.protocolRegistry.getRoot();
-    const state = rootProtocol ? data.root.protocols.get(rootProtocol.name.toLowerCase()) : null;
-    const rootId = rootProtocol?.getIdentity(state) || 'Unknown';
+    const state = rootProtocol ? data.root.protocols.get(rootProtocol.name.toLowerCase()) || data.root.protocols.get(rootProtocol.name) : null;
+    const rootId = rootProtocol ? getProtocolIdentity(state, rootProtocol) : data.root.commitHash.slice(0, 8);
 
-    lines.push(
-      `${this.c.bold(rootId)} ${this.c.dim(data.root.subject)}`,
-    );
+    lines.push(`${this.c.bold('Decision Trace:')} ${rootId}`);
+    lines.push(this.c.dim(`${data.root.commitHash} - ${data.root.author}`));
+    lines.push('');
+    lines.push(`${rootId} ${data.root.subject}`);
 
-    const edgeCount = data.edges.length;
-    for (let i = 0; i < edgeCount; i++) {
+    for (let i = 0; i < data.edges.length; i++) {
       const edge = data.edges[i];
-      const isLast = i === edgeCount - 1;
-      const connector = isLast ? '\u2514\u2500\u2500' : '\u251C\u2500\u2500';
-      const relLabel = this.c.dim(`[${edge.relationship}]`);
+      const isLast = i === data.edges.length - 1;
+      const connector = isLast ? '└──' : '├──';
+      const status = edge.targetAtom ? this.c.green('✓') : this.c.red('?');
       
+      lines.push(`${connector} [${edge.relationship}] ${status} ${edge.to}`);
       if (edge.targetAtom) {
-        lines.push(
-          `${connector} ${relLabel} ${this.c.bold(edge.to)} ${this.c.dim(edge.targetAtom.subject)}`,
-        );
-      } else {
-        lines.push(
-          `${connector} ${relLabel} ${this.c.bold(edge.to)} ${this.c.dim('(unresolved)')}`,
-        );
+          lines.push(`    ${this.c.dim(edge.targetAtom.subject)}`);
       }
     }
 
@@ -190,113 +182,65 @@ export class TextFormatter implements IOutputFormatter {
 
   formatDoctorResult(data: FormattableDoctorResult): string {
     const lines: string[] = [];
+    lines.push(this.c.bold('Decision Engine Health Check'));
+    lines.push('');
 
     for (const check of data.checks) {
-      let icon: string;
-      let statusLabel: string;
-
-      switch (check.status) {
-        case 'ok':
-          icon = this.c.green('\u2713');
-          statusLabel = this.c.green('[OK]');
-          break;
-        case 'warning':
-          icon = this.c.yellow('!');
-          statusLabel = this.c.yellow('[WARNING]');
-          break;
-        case 'error':
-          icon = this.c.red('\u2717');
-          statusLabel = this.c.red('[ERROR]');
-          break;
-        case 'info':
-          icon = this.c.blue('i');
-          statusLabel = this.c.blue('[INFO]');
-          break;
-      }
-      lines.push(`${icon}  ${this.c.bold(`${check.name}:`)} ${check.message} ${statusLabel}`);
-
-      for (const detail of check.details || []) {
-        lines.push(`     ${this.c.dim(detail)}`);
+      const statusLabel = check.status === 'ok' ? this.c.green('OK') : 
+                   check.status === 'warning' ? this.c.yellow('WARNING') : 
+                   this.c.red('ERROR');
+      
+      lines.push(`${statusLabel}  ${this.c.bold(check.name)}: ${check.message}`);
+      for (const detail of check.details) {
+        lines.push(`  ${this.c.dim(detail)}`);
       }
     }
 
-    const errors = data.checks.filter(c => c.status === 'error').length;
-    const warnings = data.checks.filter(c => c.status === 'warning').length;
+    lines.push('');
+    const summary = `${data.summary.errors} errors, ${data.summary.warnings} warnings, ${data.summary.info} checks passed.`;
+    lines.push(`${this.c.bold('Summary:')} ${summary}`);
 
-    let summary = '';
-    if (errors > 0 || warnings > 0) {
-        summary = ` (${errors} errors, ${warnings} warnings)`;
+    return lines.join('\n');
+  }
+
+  formatSuccess(message: string): string {
+    return this.c.green(`✓ ${message}`);
+  }
+
+  formatError(code: number, messages: readonly ErrorMessage[]): string {
+    const lines: string[] = [this.c.red(`✗ Error (Exit Code: ${code})`)];
+    for (const msg of messages) {
+      const field = msg.field ? ` [${msg.field}]` : '';
+      lines.push(`${this.c.red('!')}${field} ${msg.message}`);
     }
-
-    const statusMsg = data.status === 'healthy' 
-        ? this.c.green('\nSystem is healthy.') 
-        : this.c.red(`\nSystem has issues that require attention.${summary}`);
-    
-    lines.push(statusMsg);
     return lines.join('\n');
   }
 
   formatConfig(data: FormattableConfigResult): string {
-    const lines: string[] = [];
-    const rootProtocol = this.protocolRegistry.getRoot();
-    lines.push(this.c.bold(`${rootProtocol?.name || 'Engine'} Configuration`));
-    lines.push(this.c.dim(`Permissive mode: ${data.permissive ? 'on' : 'off'}`));
-    lines.push('');
-    lines.push(this.c.bold('--- Trailer Schema ---'));
-    lines.push('');
-
-    const sortedKeys = Object.keys(data.trailers).sort();
-
-    if (data.filters.showCore) {
-      lines.push(this.c.bold('Standard Trailers'));
-      for (const key of sortedKeys) {
-        if (data.trailers[key].isCore) {
-          lines.push(this.formatTrailerDefinition(key, data.trailers[key]));
-        }
-      }
+      const lines: string[] = [];
+      lines.push(this.c.bold(`Active Protocol Config (v${data.version})`));
+      lines.push(this.c.dim(`Permissive: ${data.permissive}`));
       lines.push('');
-    }
 
-    if (data.filters.showCustom) {
-      const customKeys = sortedKeys.filter(k => !data.trailers[k].isCore);
-      if (customKeys.length > 0) {
-        lines.push(this.c.bold('Custom Trailers'));
-        for (const key of customKeys) {
-          lines.push(this.formatTrailerDefinition(key, data.trailers[key]));
-        }
-        lines.push('');
+      for (const [key, def] of Object.entries(data.trailers)) {
+          const isCore = def.isCore;
+          if (data.filters.showCore && !isCore) continue;
+          if (data.filters.showCustom && isCore) continue;
+
+          const colorName = def.ui?.color || 'dim';
+          const color = this.getTrailerColor(colorName);
+          lines.push(`${color(key + ':')} ${def.description}`);
+          if (def.validation === 'values' && def.values) {
+              lines.push(this.c.dim(`  Allowed values: ${Object.keys(def.values).join(', ')}`));
+          }
       }
-    }
 
-    return lines.join('\n').trimEnd();
+      return lines.join('\n');
   }
 
-  formatSuccess(message: string, _data?: Record<string, unknown>): string {
-    return this.c.green(message);
-  }
-
-  formatError(code: number, messages: readonly ErrorMessage[]): string {
-    const lines: string[] = [];
-
-    for (const msg of messages) {
-      const prefix =
-        msg.severity === 'error'
-          ? this.c.red('error')
-          : this.c.yellow('warning');
-      const field = msg.field ? ` [${msg.field}]` : '';
-      lines.push(`${prefix}${field}: ${msg.message}`);
-    }
-
-    if (code !== 0) {
-      lines.push(this.c.dim(`(exit code ${code})`));
-    }
-
-    return lines.join('\n');
-  }
-
-  protected formatAtomHeader(atom: Atom, id: AtomId, superseded: boolean): string {
-    const dateStr = this.formatDate(atom.date);
-    const header = `\u2500\u2500 ${id} (${dateStr}, ${atom.author}) `;
+  private formatAtomHeader(atom: Atom, displayId: string, superseded: boolean): string {
+    const dateStr = atom.date.toISOString().slice(0, 10);
+    const header = `\u2500\u2500 ${displayId} (${dateStr}, ${atom.author}) `;
     const rule = '\u2500'.repeat(Math.max(0, 60 - header.length));
     const fullHeader = header + rule;
 
@@ -306,101 +250,60 @@ export class TextFormatter implements IOutputFormatter {
     return this.c.bold(fullHeader);
   }
 
-  private formatTrailers(
-    atom: Atom,
-    visibleTrailers: readonly string[] | 'all',
-    headerId: string
-  ): string[] {
+  private formatTrailers(atom: Atom, visibleTrailers: readonly string[] | 'all', headerId: string): string[] {
     const lines: string[] = [];
     const shouldShow = (key: string): boolean => {
       if (visibleTrailers === 'all') return true;
       return visibleTrailers.includes(key);
     };
 
-    // 1. Iterate by Protocol Registration Order (from Registry)
-    for (const protocol of this.protocolRegistry.getAll()) {
-      const state = atom.protocols.get(protocol.name);
-      if (!state) continue;
-
-      const definitions = getFormattableDefinitions(protocol);
-      const authorizedKeys = protocol.getAuthorizedKeys();
-      const allStateKeys = new Set(Object.keys(state.trailers));
-      const identityKey = protocol.identityKey;
-
-      // 2. Render Authorized Trailers in Priority Order (Core + Defined Custom)
-      for (const key of authorizedKeys) {
-        if (key === identityKey && protocol.getIdentity(state) === headerId) {
-          continue;
-        }
+    for (const [pName, state] of atom.protocols) {
+      const p = this.protocolRegistry.get(pName);
+      
+      for (const [key, values] of Object.entries(state.trailers)) {
+        if (p && key === p.identityKey && p.getIdentity(state) === headerId) continue;
         if (!shouldShow(key)) continue;
 
-        const values = state.trailers[key];
         if (!values || values.length === 0) continue;
 
-        const def = definitions[key];
-        const colorName = def?.ui?.color || 'cyan';
-        const color = (this.c as any)[colorName] || this.c.cyan;
+        const def = p?.getDefinition(key);
+        const colorName = def?.ui?.color || 'dim';
+        const color = this.getTrailerColor(colorName);
+        
+        // Engine Baseline: ALWAYS prefix trailers with the protocol name in text format.
+        const label = `[${pName}] ${key}`;
 
-        for (const v of values) {
-          lines.push(`${this.c.dim(`[${protocol.name}]`)} ${color(`${key}:`)} ${v}`);
-        }
-        allStateKeys.delete(key);
-      }
-
-      // 3. Render any remaining custom/permissive trailers
-      for (const key of allStateKeys) {
-        if (key === identityKey && protocol.getIdentity(state) === headerId) {
-          continue;
-        }
-        if (!shouldShow(key)) continue;
-
-        const values = state.trailers[key];
-        if (!values || values.length === 0) continue;
-
-        for (const v of values) {
-          lines.push(`${this.c.dim(`[${protocol.name}]`)} ${this.c.dim(`${key}:`)} ${v}`);
+        for (const val of values) {
+          lines.push(`${this.c.dim(label + ':')} ${val}`);
         }
       }
 
-      // 4. Render unauthorized/rejected trailers (typos)
+      // Format Unauthorized
       if (state.unauthorized) {
-        for (const [key, values] of Object.entries(state.unauthorized)) {
-          for (const v of values) {
-            lines.push(`${this.c.dim(`[${protocol.name}]`)} ${this.c.yellow('\u26A0')} ${this.c.dim(`${key}:`)} ${v}`);
+          for (const [key, values] of Object.entries(state.unauthorized)) {
+              const label = `[${pName}] ${key}`;
+              for (const val of values) {
+                  lines.push(this.c.red(`${label}: ${val} (UNAUTHORIZED)`));
+              }
           }
-        }
       }
     }
 
     return lines;
   }
 
-  private formatTrailerDefinition(key: string, def: FormattableTrailerDefinition): string {
-    const lines: string[] = [];
-    const label = def.required ? this.c.bold(key) : key;
-    const type = def.multivalue ? 'array' : 'string';
-    const validation = def.validation !== 'none' ? ` (${def.validation})` : '';
-
-    lines.push(`- ${this.c.cyan(label)} [${type}]${validation}`);
-    lines.push(`  ${this.c.dim(def.description)}`);
-
-    if (def.validation === 'values' && def.values) {
-      const valueLabels = Object.entries(def.values).map(([k, v]) => (v.description ? `${k}: ${v.description}` : k));
-      lines.push(`  Values: ${valueLabels.join(', ')}`);
-    } else if (def.validation === 'pattern' && def.pattern) {
-      lines.push(`  Pattern: ${def.pattern}`);
-    }
-
-    if (def.directives && def.directives.length > 0) {
-      for (const d of def.directives) {
-        lines.push(`  ${this.c.yellow('\u26A0')} ${d}`);
-      }
-    }
-
-    return lines.join('\n');
-  }
-
-  private formatDate(date: Date): string {
-    return date.toISOString().slice(0, 10);
+  private getTrailerColor(name: string): ChalkInstance {
+    const colors: Record<string, keyof ChalkInstance> = {
+      dim: 'dim',
+      red: 'red',
+      green: 'green',
+      yellow: 'yellow',
+      cyan: 'cyan',
+      blue: 'blue',
+      magenta: 'magenta',
+      white: 'white',
+    };
+    const key = colors[name] || 'dim';
+    return this.c[key] as ChalkInstance;
   }
 }

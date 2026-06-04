@@ -2,31 +2,39 @@ import type { ITrailerCollector } from '../../../interfaces/trailer-collector.js
 import type { TrailerDefinition } from '../../../core/types/config.js';
 import { MultiValueTrailerCollector } from './multi-value-trailer-collector.js';
 import { EnumChoiceTrailerCollector } from './enum-choice-trailer-collector.js';
-import {  ActiveProtocol  } from '../../../core/models/active-protocol.js';
+import type { ProtocolContext } from '../../../core/types/protocol-definition.js';
 
 /**
  * Registry and factory for trailer collectors.
  */
 export class TrailerCollectorRegistry {
-  constructor(private readonly protocol: ActiveProtocol) {}
+  constructor(private readonly ctx: ProtocolContext) {}
 
   /**
    * Returns a list of collectors for all authorized trailers.
  */
   getCollectors(): ITrailerCollector[] {
     const collectors: ITrailerCollector[] = [];
-    const authorizedKeys = this.protocol.getAuthorizedKeys();
-    const namespace = this.protocol.storageNamespace;
-    const protocolName = this.protocol.name.toLowerCase();
+    const { def } = this.ctx;
+    
+    // Sort keys by prompt order for deterministic UI sequence
+    const authorizedKeys = Object.keys(def.trailers).sort((a, b) => {
+        const orderA = def.trailers[a]?.prompt?.order ?? 1000;
+        const orderB = def.trailers[b]?.prompt?.order ?? 1000;
+        return orderA - orderB;
+    });
+
+    const namespace = def.namespace;
+    const protocolName = def.name.toLowerCase();
 
     // Iterate through all authorized keys in protocol-defined order
     for (const key of authorizedKeys) {
-      if (key === this.protocol.identityKey) continue;
+      if (key === def.identityKey) continue;
 
-      const def = this.protocol.getDefinition(key);
-      if (!def) continue;
+      const tDef = def.trailers[key];
+      if (!tDef) continue;
 
-      collectors.push(this.createCollectorFromDefinition(key, def, namespace, protocolName));
+      collectors.push(this.createCollectorFromDefinition(key, tDef, namespace, protocolName));
     }
 
     return collectors;
@@ -69,7 +77,7 @@ export class TrailerCollectorRegistry {
 /**
  * Functional wrapper for the registry.
  */
-export function createTrailerCollectors(protocol: ActiveProtocol): ITrailerCollector[] {
-  const registry = new TrailerCollectorRegistry(protocol);
+export function createTrailerCollectors(ctx: ProtocolContext): ITrailerCollector[] {
+  const registry = new TrailerCollectorRegistry(ctx);
   return registry.getCollectors();
 }

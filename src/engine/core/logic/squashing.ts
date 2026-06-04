@@ -1,7 +1,6 @@
-import type { Atom, AtomId } from '../types/domain.js';
+import type { Atom, AtomId, ProtocolState } from '../types/domain.js';
 import {  ProtocolRegistry  } from '../../services/protocol-registry.js';
 import { ProtocolError } from '../../util/errors.js';
-import { generateId } from './identity.js';
 import type { CommitInput } from '../types/commit.js';
 import { ProtocolMap } from '../models/protocol-map.js';
 
@@ -35,14 +34,14 @@ export function squashAtoms(
   const body = options.body ?? mergeBodySummaries(sorted);
 
   // Process each protocol for trailers
-  for (const protocol of registeredProtocols) {
-    const pName = protocol.name.toLowerCase();
+  for (const ctx of registeredProtocols) {
+    const pName = ctx.def.name.toLowerCase();
     
     const internalIds = new Set(atoms
       .map((a) => {
         const state = a.protocols.get(pName);
         if (!state) return null;
-        const values = state.trailers[protocol.identityKey];
+        const values = state.trailers[ctx.def.identityKey];
         return (values && values[0]) || null;
       })
       .filter((id): id is string => Boolean(id))
@@ -55,15 +54,15 @@ export function squashAtoms(
       if (!state) continue;
 
       for (const key of Object.keys(state.trailers)) {
-        if (key !== protocol.identityKey) { 
+        if (key !== ctx.def.identityKey) { 
           allKeys.add(key);
         }
       }
     }
 
     const sortedKeys = Array.from(allKeys).sort((a, b) => {
-      const defA = protocol.getDefinition(a);
-      const defB = protocol.getDefinition(b);
+      const defA = ctx.def.trailers[a];
+      const defB = ctx.def.trailers[b];
       const orderA = defA?.prompt?.order ?? 1000;
       const orderB = defB?.prompt?.order ?? 1000;
       return orderA - orderB;
@@ -72,7 +71,7 @@ export function squashAtoms(
     const mergedProtocolTrailers: Record<string, string[]> = {};
 
     for (const key of sortedKeys) {
-      const def = protocol.getDefinition(key);
+      const def = ctx.def.trailers[key];
       const strategy = def?.squash || 'union';
       
       const allValues = atoms.map(a => a.protocols.get(pName)?.trailers[key] || []);

@@ -5,7 +5,11 @@ import type { ProtocolRegistry } from './protocol-registry.js';
 import type { StaleAtomReport } from '../core/types/output.js';
 
 // Pure Logic Modules
-import { evaluateAgeSignal, evaluateDriftSignal } from '../core/logic/staleness.js';
+import { 
+    evaluateAgeSignal, 
+    evaluateDriftSignal, 
+    getProtocolStaleSignals 
+} from '../core/logic/staleness.js';
 
 /**
  * Orchestrator for analyzing Atoms to detect "staleness" signals.
@@ -40,8 +44,11 @@ export class StalenessDetector {
       if (driftSignal) reasons.push(driftSignal);
 
       // 2. Protocol-Specific Signals
-      for (const protocol of protocols) {
-          const pReasons = protocol.getStaleSignals(atom, now, globalSupersessionMap);
+      for (const p of protocols) {
+          // Use method if available (handles mocks), fallback to logic function
+          const pReasons = p.getStaleSignals 
+            ? p.getStaleSignals(atom, now, globalSupersessionMap) 
+            : getProtocolStaleSignals(p, atom, now, globalSupersessionMap);
           reasons.push(...pReasons);
       }
 

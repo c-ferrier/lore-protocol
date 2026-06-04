@@ -4,6 +4,7 @@ import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { FormattableConfigResult, FormattableTrailerDefinition } from '../../core/types/output.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import type { ILogger } from '../../interfaces/logger.js';
+import { getFormattableDefinitions } from '../../core/logic/protocols.js';
 
 /**
  * Register the config command.
@@ -33,7 +34,7 @@ export function registerConfigCommand(
 
       let allTrailers: Record<string, FormattableTrailerDefinition> = {};
       for (const p of protocolRegistry.getAll()) {
-        allTrailers = { ...allTrailers, ...p.getFormattableDefinitions() };
+        allTrailers = { ...allTrailers, ...getFormattableDefinitions(p) };
       }
 
       const formattable: FormattableConfigResult = {

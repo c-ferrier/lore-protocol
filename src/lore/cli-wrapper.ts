@@ -179,12 +179,10 @@ export async function buildLoreCli() {
 
       // 1. Dynamic Flag Generation (0.5.0 parity)
       if (name === 'commit' && loreProtocol) {
-          for (const key of loreProtocol.getAuthorizedKeys()) {
-              if (key === loreProtocol.identityKey) continue;
+          for (const [key, tDef] of Object.entries(loreProtocol.def.trailers)) {
+              if (key === loreProtocol.def.identityKey) continue;
 
-              const def = loreProtocol.getDefinition(key) as TrailerDefinition;
-              if (!def) continue;
-
+              const def = tDef as TrailerDefinition;
               const flagName = def.cli?.flag || key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
               cmd.option(`--${flagName} <value...>`, `[lore] ${def.description}`);
           }
@@ -237,10 +235,9 @@ export async function buildLoreCli() {
 
               const trailerArray: string[] = opts.trailer || [];
               if (loreProtocol) {
-                  for (const key of loreProtocol.getAuthorizedKeys()) {
-                      if (key === loreProtocol.identityKey) continue;
-                      const def = loreProtocol.getDefinition(key) as TrailerDefinition;
-                      if (!def) continue;
+                  for (const [key, tDef] of Object.entries(loreProtocol.def.trailers)) {
+                      if (key === loreProtocol.def.identityKey) continue;
+                      const def = tDef as TrailerDefinition;
                       const flagName = def.cli?.flag || key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
                       const camelFlag = camelCase(flagName);
                       if (opts[camelFlag]) {

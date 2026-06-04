@@ -1,5 +1,9 @@
-import type { StaleReason } from '../types/domain.js';
+import type { StaleReason, Atom, ProtocolState, SupersessionStatus } from '../types/domain.js';
+import type { ProtocolContext } from '../types/protocol-definition.js';
+import type { StaleIfCondition } from '../types/config.js';
 import { STALE_SIGNAL } from '../../util/constants.js';
+import { TriggerParser, parseTriggerHints } from '../../util/trigger-parser.js';
+import { getProtocolIdentity } from './identity.js';
 
 /**
  * Check if an atom's absolute age exceeds the threshold.
@@ -21,9 +25,6 @@ export function evaluateAgeSignal(atomDate: Date, now: Date, thresholdStr: strin
 
 /**
  * Check if the files associated with the atom have changed significantly.
- * 
- * @param driftMap A map of file paths to their commit counts since the atom was created.
- * @param threshold The maximum allowed commit count.
  */
 export function evaluateDriftSignal(driftMap: Record<string, number>, threshold: number): StaleReason | null {
   const driftedFiles = Object.entries(driftMap)
@@ -41,12 +42,114 @@ export function evaluateDriftSignal(driftMap: Record<string, number>, threshold:
 }
 
 /**
+ * Evaluates staleness signals using DYNAMIC declarative triggers.
+ * Pure logic -- consumes ProtocolContext and Atom.
+ */
+export function getProtocolStaleSignals(
+    ctx: ProtocolContext,
+    atom: Atom,
+    now: Date,
+    globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
+): StaleReason[] {
+    const reasons: StaleReason[] = [];
+    const pName = ctx.def.name.toLowerCase();
+    const state = atom.protocols.get(pName) || atom.protocols.get(ctx.def.name);
+    if (!state) return reasons;
+
+    for (const [key, tDef] of Object.entries(ctx.def.trailers)) {
+      if (!tDef?.stale_if) continue;
+
+      const conditions = Array.isArray(tDef.stale_if) ? tDef.stale_if : [tDef.stale_if];
+      
+      // Search with case-insensitivity against state.trailers
+      const actualKey = Object.keys(state.trailers).find(k => k.toLowerCase() === key.toLowerCase()) || key;
+      const values = state.trailers[actualKey] || [];
+
+      for (const value of values) {
+        for (const condition of conditions) {
+            const reason = evaluateStaleCondition(condition, state, key, value, now, globalSupersessionMap, ctx);
+            if (reason) reasons.push(reason);
+        }
+      }
+    }
+    return reasons;
+}
+
+/**
+ * Validates a single stale condition.
+ */
+export function evaluateStaleCondition(
+    condition: StaleIfCondition,
+    state: ProtocolState,
+    key: string,
+    value: string,
+    now: Date,
+    globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
+    ctx: ProtocolContext
+): StaleReason | null {
+    switch (condition.kind) {
+      case 'value-equals': {
+        if (TriggerParser.strip(value) === condition.value) {
+          return {
+            signal: condition.signal || STALE_SIGNAL.VALUE_MATCH,
+            description: `[${ctx.def.name.toLowerCase()}] Atom is marked as ${key}: ${condition.value}`
+          };
+        }
+        break;
+      }
+      case 'date-expired': {
+        const hints = parseTriggerHints(value);
+        if (hints.until && now > hints.until) {
+          return {
+            signal: condition.signal || STALE_SIGNAL.EXPIRED_HINT,
+            description: `[${ctx.def.name.toLowerCase()}] ${key} "${value}" has expired`
+          };
+        }
+        break;
+      }
+      case 'reference-superseded': {
+        try {
+          const currentId = getProtocolIdentity(state, ctx);
+
+          let targetId = value;
+          let targetPName = ctx.def.name;
+          if (value.includes('/')) {
+            const [prefix, suffix] = value.split('/', 2);
+            targetPName = prefix.toLowerCase();
+            targetId = suffix;
+          }
+          const isLocal = targetPName.toLowerCase() === ctx.def.name.toLowerCase();
+          const targetStatusMap = globalSupersessionMap.get(targetPName.toLowerCase());
+          const status = targetStatusMap?.get(targetId);
+
+          if (status?.superseded) {
+            const supersededByList = Array.isArray(status.supersededBy) ? status.supersededBy : [status.supersededBy];
+            
+            // Check if superseded by someone ELSE
+            const isBySomeoneElse = !isLocal || 
+                (!supersededByList.includes(currentId || '') && 
+                 !supersededByList.includes(`${targetPName.toLowerCase()}/${currentId}`));
+
+            if (isBySomeoneElse) {
+                return {
+                    signal: condition.signal || STALE_SIGNAL.ORPHANED_DEP,
+                    description: `[${ctx.def.name.toLowerCase()}] Dependency "${value}" (in ${key}) has been superseded by ${status.supersededBy.join(', ')}`,
+                };
+            }
+          }
+        } catch { /* ignore */ }
+        break;
+      }
+    }
+    return null;
+}
+
+/**
  * Parse a duration string (e.g. '6m', '1y') into milliseconds.
  */
 export function parseDuration(duration: string): number | null {
   const match = duration.match(/^(\d+)([dwmy])$/);
   if (!match) {
-      // If it doesn't match the standard format but has digits, default to 6 months
       return /^\d+/.test(duration) ? 6 * 30 * 24 * 60 * 60 * 1000 : null;
   }
 
@@ -55,16 +158,11 @@ export function parseDuration(duration: string): number | null {
   const msPerDay = 24 * 60 * 60 * 1000;
 
   switch (unit) {
-    case 'd':
-      return value * msPerDay;
-    case 'w':
-      return value * 7 * msPerDay;
-    case 'm':
-      return value * 30 * msPerDay;
-    case 'y':
-      return value * 365 * msPerDay;
-    default:
-      return 6 * 30 * msPerDay;
+    case 'd': return value * msPerDay;
+    case 'w': return value * 7 * msPerDay;
+    case 'm': return value * 30 * msPerDay;
+    case 'y': return value * 365 * msPerDay;
+    default: return 6 * 30 * msPerDay;
   }
 }
 
@@ -73,18 +171,8 @@ export function parseDuration(duration: string): number | null {
  */
 export function formatAge(ageMs: number): string {
   const days = Math.floor(ageMs / (24 * 60 * 60 * 1000));
-
-  if (days >= 365) {
-    const years = Math.floor(days / 365);
-    return `${years} year${years === 1 ? '' : 's'}`;
-  }
-  if (days >= 30) {
-    const months = Math.floor(days / 30);
-    return `${months} month${months === 1 ? '' : 's'}`;
-  }
-  if (days >= 7) {
-    const weeks = Math.floor(days / 7);
-    return `${weeks} week${weeks === 1 ? '' : 's'}`;
-  }
+  if (days >= 365) return `${Math.floor(days / 365)} year${Math.floor(days / 365) === 1 ? '' : 's'}`;
+  if (days >= 30) return `${Math.floor(days / 30)} month${Math.floor(days / 30) === 1 ? '' : 's'}`;
+  if (days >= 7) return `${Math.floor(days / 7)} week${Math.floor(days / 7) === 1 ? '' : 's'}`;
   return `${days} day${days === 1 ? '' : 's'}`;
 }

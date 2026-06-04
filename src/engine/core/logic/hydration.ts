@@ -3,6 +3,8 @@ import type { RawCommit } from '../../interfaces/git-client.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import type { QueryIdentity } from '../types/query.js';
 import { escapeRegex } from '../../util/regex.js';
+import { parseTrailers } from './trailers.js';
+import { normalizeTrailers } from './normalization.js';
 
 /**
  * Hydrates raw Git commit data into domain-rich Atoms.
@@ -21,10 +23,11 @@ export function hydrateAtoms(rawCommits: readonly RawCommit[], registry: Protoco
     if (hasProtocols && activeProtocols.length === 0) continue;
 
     const protocolMap = new ProtocolMap<ProtocolState>();
+    const parsedRaw = parseTrailers(raw.trailers);
     
     if (hasProtocols) {
       for (const p of activeProtocols) {
-        protocolMap.set(p.name, p.parse(raw.trailers, claimedKeys));
+        protocolMap.set(p.name.toLowerCase(), normalizeTrailers(parsedRaw, p, claimedKeys));
       }
     }
 
@@ -52,16 +55,17 @@ export function extractReferenceIds(atoms: readonly Atom[], registry: ProtocolRe
 
   for (const atom of atoms) {
     for (const [pName, state] of atom.protocols) {
-      const protocol = registry.get(pName);
-      if (!protocol) continue;
+      const p = registry.get(pName);
+      if (!p) continue;
 
-      const refKeys = protocol.getReferenceKeys();
+      const refKeys = Object.keys(p.def.trailers).filter(k => p.def.trailers[k].validation === 'reference');
       for (const key of refKeys) {
         const values = state.trailers[key] || [];
         for (const val of values) {
           try {
             const identity = registry.resolveIdentity(val, pName);
-            const idKey = `${identity.protocol}/${identity.id}`;
+            const pNameFinal = (identity.protocol || pName).toLowerCase();
+            const idKey = `${pNameFinal}/${identity.id}`;
             if (!seen.has(idKey)) {
               seen.add(idKey);
               identities.push(identity);
