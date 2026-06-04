@@ -32,6 +32,7 @@ import { LoreJsonFormatter } from './formatters/lore-json-formatter.js';
 import { LoreTextFormatter } from './formatters/lore-text-formatter.js';
 import { LoreConfigLoader } from './services/lore-config-loader.js';
 import { getLoreVersion, getLorePackageName, getLorePublishedVersion } from './util/version.js';
+import { mapConfig, LORE_TO_ENGINE_RULES } from './util/config-mapper.js';
 import { resolve, join } from 'node:path';
 import type { Command } from 'commander';
 
@@ -74,23 +75,8 @@ export async function buildLoreCli() {
     onConfigLoaded: async (config: EngineConfig): Promise<EngineConfig> => {
         if (!legacyData) return config;
 
-        // Clone config to avoid mutation of readonly properties
-        const result: any = JSON.parse(JSON.stringify(config));
-
-        const map = (section: string, legacyKey: string, engineKey: string) => {
-            const val = (legacyData as any)[section]?.[legacyKey];
-            if (val !== undefined) result[section][engineKey] = val;
-        };
-
-        map('validation', 'max_message_lines', 'maxMessageLines');
-        map('validation', 'intent_max_length', 'subjectMaxLength');
-        
-        map('stale', 'older_than', 'olderThan');
-        map('stale', 'drift_threshold', 'driftThreshold');
-        
-        map('output', 'default_format', 'defaultFormat');
-        map('follow', 'max_depth', 'maxDepth');
-        map('cli', 'update_check', 'updateCheck');
+        // 1. Translate global Engine settings using declarative rules
+        const result = mapConfig(legacyData, config, LORE_TO_ENGINE_RULES);
 
         // 2. Translate Legacy Lore Protocols to Engine protocols bucket
         const loreOverrides: any = {
