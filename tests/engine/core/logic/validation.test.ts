@@ -1,8 +1,20 @@
-import { evaluateHygiene, evaluateProtocolSchema, evaluateTrailerHygiene, validateProtocolState } from '../../../..//src/engine/core/logic/validation.js';
-import { normalizeTrailers } from '../../../..//src/engine/core/logic/normalization.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeMockContext } from '../../../..//src/engine/testing.js';
+import { 
+    evaluateHygiene, 
+    evaluateProtocolSchema, 
+    evaluateTrailerHygiene, 
+    validateProtocolState,
+    validateProtocolTrailer
+} from '../../../../src/engine/core/logic/validation.js';
+import { normalizeTrailers } from '../../../../src/engine/core/logic/normalization.js';
+import { 
+    TEST_ENGINE_CONFIG, 
+    TEST_PROTOCOL_DEFINITION, 
+    MOCK_CORE_TRAILERS, 
+    makeMockContext,
+    makeProtocolRegistry
+} from '../../../../src/engine/testing.js';
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('Validation Logic (Pure Functions)', () => {
   describe('evaluateHygiene', () => {
@@ -43,15 +55,15 @@ describe('Validation Logic (Pure Functions)', () => {
     });
   });
 
-  describe('evaluateProtocolSchema', () => {
+  describe('validateProtocolState', () => {
     it('should validate protocol state using pure logic', () => {
       const protocol = makeMockContext({ 
           ...TEST_PROTOCOL_DEFINITION 
       });
       const state = { trailers: { 'Mock-id': ['abc12345'] }, unauthorized: {} };
-      
+
       const issues = validateProtocolState(state, protocol.def);
-      
+
       expect(issues).toHaveLength(0);
     });
 
@@ -61,8 +73,8 @@ describe('Validation Logic (Pure Functions)', () => {
           trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
       });
       const state = normalizeTrailers({ Confidence: ['invalid-value'] }, protocol);
-      
-      const issues = evaluateProtocolSchema(protocol as any, state);
+
+      const issues = validateProtocolState(state, protocol.def);
       expect(issues.some(i => i.rule === 'invalid-enum')).toBe(true);
     });
 
@@ -75,9 +87,59 @@ describe('Validation Logic (Pure Functions)', () => {
             }
         });
         const state = normalizeTrailers({ 'Mock-id': ['a1'] }, protocol);
-        
-        const issues = evaluateProtocolSchema(protocol as any, state);
+
+        const issues = validateProtocolState(state, protocol.def);
         expect(issues.some(i => i.rule === 'required-trailer')).toBe(true);
+    });
+  });
+
+  describe('validateProtocolTrailer', () => {
+    const protocol = makeMockContext({ 
+        name: 'Mock',
+        trailers: { 
+            ...TEST_PROTOCOL_DEFINITION.trailers, 
+            ...MOCK_CORE_TRAILERS,
+            'Internal': { description: '', validation: 'reference', crossProtocol: false } as any
+        } 
+    });
+
+    it('should validate enum values correctly', () => {
+      expect(validateProtocolTrailer('Confidence', 'high', protocol.def).valid).toBe(true);
+      expect(validateProtocolTrailer('Confidence', 'junk', protocol.def).valid).toBe(false);
+    });
+
+    it('should validate regex patterns correctly', () => {
+      expect(validateProtocolTrailer('Mock-id', 'a1b2c3d4', protocol.def).valid).toBe(true);
+      expect(validateProtocolTrailer('Mock-id', 'not-hex', protocol.def).valid).toBe(false);
+    });
+
+    it('should handle unresolvable cross-protocol references without a registry', () => {
+      const result = validateProtocolTrailer('Related', 'other/abc', protocol.def);
+      expect(result.valid).toBe(false);
+      expect(result.rule).toBe('unknown-protocol-prefix');
+    });
+
+    it('should successfully validate a cross-protocol reference when registry is provided', () => {
+      const otherProtocol = makeMockContext({ 
+          name: 'Other', 
+          namespace: 'Other', 
+          identityKey: 'Other-id', 
+          trailers: {} 
+      });
+      const registry = makeProtocolRegistry([protocol as any, otherProtocol as any]);
+
+      const result = validateProtocolTrailer('Related', 'other/abc', protocol.def, registry);
+      expect(result.valid).toBe(true);
+    });
+
+    it('should enforce crossProtocol: false', () => {
+        expect(validateProtocolTrailer('Internal', 'other/abc', protocol.def).valid).toBe(false);
+        expect(validateProtocolTrailer('Internal', 'abc12345', protocol.def).valid).toBe(true);
+    });
+
+    it('should return valid for unknown trailers in permissive mode', () => {
+        const permissive = { ...protocol.def, permissive: true };
+        expect(validateProtocolTrailer('Random', 'any', permissive).valid).toBe(true);
     });
   });
 });
