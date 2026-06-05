@@ -36,6 +36,38 @@ describe('Protocols Logic (Pure Functions)', () => {
       expect(getAuthorizedKeys(ctx)).toEqual(['Test-id', 'Scalar', 'List', 'Ref', 'Core']);
   });
 
+  it('getAuthorizedKeys should default missing prompt orders to the end of the list (1000)', () => {
+    const p = createProtocolContext({
+        name: 'test',
+        identityKey: 'Id',
+        trailers: {
+          'Last': { description: 'L' },
+          'First': { description: 'F', prompt: { order: 1 } }
+        }
+      } as any);
+      // Id has order 0 by default in createProtocolContext if not specified
+      expect(getAuthorizedKeys(p)).toEqual(['Id', 'First', 'Last']);
+  });
+
+  it('getAuthorizedKeys should default custom trailers to the end of the sort order', () => {
+    const p = createProtocolContext({ 
+        name: 'OrderTest',
+        identityKey: 'id',
+        trailers: { 'Custom': { description: 'D' } }
+    } as any);
+    const keys = getAuthorizedKeys(p);
+    expect(keys[keys.length - 1]).toBe('Custom');
+  });
+
+  it('should mark a trailer as required if set in definitions', () => {
+    const p = createProtocolContext({
+      name: 'RequiredTest',
+      identityKey: 'id',
+      trailers: { 'Must-Have': { description: '', required: true } }
+    } as any);
+    expect(p.trailers.get('Must-Have')?.required).toBe(true);
+  });
+
   it('getScalarKeys should return single-value keys only', () => {
       expect(getScalarKeys(ctx)).toContain('Scalar');
       expect(getScalarKeys(ctx)).not.toContain('List');

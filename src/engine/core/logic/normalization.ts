@@ -50,8 +50,25 @@ export function normalizeTrailers(
       }
 
       // CASE 2: Global/Root Context
-      // Namespaced protocols ignore EVERYTHING at the top level.
       if (!ctx.isRoot) {
+          // Check for "Namespace: Key" format at top level
+          const prefix = `${ctx.storageNamespace.toLowerCase()}: `;
+          if (lowerKey.startsWith(prefix)) {
+              const innerKey = key.substring(prefix.length).trim();
+              const lowerInnerKey = innerKey.toLowerCase();
+              const authorizedKey = ctx.caseMap.get(lowerInnerKey);
+              
+              if (authorizedKey) {
+                  normalized[authorizedKey] = [...(normalized[authorizedKey] || []), ...values];
+              } else if (ctx.permissive) {
+                  normalized[innerKey] = [...(normalized[innerKey] || []), ...values];
+              } else {
+                  unauthorized[innerKey] = [...(unauthorized[innerKey] || []), ...values];
+              }
+          } else {
+              // If it's a namespaced protocol but the key DOES NOT start with our namespace prefix,
+              // we ignore it (it belongs to the root or another namespace).
+          }
           continue;
       }
 

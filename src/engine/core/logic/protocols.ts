@@ -14,15 +14,27 @@ export function createProtocolContext(def: ProtocolDefinition): ProtocolContext 
     const caseMap = new Map<string, string>();
     const trailers = new Map<string, any>();
     
-    const rawTrailers = def.trailers || {};
+    const rawTrailers = { ...(def.trailers || {}) };
     const namespace = def.namespace || '';
+
+    // Ensure identity key is present in rawTrailers for iteration
+    if (!rawTrailers[def.identityKey]) {
+        rawTrailers[def.identityKey] = { description: 'Stable identity', multivalue: false, validation: 'none' };
+    }
 
     for (const [key, tDef] of Object.entries(rawTrailers)) {
         caseMap.set(key.toLowerCase(), key);
         
         const hydrated = ProtocolHydrator.hydrateTrailer(key, tDef);
         const isCore = (hydrated as any).isCore ?? false;
-        trailers.set(key, { ...hydrated, key, isCore });
+        
+        // Identity key always defaults to order 0 if not set
+        const prompt = { ...(hydrated.prompt || {}) };
+        if (key === def.identityKey && prompt.order === undefined) {
+            prompt.order = 0;
+        }
+
+        trailers.set(key, { ...hydrated, key, isCore, prompt });
     }
 
     const ctx: ProtocolContext = {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { makeProtocol } from '../../../../src/engine/testing.js';
+import { makeProtocol, MOCK_CORE_TRAILERS } from '../../../../src/engine/testing.js';
 import { ownsKey, authorizeKey, isBucketOwner, getQualifiedKey } from '../../../../src/engine/core/logic/ownership.js';
 
 describe('Ownership Logic (Pure Functions)', () => {
@@ -51,6 +51,14 @@ describe('Ownership Logic (Pure Functions)', () => {
     it('should return canonical case for schema keys', () => {
         expect(authorizeKey('lore-id', rootProtocol)).toBe('Lore-id');
         expect(authorizeKey('constraint', rootProtocol)).toBe('Constraint');
+    });
+
+    it('should prioritize core casing over ad-hoc casing', () => {
+        const protocol = makeProtocol({ 
+            name: 'PriorityCaseTest',
+            trailers: { ...rootProtocol.def.trailers, ...MOCK_CORE_TRAILERS }
+        });
+        expect(authorizeKey('confidence', protocol)).toBe('Confidence');
     });
 
     it('should return namespace for bucket keys', () => {
