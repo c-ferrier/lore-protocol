@@ -23,11 +23,10 @@ export function registerWhyCommand(
     getFormatter: () => IOutputFormatter;
     protocolRegistry: ProtocolRegistry;
     protocolRoot: string;
-    gitRoot: string;
     cwd: string;
   },
 ): void {
-  const { protocolRoot, gitRoot, cwd } = deps;
+  const { protocolRoot, cwd } = deps;
   const cmd = program
     .command('why <target>')
     .description('Decision context for a specific line or line range');

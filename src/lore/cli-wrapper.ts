@@ -36,8 +36,8 @@ import { getLorePackageName, getLorePublishedVersion,getLoreVersion } from './ut
  * Wraps the agnostic Atom engine with Lore-specific commands and configuration.
  */
 export async function runLore() {
-  const { program, getFormatter, config } = await buildLoreCli();
-  await execute(program, getFormatter, config);
+  const { program, getFormatter } = await buildLoreCli();
+  await execute(program, getFormatter);
 }
 
 /**

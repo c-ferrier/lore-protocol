@@ -1,10 +1,10 @@
+import { existsSync,mkdirSync, rmSync,writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterAll, beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { buildLoreCli } from '../lore-test-utils.js';
-;
-import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
 describe('Lore CLI Configuration Mapping', () => {
   let testDir: string;
@@ -40,7 +40,7 @@ describe('Lore CLI Configuration Mapping', () => {
   });
 
   beforeEach(() => {
-      if (require('node:fs').existsSync(loreConfigPath)) {
+      if (existsSync(loreConfigPath)) {
           rmSync(loreConfigPath);
       }
   });

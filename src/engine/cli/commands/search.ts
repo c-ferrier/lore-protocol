@@ -22,11 +22,10 @@ export function registerSearchCommand(
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
     protocolRoot: string;
-    gitRoot: string;
     cwd: string;
   },
 ): void {
-  const { protocolRoot, gitRoot, cwd } = deps;
+  const { protocolRoot, cwd } = deps;
   const cmd = program
     .command('search')
     .description('Search for decision atoms across history')

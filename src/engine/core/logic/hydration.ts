@@ -70,7 +70,7 @@ export function extractReferenceIds(atoms: readonly Atom[], registry: ProtocolRe
               seen.add(idKey);
               identities.push(identity);
             }
-          } catch (e) {
+          } catch (_e) {
             // Skip invalid references during extraction (they will be caught by validator)
           }
         }

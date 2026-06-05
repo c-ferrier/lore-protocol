@@ -260,7 +260,6 @@ describe('AtomRepository', () => {
       // Create a chain: h1 (a) -> h2 (b) -> h3 (c)
       const c3 = makeRawCommit({ hash: 'h3', id: 'cccc3333', subject: 't' });
       const c2 = makeRawCommit({ hash: 'h2', id: 'bbbb2222', subject: 't', trailers: `Mock-id: bbbb2222\nRelated: cccc3333` });
-      const c1 = makeRawCommit({ hash: 'h1', id: 'aaaa1111', subject: 't', trailers: `Mock-id: aaaa1111\nRelated: bbbb2222` });
       gitClient.query.mockResolvedValue([c2, c3]);
       gitClient.getCommitsByHashes.mockResolvedValue([c2, c3]);
       // Hydrate initial atom manually

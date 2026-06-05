@@ -2,7 +2,6 @@ import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import { ProtocolError } from '../../util/errors.js';
 import { ProtocolMap } from '../models/protocol-map.js';
 import type { CommitInput } from '../types/commit.js';
-import type { EngineConfig } from '../types/config.js';
 import { authorizeKey } from './ownership.js';
 import { camelCase,slugify } from './string.js';
 
@@ -136,9 +135,9 @@ export function parseFlagsToInput(options: CommitCommandOptions, registry: Proto
 }
 
 /**
- * Merges partial user intent with system defaults to produce a valid CommitInput.
+ * Normalizes partial user intent by applying default empty values to produce a valid CommitInput.
  */
-export function finalizeCommitInput(input: Partial<CommitInput>, config: EngineConfig): CommitInput {
+export function finalizeCommitInput(input: Partial<CommitInput>): CommitInput {
     return {
         subject: input.subject ?? '',
         body: input.body ?? '',

@@ -36,7 +36,7 @@ export class CommitInputResolver implements ICommitInputReader {
   async read(options: CommitCommandOptions): Promise<CommitInput> {
     const mode = this.getActualMode(options);
     const intent = await this.readIntent(mode, options);
-    return finalizeCommitInput(intent, this.config);
+    return finalizeCommitInput(intent);
   }
 
   /**

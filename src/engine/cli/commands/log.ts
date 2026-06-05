@@ -22,11 +22,10 @@ export function registerLogCommand(
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
     protocolRoot: string;
-    gitRoot: string;
     cwd: string;
   },
 ): void {
-  const { protocolRoot, gitRoot, cwd } = deps;
+  const { protocolRoot, cwd } = deps;
   const cmd = program
     .command('log [paths...]')
     .description('Chronological decision surveyors for specific paths');

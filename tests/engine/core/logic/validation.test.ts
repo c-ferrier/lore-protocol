@@ -189,9 +189,10 @@ describe('Validation Logic (Pure Functions)', () => {
 
           const raw = { 'Project': ['Id: a1b2c3d4', 'Tream: typo'] };
           const state = normalizeTrailers(raw, nsProtocol);
-          const issues = validateProtocolState(state, nsProtocol.def);
+          validateProtocolState(state, nsProtocol.def);
 
           expect(state.unauthorized.Tream).toEqual(['typo']);
+
           // Note: unauthorized-trailer rule is currently handled by normalization/orchestration loop
           // But we verify the state contains it.
       });

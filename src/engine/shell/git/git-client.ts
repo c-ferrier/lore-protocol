@@ -1,29 +1,26 @@
 import { execFile as execFileCb } from 'node:child_process';
-import { promisify } from 'node:util';
 
 import { escapeRegex } from '../../core/logic/regex.js';
 import type { BlameLine, CommitOptions, CommitResult, IGitClient, RawCommit, StorageQuery } from '../../interfaces/git-client.js';
 import { GitError } from '../../util/errors.js';
 
-const execFile = promisify(execFileCb);
-
 /**
- * Field separator: ASCII Unit Separator (0x1F).
- * Used to delimit fields within a single commit record.
- * Note: We use %x1F in git format strings (not \x1F in the JS string passed to exec).
- */
-const FIELD_SEP = '\x1F';
-
-/**
- * Record separator: ASCII Record Separator (0x1E).
- * Used to delimit separate commit records in git log output.
- */
-const RECORD_SEP = '\x1E';
-
-/**
- * Git log format string using git's %xNN hex escape syntax.
- * Fields: hash, ISO date, author name + email, subject, body, trailers.
- * Fields separated by Unit Separator (1F), records by Record Separator (1E).
+ * Git log format string using Git's %xNN hex escape syntax.
+ * 
+ * Separator Strategy:
+ * - Record Separator (%x1E): ASCII 0x1E. Used to delimit separate commit records.
+ * - Field Separator (%x1F): ASCII 0x1F (Unit Separator). Used to delimit fields within a single commit.
+ * 
+ * Fields (in order): 
+ * 1. Hash (%H)
+ * 2. ISO Date (%aI)
+ * 3. Author Name <email> (%an <%ae>)
+ * 4. Subject (%s)
+ * 5. Body (%b)
+ * 6. Trailers (%(trailers:only,unfold))
+ * 
+ * Note: We use %xNN instead of literal characters in the format string to avoid escaping 
+ * issues across different shells and OS environments.
  */
 const LOG_FORMAT = '%x1E%H%x1F%aI%x1F%an <%ae>%x1F%s%x1F%b%x1F%(trailers:only,unfold)%x1F';
 

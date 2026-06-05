@@ -23,7 +23,9 @@ export default tseslint.config(
           vars: 'all', 
           varsIgnorePattern: '^_', 
           args: 'after-used', 
-          argsIgnorePattern: '^_' 
+          argsIgnorePattern: '^_',
+          caughtErrors: 'all',
+          caughtErrorsIgnorePattern: '^_'
         },
       ],
       '@typescript-eslint/no-explicit-any': 'warn',

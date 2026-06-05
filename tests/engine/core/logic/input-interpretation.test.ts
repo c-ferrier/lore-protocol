@@ -7,7 +7,6 @@ import {
     makeMockContext,
     makeProtocolRegistry, 
     MOCK_CORE_TRAILERS, 
-    TEST_ENGINE_CONFIG, 
     TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
 
 describe('Input Interpretation Logic (Pure Functions)', () => {
@@ -227,7 +226,7 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
 
   describe('finalizeCommitInput', () => {
     it('should apply defaults and ensure non-null fields', () => {
-      const input = finalizeCommitInput({ subject: 'test' }, TEST_ENGINE_CONFIG);
+      const input = finalizeCommitInput({ subject: 'test' });
       expect(input.subject).toBe('test');
       expect(input.body).toBe('');
       expect(input.trailers).toBeDefined();

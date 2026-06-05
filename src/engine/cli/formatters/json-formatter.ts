@@ -210,7 +210,7 @@ export class JsonFormatter implements IOutputFormatter {
     const cleanTrailers: Record<string, any> = {};
 
     for (const [key, def] of Object.entries(data.trailers)) {
-      const { ui, ...clean } = def;
+      const { ...clean } = def;
       const stripped: any = { ...clean };
       
       if (stripped.directives && stripped.directives.length === 0) delete stripped.directives;

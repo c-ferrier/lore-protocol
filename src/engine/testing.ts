@@ -207,7 +207,6 @@ export function makeQueryTarget(val: string | string[] | Partial<QueryTargetAST>
 
 /** Stub Git Client for I/O tests. Framework-agnostic. */
 export function makeStubGitClient(overrides: any = {}) {
-  const vi = (globalThis as any).vi;
   return {
     getRepoRoot: async () => '/mock-repo',
     resolveRef: async () => 'head-hash',
@@ -228,7 +227,6 @@ export function makeStubGitClient(overrides: any = {}) {
 
 /** Stub Atom Repository. */
 export function makeStubAtomRepository(overrides: any = {}) {
-    const vi = (globalThis as any).vi;
     return {
         find: async () => [],
         findByIds: async () => [],
@@ -241,7 +239,6 @@ export function makeStubAtomRepository(overrides: any = {}) {
         /** Stub Protocol Registry. */
 
 export function makeStubPrompt(overrides: any = {}) {
-    const vi = (globalThis as any).vi;
     return {
         askConfirm: async () => true,
         askChoice: async () => '',
@@ -252,7 +249,6 @@ export function makeStubPrompt(overrides: any = {}) {
 
 /** Stub Config Loader. */
 export function makeStubConfigLoader(overrides: any = {}) {
-    const vi = (globalThis as any).vi;
     return {
         loadForPath: async () => TEST_ENGINE_CONFIG,
         ...overrides

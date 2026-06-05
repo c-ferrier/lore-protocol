@@ -27,7 +27,7 @@ async function main() {
     configEnabled: config.cli.updateCheck
   });
 
-  await execute(program, getFormatter, config);
+  await execute(program, getFormatter);
 }
 
 main().catch((err) => {

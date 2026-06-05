@@ -182,6 +182,7 @@ describe('TextFormatter', () => {
       expect(output).toContain('Assisted-by:');
       expect(output).toContain('Gemini');
       // Verify that it contains some escape sequence when color is on
+      // eslint-disable-next-line no-control-regex
       expect(output).toMatch(/\x1b\[/);
     });
     it('should show body text when present', () => {
@@ -376,6 +377,7 @@ describe('TextFormatter', () => {
     it('should produce output with color disabled', () => {
       const noColor = new TextFormatter(registry, { color: false });
       const output = noColor.formatSuccess('OK');
+      // eslint-disable-next-line no-control-regex
       expect(output).not.toMatch(/\x1b\[/);
     });
   });

@@ -35,11 +35,10 @@ export function registerStaleCommand(
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
     protocolRoot: string;
-    gitRoot: string;
     cwd: string;
   },
 ): void {
-  const { protocolRoot, gitRoot, cwd } = deps;
+  const { protocolRoot, cwd } = deps;
   program
     .command('stale [target]')
     .description('Flag potentially outdated atoms')

@@ -34,7 +34,9 @@ export function resolveFilters(raw: Record<string, any>, registry: ProtocolRegis
   for (const [rawKey, value] of Object.entries(raw)) {
     if (value === undefined || value === null) continue;
 
-    let { protocol, key, op } = parseFilterKey(rawKey);
+    const parsed = parseFilterKey(rawKey);
+    let protocol = parsed.protocol;
+    const { key, op } = parsed;
 
     // Deterministic Routing: If unqualified, resolve the owner from the registry
     if (!protocol) {

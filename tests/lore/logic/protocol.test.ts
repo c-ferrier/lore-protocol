@@ -19,7 +19,7 @@ describe('LoreProtocolDefinition', () => {
 
   it(`should have CLI metadata for all standard trailers except ${LORE_ID_KEY}`, () => {
     const definitions = getFormattableDefinitions(protocol);
-    for (const [key, def] of Object.entries(definitions)) {
+    for (const key of Object.keys(definitions)) {
       if (key === LORE_ID_KEY) continue;
       
       // Verification via Protocol context trailers map

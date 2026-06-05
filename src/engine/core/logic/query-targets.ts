@@ -129,10 +129,11 @@ export function getCacheFingerprint(target: QueryTargetAST): string {
       return target.resolvedPaths.length > 0 ? 'scoped-global:.' : 'global';
     case 'path':
       return `path:${[...target.resolvedPaths].sort().join(',')}`;
-    case 'identity':
+    case 'identity': {
       if (!target.identities) return 'identity:none';
       const ids = target.identities.map(i => i.protocol ? `${i.protocol}/${i.id}` : i.id);
       return `identity:${ids.sort().join(',')}`;
+    }
     case 'line-range':
       if (!target.lineRange) return 'blame:none';
       return `blame:${target.lineRange.file}:${target.lineRange.start}-${target.lineRange.end}`;

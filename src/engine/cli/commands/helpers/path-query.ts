@@ -30,7 +30,6 @@ export interface PathQueryDeps {
   readonly config: EngineConfig;
   readonly logger: ILogger;
   readonly protocolRoot: string;
-  readonly gitRoot: string;
   readonly cwd: string;
 }
 
@@ -60,7 +59,7 @@ export async function executePathQuery(
   commandName: string,
   visibleTrailers: readonly string[] | 'all',
 ): Promise<void> {
-  const { atomRepository, getFormatter, config, logger, protocolRoot, gitRoot, cwd } = deps;
+  const { atomRepository, getFormatter, config, logger, protocolRoot, cwd } = deps;
 
   const queryOptions = {
     filters: options.filter && options.filter.length > 0 ? options.filter : undefined,

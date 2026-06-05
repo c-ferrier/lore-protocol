@@ -11,7 +11,7 @@ export async function runCli(options: EngineOptions) {
 /**
  * Executes the configured commander program.
  */
-export async function execute(program: any, getFormatter: () => any, config: any) {
+export async function execute(program: any, getFormatter: () => any) {
   try {
     await program.parseAsync(process.argv);
   } catch (error: unknown) {

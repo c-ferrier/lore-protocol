@@ -143,7 +143,7 @@ export class TextFormatter implements IOutputFormatter {
       const id = (rootProtocol && state) ? getProtocolIdentity(state, rootProtocol) : report.atom.commitHash.slice(0, 8);
 
       const dateStr = report.atom.date.toISOString().slice(0, 10);
-      lines.push(`${this.color('yellow')}STALE${this.color('reset')}  ${this.color('bright')}${id || ''} (${dateStr})${this.color('reset')}`);
+      lines.push(`${this.c('yellow')}STALE${this.c('reset')}  ${this.c('bright')}${id || ''} (${dateStr})${this.c('reset')}`);
       lines.push(`  ${report.atom.subject}`);
 
       for (const reason of report.reasons) {
@@ -334,7 +334,4 @@ export class TextFormatter implements IOutputFormatter {
     return this.c[key] as ChalkInstance;
   }
 
-  protected color(name: string): string {
-    return ''; // Dummy for internal use if needed, but we use this.c
-  }
 }

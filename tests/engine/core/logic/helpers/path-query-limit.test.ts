@@ -39,15 +39,11 @@ function makeAtom(id: string, supersedes: string[] = []): Atom {
 describe('executePathQuery — --limit as post-supersession result cap', () => {
   let deps: PathQueryDeps;
   let mockFind: ReturnType<typeof vi.fn>;
-  let mockResolve: ReturnType<typeof vi.fn>;
-  let mockFilterActive: ReturnType<typeof vi.fn>;
   let formattedOutput: string;
   let logger: TestLogger;
 
   beforeEach(() => {
     mockFind = vi.fn();
-    mockResolve = vi.fn();
-    mockFilterActive = vi.fn();
     formattedOutput = '';
     logger = new TestLogger();
 
