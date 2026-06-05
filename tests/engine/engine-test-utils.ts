@@ -6,7 +6,6 @@ import {
     makeStubPrompt as stubPrompt, 
     makeStubConfigLoader as stubConfigLoader, 
     makeStubAtomRepository as stubAtomRepository, 
-    makeStubValidator as stubValidator, 
     makeStubStalenessDetector as stubStalenessDetector, 
     TEST_ENGINE_CONFIG,
     createProtocolContext,
@@ -196,7 +195,3 @@ export const makeStubGitClient = makeMockGitClient;
 export const makeFormatter = makeMockFormatter;
 export const makeConfigLoader = makeMockConfigLoader;
 export const makePrompt = makeMockPrompt;
-export const makeMockValidator = (overrides: any = {}) => {
-    const stub = stubValidator(overrides);
-    return { ...stub, validate: vi.fn(stub.validate) };
-};

@@ -242,15 +242,6 @@ export function makeStubAtomRepository(overrides: any = {}) {
     };
 }
 
-/** Stub Validator. */
-export function makeStubValidator(overrides: any = {}) {
-    const vi = (globalThis as any).vi;
-    return {
-        validate: async () => [],
-        ...overrides
-    };
-}
-
 /** Stub Staleness Detector. */
 export function makeStubStalenessDetector(overrides: any = {}) {
     const vi = (globalThis as any).vi;

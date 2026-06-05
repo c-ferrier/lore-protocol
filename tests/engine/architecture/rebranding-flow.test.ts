@@ -2,7 +2,7 @@ import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { Validator } from '../../../src/engine/services/validator.js';
+import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
 import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, makeProtocol, makeQueryTarget } from '../../../src/engine/testing.js';
 import { makeMockGitClient } from '../engine-test-utils.js';
@@ -47,7 +47,7 @@ describe('Engine Protocol Rebranding Flow', () => {
     });
     const registry = new ProtocolRegistry();
     registry.register(fredProtocol);
-    
+
     // 2. Mock Storage to return a Fred commit
     const mockGit = makeMockGitClient();
     const rawFredCommit = {
@@ -99,14 +99,21 @@ describe('Engine Protocol Rebranding Flow', () => {
     expect(json.results[0].protocols.fred.trailers.Status).toBe('active');
 
     // 7. Validation Integration (Ensures Validator respects custom definition)
-    const validator = new Validator(repo, TEST_ENGINE_CONFIG, registry);
-    const results = await validator.validate([rawFredCommit]);
+    const results = await validateCommits([rawFredCommit], { 
+      atomRepository: repo, 
+      config: TEST_ENGINE_CONFIG, 
+      protocolRegistry: registry 
+    });
     expect(results[0].issues).toHaveLength(0);
 
     // Negative case: invalid ID based on Fred's custom pattern
     // 5. Verify validation of bad commit
     const badRawCommit = { ...rawFredCommit, trailers: 'fred: Fred-id: not-hex' };
-    const results2 = await validator.validate([badRawCommit]);
+    const results2 = await validateCommits([badRawCommit], { 
+      atomRepository: repo, 
+      config: TEST_ENGINE_CONFIG, 
+      protocolRegistry: registry 
+    });
     const formatIssue = results2[0].issues.find(i => i.rule === 'fred-id-format');
     expect(formatIssue).toBeDefined();
   });

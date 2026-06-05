@@ -1,18 +1,15 @@
 import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { Validator } from '../../../src/engine/services/validator.js';
+import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
 import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG, makeProtocol, makeRawCommit } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { makeMockAtomRepository } from '../../engine/engine-test-utils.js';
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-;
-;
-;
+import { describe, it, expect, beforeEach } from 'vitest';
+
 
 describe('Lore Protocol Validation Contract', () => {
-  let validator: Validator;
   let registry: ProtocolRegistry;
   let protocol: ProtocolContext;
   let mockAtomRepo: any;
@@ -22,12 +19,12 @@ describe('Lore Protocol Validation Contract', () => {
     registry = new ProtocolRegistry();
     registry.register(protocol);
     mockAtomRepo = makeMockAtomRepository();
+  });
 
-    validator = new Validator(
-      mockAtomRepo,
-      TEST_ENGINE_CONFIG,
-      registry
-    );
+  const getDeps = () => ({
+    atomRepository: mockAtomRepo,
+    config: TEST_ENGINE_CONFIG,
+    protocolRegistry: registry
   });
 
   const makeCommit = (trailers: string): RawCommit => ({
@@ -44,7 +41,7 @@ describe('Lore Protocol Validation Contract', () => {
     const invalid = makeCommit('Lore-id: not-hex-!');
     const tooShort = makeCommit('Lore-id: abc123');
 
-    const results = await validator.validate([valid, invalid, tooShort]);
+    const results = await validateCommits([valid, invalid, tooShort], getDeps());
 
     expect(results[0].valid).toBe(true);
     expect(results[1].issues.some(i => i.rule === 'lore-id-format')).toBe(true);
@@ -53,7 +50,7 @@ describe('Lore Protocol Validation Contract', () => {
 
   it('should enforce Lore enum values for Confidence', async () => {
     const invalid = makeCommit('Lore-id: abc12345\nConfidence: extreme');
-    const results = await validator.validate([invalid]);
+    const results = await validateCommits([invalid], getDeps());
 
     expect(results[0].issues.some(i => i.rule === 'invalid-enum' && i.field === 'Confidence')).toBe(true);
     expect(results[0].issues[0].message).toContain('low, medium, high');
@@ -61,7 +58,7 @@ describe('Lore Protocol Validation Contract', () => {
 
   it('should enforce Lore enum values for Scope-risk', async () => {
     const invalid = makeCommit('Lore-id: abc12345\nScope-risk: critical');
-    const results = await validator.validate([invalid]);
+    const results = await validateCommits([invalid], getDeps());
 
     expect(results[0].issues.some(i => i.rule === 'invalid-enum' && i.field === 'Scope-risk')).toBe(true);
     expect(results[0].issues.find(i => i.field === 'Scope-risk')?.message).toContain('narrow, moderate, wide');
@@ -69,7 +66,7 @@ describe('Lore Protocol Validation Contract', () => {
 
   it('should enforce Lore enum values for Reversibility', async () => {
     const invalid = makeCommit('Lore-id: abc12345\nReversibility: partially');
-    const results = await validator.validate([invalid]);
+    const results = await validateCommits([invalid], getDeps());
 
     expect(results[0].issues.some(i => i.rule === 'invalid-enum' && i.field === 'Reversibility')).toBe(true);
     expect(results[0].issues.find(i => i.field === 'Reversibility')?.message).toContain('clean, migration-needed, irreversible');
@@ -79,7 +76,7 @@ describe('Lore Protocol Validation Contract', () => {
     const valid = makeCommit('Lore-id: abc12345\nRejected: option A | too slow');
     const invalid = makeCommit('Lore-id: abc12345\nRejected: just an option');
 
-    const results = await validator.validate([valid, invalid]);
+    const results = await validateCommits([valid, invalid], getDeps());
 
     expect(results[0].valid).toBe(true);
     expect(results[1].issues.some(i => i.rule === 'invalid-format' && i.field === 'Rejected')).toBe(true);
@@ -87,7 +84,7 @@ describe('Lore Protocol Validation Contract', () => {
 
   it('should enforce 8-character hex format for references (Supersedes, Related)', async () => {
     const invalid = makeRawCommit({ trailers: `Lore-id: a1b2c3d4\nSupersedes: toolong12` });
-    const results = await validator.validate([invalid]);
+    const results = await validateCommits([invalid], getDeps());
 
     expect(results[0].issues.some(i => i.rule === 'reference-format' && i.field === 'Supersedes')).toBe(true);
   });

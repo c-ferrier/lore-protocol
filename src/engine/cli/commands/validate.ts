@@ -1,5 +1,8 @@
 import type { Command } from 'commander';
-import type { Validator } from '../../services/validator.js';
+import { validateCommits } from '../../shell/orchestrators/validation.js';
+import type { AtomRepository } from '../../services/atom-repository.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { EngineConfig } from '../../core/types/config.js';
 import type { IGitClient } from '../../interfaces/git-client.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { CommitValidationResult, FormattableValidationResult, ValidationIssue } from '../../core/types/output.js';
@@ -13,13 +16,13 @@ interface ValidateCommandOptions {
 /**
  * Register the validate [range] command.
  * Validates commits for protocol compliance.
- * Default: last commit (HEAD~1..HEAD).
- * Accepts git revision range as argument.
  */
 export function registerValidateCommand(
   program: Command,
   deps: {
-    validator: Validator;
+    atomRepository: AtomRepository;
+    protocolRegistry: ProtocolRegistry;
+    config: EngineConfig;
     gitClient: IGitClient;
     getFormatter: () => IOutputFormatter;
   },
@@ -31,28 +34,30 @@ export function registerValidateCommand(
     .option('--last <n>', 'Validate the last N commits', parseInt)
     .option('--strict', 'Treat warnings as errors')
     .action(async (range: string | undefined, options: ValidateCommandOptions) => {
-      const { validator, gitClient, getFormatter } = deps;
+      const { atomRepository, protocolRegistry, config, gitClient, getFormatter } = deps;
 
       // Determine the revision range
       let logArgs: string[];
 
       if (range) {
-        // Explicit range: e.g., HEAD~5..HEAD or main..feature
         logArgs = [range];
       } else if (options.since) {
         logArgs = [`${options.since}..HEAD`];
       } else if (options.last !== undefined && options.last > 0) {
         logArgs = [`-${options.last}`];
       } else {
-        // Default: last commit
         logArgs = ['-1'];
       }
 
       // Get raw commits from git
       const rawCommits = await gitClient.log(logArgs);
 
-      // Validate all commits
-      let results: readonly CommitValidationResult[] = await validator.validate(rawCommits);
+      // Validate all commits using the shell orchestrator
+      let results: readonly CommitValidationResult[] = await validateCommits(rawCommits, {
+        atomRepository,
+        config,
+        protocolRegistry,
+      });
 
       // In strict mode, upgrade each warning issue to an error
       if (options.strict) {

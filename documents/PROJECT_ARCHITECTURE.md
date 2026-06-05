@@ -42,51 +42,45 @@ The codebase implements a **Flat & Uniform Protocol** architecture. Key principl
 
 ### Layered Architecture
 
-The codebase follows a strict layered architecture with dependencies flowing top-down:
+The codebase follows a strict layered architecture with dependencies flowing top-down. We are currently transitioning to a **Functional Orchestration** model to reduce stateful object overhead.
 
 ```mermaid
 graph TD
-    MAIN["main.ts<br/><i>Composition Root</i>"]
-    MAIN -->|creates and wires| CMD["Commands<br/><code>commands/</code>"]
-    MAIN -->|creates and wires| FMT["Formatters<br/><code>formatters/</code>"]
-    CMD -->|depends on| SVC["Services<br/><code>services/</code>"]
-    FMT -->|implements| INT["Interfaces<br/><code>interfaces/</code>"]
-    CMD -->|depends on| INT
-    SVC -->|depends on| INT
-    SVC -->|depends on| TYP["Types<br/><code>types/</code>"]
-    INT -->|depends on| TYP
-    SVC -->|depends on| UTL["Utilities<br/><code>util/</code>"]
+    CLI["CLI Layer<br/><code>src/engine/cli/</code>"]
+    SHELL["Shell Layer<br/><code>src/engine/shell/</code>"]
+    CORE["Core Layer<br/><code>src/engine/core/</code>"]
+    SVC["Infrastructure Services<br/><code>src/engine/services/</code>"]
 
-    style MAIN fill:#4a9eff,color:#fff,stroke:#2d7ad6
-    style CMD fill:#6c5ce7,color:#fff,stroke:#5a4bd1
-    style FMT fill:#6c5ce7,color:#fff,stroke:#5a4bd1
-    style SVC fill:#00b894,color:#fff,stroke:#00a381
-    style INT fill:#fdcb6e,color:#333,stroke:#e0b05e
-    style TYP fill:#636e72,color:#fff,stroke:#4a5458
-    style UTL fill:#636e72,color:#fff,stroke:#4a5458
+    CLI -->|orchestrates via| SHELL
+    SHELL -->|coordinates I/O| SVC
+    SHELL -->|applies| CORE
+    CORE -->|stateless logic| CORE
+
+    style CLI fill:#6c5ce7,color:#fff,stroke:#5a4bd1
+    style SHELL fill:#00b894,color:#fff,stroke:#00a381
+    style CORE fill:#4a9eff,color:#fff,stroke:#2d7ad6
+    style SVC fill:#fdcb6e,color:#333,stroke:#e0b05e
 ```
 
 **Layer responsibilities:**
 
 | Layer | Directory | Responsibility |
 |-------|-----------|----------------|
-| Types | `src/types/` | Domain models, config schema, query/output types. Pure data definitions with zero logic. |
-| Interfaces | `src/interfaces/` | Contracts for volatile dependencies (git, config loader, output formatting, terminal prompt). |
-| Utilities | `src/util/` | Constants and error types. No behavior, no dependencies on services. |
-| Services | `src/services/` | Business logic: parsing, querying, validation, staleness detection, commit building. |
-| Formatters | `src/formatters/` | `IOutputFormatter` implementations (text with chalk, JSON). |
-| Commands | `src/commands/` | CLI command registration. Thin orchestrators that call services and output via formatters. |
-| Main | `src/main.ts` | Composition root. The **only** place concrete classes are instantiated and wired together. |
+| **Core** | `src/engine/core/` | **Stateless Logic**. Pure functions for schema math, normalization, and hygiene. No I/O. |
+| **Shell** | `src/engine/shell/` | **I/O & Orchestration**. UI-agnostic functions that coordinate infrastructure services (Git, FS, Cache). |
+| **CLI** | `src/engine/cli/` | **User Interface**. Terminal-specific drivers, flag parsing, and formatting. |
+| **Services** | `src/engine/services/` | **Infrastructure**. Stateful clients (AtomRepository) and registry management. |
 
 ### Dependency Flow Direction
 
-Dependencies flow **inward and downward** only:
+Dependencies flow **inward** toward the Core:
 
-- Commands depend on services and interfaces; never the reverse.
-- Services depend on interfaces and types; never on commands or formatters.
-- Types and utilities are leaf nodes with no upstream dependencies.
+- **CLI** depends on **Shell Orchestrators** and **Core Logic**.
+- **Shell** depends on **Services** and **Core Logic**.
+- **Core** has **zero** dependencies on outer layers.
+- **Services** are standalone infrastructure providers used by Shell Orchestrators.
 
-This is enforced by import structure: no file in `services/` imports from `commands/` or `formatters/`.
+This is enforced by strict import boundaries: `core/` never imports from `shell/`, `cli/`, or `services/`.
 
 ### Composition Root Pattern
 

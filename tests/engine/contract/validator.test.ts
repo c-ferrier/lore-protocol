@@ -1,7 +1,7 @@
 import { parseTrailers } from '../../../src/engine/core/logic/trailers.js';
 import { type EngineConfig } from '../../../src/engine/core/types/config.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { Validator } from '../../../src/engine/services/validator.js';
+import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
 import { 
   TEST_ENGINE_CONFIG, 
   TEST_PROTOCOL_DEFINITION, 
@@ -17,11 +17,10 @@ const TEST_ID_KEY = "Mock-id";
 
 import * as TrailerLogic from '../../../src/engine/core/logic/trailers.js';
 
-describe('Validator', () => {
+describe('validateCommits (Shell Orchestrator)', () => {
   let mockAtomRepo: any;
   let engineConfig: EngineConfig;
   let protocolRegistry: ProtocolRegistry;
-  let validator: Validator;
 
   beforeEach(() => {
     mockAtomRepo = makeMockAtomRepository();
@@ -37,7 +36,12 @@ describe('Validator', () => {
             'Ref': { description: 'ref', validation: 'reference' } as any
         }
     }));
-    validator = new Validator(mockAtomRepo as any, engineConfig, protocolRegistry);
+  });
+
+  const getDeps = () => ({
+    atomRepository: mockAtomRepo as any,
+    config: engineConfig,
+    protocolRegistry
   });
 
   afterEach(() => {
@@ -47,7 +51,7 @@ describe('Validator', () => {
   describe('basic validation', () => {
     it('should return valid for a correct commit', async () => {
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: a1b2c3d4` });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       expect(results).toHaveLength(1);
       expect(results[0].valid).toBe(true);
@@ -58,7 +62,7 @@ describe('Validator', () => {
     it('should validate multiple commits', async () => {
       const commit1 = makeRawCommit({ hash: 'aaa111' });
       const commit2 = makeRawCommit({ hash: 'bbb222' });
-      const results = await validator.validate([commit1, commit2]);
+      const results = await validateCommits([commit1, commit2], getDeps());
 
       expect(results).toHaveLength(2);
     });
@@ -71,7 +75,7 @@ describe('Validator', () => {
       });
 
       const commit = makeRawCommit();
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       expect(results[0].valid).toBe(false);
       const formatIssue = results[0].issues.find((i) => i.rule === 'trailer-format');
@@ -84,7 +88,7 @@ describe('Validator', () => {
     it('should warn when subject exceeds max length', async () => {
       const longSubject = 'a'.repeat(TEST_ENGINE_CONFIG.validation.subjectMaxLength + 1);
       const commit = makeRawCommit({ subject: longSubject });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const issue = results[0].issues.find((i) => i.rule === 'subject-length');
       expect(issue).toBeDefined();
@@ -94,7 +98,7 @@ describe('Validator', () => {
     it('should warn when total message lines exceed max', async () => {
       const manyLines = '\n'.repeat(TEST_ENGINE_CONFIG.validation.maxMessageLines + 1);
       const commit = makeRawCommit({ body: manyLines });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const issue = results[0].issues.find((i) => i.rule === 'message-length');
       expect(issue).toBeDefined();
@@ -103,7 +107,7 @@ describe('Validator', () => {
 
     it('should warn when a trailer appears too many times (cardinality hygiene)', async () => {
       const commit = makeRawCommit({ trailers: 'Constraint: 1\nConstraint: 2\nConstraint: 3\nConstraint: 4\nConstraint: 5\nConstraint: 6' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const issue = results[0].issues.find((i) => i.rule === 'trailer-count');
       expect(issue).toBeDefined();
@@ -115,7 +119,7 @@ describe('Validator', () => {
   describe(`Rule 2: ${TEST_ID_KEY} present`, () => {
     it(`should error when ${TEST_ID_KEY} is missing`, async () => {
       const commit = makeRawCommit({ trailers: 'Constraint: test' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const idIssue = results[0].issues.find((i) => i.rule === 'mock-id-present');
       expect(idIssue).toBeDefined();
@@ -126,7 +130,7 @@ describe('Validator', () => {
   describe(`Rule 3: ${TEST_ID_KEY} format`, () => {
     it(`should error when ${TEST_ID_KEY} is not 8-char hex`, async () => {
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: not-hex!` });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const formatIssue = results[0].issues.find((i) => i.rule === 'mock-id-format');
       expect(formatIssue).toBeDefined();
@@ -135,7 +139,7 @@ describe('Validator', () => {
 
     it(`should pass for valid 8-char hex ${TEST_ID_KEY}`, async () => {
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: abcd1234` });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const formatIssue = results[0].issues.find((i) => i.rule === 'mock-id-format');
       expect(formatIssue).toBeUndefined();
@@ -143,7 +147,7 @@ describe('Validator', () => {
 
     it(`should error for too-short ${TEST_ID_KEY}`, async () => {
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: abc123` });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const formatIssue = results[0].issues.find((i) => i.rule === 'mock-id-format');
       expect(formatIssue).toBeDefined();
@@ -151,7 +155,7 @@ describe('Validator', () => {
 
     it(`should error for uppercase hex ${TEST_ID_KEY}`, async () => {
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: ABCD1234` });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const formatIssue = results[0].issues.find((i) => i.rule === 'mock-id-format');
       expect(formatIssue).toBeDefined();
@@ -161,7 +165,7 @@ describe('Validator', () => {
   describe('Rule: invalid-cardinality', () => {
     it('should error when a single-value core trailer has multiple values', async () => {
       const commit = makeRawCommit({ trailers: 'Confidence: low\nConfidence: high' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const cardinalityIssue = results[0].issues.find((i) => i.rule === 'invalid-cardinality');
       expect(cardinalityIssue).toBeDefined();
@@ -179,10 +183,9 @@ describe('Validator', () => {
         }
       });
       customRegistry.register(customProtocol);
-      const customValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, customRegistry);
 
       const commit = makeRawCommit({ trailers: 'Team: Engineering\nTeam: Product' });
-      const results = await customValidator.validate([commit]);
+      const results = await validateCommits([commit], { ...getDeps(), protocolRegistry: customRegistry });
 
       const cardinalityIssue = results[0].issues.find((i) => i.rule === 'invalid-cardinality');
       expect(cardinalityIssue).toBeDefined();
@@ -191,7 +194,7 @@ describe('Validator', () => {
 
     it('should pass when an array core trailer has multiple values', async () => {
       const commit = makeRawCommit({ trailers: 'Constraint: C1\nConstraint: C2' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const cardinalityIssue = results[0].issues.find((i) => i.rule === 'invalid-cardinality');
       expect(cardinalityIssue).toBeUndefined();
@@ -201,7 +204,7 @@ describe('Validator', () => {
   describe('Rule 4: valid enum values', () => {
     it('should error on invalid Confidence', async () => {
       const commit = makeRawCommit({ trailers: 'Confidence: super-high' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const enumIssue = results[0].issues.find(
         (i) => i.rule === 'invalid-enum' && i.message.includes('Confidence'),
@@ -212,7 +215,7 @@ describe('Validator', () => {
 
     it('should accept valid enum values', async () => {
       const commit = makeRawCommit({ trailers: 'Confidence: medium' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const enumIssues = results[0].issues.filter((i) => i.rule === 'invalid-enum');
       expect(enumIssues).toHaveLength(0);
@@ -220,7 +223,7 @@ describe('Validator', () => {
 
     it('should not error when enum trailers are empty', async () => {
       const commit = makeRawCommit({ trailers: 'Constraint: test' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const enumIssues = results[0].issues.filter((i) => i.rule === 'invalid-enum');
       expect(enumIssues).toHaveLength(0);
@@ -230,7 +233,7 @@ describe('Validator', () => {
   describe('Rule 5: subject length', () => {
     it('should warn when subject exceeds max length', async () => {
       const commit = makeRawCommit({ subject: 'a'.repeat(100) });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const issue = results[0].issues.find((i) => i.rule === 'subject-length');
       expect(issue).toBeDefined();
@@ -239,7 +242,7 @@ describe('Validator', () => {
 
     it('should not warn when subject is within limit', async () => {
       const commit = makeRawCommit({ subject: 'feat: short' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const issue = results[0].issues.find((i) => i.rule === 'subject-length');
       expect(issue).toBeUndefined();
@@ -252,10 +255,9 @@ describe('Validator', () => {
       };
       const customRegistry = new ProtocolRegistry();
       customRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION));
-      const customValidator = new Validator(mockAtomRepo as any, customConfig, customRegistry);
 
       const commit = makeRawCommit({ subject: 'a'.repeat(51) });
-      const results = await customValidator.validate([commit]);
+      const results = await validateCommits([commit], { ...getDeps(), config: customConfig, protocolRegistry: customRegistry });
 
       const issue = results[0].issues.find((i) => i.rule === 'subject-length');
       expect(issue).toBeDefined();
@@ -273,10 +275,9 @@ describe('Validator', () => {
             Constraint: { description: '', multivalue: true, validation: 'none', required: true }
         }
       }));
-      const requiredValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, requiredRegistry);
-      
+
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: abc` }); // Missing Confidence and Constraint
-      const results = await requiredValidator.validate([commit]);
+      const results = await validateCommits([commit], { ...getDeps(), protocolRegistry: requiredRegistry });
 
       const requiredIssues = results[0].issues.filter(
         (i) => i.rule === 'required-trailer',
@@ -293,10 +294,9 @@ describe('Validator', () => {
             Confidence: { description: '', multivalue: false, validation: 'none', required: true }
         }
       }));
-      const strictValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, strictRegistry);
-      
+
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: abc` }); // Missing Confidence
-      const results = await strictValidator.validate([commit]);
+      const results = await validateCommits([commit], { ...getDeps(), protocolRegistry: strictRegistry });
 
       const requiredIssues = results[0].issues.filter(
         (i) => i.rule === 'required-trailer',
@@ -312,10 +312,9 @@ describe('Validator', () => {
             Confidence: { description: '', multivalue: false, validation: 'none', required: true }
         }
       }));
-      const requiredValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, requiredRegistry);
-      
+
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: abc\nConfidence: medium` });
-      const results = await requiredValidator.validate([commit]);
+      const results = await validateCommits([commit], { ...getDeps(), protocolRegistry: requiredRegistry });
 
       const requiredIssues = results[0].issues.filter(
         (i) => i.rule === 'required-trailer',
@@ -328,7 +327,7 @@ describe('Validator', () => {
     it('should warn when message exceeds max lines', async () => {
       const longBody = Array.from({ length: 55 }, (_, i) => `Line ${i}`).join('\n');
       const commit = makeRawCommit({ body: longBody });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const lineIssue = results[0].issues.find((i) => i.rule === 'message-length');
       expect(lineIssue).toBeDefined();
@@ -337,7 +336,7 @@ describe('Validator', () => {
 
     it('should not warn when within line limit', async () => {
       const commit = makeRawCommit({ body: 'Short body' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const lineIssue = results[0].issues.find((i) => i.rule === 'message-length');
       expect(lineIssue).toBeUndefined();
@@ -356,9 +355,8 @@ describe('Validator', () => {
               'Related': { description: 'R', validation: 'reference' } as any
           }
       }));
-      const looseValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, looseRegistry);
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: a1b2c3d4\nRef: not-hex!\nRelated: toolong12` });
-      const results = await looseValidator.validate([commit]);
+      const results = await validateCommits([commit], { ...getDeps(), protocolRegistry: looseRegistry });
 
       const refIssues = results[0].issues.filter(
         (i) => i.rule === 'reference-format',
@@ -378,9 +376,8 @@ describe('Validator', () => {
               'Related': { description: 'R', validation: 'reference' } as any
           }
       }));
-      const strictValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, strictRegistry);
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: a1b2c3d4\nRef: not-hex!\nRelated: toolong12` });
-      const results = await strictValidator.validate([commit]);
+      const results = await validateCommits([commit], { ...getDeps(), protocolRegistry: strictRegistry });
 
       const refIssues = results[0].issues.filter(
         (i) => i.rule === 'reference-format',
@@ -392,7 +389,7 @@ describe('Validator', () => {
     it('should not warn on valid reference format', async () => {
       vi.mocked(mockAtomRepo.findByIds!).mockResolvedValue([]);
       const commit = makeRawCommit({ trailers: 'Ref: aabbccdd\nRelated: 11223344' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const refIssues = results[0].issues.filter(
         (i) => i.rule === 'reference-format',
@@ -404,7 +401,7 @@ describe('Validator', () => {
   describe('Rule 9: trailer count', () => {
     it('should warn when more than 5 of any trailer type', async () => {
       const commit = makeRawCommit({ trailers: 'Constraint: a\nConstraint: b\nConstraint: c\nConstraint: d\nConstraint: e\nConstraint: f' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const countIssue = results[0].issues.find(
         (i) => i.rule === 'trailer-count',
@@ -417,7 +414,7 @@ describe('Validator', () => {
 
     it('should not warn when 5 or fewer of each type', async () => {
       const commit = makeRawCommit({ trailers: 'Constraint: a\nConstraint: b\nConstraint: c\nConstraint: d\nConstraint: e' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const countIssues = results[0].issues.filter(
         (i) => i.rule === 'trailer-count',
@@ -429,7 +426,7 @@ describe('Validator', () => {
   describe('overall validity', () => {
     it('should be invalid if any error exists', async () => {
       const commit = makeRawCommit({ trailers: 'Constraint: some-value' }); // Missing required ID
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       expect(results[0].valid).toBe(false);
     });
@@ -439,7 +436,7 @@ describe('Validator', () => {
           subject: 'a'.repeat(100),
           trailers: `${TEST_ID_KEY}: a1b2c3d4`
       });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       // Has a warning but no errors
       const warnings = results[0].issues.filter((i) => i.severity === 'warning');
@@ -453,14 +450,14 @@ describe('Validator', () => {
   describe(`commit hash and ${TEST_ID_KEY} reporting`, () => {
     it('should report commit hash', async () => {
       const commit = makeRawCommit({ hash: 'specific_hash_123' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       expect(results[0].commit).toBe('specific_hash_123');
     });
 
     it(`should report ${TEST_ID_KEY} when present`, async () => {
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: deadbeef` });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       expect(results[0].id).toBe('deadbeef');
     });
@@ -471,7 +468,7 @@ describe('Validator', () => {
       });
 
       const commit = makeRawCommit();
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       expect(results[0].id).toBeNull();
     });
@@ -488,9 +485,8 @@ describe('Validator', () => {
               'Ref': { description: 'R', validation: 'reference' } as any
           }
       }));
-      const looseValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, looseRegistry);
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: a1b2c3d4\nRef: aabbccdd` });
-      const results = await looseValidator.validate([commit]);
+      const results = await validateCommits([commit], { ...getDeps(), protocolRegistry: looseRegistry });
 
       const refExistsIssues = results[0].issues.filter(
         (i) => i.rule === 'reference-exists',
@@ -510,9 +506,8 @@ describe('Validator', () => {
               'Ref': { description: 'R', validation: 'reference' } as any
           }
       }));
-      const strictValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, strictRegistry);
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: a1b2c3d4\nRef: aabbccdd` });
-      const results = await strictValidator.validate([commit]);
+      const results = await validateCommits([commit], { ...getDeps(), protocolRegistry: strictRegistry });
 
       const refExistsIssues = results[0].issues.filter(
         (i) => i.rule === 'reference-exists',
@@ -543,7 +538,7 @@ describe('Validator', () => {
         filesChanged: [],
       } as any]);
       const commit = makeRawCommit({ trailers: 'Related: aabbccdd' });
-      const results = await validator.validate([commit]);
+      const results = await validateCommits([commit], getDeps());
 
       const refExistsIssues = results[0].issues.filter(
         (i) => i.rule === 'reference-exists',
@@ -563,10 +558,9 @@ describe('Validator', () => {
       };
       const customRegistry = new ProtocolRegistry();
       customRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION, pConfig));
-      const customValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, customRegistry);
-      
+
       const commit = makeRawCommit({ trailers: `${TEST_ID_KEY}: abc` }); // Missing Department
-      const results = await customValidator.validate([commit]);
+      const results = await validateCommits([commit], { ...getDeps(), protocolRegistry: customRegistry });
 
       const requiredIssues = results[0].issues.filter((i) => i.rule === 'required-trailer');
       expect(requiredIssues).toHaveLength(1);
@@ -588,10 +582,9 @@ describe('Validator', () => {
       };
       const customRegistry = new ProtocolRegistry();
       customRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION, pConfig));
-      const customValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, customRegistry);
 
       const commit = makeRawCommit({ trailers: 'Team: Gamma' });
-      const results = await customValidator.validate([commit]);
+      const results = await validateCommits([commit], { ...getDeps(), protocolRegistry: customRegistry });
 
       const enumIssues = results[0].issues.filter((i) => i.rule === 'invalid-enum');
       expect(enumIssues).toHaveLength(1);
@@ -608,10 +601,9 @@ describe('Validator', () => {
       };
       const customRegistry = new ProtocolRegistry();
       customRegistry.register(makeProtocol(TEST_PROTOCOL_DEFINITION, pConfig));
-      const customValidator = new Validator(mockAtomRepo as any, TEST_ENGINE_CONFIG, customRegistry);
 
       const commit = makeRawCommit({ trailers: 'Ticket: invalid-123' });
-      const results = await customValidator.validate([commit]);
+      const results = await validateCommits([commit], { ...getDeps(), protocolRegistry: customRegistry });
 
       const formatIssues = results[0].issues.filter((i) => i.rule === 'invalid-format');
       expect(formatIssues).toHaveLength(1);
@@ -636,14 +628,13 @@ describe('Validator', () => {
               { strict: true, permissive: false }
           );
           nsRegistry.register(nsProtocol);
-          const nsValidator = new Validator(mockAtomRepo as any, engineConfig, nsRegistry);
 
           const commit = makeRawCommit({ trailers: 'Project: Id: a1b2c3d4\nProject: Tream: backend' });
-          const results = await nsValidator.validate([commit]);
+          const results = await validateCommits([commit], { ...getDeps(), protocolRegistry: nsRegistry });
 
           const issues = results[0].issues.filter(i => i.rule === 'unauthorized-trailer');
           const messages = issues.map(i => i.message).join(' ');
-          
+
           expect(issues.length).toBeGreaterThanOrEqual(1);
           expect(messages).toContain('Tream');
           expect(messages).toContain('not recognized');
