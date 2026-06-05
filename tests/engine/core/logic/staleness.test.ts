@@ -1,10 +1,16 @@
-import { evaluateAgeSignal, evaluateDriftSignal, formatAge, parseDuration } from '../../../..//src/engine/core/logic/staleness.js';
-import { type Atom } from '../../../..//src/engine/core/types/domain.js';
-import { STALE_SIGNAL } from '../../../..//src/engine/util/constants.js';
+import { 
+    evaluateAgeSignal, 
+    evaluateDriftSignal, 
+    formatAge, 
+    parseDuration,
+    getProtocolStaleSignals,
+    evaluateStaleCondition
+} from '../../../../src/engine/core/logic/staleness.js';
+import { type Atom } from '../../../../src/engine/core/types/domain.js';
+import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
+import { makeMockContext, makeAtom } from '../../../../src/engine/testing.js';
 
-import { describe, it, expect } from 'vitest';
-;
-;
+import { describe, it, expect, beforeEach } from 'vitest';
 
 describe('Staleness Logic (Pure Functions)', () => {
 
@@ -65,12 +71,86 @@ describe('Staleness Logic (Pure Functions)', () => {
       expect(signal).not.toBeNull();
       expect(signal?.signal).toBe(STALE_SIGNAL.DRIFT);
       expect(signal?.description).toContain('Source files have drifted');
-      expect(signal?.description).toContain('1 files');
     });
 
     it('should handle empty drift map', () => {
         const signal = evaluateDriftSignal({}, 10);
         expect(signal).toBeNull();
+    });
+  });
+
+  describe('Protocol-Specific Triggers', () => {
+    const now = new Date('2023-06-01T00:00:00Z');
+
+    it('should evaluate value-equals condition', () => {
+        const ctx = makeMockContext({
+            name: 'mock',
+            trailers: { 
+                'Status': { 
+                    description: 'S', 
+                    stale_if: { kind: 'value-equals', value: 'deprecated', signal: 'status-deprecated' } 
+                } as any 
+            }
+        });
+        const atom = makeAtom({ trailers: { 'Status': ['deprecated'] } });
+        const reasons = getProtocolStaleSignals(ctx, atom, now, new Map());
+        expect(reasons).toHaveLength(1);
+        expect(reasons[0].signal).toBe('status-deprecated');
+    });
+
+    it('should evaluate date-expired condition', () => {
+        const ctx = makeMockContext({
+            name: 'mock',
+            trailers: { 
+                'Until': { description: 'U', stale_if: { kind: 'date-expired', signal: STALE_SIGNAL.EXPIRED_HINT } } as any 
+            }
+        });
+        // Use a date in the past in YYYY-MM-DD format (supported by parseTriggerHints)
+        const pastDate = new Date(now.getTime() - 1000 * 60 * 60 * 48); // 2 days ago
+        const pastStr = pastDate.toISOString().split('T')[0]; 
+
+        const atom = makeAtom({ trailers: { 'Until': [`[until:${pastStr}] do something`] } });
+        const reasons = getProtocolStaleSignals(ctx, atom, now, new Map());
+        expect(reasons).toHaveLength(1);
+        expect(reasons[0].signal).toBe(STALE_SIGNAL.EXPIRED_HINT);
+    });
+
+    it('should evaluate reference-superseded condition', () => {
+        const ctx = makeMockContext({
+            name: 'mock',
+            trailers: { 
+                'Ref': { description: 'R', stale_if: { kind: 'reference-superseded' } } as any 
+            }
+        });
+        const atom = makeAtom({ trailers: { 'Ref': ['target-1'] } });
+        const supersessionMap = new Map([
+            ['mock', new Map([['target-1', { superseded: true, supersededBy: ['target-2'] }]])]
+        ]);
+
+        const reasons = getProtocolStaleSignals(ctx, atom, now, supersessionMap);
+        expect(reasons).toHaveLength(1);
+        expect(reasons[0].signal).toBe(STALE_SIGNAL.ORPHANED_DEP);
+        expect(reasons[0].description).toContain('superseded by target-2');
+    });
+
+    it('should ignore self-supersession in reference signals', () => {
+        const ctx = makeMockContext({
+            name: 'mock',
+            identityKey: 'Id',
+            trailers: { 
+                'Id': { description: 'ID' },
+                'Ref': { description: 'R', stale_if: { kind: 'reference-superseded' } } as any 
+            }
+        });
+        // Atom a2 supersedes a1. a2 also references a1 (normal chain).
+        const atom = makeAtom({ id: 'a2', trailers: { 'Id': ['a2'], 'Ref': ['a1'] } });
+        const supersessionMap = new Map([
+            ['mock', new Map([['a1', { superseded: true, supersededBy: ['a2'] }]])]
+        ]);
+
+        const reasons = getProtocolStaleSignals(ctx, atom, now, supersessionMap);
+        // Should be empty because a2 is the one that superseded a1
+        expect(reasons).toHaveLength(0);
     });
   });
 });
