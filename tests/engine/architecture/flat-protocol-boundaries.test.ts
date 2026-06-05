@@ -4,6 +4,7 @@ import { type FormattableQueryResult } from '../../../src/engine/core/types/outp
 import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { TEST_PROTOCOL_CONFIG, makeProtocol, normalizeTrailers } from '../../../src/engine/testing.js';
+import { getAuthorizedKeys } from '../../../src/engine/core/logic/protocols.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { TriggerParser } from '../../../src/engine/util/trigger-parser.js';
 
@@ -27,7 +28,7 @@ describe('Flat Protocol Boundaries', () => {
         'My-Custom': ['Val']
       } as any;
 
-      const output = serializeTrailers(trailers, protocol.getAuthorizedKeys());
+      const output = serializeTrailers(trailers, getAuthorizedKeys(protocol));
       const lines = output.split('\n');
 
       // Canonical order from core-definitions.ts: 
@@ -101,7 +102,7 @@ describe('Flat Protocol Boundaries', () => {
       expect(parsed['Authorized']).toEqual(['yes']);
       expect(parsed['Unauthorized']).toBeUndefined();
       
-      const serialized = serializeTrailers(parsed, protocol.getAuthorizedKeys());
+      const serialized = serializeTrailers(parsed, getAuthorizedKeys(protocol));
       expect(serialized).not.toContain('Unauthorized');
     });
   });
@@ -118,7 +119,7 @@ describe('Flat Protocol Boundaries', () => {
       // Should be mapped to the canonical PascalCase key
       expect(parsed['Confidence']).toEqual(['low']);
       
-      const serialized = serializeTrailers(parsed, protocol.getAuthorizedKeys());
+      const serialized = serializeTrailers(parsed, getAuthorizedKeys(protocol));
       expect(serialized).toContain('Confidence: low');
       expect(serialized).not.toContain('confidence:');
     });

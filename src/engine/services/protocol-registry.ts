@@ -2,7 +2,7 @@ import { ProtocolMap, type Atom, type SupersessionStatus } from '../core/types/d
 import type { QualifiedFilter, QueryIdentity } from '../core/types/query.js';
 import { ProtocolError, ConfigurationError } from '../util/errors.js';
 import type { ProtocolDefinition, ProtocolContext, IIdentityResolver } from '../core/types/protocol-definition.js';
-import { createProtocolContext } from '../core/logic/protocols.js';
+import { createProtocolContext, getAuthorizedKeys } from '../core/logic/protocols.js';
 import { 
     getDiscoveryPatterns, 
     getSearchPatterns, 
@@ -97,7 +97,7 @@ export class ProtocolRegistry implements IIdentityResolver {
         claimed.add(ns.toLowerCase());
       } else {
         // Map all authorized keys from the context
-        for (const k of ctx.getAuthorizedKeys()) {
+        for (const k of getAuthorizedKeys(ctx)) {
           claimed.add(k.toLowerCase());
         }
       }

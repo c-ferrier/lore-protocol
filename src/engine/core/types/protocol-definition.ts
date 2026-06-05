@@ -56,7 +56,6 @@ export interface ProtocolContext {
     validateState(state: ProtocolState, resolver?: IIdentityResolver): ValidationIssue[];
     validateTrailer(key: string, value: string, resolver?: IIdentityResolver): { valid: boolean; message?: string; rule?: string };
     getStaleSignals(atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[];
-    getAuthorizedKeys(): string[];
     matches(state: ProtocolState, filters: readonly QualifiedFilter[]): boolean;
     claims(raw: string): boolean;
 }

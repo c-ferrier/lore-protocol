@@ -100,7 +100,7 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
         const lore = makeMockProtocol({ name: 'lore' });
         const project = makeMockProtocol({ 
             name: 'project', 
-            getAuthorizedKeys: () => ['Status'] 
+            trailers: { 'Status': { description: 'S' } }
         });
 
         // Intercept Registry.getAll to simulate a multi-protocol environment

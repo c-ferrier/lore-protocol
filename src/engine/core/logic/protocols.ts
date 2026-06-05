@@ -50,9 +50,6 @@ export function createProtocolContext(def: ProtocolDefinition): ProtocolContext 
             
         getStaleSignals: (atom: Atom, now: Date, map: Map<string, Map<string, SupersessionStatus>>) => 
             (def as any).getStaleSignals ? (def as any).getStaleSignals(atom, now, map) : getProtocolStaleSignals(ctx, atom, now, map),
-            
-        getAuthorizedKeys: () => 
-            (def as any).getAuthorizedKeys ? (def as any).getAuthorizedKeys() : getProtocolAuthorizedKeys(ctx),
 
         matches: (state: ProtocolState, filters: readonly QualifiedFilter[]) =>
             (def as any).matches ? (def as any).matches(state, filters) : matchesFilters(state, filters, ctx),
@@ -80,7 +77,7 @@ export function getProtocolAuthorizedKeys(ctx: ProtocolContext): string[] {
  * Public wrapper for authorized keys.
  */
 export function getAuthorizedKeys(ctx: ProtocolContext): string[] {
-    return ctx.getAuthorizedKeys();
+    return getProtocolAuthorizedKeys(ctx);
 }
 
 /**

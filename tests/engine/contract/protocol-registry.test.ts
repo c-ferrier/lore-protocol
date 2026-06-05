@@ -15,7 +15,10 @@ describe('ProtocolRegistry', () => {
       name: 'RegistryMock',
       namespace: '',
       identityKey: 'Mock-id',
-      getAuthorizedKeys: vi.fn().mockReturnValue(['Mock-id', 'Confidence']),
+      trailers: {
+          'Mock-id': { description: 'ID' },
+          'Confidence': { description: 'C' }
+      } as any,
       isValidIdentity: vi.fn().mockReturnValue(true),
     });
   });
@@ -64,7 +67,8 @@ describe('ProtocolRegistry', () => {
     const fredProtocol = makeMockProtocolContext({
       name: 'FredClaim',
       namespace: 'fred',
-      getAuthorizedKeys: vi.fn().mockReturnValue(['fred']),
+      identityKey: 'fred',
+      trailers: { 'fred': { description: 'ID' } } as any
     });
 
     registry.register(mockProtocol);

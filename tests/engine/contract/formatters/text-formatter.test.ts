@@ -3,8 +3,7 @@ import { type Atom, type Trailers, ProtocolMap } from '../../../../src/engine/co
 import { type FormattableDoctorResult, type FormattableQueryResult, type FormattableStalenessResult, type FormattableTraceResult, type FormattableValidationResult } from '../../../../src/engine/core/types/output.js';
 import { TextFormatter } from '../../../../src/engine/formatters/text-formatter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeMockContext as makeProtocol } from '../../../../src/engine/testing.js';
-import { makeMockProtocolContext as makeMockProtocol } from '../../engine-test-utils.js';
+import { makeMockContext as makeMockProtocol } from '../../../../src/engine/testing.js';
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -50,7 +49,7 @@ describe('TextFormatter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    protocol = makeProtocol();
+    protocol = makeMockProtocol();
     registry.register(protocol);
     formatter = new TextFormatter(registry, { color: false });
   });
@@ -259,7 +258,7 @@ describe('TextFormatter', () => {
         name: 'Fred',
         namespace: 'fred',
         identityKey: 'Fred-id',
-        getAuthorizedKeys: () => ['Status'],
+        trailers: { 'Status': { description: 'S' } }
       });
       registry.register(fredProtocol);
 
