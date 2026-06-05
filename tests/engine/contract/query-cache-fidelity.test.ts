@@ -7,27 +7,30 @@ import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { makeAtom, makeProtocol, makeQueryTarget, makeRawCommit } from '../../../src/engine/testing.js';
 import { makeMockGitClient } from '../engine-test-utils.js';
 
-import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+;
+;
+;
 import { rmSync, mkdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
+;
 import * as HydrationLogic from '../../../src/engine/core/logic/hydration.js';
 
 describe('Query Cache Combined Fidelity (Contract)', () => {
-  const testDir = join(tmpdir(), `lore-test-cache-fidelity-${Math.random().toString(36).slice(2)}`);
+  const testDir = '.test-cache-fidelity';
   let gitClient: any;
   let registry: any;
   let cache: QueryCache;
   let repo: AtomRepository;
 
   beforeEach(() => {
+    rmSync(testDir, { recursive: true, force: true });
     mkdirSync(testDir, { recursive: true });
 
     gitClient = makeMockGitClient();
     registry = new ProtocolRegistry();
     registry.register(makeProtocol());
-
+    
     cache = new QueryCache(testDir, 100, 'test-fingerprint');
 
     repo = new AtomRepository(
@@ -41,7 +44,6 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
   afterAll(() => {
     rmSync(testDir, { recursive: true, force: true });
   });
-
 
   it('should skip DISCOVERY (query) but perform FETCH (getCommitsByHashes) on cache hit', async () => {
     const headHash = 'a1b2c3d4e5f6'; // Must be valid hex

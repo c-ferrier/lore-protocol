@@ -1,13 +1,13 @@
 import { GitClient } from '../../../src/engine/shell/git/git-client.js';
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+;
 import { execSync } from 'node:child_process';
 import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 
 describe('GitClient Bulk Fetch (System)', () => {
-  const testDir = join(tmpdir(), `lore-test-git-bulk-${Math.random().toString(36).slice(2)}`);
+  const testDir = join(process.cwd(), '.test-git-bulk');
   let client: GitClient;
   let commitHashes: string[] = [];
 
