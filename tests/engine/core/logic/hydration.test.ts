@@ -2,10 +2,8 @@ import { extractReferenceIds, hydrateAtoms } from '../../../..//src/engine/core/
 import { TEST_PROTOCOL_DEFINITION, makeAtom, makeMockContext, makeProtocolRegistry, makeRawCommit } from '../../../..//src/engine/testing.js';
 
 import { describe, it, expect } from 'vitest';
-;
-;
 
-describe('AtomHydrator Logic (Pure Functions)', () => {
+describe('Hydration Logic (Pure Functions)', () => {
   const protocol = makeMockContext({
     name: 'test',
     version: '1.0',
@@ -60,10 +58,14 @@ describe('AtomHydrator Logic (Pure Functions)', () => {
       expect(hydrate(body, trailers).body).toBe('');
     });
 
-    it('should handle CRLF line endings in trailers', () => {
-      const trailers = 'Id: 12345678\r\nKey: val';
-      const body = 'Message.\n\nId: 12345678\nKey: val';
-      expect(hydrate(body, trailers).body).toBe('Message.');
+    it('should handle multiple protocols in trailer block', () => {
+        const p2 = makeMockContext({ name: 'fred', namespace: 'fred', identityKey: 'Fred-id' });
+        const localRegistry = makeProtocolRegistry([protocol as any, p2 as any]);
+        const trailers = 'Id: 12345678\nfred: Fred-id: abcdefgh';
+        const body = 'Message.\n\nId: 12345678\nfred: Fred-id: abcdefgh';
+        const raw = makeRawCommit({ trailers, body });
+        const atom = hydrateAtoms([raw], localRegistry)[0];
+        expect(atom.body).toBe('Message.');
     });
   });
 
@@ -90,6 +92,31 @@ describe('AtomHydrator Logic (Pure Functions)', () => {
           expect(ids).toHaveLength(2);
           expect(ids.map(i => i.id)).toContain('atom2');
           expect(ids.map(i => i.id)).toContain('atom3');
+      });
+
+      it('should handle qualified references (protocol/id)', () => {
+          const p1 = makeMockContext({ name: 'p1', namespace: 'p1', identityKey: 'id', trailers: { 'Ref': { validation: 'reference' } } as any });
+          const p2 = makeMockContext({ name: 'p2', namespace: 'p2', identityKey: 'id' });
+          const localRegistry = makeProtocolRegistry([p1 as any, p2 as any]);
+
+          const atom = makeAtom({
+              protocols: new Map([['p1', { trailers: { 'Ref': ['p2/target'] }, unauthorized: {} }]])
+          });
+
+          const ids = extractReferenceIds([atom], localRegistry);
+          expect(ids[0]).toEqual({ protocol: 'p2', id: 'target' });
+      });
+
+      it('should deduplicate references across multiple atoms', () => {
+          const p1 = makeMockContext({ name: 'p1', identityKey: 'id', trailers: { 'Ref': { validation: 'reference' } } as any });
+          const localRegistry = makeProtocolRegistry([p1 as any]);
+
+          const a1 = makeAtom({ protocols: new Map([['p1', { trailers: { 'Ref': ['shared'] }, unauthorized: {} }]]) });
+          const a2 = makeAtom({ protocols: new Map([['p1', { trailers: { 'Ref': ['shared'] }, unauthorized: {} }]]) });
+
+          const ids = extractReferenceIds([a1, a2], localRegistry);
+          expect(ids).toHaveLength(1);
+          expect(ids[0].id).toBe('shared');
       });
   });
 });
