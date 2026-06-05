@@ -1,4 +1,4 @@
-import { GitClient } from '../../../src/engine/shell/git/git-client.js';
+import { GitClient } from '../../../../src/engine/shell/git/git-client.js';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 ;

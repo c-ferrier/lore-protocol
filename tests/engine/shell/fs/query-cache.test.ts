@@ -1,4 +1,4 @@
-import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
+import { QueryCache } from '../../../../src/engine/shell/fs/query-cache.js';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 ;

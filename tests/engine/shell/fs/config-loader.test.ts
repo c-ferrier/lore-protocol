@@ -1,4 +1,4 @@
-import { EngineConfigLoader } from '../../../src/engine/shell/fs/config-loader.js';
+import { EngineConfigLoader } from '../../../../src/engine/shell/fs/config-loader.js';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 ;

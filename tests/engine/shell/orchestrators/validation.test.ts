@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
+import { validateCommits } from '../../../../src/engine/shell/orchestrators/validation.js';
 import { 
     makeMockGitClient, 
     makeMockProtocolRegistry, 
@@ -8,7 +8,7 @@ import {
     TEST_ENGINE_CONFIG,
     createProtocolContext,
     makeProtocol
-} from '../engine-test-utils.js';
+} from '../../engine-test-utils.js';
 
 describe('Commit Validation (Shell Orchestrator)', () => {
   const protocol = createProtocolContext({

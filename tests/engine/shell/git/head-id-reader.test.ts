@@ -1,8 +1,8 @@
-import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
-import { type IGitClient } from '../../../src/engine/interfaces/git-client.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { HeadIdReader } from '../../../src/engine/shell/git/head-id-reader.js';
-import { makeProtocol } from '../../../src/engine/testing.js';
+import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
+import { type IGitClient } from '../../../../src/engine/interfaces/git-client.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { HeadIdReader } from '../../../../src/engine/shell/git/head-id-reader.js';
+import { makeProtocol } from '../../../../src/engine/testing.js';
 
 ;
 import { describe, it, expect, vi, beforeEach } from 'vitest';

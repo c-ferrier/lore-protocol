@@ -1,7 +1,7 @@
-import { analyzeStaleness } from '../../../src/engine/shell/orchestrators/staleness.js';
-import { TEST_ENGINE_CONFIG, makeAtom, makeProtocolRegistry, makeMockContext, makeProtocol } from '../../../src/engine/testing.js';
-import { STALE_SIGNAL } from '../../../src/engine/util/constants.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
+import { analyzeStaleness } from '../../../../src/engine/shell/orchestrators/staleness.js';
+import { TEST_ENGINE_CONFIG, makeAtom, makeProtocolRegistry, makeMockContext, makeProtocol } from '../../../../src/engine/testing.js';
+import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
+import { makeMockGitClient } from '../../engine-test-utils.js';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 

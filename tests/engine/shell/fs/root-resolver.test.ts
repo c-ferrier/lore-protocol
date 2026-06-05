@@ -1,5 +1,5 @@
-import { resolveProtocolRoot } from '../../../src/engine/shell/fs/root-resolver.js';
-import { makeMockConfigLoader, makeMockGitClient } from '../engine-test-utils.js';
+import { resolveProtocolRoot } from '../../../../src/engine/shell/fs/root-resolver.js';
+import { makeMockConfigLoader, makeMockGitClient } from '../../engine-test-utils.js';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 ;
