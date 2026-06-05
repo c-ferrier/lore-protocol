@@ -118,7 +118,7 @@ export function makeProtocol(
     const identityKey = overrides.identityKey || TEST_PROTOCOL_DEFINITION.identityKey;
     
     if (!trailers[identityKey]) {
-        trailers[identityKey] = { description: 'ID', multivalue: false, validation: 'none' } as any;
+        trailers[identityKey] = { description: 'ID', multivalue: false, validation: 'none' };
     }
 
     const baseDef = { 
@@ -129,7 +129,7 @@ export function makeProtocol(
         trailers
     };
 
-    const finalized = ProtocolLoader.applyOverrides([baseDef as any], { 
+    const finalized = ProtocolLoader.applyOverrides([baseDef as ProtocolDefinition], { 
         [name.toLowerCase()]: configOverrides
     })[0];
     
@@ -151,7 +151,7 @@ export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = 
   const identityKey = overrides.identityKey || TEST_PROTOCOL_DEFINITION.identityKey;
 
   if (!trailers[identityKey]) {
-    trailers[identityKey] = { description: 'ID', multivalue: false, validation: 'none' } as any;
+    trailers[identityKey] = { description: 'ID', multivalue: false, validation: 'none' };
   }
 
   return {
@@ -318,7 +318,7 @@ export function makeAtom(overrides: any = {}): Atom {
             : Object.entries(overrides.protocols);
             
         for (const [name, state] of entries) {
-            protocols.set(name.toLowerCase(), state as any);
+            protocols.set(name.toLowerCase(), state as ProtocolState);
         }
     } else {
         // Convenience: map 'id' and 'trailers' to 'mock' protocol state
@@ -352,7 +352,7 @@ export function makeCommitInput(overrides: any = {}): CommitInput {
             : Object.entries(rawTrailers);
             
         for (const [p, t] of entries) {
-            trailers.set(p.toLowerCase(), t as any);
+            trailers.set(p.toLowerCase(), t as Record<string, string[]>);
         }
     }
     

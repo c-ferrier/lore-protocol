@@ -9,13 +9,12 @@ describe('ProtocolRegistry Key Routing', () => {
     const p1 = makeMockProtocolContext({ 
         name: 'P1', 
         namespace: '',
-        authorize: (k: string) => k === 'Key1' ? 'Key1' : null 
+        trailers: { 'Key1': { description: 'K1' } } as any
     });
     // P2 is namespaced
     const p2 = makeMockProtocolContext({ 
         name: 'P2', 
-        namespace: 'ns2',
-        authorize: (k: string) => k === 'ns2' ? 'ns2' : null 
+        namespace: 'ns2'
     });
     const registry = new ProtocolRegistry();
     registry.register(p1);
@@ -45,7 +44,7 @@ describe('ProtocolRegistry Key Routing', () => {
     const p = makeMockProtocolContext({
         name: 'P1',
         namespace: '',
-        authorize: (k: string) => k.toLowerCase() === 'status' ? 'Status' : null,
+        trailers: { 'Status': { description: 'S' } } as any
     });
     const registry = new ProtocolRegistry();
     registry.register(p);

@@ -33,9 +33,6 @@ export function generateId(ctx: ProtocolContext): AtomId {
 export function getProtocolIdentity(state: ProtocolState | undefined | null, ctx: ProtocolContext): string | null {
     if (!state) return null;
     
-    // Support method override via the definition object (used by mocks in tests)
-    if ((ctx.def as any).getIdentity) return (ctx.def as any).getIdentity(state);
-
     const values = state.trailers[ctx.identityKey];
     if (!values || values.length === 0) return null;
     return values[0];

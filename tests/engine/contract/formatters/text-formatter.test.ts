@@ -258,8 +258,6 @@ describe('TextFormatter', () => {
         name: 'Fred',
         namespace: 'fred',
         identityKey: 'Fred-id',
-        getIdentity: (trailers: any) => trailers['Fred-id']?.[0] || null,
-        getFormattableDefinitions: () => ({}),
         getAuthorizedKeys: () => ['Status'],
       });
       registry.register(fredProtocol);
