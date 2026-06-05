@@ -2,7 +2,7 @@ import type { StaleReason, Atom, ProtocolState, SupersessionStatus } from '../ty
 import type { ProtocolContext } from '../types/protocol-definition.js';
 import type { StaleIfCondition } from '../types/config.js';
 import { STALE_SIGNAL } from '../../util/constants.js';
-import { TriggerParser, parseTriggerHints } from '../../util/trigger-parser.js';
+import { TriggerParser, parseTriggerHints } from '../../core/logic/trigger-parser.js';
 import { getProtocolIdentity } from './identity.js';
 
 /**

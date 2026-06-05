@@ -1,9 +1,9 @@
-import { registerLogCommand } from '../../../src/engine/cli/commands/log.js';
-import { type Atom } from '../../../src/engine/core/types/domain.js';
-import { type IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, makeAtom, makeProtocol } from '../../../src/engine/testing.js';
-import { TestLogger, makeMockAtomRepository } from '../engine-test-utils.js';
+import { registerLogCommand } from '../../../../src/engine/cli/commands/log.js';
+import { type Atom } from '../../../../src/engine/core/types/domain.js';
+import { type IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, makeAtom, makeProtocol } from '../../../../src/engine/testing.js';
+import { TestLogger, makeMockAtomRepository } from '../../engine-test-utils.js';
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Command } from 'commander';

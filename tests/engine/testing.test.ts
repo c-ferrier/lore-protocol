@@ -1,5 +1,5 @@
-import { makeStubGitClient, makeMockContext } from '../../../..//src/engine/testing.js';
-import { ownsKey } from '../../../..//src/engine/core/logic/ownership.js';
+import { makeStubGitClient, makeMockContext } from '../..//src/engine/testing.js';
+import { ownsKey } from '../..//src/engine/core/logic/ownership.js';
 
 import { describe, it, expect } from 'vitest';
 

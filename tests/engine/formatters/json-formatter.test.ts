@@ -1,9 +1,9 @@
-import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
-import { type Atom, type Trailers } from '../../../../src/engine/core/types/domain.js';
-import { type FormattableDoctorResult, type FormattableQueryResult, type FormattableStalenessResult, type FormattableTraceResult, type FormattableValidationResult } from '../../../../src/engine/core/types/output.js';
-import { JsonFormatter } from '../../../../src/engine/formatters/json-formatter.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../../../src/engine/testing.js';
+import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
+import { type Atom, type Trailers } from '../../../src/engine/core/types/domain.js';
+import { type FormattableDoctorResult, type FormattableQueryResult, type FormattableStalenessResult, type FormattableTraceResult, type FormattableValidationResult } from '../../../src/engine/core/types/output.js';
+import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../../src/engine/testing.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 

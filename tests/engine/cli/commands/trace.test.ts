@@ -1,7 +1,7 @@
-import { registerTraceCommand } from '../../../src/engine/cli/commands/trace.js';
-import { type IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
-import { TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, makeAtom, makeProtocol, makeProtocolRegistry } from '../../../src/engine/testing.js';
-import { TestLogger, makeMockAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+import { registerTraceCommand } from '../../../../src/engine/cli/commands/trace.js';
+import { type IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
+import { TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, makeAtom, makeProtocol, makeProtocolRegistry } from '../../../../src/engine/testing.js';
+import { TestLogger, makeMockAtomRepository, makeMockGitClient } from '../../engine-test-utils.js';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';

@@ -2,7 +2,7 @@ import { runCli, execute } from './engine/index.js';
 import { ENGINE_CONFIG_FILENAME, ENGINE_DIR_NAME } from './engine/util/constants.js';
 import { DEFAULT_ENGINE_CONFIG } from './engine/defaults.js';
 import { getEngineVersion, getEnginePackageName, getEnginePublishedVersion } from './engine/core/logic/version.js';
-import { checkForUpdates } from './engine/util/update-check.js';
+import { checkForUpdates } from './engine/core/logic/update-check.js';
 
 /**
  * Agnostic Atom Engine CLI.

@@ -6,7 +6,7 @@ import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry
 import { TEST_PROTOCOL_CONFIG, makeProtocol, normalizeTrailers } from '../../../src/engine/testing.js';
 import { getAuthorizedKeys } from '../../../src/engine/core/logic/protocols.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { TriggerParser } from '../../../src/engine/util/trigger-parser.js';
+import { TriggerParser } from '../../../src/engine/core/logic/trigger-parser.js';
 
 import { describe, it, expect } from 'vitest';
 

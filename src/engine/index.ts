@@ -111,7 +111,7 @@ export {
     getEnginePackageName, 
     getEnginePublishedVersion 
 } from './core/logic/version.js';
-export { checkForUpdates } from './util/update-check.js';
+export { checkForUpdates } from './core/logic/update-check.js';
 export { ProtocolError, ConfigurationError } from './util/errors.js';
 export { 
     ENGINE_CONFIG_FILENAME, 
