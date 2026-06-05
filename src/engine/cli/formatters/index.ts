@@ -1,7 +1,7 @@
 import { JsonFormatter } from './json-formatter.js';
 import { TextFormatter } from './text-formatter.js';
-import type { IOutputFormatter } from '../interfaces/output-formatter.js';
-import type { ProtocolRegistry } from '../services/protocol-registry.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
 export { JsonFormatter, TextFormatter };
 

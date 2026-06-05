@@ -1,5 +1,5 @@
 import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol-definition.js';
-import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
+import { JsonFormatter } from '../../../src/engine/cli/formatters/json-formatter.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';

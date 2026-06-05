@@ -1,6 +1,6 @@
 import chalk, { Chalk, type ChalkInstance } from 'chalk';
 
-import type { IOutputFormatter, ErrorMessage } from '../interfaces/output-formatter.js';
+import type { IOutputFormatter, ErrorMessage } from '../../interfaces/output-formatter.js';
 import type {
   FormattableQueryResult,
   FormattableValidationResult,
@@ -8,11 +8,11 @@ import type {
   FormattableTraceResult,
   FormattableDoctorResult,
   FormattableConfigResult,
-} from '../core/types/output.js';
-import type { Atom, ProtocolState } from '../core/types/domain.js';
-import type { ProtocolRegistry } from '../services/protocol-registry.js';
-import { getProtocolIdentity } from '../core/logic/identity.js';
-import { getAuthorizedKeys } from '../core/logic/protocols.js';
+} from '../../core/types/output.js';
+import type { Atom, ProtocolState } from '../../core/types/domain.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { getProtocolIdentity } from '../../core/logic/identity.js';
+import { getAuthorizedKeys } from '../../core/logic/protocols.js';
 
 /**
  * Strategy implementation for human-readable terminal output.

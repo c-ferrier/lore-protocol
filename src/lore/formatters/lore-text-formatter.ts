@@ -10,7 +10,7 @@ import {
     type FormattableConfigResult,
     type ErrorMessage
  } from '../../engine/index.js';
-import { createBaseFormatter } from '../../engine/formatters/index.js';
+import { createBaseFormatter } from '../../engine/cli/formatters/index.js';
 import { getProtocolIdentity } from '../../engine/core/logic/identity.js';
 import { getAuthorizedKeys } from '../../engine/core/logic/protocols.js';
 import chalk from 'chalk';

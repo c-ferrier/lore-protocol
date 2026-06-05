@@ -1,7 +1,7 @@
 import { parseFlagsToInput } from '../../../src/engine/core/logic/input-interpretation.js';
 import { type Atom, type Trailers } from '../../../src/engine/core/types/domain.js';
 import { type FormattableQueryResult } from '../../../src/engine/core/types/output.js';
-import { JsonFormatter } from '../../../src/engine/formatters/json-formatter.js';
+import { JsonFormatter } from '../../../src/engine/cli/formatters/json-formatter.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';

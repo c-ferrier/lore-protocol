@@ -16,8 +16,8 @@ import { getEngineVersion } from '../core/logic/version.js';
 // Pure Logic Modules
 import { createProtocolContext } from '../core/logic/protocols.js';
 import { createQueryTarget } from '../core/logic/query-targets.js';
-import { JsonFormatter } from '../formatters/json-formatter.js';
-import { TextFormatter } from '../formatters/text-formatter.js';
+import { JsonFormatter } from '../cli/formatters/json-formatter.js';
+import { TextFormatter } from '../cli/formatters/text-formatter.js';
 import { GitClient } from '../shell/git/git-client.js';
 import { EngineConfigLoader } from '../shell/fs/config-loader.js';
 

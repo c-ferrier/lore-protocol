@@ -1,4 +1,4 @@
-import { JsonFormatter } from '../../../../src/engine/formatters/json-formatter.js';
+import { JsonFormatter } from '../../../../src/engine/cli/formatters/json-formatter.js';
 import { LogLevel } from '../../../../src/engine/interfaces/logger.js';
 import { EngineBootstrapper } from '../../../../src/engine/services/engine-bootstrapper.js';
 import { EngineConfigLoader } from '../../../../src/engine/shell/fs/config-loader.js';
