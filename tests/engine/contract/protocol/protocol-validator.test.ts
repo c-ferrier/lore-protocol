@@ -1,5 +1,5 @@
 import { makeMockContext, TEST_PROTOCOL_DEFINITION, TEST_ID_KEY } from '../../../../src/engine/testing.js';
-import { validateState, validateProtocolTrailer } from '../../../../src/engine/core/logic/validation.js';
+import { validateProtocolState, validateProtocolTrailer } from '../../../../src/engine/core/logic/validation.js';
 import { describe, it, expect } from 'vitest';
 
 describe('ProtocolValidator', () => {
@@ -17,7 +17,7 @@ describe('ProtocolValidator', () => {
         unauthorized: {}
     };
 
-    const issues = validateState(protocol, state);
+    const issues = validateProtocolState(state, protocol.def);
     const idIssue = issues.find(i => i.field === TEST_ID_KEY);
     const confIssue = issues.find(i => i.field === 'Confidence');
 
@@ -40,7 +40,7 @@ describe('ProtocolValidator', () => {
         unauthorized: {}
     };
 
-    const issues = validateState(protocol, state);
+    const issues = validateProtocolState(state, protocol.def);
     const idIssue = issues.find(i => i.field === TEST_ID_KEY);
     const confIssue = issues.find(i => i.field === 'Confidence');
 
@@ -71,7 +71,7 @@ describe('ProtocolValidator', () => {
         unauthorized: { 'Typo': ['val'] }
     };
 
-    const issues = validateState(protocol, state);
+    const issues = validateProtocolState(state, protocol.def);
     const typoIssue = issues.find(i => i.field === 'Typo');
 
     expect(typoIssue).toBeDefined();

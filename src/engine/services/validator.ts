@@ -11,7 +11,7 @@ import { parseTrailers } from '../core/logic/trailers.js';
 import { 
     evaluateHygiene, 
     evaluateTrailerHygiene, 
-    validateState,
+    validateProtocolState,
     validateProtocolTrailer
 } from '../core/logic/validation.js';
 import { normalizeTrailers } from '../core/logic/normalization.js';
@@ -66,7 +66,7 @@ export class Validator {
         // Validation needs to see everything (even invalid values) to report errors
         const state = normalizeTrailers(trailers, ctx, claimedKeys);
         
-        issues.push(...validateState(ctx, state, this.protocolRegistry));
+        issues.push(...validateProtocolState(state, ctx.def, this.protocolRegistry));
         await this.validateReferenceExistence(ctx, state.trailers, issues);
       }
 

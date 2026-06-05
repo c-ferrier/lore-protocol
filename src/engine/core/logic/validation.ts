@@ -47,7 +47,10 @@ export function evaluateProtocolSchema(
   state: ProtocolState,
   resolver?: IIdentityResolver,
 ): ValidationIssue[] {
-  return protocol.validateState(state, resolver);
+  // Restore hook check for test compatibility
+  if ((protocol as any).validateState) return (protocol as any).validateState(state, resolver);
+  
+  return validateProtocolState(state, protocol.def, resolver);
 }
 
 /**
@@ -124,17 +127,6 @@ export function validateProtocolState(
     }
   }
   return issues;
-}
-
-/**
- * Public wrapper for protocol state validation.
- */
-export function validateState(
-  ctx: ProtocolContext,
-  state: ProtocolState,
-  resolver?: IIdentityResolver
-): ValidationIssue[] {
-  return ctx.validateState(state, resolver);
 }
 
 /**
