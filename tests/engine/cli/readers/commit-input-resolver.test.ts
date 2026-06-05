@@ -1,8 +1,8 @@
-import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
-import { CommitInputResolver } from '../../../src/engine/cli/readers/commit-input-resolver.js';
-import { type IPrompt } from '../../../src/engine/interfaces/prompt.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../../src/engine/testing.js';
+import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
+import { CommitInputResolver } from '../../../../src/engine/cli/readers/commit-input-resolver.js';
+import { type IPrompt } from '../../../../src/engine/interfaces/prompt.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../../../src/engine/testing.js';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 ;

@@ -1,6 +1,7 @@
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { TEST_ID_KEY, makeMockContext, makeProtocol } from '../../../src/engine/testing.js';
 import { ConfigurationError } from '../../../src/engine/util/errors.js';
+import { makeMockProtocolContext } from '../engine-test-utils.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 
@@ -135,5 +136,50 @@ describe('ProtocolRegistry', () => {
    
    registry.register(p2);
    expect(registry.getRoot()).toBe(p2);
- });
+  });
+
+  describe('Key Routing', () => {
+    it('should resolve a unique owner for a key', () => {
+      const p1 = makeMockProtocolContext({ 
+          name: 'P1', 
+          namespace: '',
+          trailers: { 'Key1': { description: 'K1' } } as any
+      });
+      const p2 = makeMockProtocolContext({ 
+          name: 'P2', 
+          namespace: 'ns2'
+      });
+      registry.register(p1 as any);
+      registry.register(p2 as any);
+  
+      expect(registry.resolveKey('Key1')).toBe(p1);
+      expect(registry.resolveKey('ns2')).toBe(p2);
+    });
+  
+    it('should return the root protocol as fallback for unknown keys', () => {
+      const p1 = makeMockProtocolContext({ name: 'Root', namespace: '' });
+      registry.register(p1 as any);
+  
+      expect(registry.resolveKey('Unknown')).toBe(p1);
+    });
+  
+    it('should return undefined if no protocol owns the key and no root exists', () => {
+        const p1 = makeMockProtocolContext({ name: 'NS', namespace: 'ns' });
+        registry.register(p1 as any);
+  
+        expect(registry.resolveKey('Unknown')).toBeUndefined();
+    });
+  
+    it('should be case-insensitive when checking ownership', () => {
+      const p = makeMockProtocolContext({
+          name: 'P1',
+          namespace: '',
+          trailers: { 'Status': { description: 'S' } } as any
+      });
+      registry.register(p as any);
+  
+      expect(registry.resolveKey('status')).toBe(p);
+      expect(registry.resolveKey('STATUS')).toBe(p);
+    });
+  });
 });
