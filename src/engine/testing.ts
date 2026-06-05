@@ -107,7 +107,7 @@ export const MOCK_CORE_TRAILERS: Record<string, TrailerDefinition> = {
 
 /** 
  * Helper: returns a REAL ProtocolContext object.
- * Replaces the legacy ActiveProtocol factory.
+ * Replaces the legacy protocol factory.
  */
 export function makeProtocol(
     overrides: Partial<ProtocolDefinition> = {},

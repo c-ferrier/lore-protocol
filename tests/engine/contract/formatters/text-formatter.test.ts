@@ -1,3 +1,4 @@
+import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
 import { type Atom, type Trailers, ProtocolMap } from '../../../../src/engine/core/types/domain.js';
 import { type FormattableDoctorResult, type FormattableQueryResult, type FormattableStalenessResult, type FormattableTraceResult, type FormattableValidationResult } from '../../../../src/engine/core/types/output.js';
 import { TextFormatter } from '../../../../src/engine/formatters/text-formatter.js';
@@ -44,7 +45,7 @@ function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
 
 describe('TextFormatter', () => {
   let registry: ProtocolRegistry;
-  let protocol: ActiveProtocol;
+  let protocol: ProtocolContext;
   let formatter: TextFormatter;
 
   beforeEach(() => {

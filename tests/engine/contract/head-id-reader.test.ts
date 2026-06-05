@@ -1,4 +1,4 @@
-import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
+import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
 import { type IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { HeadIdReader } from '../../../src/engine/shell/git/head-id-reader.js';
@@ -39,7 +39,7 @@ function createMockGitClient(headMessage: string): IGitClient {
 
 describe('HeadIdReader', () => {
   let protocolRegistry: ProtocolRegistry;
-  let protocol: ActiveProtocol;
+  let protocol: ProtocolContext;
 
   beforeEach(() => {
     protocolRegistry = new ProtocolRegistry();

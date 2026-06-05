@@ -1,4 +1,4 @@
-import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
+import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { Validator } from '../../../src/engine/services/validator.js';
@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 describe('Lore Protocol Validation Contract', () => {
   let validator: Validator;
   let registry: ProtocolRegistry;
-  let protocol: ActiveProtocol;
+  let protocol: ProtocolContext;
   let mockAtomRepo: any;
 
   beforeEach(() => {

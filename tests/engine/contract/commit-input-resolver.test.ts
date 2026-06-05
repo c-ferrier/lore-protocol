@@ -1,5 +1,5 @@
+import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
 import { CommitInputResolver } from '../../../src/engine/cli/readers/commit-input-resolver.js';
-import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
 import { type IPrompt } from '../../../src/engine/interfaces/prompt.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../../src/engine/testing.js';
@@ -26,7 +26,7 @@ function createMockPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
 describe('CommitInputResolver', () => {
   let resolver: CommitInputResolver;
   let prompt: IPrompt;
-  let protocol: ActiveProtocol;
+  let protocol: ProtocolContext;
   let registry: ProtocolRegistry;
 
   beforeEach(() => {

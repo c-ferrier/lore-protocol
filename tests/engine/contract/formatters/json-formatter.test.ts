@@ -1,4 +1,4 @@
-import { ActiveProtocol } from '../../../../src/engine/core/models/active-protocol.js';
+import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
 import { type Atom, type Trailers } from '../../../../src/engine/core/types/domain.js';
 import { type FormattableDoctorResult, type FormattableQueryResult, type FormattableStalenessResult, type FormattableTraceResult, type FormattableValidationResult } from '../../../../src/engine/core/types/output.js';
 import { JsonFormatter } from '../../../../src/engine/formatters/json-formatter.js';
@@ -45,7 +45,7 @@ function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
 
 describe('JsonFormatter', () => {
   let registry: ProtocolRegistry;
-  let protocol: ActiveProtocol;
+  let protocol: ProtocolContext;
   let formatter: JsonFormatter;
 
   beforeEach(() => {

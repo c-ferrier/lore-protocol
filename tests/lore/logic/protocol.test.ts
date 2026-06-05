@@ -1,4 +1,4 @@
-import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
+import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
 import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { 
@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 const LORE_ID_KEY = 'Lore-id';
 
 describe('LoreProtocolDefinition', () => {
-  let protocol: ActiveProtocol;
+  let protocol: ProtocolContext;
 
   beforeEach(() => {
     protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);

@@ -1,4 +1,4 @@
-import { ActiveProtocol } from '../../../src/engine/core/models/active-protocol.js';
+import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
 import { type Atom } from '../../../src/engine/core/types/domain.js';
 import { type SearchOptions } from '../../../src/engine/core/types/query.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
@@ -20,7 +20,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 describe('AtomRepository Filtering Parity', () => {
   let gitClient: any;
   let repo: AtomRepository;
-  let protocol: ActiveProtocol;
+  let protocol: ProtocolContext;
   let protocolRegistry: ProtocolRegistry;
 
   beforeEach(() => {
