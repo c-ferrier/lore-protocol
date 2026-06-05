@@ -1,4 +1,4 @@
-import { afterEach,beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach,beforeEach, describe, expect, it } from 'vitest';
 
 import { resolveProtocolRoot } from '../../../../src/engine/shell/fs/root-resolver.js';
 import { makeMockConfigLoader, makeMockGitClient } from '../../engine-test-utils.js';

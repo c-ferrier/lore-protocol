@@ -3,9 +3,9 @@ import type { Command } from 'commander';
 // Pure Logic Modules
 import { createQueryTarget } from '../../../core/logic/query-targets.js';
 import type { EngineConfig } from '../../../core/types/config.js';
-import type { Atom, SupersessionStatus } from '../../../core/types/domain.js';
+import type { Atom } from '../../../core/types/domain.js';
 import type { FormattableQueryResult } from '../../../core/types/output.js';
-import type { PathQueryOptions, QueryResult } from '../../../core/types/query.js';
+import type { QueryResult } from '../../../core/types/query.js';
 import type { ILogger } from '../../../interfaces/logger.js';
 import type { IOutputFormatter } from '../../../interfaces/output-formatter.js';
 import type { AtomRepository } from '../../../services/atom-repository.js';

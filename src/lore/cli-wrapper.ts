@@ -1,4 +1,4 @@
-import { join,resolve } from 'node:path';
+import { join } from 'node:path';
 
 import type { Command } from 'commander';
 
@@ -13,16 +13,10 @@ import {
     execute, 
     getEnginePackageName, 
     getEnginePublishedVersion,
-    getEngineVersion, 
-    type ProtocolDefinition,
+    getEngineVersion,
     ProtocolRegistry,
     runCli, 
-    TRAILER_UI_COLORS,
-    TRAILER_UI_KINDS, 
-    type TrailerDefinition, 
-    type TrailerUiColor, 
-    type TrailerUiKind, 
-    type ValueDefinition    } from '../engine/index.js';
+    type TrailerDefinition    } from '../engine/index.js';
 import { registerConstraintsCommand } from './commands/constraints.js';
 import { registerContextCommand } from './commands/context.js';
 import { registerDirectivesCommand } from './commands/directives.js';

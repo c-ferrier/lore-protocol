@@ -13,10 +13,9 @@ import { resolveSupersession } from '../core/logic/supersession.js';
 import { isValidProtocolIdentity } from '../core/logic/validation.js';
 import type { Atom } from '../core/types/domain.js';
 import type { QueryIdentity,QueryTargetAST, SearchOptions } from '../core/types/query.js';
-import type { IGitClient, StorageQuery } from '../interfaces/git-client.js';
+import type { IGitClient } from '../interfaces/git-client.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import { getIdentityPattern } from '../shell/git/protocol-query-adapter.js';
-import { GLOBAL_CACHE_KEY } from '../util/constants.js';
 import { ProtocolError } from '../util/errors.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 

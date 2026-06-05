@@ -1,6 +1,6 @@
 import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join,resolve } from 'node:path';
+import { join } from 'node:path';
 
 import { describe, expect,it } from 'vitest';
 import { afterAll,beforeAll, describe, expect, it, vi } from 'vitest';
@@ -16,9 +16,8 @@ import { AtomRepository } from '../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../src/engine/shell/fs/query-cache.js';
 import * as rootResolver from '../../src/engine/shell/fs/root-resolver.js';
-import { resolveProtocolRoot } from '../../src/engine/shell/fs/root-resolver.js';
 import { validateCommits } from '../../src/engine/shell/orchestrators/validation.js';
-import { makeProtocol, makeQueryTarget,TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION } from '../../src/engine/testing.js';
+import { makeProtocol, makeQueryTarget,TEST_ENGINE_CONFIG } from '../../src/engine/testing.js';
 import { assertIsolatedEngine,TEST_ENGINE_DIR } from '../../src/engine/testing.js';
 import { makeProtocol,TEST_PROTOCOL_CONFIG } from '../../src/engine/testing.js';
 import { ENGINE_CONFIG_FILENAME } from '../../src/engine/util/constants.js';

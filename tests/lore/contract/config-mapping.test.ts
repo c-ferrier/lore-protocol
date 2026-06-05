@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach,describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { buildLoreCli } from '../lore-test-utils.js';
 ;

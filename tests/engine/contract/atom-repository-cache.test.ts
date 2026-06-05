@@ -1,6 +1,5 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
-import { hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';

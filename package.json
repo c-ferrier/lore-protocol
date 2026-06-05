@@ -51,6 +51,7 @@
     "@types/node": "^22.13.14",
     "eslint": "^9.23.0",
     "eslint-plugin-simple-import-sort": "^13.0.0",
+    "eslint-plugin-unused-imports": "^4.4.1",
     "prettier": "^3.5.3",
     "tsup": "^8.4.0",
     "typescript": "^5.8.2",

@@ -2,7 +2,7 @@ import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import { ProtocolError } from '../../util/errors.js';
 import type { CommitInput } from '../types/commit.js';
 import type { EngineConfig } from '../types/config.js';
-import type { AtomId, ProtocolState } from '../types/domain.js';
+import type { AtomId } from '../types/domain.js';
 import type { ValidationIssue } from '../types/output.js';
 import { generateId } from './identity.js';
 import { normalizeTrailers } from './normalization.js';

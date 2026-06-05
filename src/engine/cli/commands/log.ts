@@ -2,7 +2,6 @@ import type { Command } from 'commander';
 
 // Pure Logic Modules
 import { createQueryTarget } from '../../core/logic/query-targets.js';
-import type { Atom, SupersessionStatus } from '../../core/types/domain.js';
 import type { FormattableQueryResult } from '../../core/types/output.js';
 import type { PathQueryOptions, QueryResult } from '../../core/types/query.js';
 import type { ILogger } from '../../interfaces/logger.js';

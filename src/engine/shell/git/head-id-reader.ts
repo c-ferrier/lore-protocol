@@ -1,7 +1,7 @@
 import { getProtocolIdentity } from '../../core/logic/identity.js';
 import { normalizeTrailers } from '../../core/logic/normalization.js';
 import { parseTrailers } from '../../core/logic/trailers.js';
-import { isValidProtocolIdentity, validateProtocolTrailer } from '../../core/logic/validation.js';
+import { isValidProtocolIdentity } from '../../core/logic/validation.js';
 import type { AtomId } from '../../core/types/domain.js';
 import type { IGitClient } from '../../interfaces/git-client.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';

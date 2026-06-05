@@ -4,7 +4,7 @@ import { afterEach,beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerDoctorCommand } from '../../../../src/engine/cli/commands/doctor.js';
 import { type Atom, ProtocolMap } from '../../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeMockContext,TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeMockContext, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { makeMockAtomRepository, makeMockConfigLoader, makeMockGitClient, makeMockProtocolContext,TestLogger } from '../../engine-test-utils.js';
 
 describe('Doctor Command', () => {

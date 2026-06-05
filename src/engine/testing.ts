@@ -1,6 +1,5 @@
 import { existsSync, mkdirSync } from 'node:fs';
 
-import { getProtocolIdentity } from './core/logic/identity.js';
 import { normalizeTrailers } from './core/logic/normalization.js';
 import { authorizeKey, isBucketOwner,ownsKey } from './core/logic/ownership.js';
 import { 
@@ -11,13 +10,12 @@ import {
     getReferenceKeys,
     getScalarKeys,
     isCoreTrailer} from './core/logic/protocols.js';
-import { getProtocolStaleSignals } from './core/logic/staleness.js';
 import { ProtocolMap } from './core/models/protocol-map.js';
 import type { CommitInput } from './core/types/commit.js';
 import type { EngineConfig, TrailerDefinition,TrailerUiColor, TrailerUiKind } from './core/types/config.js';
-import type { Atom, ProtocolState,StaleReason, SupersessionStatus } from './core/types/domain.js';
-import type { IIdentityResolver, ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
-import type { QualifiedFilter,QueryIdentity, QueryTargetAST } from './core/types/query.js';
+import type { Atom, ProtocolState } from './core/types/domain.js';
+import type { ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
+import type { QueryTargetAST } from './core/types/query.js';
 import type { RawCommit as IGitRawCommit } from './interfaces/git-client.js';
 import { AtomRepository } from './services/atom-repository.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';

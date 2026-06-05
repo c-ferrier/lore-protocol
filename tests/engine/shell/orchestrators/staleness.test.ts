@@ -1,4 +1,4 @@
-import { beforeEach,describe, expect, it, vi } from 'vitest';
+import { beforeEach,describe, expect, it } from 'vitest';
 
 import { analyzeStaleness } from '../../../../src/engine/shell/orchestrators/staleness.js';
 import { makeAtom, makeMockContext, makeProtocol,makeProtocolRegistry, TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';

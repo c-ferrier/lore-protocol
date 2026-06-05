@@ -1,6 +1,5 @@
 import { describe, expect,it } from 'vitest';
 
-import { MultiValueTrailerCollector } from '../../../../../src/engine/cli/readers/collectors/multi-value-trailer-collector.js';
 import { TrailerCollectorRegistry } from '../../../../../src/engine/cli/readers/collectors/trailer-collector-registry.js';
 import { makeProtocol,MOCK_CORE_TRAILERS, TEST_PROTOCOL_DEFINITION } from '../../../../../src/engine/testing.js';
 

@@ -1,7 +1,7 @@
 import { describe, expect,it } from 'vitest';
 
 import { generateId, getProtocolIdentity } from '../../../../src/engine/core/logic/identity.js';
-import { makeProtocol, makeProtocolRegistry } from '../../../../src/engine/testing.js';
+import { makeProtocol } from '../../../../src/engine/testing.js';
 import { ConfigurationError } from '../../../../src/engine/util/errors.js';
 
 describe('Identity Logic (Pure Functions)', () => {

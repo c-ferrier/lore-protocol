@@ -3,10 +3,8 @@ import { afterEach,beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateCommits } from '../../../../src/engine/shell/orchestrators/validation.js';
 import { 
     createProtocolContext,
-    makeMockAtomRepository,
-    makeMockGitClient, 
-    makeMockProtocolRegistry, 
-    makeProtocol,
+    makeMockAtomRepository, 
+    makeMockProtocolRegistry,
     makeRawCommit,
     TEST_ENGINE_CONFIG} from '../../engine-test-utils.js';
 

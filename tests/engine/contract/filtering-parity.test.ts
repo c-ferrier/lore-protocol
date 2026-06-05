@@ -1,6 +1,5 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
-import { type Atom } from '../../../src/engine/core/types/domain.js';
 import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
 import { type SearchOptions } from '../../../src/engine/core/types/query.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';

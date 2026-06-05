@@ -1,13 +1,9 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 
 import { Command } from 'commander';
 
-import { EngineBootstrapper } from '../../src/engine/services/engine-bootstrapper.js';
 import { createLoreProgram, makeLoreProtocol, makeLoreRegistry, makeMockAtomRepository, makeMockFormatter, makeMockLoreContext, makeProtocol, makeProtocolRegistry,TEST_ENGINE_CONFIG } from '../../src/engine/testing.js';
 import { buildLoreCli as realBuildLoreCli } from '../../src/lore/cli-wrapper.js';
 import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
-import { LoreConfigLoader } from '../../src/lore/services/lore-config-loader.js';
 
 /**
  * =============================================================================

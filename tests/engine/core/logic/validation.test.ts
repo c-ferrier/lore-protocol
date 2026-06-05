@@ -3,7 +3,6 @@ import { describe, expect,it } from 'vitest';
 import { normalizeTrailers } from '../../../../src/engine/core/logic/normalization.js';
 import { 
     evaluateHygiene, 
-    evaluateProtocolSchema, 
     evaluateTrailerHygiene, 
     validateProtocolState,
     validateProtocolTrailer

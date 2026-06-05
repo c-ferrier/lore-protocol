@@ -1,9 +1,8 @@
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import { getSearchPatterns,matchesFilters } from '../../shell/git/protocol-query-adapter.js';
+import {matchesFilters } from '../../shell/git/protocol-query-adapter.js';
 import type { Atom } from '../types/domain.js';
 import type { FilterOperator,QualifiedFilter, SearchOptions } from '../types/query.js';
 import { ownsKey } from './ownership.js';
-import { escapeRegex } from './regex.js';
 
 /**
  * Normalizes raw filter inputs into a structured QualifiedFilter AST.

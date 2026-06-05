@@ -2,7 +2,7 @@ import chalk, { Chalk, type ChalkInstance } from 'chalk';
 
 import { getProtocolIdentity } from '../../core/logic/identity.js';
 import { getAuthorizedKeys } from '../../core/logic/protocols.js';
-import type { Atom, ProtocolState } from '../../core/types/domain.js';
+import type { Atom } from '../../core/types/domain.js';
 import type {
   FormattableConfigResult,
   FormattableDoctorResult,

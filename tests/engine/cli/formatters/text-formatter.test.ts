@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { TextFormatter } from '../../../../src/engine/cli/formatters/text-formatter.js';
-import { type Atom, ProtocolMap,type Trailers } from '../../../../src/engine/core/types/domain.js';
+import { type Atom,type Trailers } from '../../../../src/engine/core/types/domain.js';
 import { type FormattableDoctorResult, type FormattableQueryResult, type FormattableStalenessResult, type FormattableTraceResult, type FormattableValidationResult } from '../../../../src/engine/core/types/output.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';

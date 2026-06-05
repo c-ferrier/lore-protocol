@@ -1,4 +1,4 @@
-import type { Atom, StaleReason,StaleSignal, SupersessionStatus } from './domain.js';
+import type { Atom, StaleReason } from './domain.js';
 import type { QueryMeta,QueryResult } from './query.js';
 
 export type { QueryMeta,QueryResult };

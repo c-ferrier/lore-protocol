@@ -1,14 +1,9 @@
 import { describe, expect,it } from 'vitest';
 
-import { JsonFormatter } from '../../../../src/engine/cli/formatters/json-formatter.js';
 import { getAuthorizedKeys } from '../../../../src/engine/core/logic/protocols.js';
 import { parseTrailers, serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
 import { serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
-import { TriggerParser } from '../../../../src/engine/core/logic/trigger-parser.js';
-import { type Atom, type Trailers } from '../../../../src/engine/core/types/domain.js';
-import { type FormattableQueryResult } from '../../../../src/engine/core/types/output.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeProtocol, normalizeTrailers,TEST_PROTOCOL_CONFIG } from '../../../../src/engine/testing.js';
+import { makeProtocol,TEST_PROTOCOL_CONFIG } from '../../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 
 const LORE_ID_KEY = 'Lore-id';

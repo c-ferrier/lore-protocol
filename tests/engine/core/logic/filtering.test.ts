@@ -1,7 +1,6 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { filterAtoms, resolveFilters,resolveFilterStrings } from '../../../../src/engine/core/logic/filtering.js';
-import { ProtocolMap } from '../../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeAtom, makeMockContext } from '../../../../src/engine/testing.js';
 

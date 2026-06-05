@@ -7,7 +7,6 @@ import { TestLogger } from '../../engine-test-utils.js';
 ;
 
 import * as fs from 'node:fs/promises';
-import { join } from 'node:path';
 ;
 
 vi.mock('node:fs/promises');

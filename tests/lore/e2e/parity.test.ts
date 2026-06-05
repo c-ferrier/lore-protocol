@@ -5,7 +5,6 @@ import { join } from 'node:path';
 
 import { afterAll,beforeAll, describe, expect, it } from 'vitest';
 
-import { type Atom } from '../../../src/engine/core/types/domain.js';
 
 /**
  * LORE OUTPUT PARITY TESTS

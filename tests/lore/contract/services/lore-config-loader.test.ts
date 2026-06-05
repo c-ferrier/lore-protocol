@@ -2,7 +2,7 @@ import { afterEach,beforeEach, describe, expect, it } from 'vitest';
 
 import { LoreConfigLoader } from '../../../../src/lore/services/lore-config-loader.js';
 ;
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 

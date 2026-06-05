@@ -4,7 +4,7 @@ import { buildLoreCli } from '../lore-test-utils.js';
 ;
 import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 /**
  * LORE CLI CONTRACT TEST (Exhaustive)

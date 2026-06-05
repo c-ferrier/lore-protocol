@@ -1,7 +1,6 @@
 import { describe, expect,it } from 'vitest';
 
 import { analyzeConfigGaps } from '../../../../src/engine/core/logic/config-analyzer.js';
-import { camelCase } from '../../../../src/engine/core/logic/string.js';
 ;
 
 describe('analyzeConfigGaps', () => {

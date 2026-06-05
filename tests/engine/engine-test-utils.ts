@@ -14,7 +14,6 @@ import {
     makeStubConfigLoader as stubConfigLoader, 
     makeStubGitClient as stubGitClient, 
     makeStubPrompt as stubPrompt, 
-    makeStubStalenessDetector as stubStalenessDetector, 
     TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
 
 // 1. Vitest Spies (Middlemen)

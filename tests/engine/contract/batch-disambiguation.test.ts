@@ -1,7 +1,6 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeProtocol } from '../../../src/engine/testing.js';
 import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';

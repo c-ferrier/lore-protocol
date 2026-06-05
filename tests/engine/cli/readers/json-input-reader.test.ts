@@ -1,10 +1,9 @@
 import { JsonInputReader } from '../../../../src/engine/cli/readers/json-input-reader.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeProtocol } from '../../../../src/engine/testing.js';
-import { ProtocolError } from '../../../../src/engine/util/errors.js';
 
 ;
-import { beforeEach,describe, expect, it } from 'vitest';
+import {describe, expect, it } from 'vitest';
 ;
 ;
 ;

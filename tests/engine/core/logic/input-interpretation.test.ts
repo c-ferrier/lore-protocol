@@ -9,7 +9,6 @@ import {
     MOCK_CORE_TRAILERS, 
     TEST_ENGINE_CONFIG, 
     TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
-import { ProtocolError } from '../../../../src/engine/util/errors.js';
 
 describe('Input Interpretation Logic (Pure Functions)', () => {
   let registry: ProtocolRegistry;

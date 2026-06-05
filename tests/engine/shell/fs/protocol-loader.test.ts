@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { type EngineConfig, type TrailerDefinition } from '../../../../src/engine/core/types/config.js';
+import { type EngineConfig } from '../../../../src/engine/core/types/config.js';
 import { type ProtocolDefinition } from '../../../../src/engine/core/types/protocol-definition.js';
 import { ProtocolLoader } from '../../../../src/engine/shell/fs/protocol-loader.js';
 import { TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';

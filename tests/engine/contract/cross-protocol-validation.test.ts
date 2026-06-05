@@ -4,7 +4,6 @@ import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
 import { makeProtocol,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
 
 describe('Cross-Protocol Reference Validation', () => {
   let registry: ProtocolRegistry;

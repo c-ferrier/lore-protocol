@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach,describe, expect, it } from 'vitest';
 
 import { createQueryTarget } from '../../../src/engine/core/logic/query-targets.js';
-import { type Atom } from '../../../src/engine/core/types/domain.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';

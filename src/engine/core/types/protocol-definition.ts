@@ -1,12 +1,5 @@
-import type { StaleIfCondition,TrailerDefinition } from './config.js';
-import type { 
-    Atom,
-    ProtocolState, 
-    StaleReason,
-    SupersessionStatus,
-} from './domain.js';
-import type { FormattableTrailerDefinition,ValidationIssue } from './output.js';
-import type { QualifiedFilter, QueryIdentity } from './query.js';
+import type {TrailerDefinition } from './config.js';
+import type { QueryIdentity } from './query.js';
 
 /**
  * Interface for resolving identities across protocols.

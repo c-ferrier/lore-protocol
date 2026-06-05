@@ -2,7 +2,6 @@ import { Command } from 'commander';
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { registerCommitCommand } from '../../../../src/engine/cli/commands/commit.js';
-import { formatCommit, validateFormatting } from '../../../../src/engine/core/logic/commit-formatting.js';
 import { makeCommitInput, makeProtocol, makeProtocolRegistry,TEST_ENGINE_CONFIG, TEST_ID_KEY } from '../../../../src/engine/testing.js';
 import { makeMockFormatter, makeMockGitClient, makeMockHeadIdReader, makeMockInputResolver } from '../../engine-test-utils.js';
 ;

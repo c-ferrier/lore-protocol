@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
 import { createTargetFromIdentities } from '../../../src/engine/core/logic/query-targets.js';
-import { type Atom } from '../../../src/engine/core/types/domain.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';

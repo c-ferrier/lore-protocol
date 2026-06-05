@@ -1,6 +1,5 @@
 import { afterAll,beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { runCli } from '../../../src/engine/index-impl.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { LoreConfigLoader } from '../../../src/lore/services/lore-config-loader.js';
 import { makeMockProtocolContext as makeMockProtocol } from '../../engine/engine-test-utils.js';

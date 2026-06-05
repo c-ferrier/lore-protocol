@@ -1,7 +1,7 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeMockContext, makeProtocol,TEST_ID_KEY } from '../../../src/engine/testing.js';
+import { makeProtocol } from '../../../src/engine/testing.js';
 import { ConfigurationError } from '../../../src/engine/util/errors.js';
 import { makeMockProtocolContext } from '../engine-test-utils.js';
 
