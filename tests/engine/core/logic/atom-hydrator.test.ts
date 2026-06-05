@@ -1,5 +1,5 @@
-import { extractReferenceIds, hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtom, makeMockContext, makeProtocolRegistry, makeRawCommit } from '../../../src/engine/testing.js';
+import { extractReferenceIds, hydrateAtoms } from '../../../..//src/engine/core/logic/hydration.js';
+import { TEST_PROTOCOL_DEFINITION, makeAtom, makeMockContext, makeProtocolRegistry, makeRawCommit } from '../../../..//src/engine/testing.js';
 
 import { describe, it, expect } from 'vitest';
 ;

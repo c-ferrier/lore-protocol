@@ -1,4 +1,4 @@
-import { TriggerParser, parseTriggerHints } from '../../../src/engine/util/trigger-parser.js';
+import { TriggerParser, parseTriggerHints } from '../../../..//src/engine/util/trigger-parser.js';
 
 import { describe, it, expect } from 'vitest';
 ;

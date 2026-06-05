@@ -1,12 +1,12 @@
-import { parseFlagsToInput } from '../../../src/engine/core/logic/input-interpretation.js';
+import { parseFlagsToInput } from '../../../..//src/engine/core/logic/input-interpretation.js';
 import { 
   TEST_PROTOCOL_DEFINITION, 
   MOCK_CORE_TRAILERS,
   makeMockContext, 
   makeProtocolRegistry 
-} from '../../../src/engine/testing.js';
-import { ProtocolError } from '../../../src/engine/util/errors.js';
-import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
+} from '../../../..//src/engine/testing.js';
+import { ProtocolError } from '../../../..//src/engine/util/errors.js';
+import type { ProtocolContext } from '../../../..//src/engine/core/types/protocol-definition.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 

@@ -1,6 +1,6 @@
-import { type SearchOptions } from '../../../src/engine/core/types/query.js';
-import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
-import { GLOBAL_CACHE_KEY } from '../../../src/engine/util/constants.js';
+import { type SearchOptions } from '../../../..//src/engine/core/types/query.js';
+import { QueryCache } from '../../../..//src/engine/shell/fs/query-cache.js';
+import { GLOBAL_CACHE_KEY } from '../../../..//src/engine/util/constants.js';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 ;

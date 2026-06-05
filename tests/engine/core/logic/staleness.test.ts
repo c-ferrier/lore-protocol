@@ -1,6 +1,6 @@
-import { evaluateAgeSignal, evaluateDriftSignal, formatAge, parseDuration } from '../../../src/engine/core/logic/staleness.js';
-import { type Atom } from '../../../src/engine/core/types/domain.js';
-import { STALE_SIGNAL } from '../../../src/engine/util/constants.js';
+import { evaluateAgeSignal, evaluateDriftSignal, formatAge, parseDuration } from '../../../..//src/engine/core/logic/staleness.js';
+import { type Atom } from '../../../..//src/engine/core/types/domain.js';
+import { STALE_SIGNAL } from '../../../..//src/engine/util/constants.js';
 
 import { describe, it, expect } from 'vitest';
 ;

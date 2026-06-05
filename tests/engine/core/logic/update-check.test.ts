@@ -1,4 +1,4 @@
-import { checkForUpdates } from '../../../src/engine/util/update-check.js';
+import { checkForUpdates } from '../../../..//src/engine/util/update-check.js';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 ;

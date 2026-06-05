@@ -1,7 +1,7 @@
-import { filterAtoms, resolveFilterStrings, resolveFilters } from '../../../src/engine/core/logic/filtering.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtom, makeMockContext } from '../../../src/engine/testing.js';
-import { ProtocolMap } from '../../../src/engine/core/types/domain.js';
+import { filterAtoms, resolveFilterStrings, resolveFilters } from '../../../..//src/engine/core/logic/filtering.js';
+import { ProtocolRegistry } from '../../../..//src/engine/services/protocol-registry.js';
+import { makeAtom, makeMockContext } from '../../../..//src/engine/testing.js';
+import { ProtocolMap } from '../../../..//src/engine/core/types/domain.js';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 

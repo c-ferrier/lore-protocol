@@ -1,7 +1,7 @@
-import { executePathQuery } from '../../../../src/engine/cli/commands/helpers/path-query.js';
-import { type Atom } from '../../../../src/engine/core/types/domain.js';
-import { TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
-import { TestLogger } from '../../engine-test-utils.js';
+import { executePathQuery } from '../../../../..//src/engine/cli/commands/helpers/path-query.js';
+import { type Atom } from '../../../../..//src/engine/core/types/domain.js';
+import { TEST_ENGINE_CONFIG } from '../../../../..//src/engine/testing.js';
+import { TestLogger } from '../../../engine-test-utils.js';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 ;

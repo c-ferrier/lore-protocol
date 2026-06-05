@@ -1,4 +1,4 @@
-import { normalizePathToRoot } from '../../../src/engine/core/logic/path-resolution.js';
+import { normalizePathToRoot } from '../../../..//src/engine/core/logic/path-resolution.js';
 
 import { describe, it, expect } from 'vitest';
 import { resolve } from 'node:path';

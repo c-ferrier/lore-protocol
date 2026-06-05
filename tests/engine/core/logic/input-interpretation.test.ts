@@ -1,6 +1,6 @@
-import { InputMode, finalizeCommitInput, parseFlagsToInput, selectInputMode } from '../../../src/engine/core/logic/input-interpretation.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeMockContext } from '../../../src/engine/testing.js';
+import { InputMode, finalizeCommitInput, parseFlagsToInput, selectInputMode } from '../../../..//src/engine/core/logic/input-interpretation.js';
+import { ProtocolRegistry } from '../../../..//src/engine/services/protocol-registry.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeMockContext } from '../../../..//src/engine/testing.js';
 
 import { describe, it, expect, beforeEach } from 'vitest';
 

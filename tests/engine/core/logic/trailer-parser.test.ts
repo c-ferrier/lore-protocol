@@ -1,4 +1,4 @@
-import { parseTrailers, serializeTrailers } from '../../../src/engine/core/logic/trailers.js';
+import { parseTrailers, serializeTrailers } from '../../../..//src/engine/core/logic/trailers.js';
 
 import { describe, it, expect } from 'vitest';
 ;

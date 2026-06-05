@@ -1,4 +1,4 @@
-import { mergeOptions } from '../../../../src/engine/cli/commands/helpers/merge-options.js';
+import { mergeOptions } from '../../../../..//src/engine/cli/commands/helpers/merge-options.js';
 
 import { describe, it, expect, vi } from 'vitest';
 ;

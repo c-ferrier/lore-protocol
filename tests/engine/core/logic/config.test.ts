@@ -1,8 +1,8 @@
-import { TEST_PROTOCOL_DEFINITION, makeMockContext } from '../../../src/engine/testing.js';
+import { TEST_PROTOCOL_DEFINITION, makeMockContext } from '../../../..//src/engine/testing.js';
 import { 
     isCoreTrailer, 
     getAuthorizedKeys 
-} from '../../../src/engine/core/logic/protocols.js';
+} from '../../../..//src/engine/core/logic/protocols.js';
 
 import { describe, it, expect } from 'vitest';
 

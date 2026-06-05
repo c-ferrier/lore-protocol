@@ -1,5 +1,5 @@
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeMockProtocolContext } from '../engine-test-utils.js';
+import { ProtocolRegistry } from '../../../..//src/engine/services/protocol-registry.js';
+import { makeMockProtocolContext } from '../../engine-test-utils.js';
 
 import { describe, it, expect } from 'vitest';
 

@@ -1,4 +1,4 @@
-import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
+import { ProtocolMap } from '../../../..//src/engine/core/models/protocol-map.js';
 
 import { describe, it, expect } from 'vitest';
 ;

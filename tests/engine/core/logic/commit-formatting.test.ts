@@ -1,15 +1,15 @@
-import { formatCommit, validateFormatting } from '../../../src/engine/core/logic/commit-formatting.js';
-import { generateId } from '../../../src/engine/core/logic/identity.js';
-import { serializeTrailers } from '../../../src/engine/core/logic/trailers.js';
-import { type EngineConfig } from '../../../src/engine/core/types/config.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { formatCommit, validateFormatting } from '../../../..//src/engine/core/logic/commit-formatting.js';
+import { generateId } from '../../../..//src/engine/core/logic/identity.js';
+import { serializeTrailers } from '../../../..//src/engine/core/logic/trailers.js';
+import { type EngineConfig } from '../../../..//src/engine/core/types/config.js';
+import { ProtocolRegistry } from '../../../..//src/engine/services/protocol-registry.js';
 import { 
   TEST_ENGINE_CONFIG, 
   TEST_PROTOCOL_DEFINITION, 
   MOCK_CORE_TRAILERS,
   makeCommitInput, 
   makeMockContext 
-} from '../../../src/engine/testing.js';
+} from '../../../..//src/engine/testing.js';
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 ;
@@ -17,8 +17,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 ;
 
-import * as IdentityLogic from '../../../src/engine/core/logic/identity.js';
-import * as TrailerLogic from '../../../src/engine/core/logic/trailers.js';
+import * as IdentityLogic from '../../../..//src/engine/core/logic/identity.js';
+import * as TrailerLogic from '../../../..//src/engine/core/logic/trailers.js';
 
 const TEST_ID_KEY = "Mock-id";
 

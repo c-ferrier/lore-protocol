@@ -1,6 +1,6 @@
-import { evaluateHygiene, evaluateProtocolSchema, evaluateTrailerHygiene, validateProtocolState } from '../../../src/engine/core/logic/validation.js';
-import { normalizeTrailers } from '../../../src/engine/core/logic/normalization.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeMockContext } from '../../../src/engine/testing.js';
+import { evaluateHygiene, evaluateProtocolSchema, evaluateTrailerHygiene, validateProtocolState } from '../../../..//src/engine/core/logic/validation.js';
+import { normalizeTrailers } from '../../../..//src/engine/core/logic/normalization.js';
+import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeMockContext } from '../../../..//src/engine/testing.js';
 
 import { describe, it, expect, vi } from 'vitest';
 

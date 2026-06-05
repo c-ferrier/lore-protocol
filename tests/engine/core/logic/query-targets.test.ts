@@ -1,4 +1,4 @@
-import { createQueryTarget, createTargetFromIdentities, getCacheFingerprint, getGitBlameArgs, getGitLogArgs } from '../../../src/engine/core/logic/query-targets.js';
+import { createQueryTarget, createTargetFromIdentities, getCacheFingerprint, getGitBlameArgs, getGitLogArgs } from '../../../..//src/engine/core/logic/query-targets.js';
 
 import { describe, it, expect } from 'vitest';
 import { resolve } from 'node:path';
