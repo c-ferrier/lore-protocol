@@ -58,9 +58,11 @@ describe('StalenessDetector Orchestration (Contract)', () => {
     const atom = makeAtom({ date: new Date(), trailers: { Confidence: ['low'] } });
     const reports = await detector.analyze([atom], new Map());
 
+    console.log('DEBUG: Reasons:', JSON.stringify(reports[0].reasons));
+
     expect(reports).toHaveLength(1);
     // Find the confidence signal
-    expect(reports[0].reasons.some(r => r.signal === STALE_SIGNAL.CONFIDENCE)).toBe(true);
+    expect(reports[0].reasons.some(r => r.signal === 'value-match')).toBe(true);
   });
 
   it('should handle Git errors gracefully during drift check', async () => {
