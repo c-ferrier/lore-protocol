@@ -1,4 +1,4 @@
-import { evaluateHygiene, evaluateProtocolSchema, evaluateTrailerHygiene } from '../../../src/engine/core/logic/validation.js';
+import { evaluateHygiene, evaluateProtocolSchema, evaluateTrailerHygiene, validateProtocolState } from '../../../src/engine/core/logic/validation.js';
 import { normalizeTrailers } from '../../../src/engine/core/logic/normalization.js';
 import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeMockContext } from '../../../src/engine/testing.js';
 
@@ -44,17 +44,15 @@ describe('Validation Logic (Pure Functions)', () => {
   });
 
   describe('evaluateProtocolSchema', () => {
-    it('should delegate to protocol.validateState hook', () => {
-      const spy = vi.fn().mockReturnValue([]);
+    it('should validate protocol state using pure logic', () => {
       const protocol = makeMockContext({ 
-          ...TEST_PROTOCOL_DEFINITION, 
-          validateState: spy 
+          ...TEST_PROTOCOL_DEFINITION 
       });
       const state = { trailers: { 'Mock-id': ['abc12345'] }, unauthorized: {} };
       
-      evaluateProtocolSchema(protocol as any, state);
+      const issues = validateProtocolState(state, protocol.def);
       
-      expect(spy).toHaveBeenCalledWith(state, undefined);
+      expect(issues).toHaveLength(0);
     });
 
     it('should catch schema violations like invalid enums', () => {

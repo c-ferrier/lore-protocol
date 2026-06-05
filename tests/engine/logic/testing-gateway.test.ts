@@ -23,12 +23,6 @@ describe('Testing Gateway Logic', () => {
         expect(ownsKey('ns', stub)).toBe(true);
         expect(ownsKey('other', stub)).toBe(false);
     });
-
-    it('should inject functional hooks', () => {
-        const validateState = () => [];
-        const stub = makeMockContext({ validateState });
-        expect(stub.validateState).toBe(validateState);
-    });
   });
 
   describe('makeStubGitClient', () => {

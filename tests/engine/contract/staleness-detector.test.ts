@@ -1,6 +1,6 @@
 import { type IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import { StalenessDetector } from '../../../src/engine/services/staleness-detector.js';
-import { TEST_ENGINE_CONFIG, makeAtom, makeProtocol, makeProtocolRegistry } from '../../../src/engine/testing.js';
+import { TEST_ENGINE_CONFIG, makeAtom, makeProtocolRegistry, makeMockContext, makeProtocol } from '../../../src/engine/testing.js';
 import { STALE_SIGNAL } from '../../../src/engine/util/constants.js';
 import { makeMockGitClient } from '../engine-test-utils.js';
 
@@ -42,14 +42,15 @@ describe('StalenessDetector Orchestration (Contract)', () => {
   });
 
   it('should delegate to protocols for domain-specific signals', async () => {
-    const protocol = makeProtocol({
+    const protocol = makeMockContext({
         name: 'mock',
-        trailers: { Confidence: { description: 'conf' } },
-        getStaleSignals: () => [{
-            signal: STALE_SIGNAL.CONFIDENCE,
-            description: 'Low confidence'
-        }]
-    } as any);
+        trailers: { 
+            Confidence: { 
+                description: 'conf', 
+                stale_if: { kind: 'value-equals', value: 'low', signal: STALE_SIGNAL.CONFIDENCE } 
+            } as any 
+        }
+    });
 
     const registry = makeProtocolRegistry([protocol]);
     const detector = new StalenessDetector(gitClient, TEST_ENGINE_CONFIG, registry);
