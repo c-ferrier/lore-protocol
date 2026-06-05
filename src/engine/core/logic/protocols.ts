@@ -38,11 +38,7 @@ export function createProtocolContext(def: ProtocolDefinition): ProtocolContext 
         strict: def.strict ?? true,
         permissive: def.permissive ?? false,
         identityKey: def.identityKey,
-        storageNamespace: namespace,
-
-        // Logic Hooks - These check def for overrides to support mocks in tests
-        getStaleSignals: (atom: Atom, now: Date, map: Map<string, Map<string, SupersessionStatus>>) => 
-            (def as any).getStaleSignals ? (def as any).getStaleSignals(atom, now, map) : getProtocolStaleSignals(ctx, atom, now, map)
+        storageNamespace: namespace
     };
 
     return ctx;

@@ -84,7 +84,7 @@ export function getStaleSignals(
     now: Date,
     globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
 ): StaleReason[] {
-    return ctx.getStaleSignals(atom, now, globalSupersessionMap);
+    return getProtocolStaleSignals(ctx, atom, now, globalSupersessionMap);
 }
 
 /**

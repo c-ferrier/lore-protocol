@@ -163,20 +163,11 @@ export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = 
 }
 
 /**
- * Creates a pure ProtocolContext for testing with optional mock logic hooks.
+ * Creates a pure ProtocolContext for testing.
  */
-export function makeMockContext(overrides: any = {}): ProtocolContext {
-    const { validateState, getStaleSignals, ...defOverrides } = overrides;
-    
-    const def = makeProtocolDefinition(defOverrides);
-    const ctx = createProtocolContext(def);
-    
-    // Create a new object to safely override readonly hooks without type casting errors
-    return {
-        ...ctx,
-        ...(validateState && { validateState }),
-        ...(getStaleSignals && { getStaleSignals })
-    };
+export function makeMockContext(overrides: Partial<ProtocolDefinition> = {}): ProtocolContext {
+    const def = makeProtocolDefinition(overrides);
+    return createProtocolContext(def);
 }
 
 /** Helper to create a raw commit object. */

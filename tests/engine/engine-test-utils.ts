@@ -135,9 +135,6 @@ export function makeMockProtocolContext(overrides: any = {}): ProtocolContext {
     // If the caller didn't provide a mock function but provided values, we should ideally handle it.
     // For now, we'll just wrap the stub.
     const hooks: any = {};
-    if (overrides.getStaleSignals && typeof overrides.getStaleSignals === 'function' && !overrides.getStaleSignals.mock) {
-        hooks.getStaleSignals = vi.fn(overrides.getStaleSignals);
-    }
 
     return stubMockContext({ ...overrides, ...hooks });
 }

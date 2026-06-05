@@ -51,7 +51,4 @@ export interface ProtocolContext {
     readonly permissive: boolean;
     readonly identityKey: string;
     readonly storageNamespace: string;
-
-    // Logic Hooks (allows mocking in tests while defaulting to pure logic)
-    getStaleSignals(atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[];
 }

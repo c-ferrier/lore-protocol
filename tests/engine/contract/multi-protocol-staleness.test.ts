@@ -1,7 +1,7 @@
 import { type Atom, ProtocolMap } from '../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { StalenessDetector } from '../../../src/engine/services/staleness-detector.js';
-import { TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { TEST_ENGINE_CONFIG, makeMockContext } from '../../../src/engine/testing.js';
 import { STALE_SIGNAL } from '../../../src/engine/util/constants.js';
 import { makeMockProtocolContext } from '../engine-test-utils.js';
 
@@ -31,35 +31,52 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
 
   it('should aggregate staleness signals from multiple protocols for a single atom', async () => {
     // 1. Mock protocol identifies an expired hint
-    const mockProtocol = makeMockProtocolContext({
+    const mockProtocol = makeMockContext({
         name: 'MockStale',
         namespace: 'mockstale',
-        getStaleSignals: vi.fn().mockReturnValue([{ 
-            signal: 'expired-hint', 
-            description: '[Mock] Hint expired' 
-        }])
+        trailers: {
+            'Hint': { 
+                description: 'H', 
+                stale_if: { kind: 'value-equals', value: 'expired', signal: 'expired-hint' }
+            } as any
+        }
     });
 
     // 2. Security protocol identifies low confidence
-    const secProtocol = makeMockProtocolContext({
+    const secProtocol = makeMockContext({
         name: 'SecStale',
         namespace: 'secstale',
-        getStaleSignals: vi.fn().mockReturnValue([{ 
-            signal: STALE_SIGNAL.DRIFT, 
-            description: '[Sec] Schema drift' 
-        }])
+        trailers: {
+            'Drift': { 
+                description: 'D', 
+                stale_if: { kind: 'value-equals', value: 'drift', signal: STALE_SIGNAL.DRIFT } 
+            } as any
+        }
     });
 
 
     registry.register(mockProtocol);
     registry.register(secProtocol);
 
-    const reports = await detector.analyze([mockAtom], new Map());
+    const atom: Atom = {
+        commitHash: 'h1',
+        date: new Date(),
+        author: 'dev@example.com',
+        subject: 'feat: multi-protocol atom',
+        body: '',
+        protocols: new ProtocolMap([
+            ['mockstale', { trailers: { 'Hint': ['expired'] }, unauthorized: {} }],
+            ['secstale', { trailers: { 'Drift': ['drift'] }, unauthorized: {} }]
+        ]),
+        filesChanged: new Set(),
+      };
+
+    const reports = await detector.analyze([atom], new Map());
 
     expect(reports).toHaveLength(1);
     const reasons = reports[0].reasons;
     expect(reasons).toHaveLength(2);
-    expect(reasons.some(r => r.description.includes('[Mock]'))).toBe(true);
-    expect(reasons.some(r => r.description.includes('[Sec]'))).toBe(true);
+    expect(reasons.some(r => r.signal === 'expired-hint')).toBe(true);
+    expect(reasons.some(r => r.signal === STALE_SIGNAL.DRIFT)).toBe(true);
   });
 });
