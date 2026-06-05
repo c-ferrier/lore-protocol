@@ -11,7 +11,7 @@ import { CommitInputResolver } from '../cli/readers/commit-input-resolver.js';
 import { HeadIdReader } from '../shell/git/head-id-reader.js';
 import { resolveProtocolRoot } from '../shell/fs/root-resolver.js';
 import { DynamicProtocolLoader, ProtocolLoader } from '../shell/fs/protocol-loader.js';
-import { getEngineVersion } from '../util/version.js';
+import { getEngineVersion } from '../core/logic/version.js';
 
 // Pure Logic Modules
 import { createProtocolContext } from '../core/logic/protocols.js';

@@ -9,7 +9,7 @@ import type { ILogger } from '../../interfaces/logger.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import type { AtomId } from '../../core/types/domain.js';
 import {  ProtocolRegistry  } from '../../services/protocol-registry.js';
-import { slugify } from '../../util/string.js';
+import { slugify } from '../../core/logic/string.js';
 
 // Pure Logic Modules
 import { formatCommit, validateFormatting } from '../../core/logic/commit-formatting.js';

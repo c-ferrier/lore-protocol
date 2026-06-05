@@ -1,4 +1,4 @@
-import { getEngineVersion } from '../../../..//src/engine/util/version.js';
+import { getEngineVersion } from '../../../../src/engine/core/logic/version.js';
 
 import { describe, it, expect } from 'vitest';
 ;

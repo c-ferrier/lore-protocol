@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { stringify as stringifyToml, parse as parseToml } from 'smol-toml';
 import { ENGINE_CONFIG_SCHEMA } from '../../core/types/config.js';
 import type { EngineConfig } from '../../core/types/config.js';
-import { analyzeConfigGaps } from '../../util/config-analyzer.js';
+import { analyzeConfigGaps } from '../../core/logic/config-analyzer.js';
 import type { ILogger } from '../../interfaces/logger.js';
 
 export interface InitDeps {

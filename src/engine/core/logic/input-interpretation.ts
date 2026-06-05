@@ -2,7 +2,7 @@ import type { CommitInput } from '../types/commit.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import type { EngineConfig } from '../types/config.js';
 import { ProtocolMap } from '../models/protocol-map.js';
-import { slugify, camelCase } from '../../util/string.js';
+import { slugify, camelCase } from './string.js';
 import { ProtocolError } from '../../util/errors.js';
 import { authorizeKey } from './ownership.js';
 

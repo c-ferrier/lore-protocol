@@ -1,4 +1,4 @@
-import { camelCase, slugify, snakeCase } from '../../../..//src/engine/util/string.js';
+import { camelCase, slugify, snakeCase } from '../../../../src/engine/core/logic/string.js';
 
 import { describe, it, expect } from 'vitest';
 ;

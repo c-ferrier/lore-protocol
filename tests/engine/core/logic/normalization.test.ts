@@ -54,6 +54,21 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         expect(state.trailers.Project).toBeUndefined();
         expect(state.unauthorized.Project).toBeUndefined();
     });
+
+    it('should normalize mixed-case trailers to canonical keys', () => {
+        const protocol = makeProtocol({ 
+            name: 'Root', 
+            trailers: { Confidence: { description: 'C' } }
+        });
+        
+        const raw = {
+          'confidence': ['high'],
+          'CONFIDENCE': ['low']
+        };
+    
+        const state = normalizeTrailers(raw, protocol);
+        expect(state.trailers.Confidence).toEqual(['high', 'low']);
+    });
   });
 
   describe('Namespaced Context (Bucket)', () => {
@@ -75,6 +90,17 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
       const state = normalizeTrailers(raw, projectProtocol);
       expect(state.trailers.Id).toEqual(['a1b2c3d4']);
       expect(state.trailers.Team).toEqual(['Backend']);
+    });
+
+    it('should handle namespaced trailers when provided as prefixed global keys', () => {
+        const raw = {
+          'Project: Id': ['12345678'],
+          'Project: Team': ['backend']
+        };
+    
+        const state = normalizeTrailers(raw, projectProtocol);
+        expect(state.trailers.Id).toEqual(['12345678']);
+        expect(state.trailers.Team).toEqual(['backend']);
     });
 
     it('should flag unrecognized nested trailers as unauthorized when strict', () => {
@@ -101,6 +127,20 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         const raw = { 'Project': ['Not-A-Trailer'] };
         const state = normalizeTrailers(raw, projectProtocol);
         expect(state.unauthorized['invalid-format']).toEqual(['Not-A-Trailer']);
+    });
+
+    it('should report unauthorized trailers in a namespaced protocol', () => {
+        const nsProtocol = makeProtocol({ 
+              name: 'Project', 
+              namespace: 'Project', 
+              identityKey: 'Id',
+              trailers: { 'Id': { description: 'ID' }, 'Team': { description: 'T' } }
+        }, { strict: true, permissive: false });
+
+        const raw = { 'Project': ['Id: a1b2c3d4', 'Tream: typo'] };
+        const state = normalizeTrailers(raw, nsProtocol);
+
+        expect(state.unauthorized.Tream).toEqual(['typo']);
     });
   });
 

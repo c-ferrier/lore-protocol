@@ -1,7 +1,7 @@
 import type { ProtocolContext } from '../types/protocol-definition.js';
 import type { QualifiedFilter, FilterOperator } from '../types/query.js';
 import type { ProtocolState } from '../types/domain.js';
-import { escapeRegex } from '../../util/regex.js';
+import { escapeRegex } from './regex.js';
 import { ownsKey, authorizeKey } from './ownership.js';
 
 /**

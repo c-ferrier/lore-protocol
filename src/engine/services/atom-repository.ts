@@ -5,7 +5,7 @@ import { GLOBAL_CACHE_KEY } from '../util/constants.js';
 import { ProtocolError } from '../util/errors.js';
 import type { ProtocolRegistry } from './protocol-registry.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
-import { escapeRegex } from '../util/regex.js';
+import { escapeRegex } from '../core/logic/regex.js';
 
 // Pure Logic Modules
 import { hydrateAtoms, extractReferenceIds } from '../core/logic/hydration.js';

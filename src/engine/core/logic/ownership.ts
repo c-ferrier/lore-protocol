@@ -1,5 +1,5 @@
 import type { ProtocolContext } from '../types/protocol-definition.js';
-import { escapeRegex } from '../../util/regex.js';
+import { escapeRegex } from './regex.js';
 
 /**
  * Translates a raw key into its canonical, schema-defined case.

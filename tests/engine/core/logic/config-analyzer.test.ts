@@ -1,5 +1,5 @@
-import { analyzeConfigGaps } from '../../../..//src/engine/util/config-analyzer.js';
-import { camelCase } from '../../../..//src/engine/util/string.js';
+import { analyzeConfigGaps } from '../../../../src/engine/core/logic/config-analyzer.js';
+import { camelCase } from '../../../../src/engine/core/logic/string.js';
 
 import { describe, it, expect } from 'vitest';
 ;

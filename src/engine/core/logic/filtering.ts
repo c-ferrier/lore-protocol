@@ -1,7 +1,7 @@
 import type { Atom } from '../types/domain.js';
 import type { SearchOptions, QualifiedFilter, FilterOperator } from '../types/query.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import { escapeRegex } from '../../util/regex.js';
+import { escapeRegex } from './regex.js';
 import { matchesFilters, getSearchPatterns } from '../../shell/git/protocol-query-adapter.js';
 import { ownsKey } from './ownership.js';
 

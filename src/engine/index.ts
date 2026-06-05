@@ -105,12 +105,12 @@ export { mergeOptions } from './cli/commands/helpers/merge-options.js';
 export { executeEngineInit } from './cli/commands/init.js';
 
 // --- Internal Utilities (Exposed for Power Users) ---
-export { slugify, camelCase, snakeCase } from './util/string.js';
+export { slugify, camelCase, snakeCase } from './core/logic/string.js';
 export { 
     getEngineVersion, 
     getEnginePackageName, 
     getEnginePublishedVersion 
-} from './util/version.js';
+} from './core/logic/version.js';
 export { checkForUpdates } from './util/update-check.js';
 export { ProtocolError, ConfigurationError } from './util/errors.js';
 export { 
