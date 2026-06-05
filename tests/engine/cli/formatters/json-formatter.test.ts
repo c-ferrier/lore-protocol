@@ -1,14 +1,20 @@
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
+import { JsonFormatter } from '../../../../src/engine/cli/formatters/json-formatter.js';
+import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { TEST_PROTOCOL_CONFIG, makeProtocol, normalizeTrailers } from '../../../../src/engine/testing.js';
+import { TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../../../src/engine/testing.js';
+import { TriggerParser } from '../../../../src/engine/core/logic/trigger-parser.js';
+import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { getAuthorizedKeys } from '../../../../src/engine/core/logic/protocols.js';
+import { serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
 import { type Atom, type Trailers } from '../../../../src/engine/core/types/domain.js';
 import { type FormattableDoctorResult, type FormattableQueryResult, type FormattableStalenessResult, type FormattableTraceResult, type FormattableValidationResult } from '../../../../src/engine/core/types/output.js';
-import { JsonFormatter } from '../../../../src/engine/cli/formatters/json-formatter.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../../../src/engine/testing.js';
+import { type FormattableQueryResult } from '../../../../src/engine/core/types/output.js';
 
-import { describe, it, expect, beforeEach } from 'vitest';
-
+const LORE_ID_KEY = 'Lore-id';
 const TEST_ID_KEY = "Mock-id";
-
 function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
   return {
     [TEST_ID_KEY]: overrides[TEST_ID_KEY] ?? ['a1b2c3d4'],
@@ -19,15 +25,12 @@ function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
     ...overrides,
   } as any;
 }
-
 function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
   let trailers = (overrides as any).trailers ?? makeTrailers();
   const id = overrides.id ?? trailers[TEST_ID_KEY][0];
-
   if (trailers[TEST_ID_KEY][0] !== id) {
       trailers = { ...trailers, [TEST_ID_KEY]: [id] } as any;
   }
-  
   const base: Atom = {
     commitHash: overrides.commitHash ?? 'abc1234567890',
     date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
@@ -39,22 +42,18 @@ function makeAtom(overrides: Partial<Atom> & { id?: string } = {}): Atom {
     ]),
     filesChanged: overrides.filesChanged ?? ['src/auth.ts'],
   };
-
   return { ...base, ...overrides };
 }
-
 describe('JsonFormatter', () => {
   let registry: ProtocolRegistry;
   let protocol: ProtocolContext;
   let formatter: JsonFormatter;
-
   beforeEach(() => {
     registry = new ProtocolRegistry();
     protocol = makeProtocol();
     registry.register(protocol);
     formatter = new JsonFormatter(registry);
   });
-
   describe('formatQueryResult', () => {
     it('should use "subject" key by default and include protocols map', () => {
       const atom = makeAtom();
@@ -69,10 +68,8 @@ describe('JsonFormatter', () => {
         supersessionMap: new Map(),
         visibleTrailers: 'all',
       };
-
       const output = formatter.formatQueryResult(data);
       const parsed = JSON.parse(output);
-
       expect(parsed.version).toBe('1.0');
       expect(parsed.meta.total_atoms).toBe(5);
       expect(parsed.meta.filtered_atoms).toBe(1);
@@ -80,7 +77,6 @@ describe('JsonFormatter', () => {
       expect(parsed.results[0].protocols.mock.version).toBe('1.0');
       expect(parsed.results[0].commit).toBe('abc1234567890');
     });
-
     it('should include filtered trailers inside protocol object', () => {
       const atom = makeAtom({
         trailers: makeTrailers({
@@ -97,14 +93,11 @@ describe('JsonFormatter', () => {
         supersessionMap: new Map(),
         visibleTrailers: ['Constraint'],
       };
-
       const output = formatter.formatQueryResult(data);
       const parsed = JSON.parse(output);
-
       expect(parsed.results[0].protocols.mock.trailers.Constraint).toEqual(['Must use OAuth2']);
       expect(parsed.results[0].protocols.mock.trailers.Confidence).toBeUndefined();
     });
-
     it('should use canonical trailer keys inside protocol object (symmetry)', () => {
       const registry = new ProtocolRegistry();
       // Define Confidence as scalar in the schema
@@ -117,7 +110,6 @@ describe('JsonFormatter', () => {
       });
       registry.register(protocol);
       const dataFormatter = new JsonFormatter(registry);
-
       const atom = makeAtom({
         trailers: {
           [TEST_ID_KEY]: ['abcd1234'],
@@ -134,16 +126,13 @@ describe('JsonFormatter', () => {
         supersessionMap: new Map(),
         visibleTrailers: 'all',
       };
-
       const output = dataFormatter.formatQueryResult(data);
       const parsed = JSON.parse(output);
-
       const mock = parsed.results[0].protocols.mock;
       expect(mock.trailers.Confidence).toBe('high');
       expect(mock.trailers['Depends-on']).toEqual(['aabbccdd']);
     });
   });
-
   describe('formatValidationResult', () => {
     it('should produce valid JSON summary', () => {
       const data: FormattableValidationResult = {
@@ -151,16 +140,13 @@ describe('JsonFormatter', () => {
         results: [],
         valid: false
       };
-
       const output = formatter.formatValidationResult(data);
       const parsed = JSON.parse(output);
-
       expect(parsed.summary.commits_checked).toBe(10);
       expect(parsed.summary.errors).toBe(2);
       expect(parsed.valid).toBe(false);
     });
   });
-
   describe('formatStalenessResult', () => {
     it('should produce valid JSON with stale atoms', () => {
       const atom = makeAtom();
@@ -172,17 +158,14 @@ describe('JsonFormatter', () => {
           },
         ],
       };
-
       const output = formatter.formatStalenessResult(data);
       const parsed = JSON.parse(output);
-
       expect(parsed.version).toBe('1.0');
       expect(parsed.stale_atoms).toHaveLength(1);
       expect(parsed.stale_atoms[0].protocols.mock.id).toBe('a1b2c3d4');
       expect(parsed.stale_atoms[0].date).toBe('2025-01-15T10:00:00.000Z');
     });
   });
-
   describe('formatTraceResult', () => {
     it('should produce valid JSON with root and edges', () => {
       const root = makeAtom({ id: 'aaaabbbb' });
@@ -194,17 +177,14 @@ describe('JsonFormatter', () => {
           { from: 'aaaabbbb', to: 'eeeeffff', relationship: 'Supersedes', targetAtom: null },
         ],
       };
-
       const output = formatter.formatTraceResult(data);
       const parsed = JSON.parse(output);
-
       expect(parsed.version).toBe('1.0');
       expect(parsed.root.protocols.mock.id).toBe('aaaabbbb');
       expect(parsed.edges).toHaveLength(2);
       expect(parsed.edges[0].target_atom.protocols.mock.id).toBe('ccccdddd');
     });
   });
-
   describe('formatDoctorResult', () => {
     it('should produce valid JSON for doctor results', () => {
       const data: FormattableDoctorResult = {
@@ -213,11 +193,47 @@ describe('JsonFormatter', () => {
         ],
         summary: { errors: 0, warnings: 0, info: 0 },
       };
-
       const output = formatter.formatDoctorResult(data);
       const parsed = JSON.parse(output);
-
       expect(parsed.checks[0].name).toBe('c1');
     });
   });
 });
+  describe('JSON Normalization Matrix', () => {
+    it('should correctly coerce core scalars and preserve all other arrays', () => {
+      const protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
+      const registry = new ProtocolRegistry();
+      registry.register(protocol);
+      const formatter = new JsonFormatter(registry);
+      const trailers: Trailers = {
+        [LORE_ID_KEY]: ['id'],
+        'Confidence': ['high'],      // Scalar core
+        'Constraint': ['C1', 'C2'],  // Array core
+        'Tested': ['T1'],            // Array core (single value)
+        'Custom': ['V1'],            // Custom (defaults to array)
+      };
+      const atom: Atom = {
+        id: 'id',
+        commitHash: 'h',
+        date: new Date(),
+        author: 'a',
+        subject: 'i',
+        body: '',
+        protocols: new Map([
+          ['lore', { name: 'Lore', version: '1.0', identityKey: LORE_ID_KEY, trailers }]
+        ]),
+        filesChanged: []
+      };
+      const data: FormattableQueryResult = {
+        result: { atoms: [atom], meta: { totalAtoms: 1, filteredAtoms: 1, oldest: null, newest: null }, command: 'c', target: 't', targetType: 'file' },
+        supersessionMap: new Map(),
+        visibleTrailers: 'all',
+      };
+      const output = JSON.parse(formatter.formatQueryResult(data));
+      const lore = output.results[0].protocols.lore;
+      expect(lore.trailers.Confidence).toBe('high');        // Canonical Key + Coerced to scalar
+      expect(lore.trailers.Constraint).toEqual(['C1', 'C2']); // Canonical Key + Remained array
+      expect(lore.trailers.Tested).toEqual(['T1']);           // Canonical Key + Remained array
+      expect(lore.trailers.Custom).toEqual(['V1']);           // Remained array
+    });
+  })

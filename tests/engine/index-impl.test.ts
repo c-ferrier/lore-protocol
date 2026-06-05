@@ -1,6 +1,6 @@
-import { type Atom } from '../../../src/engine/core/types/domain.js';
-import { runCli } from '../../../src/engine/index-impl.js';
-import { TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { type Atom } from '../../src/engine/core/types/domain.js';
+import { runCli } from '../../src/engine/index-impl.js';
+import { TEST_ENGINE_CONFIG } from '../../src/engine/testing.js';
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 ;

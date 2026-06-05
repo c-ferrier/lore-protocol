@@ -1,9 +1,18 @@
+import { JsonFormatter } from '../../../../src/engine/cli/formatters/json-formatter.js';
+import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { TEST_PROTOCOL_CONFIG, makeProtocol, normalizeTrailers } from '../../../../src/engine/testing.js';
+import { TriggerParser } from '../../../../src/engine/core/logic/trigger-parser.js';
 import { describe, it, expect } from 'vitest';
+import { getAuthorizedKeys } from '../../../../src/engine/core/logic/protocols.js';
 import { makeProtocol } from '../../../../src/engine/testing.js';
 import { normalizeTrailers } from '../../../../src/engine/core/logic/normalization.js';
+import { serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
+import { type Atom, type Trailers } from '../../../../src/engine/core/types/domain.js';
+import { type FormattableQueryResult } from '../../../../src/engine/core/types/output.js';
 
+const LORE_ID_KEY = 'Lore-id';
 describe('Normalization Logic (Strict Segmented Waterfall)', () => {
-
   describe('Root Context (Global)', () => {
     const rootProtocol = makeProtocol({
       name: 'Root',
@@ -15,7 +24,6 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         'Constraint': { description: 'Constraint' }
       }
     });
-
     it('should parse and normalize authorized trailers', () => {
       const raw = {
         'Lore-id': ['a1b2c3d4'],
@@ -25,13 +33,11 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
       expect(state.trailers['Lore-id']).toEqual(['a1b2c3d4']);
       expect(state.trailers.Constraint).toEqual(['c1']);
     });
-
     it('should be case-insensitive during normalization', () => {
         const raw = { 'lore-id': ['a1b2c3d4'] };
         const state = normalizeTrailers(raw, rootProtocol);
         expect(state.trailers['Lore-id']).toEqual(['a1b2c3d4']);
     });
-
     it('should flag unauthorized trailers in strict mode', () => {
         const strictRoot = { ...rootProtocol, permissive: false };
         const raw = { 'Unknown': ['value'] };
@@ -39,14 +45,12 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         expect(state.trailers.Unknown).toBeUndefined();
         expect(state.unauthorized.Unknown).toEqual(['value']);
     });
-
     it('should capture orphans in permissive mode', () => {
         const permissiveRoot = { ...rootProtocol, permissive: true };
         const raw = { 'Unknown': ['value'] };
         const state = normalizeTrailers(raw, permissiveRoot);
         expect(state.trailers.Unknown).toEqual(['value']);
     });
-
     it('should ignore keys claimed by other protocols', () => {
         const raw = { 'Project': ['inner: value'] };
         const claimed = new Set(['project']);
@@ -54,23 +58,18 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         expect(state.trailers.Project).toBeUndefined();
         expect(state.unauthorized.Project).toBeUndefined();
     });
-
     it('should normalize mixed-case trailers to canonical keys', () => {
         const protocol = makeProtocol({ 
             name: 'Root', 
             trailers: { Confidence: { description: 'C' } }
         });
-        
         const raw = {
           'confidence': ['high'],
           'CONFIDENCE': ['low']
         };
-    
         const state = normalizeTrailers(raw, protocol);
         expect(state.trailers.Confidence).toEqual(['high', 'low']);
-    });
-  });
-
+      });
   describe('Namespaced Context (Bucket)', () => {
     const projectProtocol = makeProtocol({
       name: 'Project',
@@ -82,7 +81,6 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         'Team': { description: 'Team' }
       }
     });
-
     it('should unpack namespaced bucket trailers', () => {
       const raw = {
         'Project': ['Id: a1b2c3d4', 'Team: Backend']
@@ -91,44 +89,37 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
       expect(state.trailers.Id).toEqual(['a1b2c3d4']);
       expect(state.trailers.Team).toEqual(['Backend']);
     });
-
     it('should handle namespaced trailers when provided as prefixed global keys', () => {
         const raw = {
           'Project: Id': ['12345678'],
           'Project: Team': ['backend']
         };
-    
         const state = normalizeTrailers(raw, projectProtocol);
         expect(state.trailers.Id).toEqual(['12345678']);
         expect(state.trailers.Team).toEqual(['backend']);
     });
-
     it('should flag unrecognized nested trailers as unauthorized when strict', () => {
       const strictProject = { ...projectProtocol, permissive: false };
       const raw = { 'Project': ['Tream: typo'] };
       const state = normalizeTrailers(raw, strictProject);
       expect(state.unauthorized.Tream).toEqual(['typo']);
     });
-
     it('should allow unrecognized nested trailers when permissive', () => {
       const permissiveProject = { ...projectProtocol, permissive: true };
       const raw = { 'Project': ['Custom: value'] };
       const state = normalizeTrailers(raw, permissiveProject);
       expect(state.trailers.Custom).toEqual(['value']);
     });
-
     it('should ignore root-level trailers (Strict Isolation)', () => {
         const raw = { 'Id': ['12345'] };
         const state = normalizeTrailers(raw, projectProtocol);
         expect(state.trailers.Id).toBeUndefined();
     });
-
     it('should handle invalid nested format in bucket', () => {
         const raw = { 'Project': ['Not-A-Trailer'] };
         const state = normalizeTrailers(raw, projectProtocol);
         expect(state.unauthorized['invalid-format']).toEqual(['Not-A-Trailer']);
     });
-
     it('should report unauthorized trailers in a namespaced protocol', () => {
         const nsProtocol = makeProtocol({ 
               name: 'Project', 
@@ -136,14 +127,10 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
               identityKey: 'Id',
               trailers: { 'Id': { description: 'ID' }, 'Team': { description: 'T' } }
         }, { strict: true, permissive: false });
-
         const raw = { 'Project': ['Id: a1b2c3d4', 'Tream: typo'] };
         const state = normalizeTrailers(raw, nsProtocol);
-
         expect(state.unauthorized.Tream).toEqual(['typo']);
-    });
-  });
-
+      });
   describe('Normalization Priority Matrix', () => {
     it('Explicit Ownership should win over Reserved Check', () => {
         const protocol = makeProtocol({
@@ -155,7 +142,6 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         // We explicitly own it, so we take it even if it's "claimed" (by us or others)
         expect(state.trailers.Owned).toEqual(['value']);
     });
-
     it('Reserved Check should win over Permissive Ingestion', () => {
         const protocol = makeProtocol({ name: 'Root', namespace: '', permissive: true });
         const raw = { 'Reserved': ['value'] };
@@ -163,5 +149,39 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         // It's reserved by someone else, so even though we are permissive, we ignore it.
         expect(state.trailers.Reserved).toBeUndefined();
     });
-  });
+    });
+  describe('Strict Mode Boundaries', () => {
+    it('should strictly prune unauthorized custom trailers in non-permissive mode', () => {
+      const protocol = makeProtocol(LoreProtocolDefinition, {
+        strict: true,
+        permissive: false,
+        trailers: { 
+          'Authorized': { description: '', multivalue: true, validation: 'none' } 
+        }
+      });
+      const raw = `${LORE_ID_KEY}: abc\nAuthorized: yes\nUnauthorized: no`;
+      const result = normalizeTrailers(TriggerParser.parseTrailers(raw), protocol);
+      const parsed = result.trailers;
+      expect(parsed['Authorized']).toEqual(['yes']);
+      expect(parsed['Unauthorized']).toBeUndefined();
+      const serialized = serializeTrailers(parsed, getAuthorizedKeys(protocol));
+      expect(serialized).not.toContain('Unauthorized');
+    });
+  })
+});
+  describe('Key Case Resilience', () => {
+    it('should treat trailers as case-insensitive for core mapping', () => {
+      const protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
+      // User provides lowercase 'confidence'
+      const raw = `${LORE_ID_KEY}: abc\nconfidence: low`;
+      const result = normalizeTrailers(TriggerParser.parseTrailers(raw), protocol);
+      const parsed = result.trailers;
+      // Should be mapped to the canonical PascalCase key
+      expect(parsed['Confidence']).toEqual(['low']);
+      const serialized = serializeTrailers(parsed, getAuthorizedKeys(protocol));
+      expect(serialized).toContain('Confidence: low');
+      expect(serialized).not.toContain('confidence:');
+    });
+  })
+});
 });
