@@ -73,7 +73,6 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
     });
 
     it('should map flat flags to protocol trailers using camelCase', () => {
-      // Confidence -> slug: confidence -> camel: confidence
       const input = parseFlagsToInput({ 
           subject: 'feat: add login',
           confidence: 'high'
@@ -137,6 +136,12 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
         expect(result.trailers?.get('root').Status).toEqual(['active']);
     });
 
+    it('should ignore unknown flags that do not match any protocol trailers (Current Behavior)', () => {
+        // NOTE: Strictly speaking, this should warn or error (See Roadmap Phase 7.7)
+        // But for now, we allow them to pass through to satisfy global CLI options.
+        const input = parseFlagsToInput({ unknown: 'val' } as any, registry);
+        expect(input.trailers?.size).toBe(0);
+    });
 
     it('should prioritize explicit cli flags over automatic ones', () => {
         const customProtocol = makeMockContext({
@@ -202,12 +207,24 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
         const mockGroup = result.trailers?.get('mock') || {};
         expect(mockGroup.Confidence).toEqual(['low', 'high']);
         expect(mockGroup.Department).toEqual(['Eng']);
-      });
+    });
 
-      it('should default subject to empty string when undefined', () => {
+    it('should default subject to empty string when undefined', () => {
         const result = parseFlagsToInput({}, makeProtocolRegistry([mockProtocol as any]));
         expect(result.subject).toBe('');
-      });
+    });
+
+    describe('Logic Parity', () => {
+        it('should leave body undefined when not provided', () => {
+            const input = parseFlagsToInput({ subject: 's' }, registry);
+            expect(input.body).toBeUndefined();
+        });
+    
+        it('should map core trailers dynamically using metadata', () => {
+            const input = parseFlagsToInput({ subject: 's', confidence: 'high' }, registry);
+            expect(input.trailers?.get('mock')?.Confidence).toEqual(['high']);
+        });
+    });
   });
 
   describe('finalizeCommitInput', () => {

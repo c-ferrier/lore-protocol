@@ -71,8 +71,17 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 
 ### PHASE 7.6: Universal TypeScript Conversion
 **Urgency**: Medium | **Importance**: High | **Difficulty**: Low
-**Concept:** Eliminate the last remaining `.js` orphans in the source tree to ensure total type safety and testability.
-**Action:** Convert `rebase-editor.js`, `rewrite-trailers.js`, and `extract-lore-state.cjs` to `.ts`. Add isolated tests for programmatic rebase logic.
+**Concept**: Eliminate the last remaining `.js` orphans in the source tree to ensure total type safety and testability.
+**Action**: Convert `rebase-editor.js`, `rewrite-trailers.js`, and `extract-lore-state.cjs` to `.ts`. Add isolated tests for programmatic rebase logic.
+
+### PHASE 7.7: Strict CLI Guardrails (Typo Prevention)
+**Urgency**: Low | **Importance**: Medium | **Difficulty**: Low
+**Concept**: Prevent metadata loss caused by CLI flag typos.
+**Action**: Implement a validation pass in `parseFlagsToInput` that compares the `options` keys against the union of all registered protocol flags and core engine flags.
+*   **Behavior (Standard)**: Print a warning for unknown flags.
+*   **Behavior (Strict Protocol)**: If a protocol is marked `strict: true`, throw a `ProtocolError` for any unknown flags that slugify to its namespace.
+**Value**: Ensures high-fidelity data entry and provides immediate feedback for configuration errors.
+
 
 ### PHASE 4.1: Persistent Identity Index (Discovery Sovereignty)
 **Urgency**: Medium | **Importance**: High | **Difficulty**: Medium
