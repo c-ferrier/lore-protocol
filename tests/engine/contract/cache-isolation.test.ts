@@ -28,11 +28,9 @@ describe('AtomRepository Cache Isolation', () => {
   it('should use "global" key for global find and path: key for targeted find', async () => {
     vi.mocked(gitClient.resolveRef).mockResolvedValue('head-hash');
     await repo.find();
-    console.log('1st CALL:', queryCache.get.mock.calls[0]);
     expect(queryCache.get).toHaveBeenCalledWith('head-hash', 'global', expect.any(Object));
 
     await repo.find(makeQueryTarget('src/main.ts'));
-    console.log('2nd CALL:', queryCache.get.mock.calls[1]);
     expect(queryCache.get).toHaveBeenCalledWith('head-hash', 'path:src/main.ts', expect.any(Object));
   });
 
