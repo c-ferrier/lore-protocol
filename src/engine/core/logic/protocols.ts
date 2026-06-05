@@ -5,7 +5,6 @@ import type { QualifiedFilter } from '../types/query.js';
 import { ProtocolHydrator } from '../../shell/fs/protocol-hydrator.js';
 import { validateProtocolState, validateProtocolTrailer } from './validation.js';
 import { getProtocolStaleSignals } from './staleness.js';
-import { matchesFilters, claimsTrailers } from './query-adapter.js';
 
 /**
  * Transforms a serializable ProtocolDefinition into an operationally optimized ProtocolContext.
@@ -49,13 +48,7 @@ export function createProtocolContext(def: ProtocolDefinition): ProtocolContext 
             (def as any).validateTrailer ? (def as any).validateTrailer(key, val, resolver) : validateProtocolTrailer(key, val, def, resolver),
             
         getStaleSignals: (atom: Atom, now: Date, map: Map<string, Map<string, SupersessionStatus>>) => 
-            (def as any).getStaleSignals ? (def as any).getStaleSignals(atom, now, map) : getProtocolStaleSignals(ctx, atom, now, map),
-
-        matches: (state: ProtocolState, filters: readonly QualifiedFilter[]) =>
-            (def as any).matches ? (def as any).matches(state, filters) : matchesFilters(state, filters, ctx),
-
-        claims: (raw: string) =>
-            (def as any).claims ? (def as any).claims(raw) : claimsTrailers(raw, ctx),
+            (def as any).getStaleSignals ? (def as any).getStaleSignals(atom, now, map) : getProtocolStaleSignals(ctx, atom, now, map)
     };
 
     return ctx;

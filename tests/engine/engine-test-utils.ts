@@ -144,12 +144,6 @@ export function makeMockProtocolContext(overrides: any = {}): ProtocolContext {
     if (overrides.getStaleSignals && typeof overrides.getStaleSignals === 'function' && !overrides.getStaleSignals.mock) {
         hooks.getStaleSignals = vi.fn(overrides.getStaleSignals);
     }
-    if (overrides.matches && typeof overrides.matches === 'function' && !overrides.matches.mock) {
-        hooks.matches = vi.fn(overrides.matches);
-    }
-    if (overrides.claims && typeof overrides.claims === 'function' && !overrides.claims.mock) {
-        hooks.claims = vi.fn(overrides.claims);
-    }
 
     return stubMockContext({ ...overrides, ...hooks });
 }

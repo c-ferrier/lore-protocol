@@ -40,8 +40,6 @@ describe('ProtocolRegistry', () => {
 
   it('should detect protocols that claim raw trailers', () => {
     const raw = `${TEST_ID_KEY}: a1b2c3d4`;
-    // Inject mock hook directly into the context object
-    mockProtocol.claims = vi.fn().mockReturnValue(true);
     registry.register(mockProtocol);
     const detected = registry.detect(raw);
     expect(detected).toContain(mockProtocol);

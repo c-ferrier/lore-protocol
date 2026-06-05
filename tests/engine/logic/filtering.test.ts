@@ -8,32 +8,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 describe('Filtering Logic (Pure Functions)', () => {
   let registry: ProtocolRegistry;
   
-  const createMockMatches = (authorizeFn: (key: string) => string | null) => (state: any, filters: any[]) => {
-      const filter = filters[0];
-      const actualKey = authorizeFn(filter.key);
-      if (!actualKey) return false;
-      const values = state.trailers[actualKey];
-      if (!values) return false;
-      if (Array.isArray(filter.value)) {
-          return filter.value.some((v: any) => values.includes(v));
-      }
-      return values.includes(filter.value);
-  };
-
-  const mockAuthorize = (key: string) => {
-      const k = key.toLowerCase();
-      if (k === 'mock-id') return 'Mock-id';
-      if (k === 'confidence') return 'Confidence';
-      return null;
-  };
-
-  const fredAuthorize = (key: string) => {
-      const k = key.toLowerCase();
-      if (k === 'fred-id') return 'Fred-id';
-      if (k === 'team') return 'Team';
-      return null;
-  };
-
   beforeEach(() => {
     registry = new ProtocolRegistry();
     
@@ -44,8 +18,7 @@ describe('Filtering Logic (Pure Functions)', () => {
         trailers: {
             'Mock-id': { description: 'ID' },
             'Confidence': { description: 'C' }
-        },
-        matches: vi.fn(createMockMatches(mockAuthorize))
+        }
     });
     registry.register(protocol);
 
@@ -56,8 +29,7 @@ describe('Filtering Logic (Pure Functions)', () => {
         trailers: {
             'Fred-id': { description: 'ID' },
             'Team': { description: 'T' }
-        },
-        matches: vi.fn(createMockMatches(fredAuthorize))
+        }
     });
     registry.register(fredProtocol);
   });
