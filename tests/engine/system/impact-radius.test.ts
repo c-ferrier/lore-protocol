@@ -1,13 +1,13 @@
 import { GitClient } from '../../../src/engine/shell/git/git-client.js';
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-;
 import { execSync } from 'node:child_process';
 import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 describe('Git Impact Radius (System)', () => {
-  const testDir = join(process.cwd(), '.test-impact-radius');
+  const testDir = join(tmpdir(), `lore-test-impact-radius-${Math.random().toString(36).slice(2)}`);
   let client: GitClient;
 
   const run = (cmd: string) => execSync(cmd, { cwd: testDir, stdio: 'ignore' });

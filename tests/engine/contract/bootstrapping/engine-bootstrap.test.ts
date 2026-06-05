@@ -8,37 +8,44 @@ import { GitClient } from '../../../../src/engine/shell/git/git-client.js';
 import { TEST_ENGINE_CONFIG, makeMockContext } from '../../../../src/engine/testing.js';
 
 import { describe, it, expect, vi } from 'vitest';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 // Mock dependency services to avoid FS/Git access
-vi.mock('../../../../src/engine/services/git-client.js', () => ({
+vi.mock('../../../../src/engine/shell/git/git-client.js', () => ({
     GitClient: vi.fn().mockImplementation(() => ({
         resolveRef: vi.fn(async () => 'head'),
         resolveDate: vi.fn(async () => new Date()),
     }))
 }));
 
-vi.mock('../../../../src/engine/services/config-loader.js', () => ({
+vi.mock('../../../../src/engine/shell/fs/config-loader.js', () => ({
     EngineConfigLoader: vi.fn().mockImplementation(() => ({
         loadForPath: vi.fn(async () => TEST_ENGINE_CONFIG),
     }))
 }));
 
-vi.mock('../../../../src/engine/services/root-resolver.js', () => ({
+vi.mock('../../../../src/engine/shell/fs/root-resolver.js', () => ({
     resolveProtocolRoot: vi.fn(async () => ({ protocolRoot: '/mock', gitRoot: '/mock' })),
 }));
 
-vi.mock('../../../../src/engine/services/protocol-loader.js', () => ({
+vi.mock('../../../../src/engine/shell/fs/protocol-loader.js', () => ({
     DynamicProtocolLoader: vi.fn().mockImplementation(() => ({
+        loadAll: vi.fn(async () => []),
+    })),
+    ProtocolLoader: vi.fn().mockImplementation(() => ({
         loadAll: vi.fn(async () => []),
     }))
 }));
 
 describe('EngineBootstrapper', () => {
+  const testEngineDir = join(tmpdir(), `lore-test-engine-${Math.random().toString(36).slice(2)}`);
+
   const options = {
     binaryName: 'test-cli',
     version: '1.0.0',
     description: 'Test CLI Description',
-    engineDirName: '.test-engine',
+    engineDirName: testEngineDir,
     configFileName: 'config.toml',
     defaultConfig: TEST_ENGINE_CONFIG,
     staticProtocols: [],
