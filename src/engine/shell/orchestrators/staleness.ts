@@ -1,46 +1,44 @@
-import type { IGitClient } from '../interfaces/git-client.js';
-import type { EngineConfig } from '../core/types/config.js';
-import type { Atom, SupersessionStatus, StaleReason } from '../core/types/domain.js';
-import type { ProtocolRegistry } from './protocol-registry.js';
-import type { StaleAtomReport } from '../core/types/output.js';
+import type { IGitClient } from '../../interfaces/git-client.js';
+import type { EngineConfig } from '../../core/types/config.js';
+import type { Atom, SupersessionStatus, StaleReason } from '../../core/types/domain.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { StaleAtomReport } from '../../core/types/output.js';
 
 // Pure Logic Modules
 import { 
     evaluateAgeSignal, 
     evaluateDriftSignal, 
     getStaleSignals
-} from '../core/logic/staleness.js';
+} from '../../core/logic/staleness.js';
 
 /**
- * Orchestrator for analyzing Atoms to detect "staleness" signals.
- * Coordinates Git I/O for drift and delegates to pure logic modules.
+ * Orchestrates the analysis of Atoms to detect "staleness" signals.
+ * UI-Agnostic: Suitable for CLI, Web Services, or CI integration.
+ * 
+ * DESIGN: Coordinates between Core Logic (pure math) and Shell Services (I/O).
  */
-export class StalenessDetector {
-  constructor(
-    private readonly gitClient: IGitClient,
-    private readonly config: EngineConfig,
-    private readonly protocolRegistry: ProtocolRegistry,
-  ) {}
-
-  /**
-   * Performs analysis on a set of atoms and returns reports for those that are stale.
-   */
-  async analyze(
+export async function analyzeStaleness(
     atoms: readonly Atom[],
     globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
+    deps: {
+      gitClient: IGitClient;
+      config: EngineConfig;
+      protocolRegistry: ProtocolRegistry;
+    }
   ): Promise<StaleAtomReport[]> {
+    const { gitClient, config, protocolRegistry } = deps;
     const now = new Date();
-    const protocols = this.protocolRegistry.getAll();
+    const protocols = protocolRegistry.getAll();
 
     const results = await Promise.all(atoms.map(async (atom) => {
       const reasons: StaleReason[] = [];
 
       // 1. Structural Signals (Generic Engine Level)
-      const ageSignal = evaluateAgeSignal(atom.date, now, this.config.stale.olderThan);
+      const ageSignal = evaluateAgeSignal(atom.date, now, config.stale.olderThan);
       if (ageSignal) reasons.push(ageSignal);
 
-      const driftMap = await this.buildDriftMap(atom);
-      const driftSignal = evaluateDriftSignal(driftMap, this.config.stale.driftThreshold);
+      const driftMap = await buildDriftMap(atom, gitClient);
+      const driftSignal = evaluateDriftSignal(driftMap, config.stale.driftThreshold);
       if (driftSignal) reasons.push(driftSignal);
 
       // 2. Protocol-Specific Signals
@@ -62,12 +60,12 @@ export class StalenessDetector {
    * Fetches the commit count for all files modified by an atom.
    * This is the I/O portion of the drift calculation.
    */
-  private async buildDriftMap(atom: Atom): Promise<Record<string, number>> {
+  async function buildDriftMap(atom: Atom, gitClient: IGitClient): Promise<Record<string, number>> {
     const driftMap: Record<string, number> = {};
     
     await Promise.all(Array.from(atom.filesChanged).map(async (file) => {
       try {
-        const count = await this.gitClient.countCommitsSince(file, atom.commitHash);
+        const count = await gitClient.countCommitsSince(file, atom.commitHash);
         driftMap[file] = count;
       } catch {
         // Skip files that cannot be blamed (e.g. deleted)
@@ -76,4 +74,3 @@ export class StalenessDetector {
 
     return driftMap;
   }
-}

@@ -1,8 +1,10 @@
 import type { Command } from 'commander';
+import { analyzeStaleness } from '../../shell/orchestrators/staleness.js';
 import type { AtomRepository } from '../../services/atom-repository.js';
-import type { StalenessDetector } from '../../services/staleness-detector.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { IGitClient } from '../../interfaces/git-client.js';
+import type { EngineConfig } from '../../core/types/config.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { Atom } from '../../core/types/domain.js';
 import type { PathQueryOptions } from '../../core/types/query.js';
 import type { FormattableStalenessResult } from '../../core/types/output.js';
 import { STALE_SIGNAL } from '../../util/constants.js';
@@ -27,7 +29,9 @@ export function registerStaleCommand(
   program: Command,
   deps: {
     atomRepository: AtomRepository;
-    stalenessDetector: StalenessDetector;
+    protocolRegistry: ProtocolRegistry;
+    gitClient: IGitClient;
+    config: EngineConfig;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
     protocolRoot: string;
@@ -43,7 +47,7 @@ export function registerStaleCommand(
     .option('--drift <n>', 'File drift threshold (commits since atom)', parseInt)
     .action(async (rawTarget: string | undefined, _options: StaleCommandOptions, command: Command) => {
       const options = mergeOptions<StaleCommandOptions & PathQueryOptions>(command);
-      const { atomRepository, stalenessDetector, getFormatter } = deps;
+      const { atomRepository, protocolRegistry, gitClient, config, getFormatter } = deps;
 
       // 1. Resolve target using the pure logic
       const target = createQueryTarget(rawTarget, { cwd, protocolRoot, isScoped: false });
@@ -59,9 +63,14 @@ export function registerStaleCommand(
       });
 
       // 3. Run staleness analysis
-      let reports = await stalenessDetector.analyze(
+      let reports = await analyzeStaleness(
         activeAtoms,
         new Map(),
+        {
+            gitClient,
+            config,
+            protocolRegistry
+        }
       );
 
       // 5. Apply additional CLI-level filters: keep reports that match ANY active signal

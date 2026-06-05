@@ -42,43 +42,58 @@ The codebase implements a **Flat & Uniform Protocol** architecture. Key principl
 
 ### Layered Architecture
 
-The codebase follows a strict layered architecture with dependencies flowing top-down. We are currently transitioning to a **Functional Orchestration** model to reduce stateful object overhead.
+The codebase follows a strict tiered architecture with dependencies flowing inward. We are currently transitioning to a **Functional Orchestration** model to reduce stateful object overhead and promote environment-agnostic reuse.
 
 ```mermaid
 graph TD
     CLI["CLI Layer<br/><code>src/engine/cli/</code>"]
     SHELL["Shell Layer<br/><code>src/engine/shell/</code>"]
     CORE["Core Layer<br/><code>src/engine/core/</code>"]
-    SVC["Infrastructure Services<br/><code>src/engine/services/</code>"]
+    SVC["Legacy Services<br/><code>src/engine/services/</code>"]
 
     CLI -->|orchestrates via| SHELL
-    SHELL -->|coordinates I/O| SVC
+    SHELL -->|coordinates I/O| SHELL
     SHELL -->|applies| CORE
     CORE -->|stateless logic| CORE
+    
+    CLI -.->|migrating from| SVC
+    SVC -.->|refactoring to| SHELL
 
     style CLI fill:#6c5ce7,color:#fff,stroke:#5a4bd1
     style SHELL fill:#00b894,color:#fff,stroke:#00a381
     style CORE fill:#4a9eff,color:#fff,stroke:#2d7ad6
-    style SVC fill:#fdcb6e,color:#333,stroke:#e0b05e
+    style SVC fill:#fdcb6e,color:#333,stroke:#e0b05e,stroke-dasharray: 5 5
 ```
 
-**Layer responsibilities:**
+**Tier Responsibilities:**
 
 | Layer | Directory | Responsibility |
 |-------|-----------|----------------|
 | **Core** | `src/engine/core/` | **Stateless Logic**. Pure functions for schema math, normalization, and hygiene. No I/O. |
 | **Shell** | `src/engine/shell/` | **I/O & Orchestration**. UI-agnostic functions that coordinate infrastructure services (Git, FS, Cache). |
 | **CLI** | `src/engine/cli/` | **User Interface**. Terminal-specific drivers, flag parsing, and formatting. |
-| **Services** | `src/engine/services/` | **Infrastructure**. Stateful clients (AtomRepository) and registry management. |
+| **Services** | `src/engine/services/` | **Legacy Infrastructure**. Stateful classes being decommissioned in favor of functional shell orchestrators. |
+
+### Architecture Evolution & Folder Disposition
+
+To achieve a fully functional architecture, we are systematically "dispositioning" existing folders:
+
+| Folder | Status | Disposition |
+| :--- | :--- | :--- |
+| `src/engine/core/` | ✅ Active | Home of the "Math". Contains `logic/`, `models/`, and `types/`. |
+| `src/engine/shell/` | 🚀 Expanding | Home of the "Workflow". Inheriting logic from decommissioned services. |
+| `src/engine/cli/` | ✅ Active | Home of the "UI". Strictly for terminal interaction. |
+| `src/engine/services/` | ⚠️ Legacy | **Target for Removal**. All stateful classes (Validator, StalenessDetector, etc.) must be functionalized into the Shell layer. |
+| `src/engine/interfaces/` | ✅ Active | Home of the "Contracts". Defines I/O boundaries for dependency inversion. |
+| `src/engine/util/` | ✅ Active | Home of the "Leafs". Shared constants and error definitions. |
 
 ### Dependency Flow Direction
 
 Dependencies flow **inward** toward the Core:
 
 - **CLI** depends on **Shell Orchestrators** and **Core Logic**.
-- **Shell** depends on **Services** and **Core Logic**.
+- **Shell** depends on **Interfaces** and **Core Logic**.
 - **Core** has **zero** dependencies on outer layers.
-- **Services** are standalone infrastructure providers used by Shell Orchestrators.
 
 This is enforced by strict import boundaries: `core/` never imports from `shell/`, `cli/`, or `services/`.
 
@@ -86,14 +101,11 @@ This is enforced by strict import boundaries: `core/` never imports from `shell/
 
 `src/main.ts` is the composition root. It:
 
-1. Instantiates all concrete implementations.
+1. Instantiates all concrete implementations (GitClient, AtomRepository).
 2. Loads configuration.
-3. Creates services that depend on others, injecting dependencies via constructors.
-4. Creates a **formatter factory** (`getFormatter`) that defers formatter selection to call time based on `--json`/`--format` flags.
-5. Registers all commands, passing dependency bags.
-6. Parses CLI arguments and runs the selected command.
-
-No command or service instantiates its own dependencies. All wiring is centralized here.
+3. Creates a **formatter factory** (`getFormatter`) that defers formatter selection to call time.
+4. Registers all commands, passing only the necessary subset of dependencies (the `sharedDeps` bag is being phased out in favor of explicit functional injection).
+5. Parses CLI arguments and runs the selected command.
 
 ---
 

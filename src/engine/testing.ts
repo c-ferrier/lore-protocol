@@ -239,19 +239,11 @@ export function makeStubAtomRepository(overrides: any = {}) {
         findById: async () => null,
         findByCommitHash: async () => null,
         ...overrides
-    };
-}
+        };
+        }
 
-/** Stub Staleness Detector. */
-export function makeStubStalenessDetector(overrides: any = {}) {
-    const vi = (globalThis as any).vi;
-    return {
-        analyze: async () => [],
-        ...overrides
-    };
-}
+        /** Stub Protocol Registry. */
 
-/** Stub Prompt UI. */
 export function makeStubPrompt(overrides: any = {}) {
     const vi = (globalThis as any).vi;
     return {

@@ -6,7 +6,6 @@ import { QueryCache } from '../shell/fs/query-cache.js';
 import { LogLevel } from '../interfaces/logger.js';
 import { TerminalLogger } from '../cli/io/terminal-logger.js';
 import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, QUERY_CACHE_DIR, PROTOCOLS_DIR_NAME } from '../util/constants.js';
-import { StalenessDetector } from './staleness-detector.js';
 import { TerminalPrompt } from '../cli/io/terminal-prompt.js';
 import { CommitInputResolver } from '../cli/readers/commit-input-resolver.js';
 import { HeadIdReader } from '../shell/git/head-id-reader.js';
@@ -165,7 +164,6 @@ export class EngineBootstrapper {
       baseTarget,
     );
 
-    const stalenessDetector = new StalenessDetector(gitClient, config, protocolRegistry);
     const prompt = new TerminalPrompt();
     const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry, config);
     const headIdReader = new HeadIdReader(gitClient, protocolRegistry);
@@ -199,7 +197,6 @@ export class EngineBootstrapper {
       config: config as any,
       logger,
       protocolRegistry,
-      stalenessDetector,
       protocolRoot: protocolRoot || activeRoot,
       gitRoot: gitRoot || activeRoot,
       cwd,

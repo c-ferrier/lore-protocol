@@ -1,32 +1,23 @@
 import { type Atom, ProtocolMap } from '../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { StalenessDetector } from '../../../src/engine/services/staleness-detector.js';
+import { analyzeStaleness } from '../../../src/engine/shell/orchestrators/staleness.js';
 import { TEST_ENGINE_CONFIG, makeMockContext } from '../../../src/engine/testing.js';
 import { STALE_SIGNAL } from '../../../src/engine/util/constants.js';
-import { makeMockProtocolContext } from '../engine-test-utils.js';
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
-describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
+describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
   let registry: ProtocolRegistry;
-  let detector: StalenessDetector;
 
-  const mockAtom: Atom = {
-    commitHash: 'h1',
-    date: new Date(),
-    author: 'dev@example.com',
-    subject: 'feat: multi-protocol atom',
-    body: '',
-    protocols: new ProtocolMap([
-        ['mockstale', { trailers: {}, unauthorized: {} }],
-        ['secstale', { trailers: {}, unauthorized: {} }]
-    ]),
-    filesChanged: new Set(),
+  const deps = {
+    gitClient: {} as any,
+    config: TEST_ENGINE_CONFIG,
+    protocolRegistry: {} as any // Injected in beforeEach
   };
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    detector = new StalenessDetector({} as any, TEST_ENGINE_CONFIG, registry);
+    deps.protocolRegistry = registry;
   });
 
   it('should aggregate staleness signals from multiple protocols for a single atom', async () => {
@@ -71,7 +62,7 @@ describe('StalenessDetector (Multi-Protocol Aggregation)', () => {
         filesChanged: new Set(),
       };
 
-    const reports = await detector.analyze([atom], new Map());
+    const reports = await analyzeStaleness([atom], new Map(), deps);
 
     expect(reports).toHaveLength(1);
     const reasons = reports[0].reasons;

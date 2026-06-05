@@ -118,14 +118,6 @@ export function makeMockInputResolver(overrides: any = {}): any {
     };
 }
 
-export function makeMockStalenessDetector(overrides: any = {}): any {
-    const stub = makeStubStalenessDetector(overrides);
-    return {
-        ...stub,
-        analyze: vi.fn(stub.analyze)
-    };
-}
-
 export function makeMockProtocol(overrides: Partial<ProtocolDefinition> = {}): any {
   return stubProtocol(overrides);
 }
