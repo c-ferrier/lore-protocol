@@ -12,7 +12,7 @@ import {
     evaluateHygiene, 
     evaluateTrailerHygiene, 
     validateState,
-    validateTrailer
+    validateProtocolTrailer
 } from '../core/logic/validation.js';
 import { normalizeTrailers } from '../core/logic/normalization.js';
 import { getProtocolIdentity } from '../core/logic/identity.js';
@@ -110,7 +110,7 @@ export class Validator {
       for (const val of values) {
         try {
           // Check if format is valid before checking existence
-          const validResult = validateTrailer(ctx, key, val, this.protocolRegistry);
+          const validResult = validateProtocolTrailer(key, val, ctx.def, this.protocolRegistry);
           if (!validResult.valid) continue;
 
           // resolveIdentity is safe here because validateTrailer already passed

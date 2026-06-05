@@ -24,7 +24,7 @@ import {
 import { 
     normalizeTrailers 
 } from '../../../src/engine/core/logic/normalization.js';
-import { validateTrailer } from '../../../src/engine/core/logic/validation.js';
+import { validateProtocolTrailer } from '../../../src/engine/core/logic/validation.js';
 import { TriggerParser } from '../../../src/engine/util/trigger-parser.js';
 
 import { describe, it, expect } from 'vitest';
@@ -406,42 +406,42 @@ describe('Protocol Service', () => {
       });
     });
 
-    describe('validateTrailer', () => {
+    describe('validateProtocolTrailer', () => {
       const protocol = makeMockContext({ 
           name: 'ValidateTest',
           trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS } 
       });
 
       it('should validate enum values correctly', () => {
-        expect(validateTrailer(protocol, 'Confidence', 'high').valid).toBe(true);
-        expect(validateTrailer(protocol, 'Confidence', 'junk').valid).toBe(false);
+        expect(validateProtocolTrailer('Confidence', 'high', protocol.def).valid).toBe(true);
+        expect(validateProtocolTrailer('Confidence', 'junk', protocol.def).valid).toBe(false);
       });
 
       it('should validate regex patterns correctly', () => {
-        expect(validateTrailer(protocol, TEST_ID_KEY, 'a1b2c3d4').valid).toBe(true);
-        expect(validateTrailer(protocol, TEST_ID_KEY, 'not-hex').valid).toBe(false);
+        expect(validateProtocolTrailer(TEST_ID_KEY, 'a1b2c3d4', protocol.def).valid).toBe(true);
+        expect(validateProtocolTrailer(TEST_ID_KEY, 'not-hex', protocol.def).valid).toBe(false);
       });
 
       it('should handle unresolvable cross-protocol references without a registry', () => {
-        const result = validateTrailer(protocol, 'Related', 'other/abc');
+        const result = validateProtocolTrailer('Related', 'other/abc', protocol.def);
         expect(result.valid).toBe(false);
         expect(result.rule).toBe('unknown-protocol-prefix');
       });
 
       it('should handle unknown protocol prefixes with a linked registry', () => {
         const registry = makeProtocolRegistry([protocol as any]);
-        const result = validateTrailer(protocol, 'Related', 'other/abc', registry);
+        const result = validateProtocolTrailer('Related', 'other/abc', protocol.def, registry);
         expect(result.valid).toBe(false);
         expect(result.rule).toBe('unknown-protocol-prefix');
       });
 
       it('should treat self-prefixed references as local even without a registry', () => {
-        const result = validateTrailer(protocol, 'Related', 'validatetest/a1b2c3d4');
+        const result = validateProtocolTrailer('Related', 'validatetest/a1b2c3d4', protocol.def);
         expect(result.valid).toBe(true);
       });
 
       it('should return specific id-format rule when identity key fails pattern', () => {
-          const result = validateTrailer(protocol, TEST_ID_KEY, 'not-hex');
+          const result = validateProtocolTrailer(TEST_ID_KEY, 'not-hex', protocol.def);
           expect(result.rule).toBe('validatetest-id-format');
       });
 
@@ -454,13 +454,13 @@ describe('Protocol Service', () => {
         });
         const registry = makeProtocolRegistry([protocol as any, otherProtocol as any]);
         
-        const result = validateTrailer(protocol, 'Related', 'other/abc', registry);
+        const result = validateProtocolTrailer('Related', 'other/abc', protocol.def, registry);
         expect(result.valid).toBe(true);
       });
 
       it('should return valid for unknown trailers in permissive mode', () => {
           const permissive = makeMockContext({ name: 'PermissiveValidateTest', permissive: true });
-          expect(validateTrailer(permissive, 'Random', 'any').valid).toBe(true);
+          expect(validateProtocolTrailer('Random', 'any', permissive.def).valid).toBe(true);
       });
 
       it('should enforce boundary rules (crossProtocol: false) autonomously', () => {
@@ -468,8 +468,8 @@ describe('Protocol Service', () => {
               name: 'BoundaryTest',
               trailers: { 'Internal': { description: '', validation: 'reference', crossProtocol: false } } as any
           });
-          expect(validateTrailer(localOnly, 'Internal', 'other/abc').valid).toBe(false);
-          expect(validateTrailer(localOnly, 'Internal', 'abc12345').valid).toBe(true);
+          expect(validateProtocolTrailer('Internal', 'other/abc', localOnly.def).valid).toBe(false);
+          expect(validateProtocolTrailer('Internal', 'abc12345', localOnly.def).valid).toBe(true);
       });
     });
   });

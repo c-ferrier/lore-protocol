@@ -43,9 +43,6 @@ export function createProtocolContext(def: ProtocolDefinition): ProtocolContext 
         // Logic Hooks - These check def for overrides to support mocks in tests
         validateState: (state: ProtocolState, resolver?: IIdentityResolver) => 
             (def as any).validateState ? (def as any).validateState(state, resolver) : validateProtocolState(state, def, resolver),
-        
-        validateTrailer: (key: string, val: string, resolver?: IIdentityResolver) => 
-            (def as any).validateTrailer ? (def as any).validateTrailer(key, val, resolver) : validateProtocolTrailer(key, val, def, resolver),
             
         getStaleSignals: (atom: Atom, now: Date, map: Map<string, Map<string, SupersessionStatus>>) => 
             (def as any).getStaleSignals ? (def as any).getStaleSignals(atom, now, map) : getProtocolStaleSignals(ctx, atom, now, map)

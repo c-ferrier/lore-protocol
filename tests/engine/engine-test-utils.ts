@@ -138,9 +138,6 @@ export function makeMockProtocolContext(overrides: any = {}): ProtocolContext {
     if (overrides.validateState && typeof overrides.validateState === 'function' && !overrides.validateState.mock) {
         hooks.validateState = vi.fn(overrides.validateState);
     }
-    if (overrides.validateTrailer && typeof overrides.validateTrailer === 'function' && !overrides.validateTrailer.mock) {
-        hooks.validateTrailer = vi.fn(overrides.validateTrailer);
-    }
     if (overrides.getStaleSignals && typeof overrides.getStaleSignals === 'function' && !overrides.getStaleSignals.mock) {
         hooks.getStaleSignals = vi.fn(overrides.getStaleSignals);
     }

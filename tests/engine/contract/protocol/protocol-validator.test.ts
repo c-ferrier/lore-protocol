@@ -1,5 +1,5 @@
 import { makeMockContext, TEST_PROTOCOL_DEFINITION, TEST_ID_KEY } from '../../../../src/engine/testing.js';
-import { validateState, validateTrailer } from '../../../../src/engine/core/logic/validation.js';
+import { validateState, validateProtocolTrailer } from '../../../../src/engine/core/logic/validation.js';
 import { describe, it, expect } from 'vitest';
 
 describe('ProtocolValidator', () => {
@@ -55,10 +55,10 @@ describe('ProtocolValidator', () => {
         trailers: { Confidence: { description: 'C', validation: 'values', values: { high: {} } } }
     });
 
-    const validResult = validateTrailer(protocol, 'Confidence', 'high');
+    const validResult = validateProtocolTrailer('Confidence', 'high', protocol.def);
     expect(validResult.valid).toBe(true);
 
-    const invalidResult = validateTrailer(protocol, 'Confidence', 'junk');
+    const invalidResult = validateProtocolTrailer('Confidence', 'junk', protocol.def);
     expect(invalidResult.valid).toBe(false);
     expect(invalidResult.rule).toBe('invalid-enum');
   });
@@ -84,10 +84,10 @@ describe('ProtocolValidator', () => {
         trailers: { Id: { description: 'D', validation: 'pattern', pattern: '^[0-9]+$' } }
     });
 
-    const validResult = validateTrailer(protocol, 'Id', '12345');
+    const validResult = validateProtocolTrailer('Id', '12345', protocol.def);
     expect(validResult.valid).toBe(true);
 
-    const invalidResult = validateTrailer(protocol, 'Id', 'abcde');
+    const invalidResult = validateProtocolTrailer('Id', 'abcde', protocol.def);
     expect(invalidResult.valid).toBe(false);
     expect(invalidResult.rule).toBe('invalid-format');
   });
@@ -101,12 +101,12 @@ describe('ProtocolValidator', () => {
     });
 
     // Local ref (no prefix)
-    expect(validateTrailer(protocol, 'Ref', 'a1b2c3d4').valid).toBe(true);
+    expect(validateProtocolTrailer('Ref', 'a1b2c3d4', protocol.def).valid).toBe(true);
     // Identity check is now strict, and 'junk' is not 8-char hex
-    expect(validateTrailer(protocol, 'Ref', 'junk').valid).toBe(false);
+    expect(validateProtocolTrailer('Ref', 'junk', protocol.def).valid).toBe(false);
 
     // Explicit local ref (with prefix matching name)
-    expect(validateTrailer(protocol, 'Ref', 'mock/a1b2c3d4').valid).toBe(true);
+    expect(validateProtocolTrailer('Ref', 'mock/a1b2c3d4', protocol.def).valid).toBe(true);
   });
 
   it('should enforce boundary rules (crossProtocol: false)', () => {
@@ -116,7 +116,7 @@ describe('ProtocolValidator', () => {
     });
 
     // Cross-protocol ref to 'other' -> prohibited
-    const result = validateTrailer(protocol, 'Ref', 'other/123');
+    const result = validateProtocolTrailer('Ref', 'other/123', protocol.def);
     expect(result.valid).toBe(false);
     expect(result.rule).toBe('cross-protocol-prohibited');
   });

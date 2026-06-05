@@ -165,8 +165,8 @@ export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = 
 /**
  * Creates a pure ProtocolContext for testing with optional mock logic hooks.
  */
-export function makeMockContext(overrides: Partial<ProtocolDefinition> & Partial<Pick<ProtocolContext, 'validateState' | 'validateTrailer' | 'getStaleSignals'>> = {}): ProtocolContext {
-    const { validateState, validateTrailer, getStaleSignals, ...defOverrides } = overrides;
+export function makeMockContext(overrides: Partial<ProtocolDefinition> & Partial<Pick<ProtocolContext, 'validateState' | 'getStaleSignals'>> = {}): ProtocolContext {
+    const { validateState, getStaleSignals, ...defOverrides } = overrides;
     
     const def = makeProtocolDefinition(defOverrides);
     const ctx = createProtocolContext(def);
@@ -175,7 +175,6 @@ export function makeMockContext(overrides: Partial<ProtocolDefinition> & Partial
     return {
         ...ctx,
         ...(validateState && { validateState }),
-        ...(validateTrailer && { validateTrailer }),
         ...(getStaleSignals && { getStaleSignals })
     };
 }

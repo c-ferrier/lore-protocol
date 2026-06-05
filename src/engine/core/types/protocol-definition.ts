@@ -54,6 +54,5 @@ export interface ProtocolContext {
 
     // Logic Hooks (allows mocking in tests while defaulting to pure logic)
     validateState(state: ProtocolState, resolver?: IIdentityResolver): ValidationIssue[];
-    validateTrailer(key: string, value: string, resolver?: IIdentityResolver): { valid: boolean; message?: string; rule?: string };
     getStaleSignals(atom: Atom, now: Date, globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>): StaleReason[];
 }

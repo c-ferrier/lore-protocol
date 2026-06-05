@@ -139,6 +139,7 @@ export function validateState(
 
 /**
  * Validates a single trailer value.
+ * Pure logic -- no classes or internal state.
  */
 export function validateProtocolTrailer(
   key: string, 
@@ -231,18 +232,6 @@ export function validateProtocolTrailer(
   }
 
   return { valid: true };
-}
-
-/**
- * Public wrapper for trailer value validation.
- */
-export function validateTrailer(
-  ctx: ProtocolContext,
-  key: string,
-  value: string,
-  resolver?: IIdentityResolver
-): { valid: boolean; message?: string; rule?: string } {
-    return ctx.validateTrailer(key, value, resolver);
 }
 
 /**
