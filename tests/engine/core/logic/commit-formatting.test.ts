@@ -86,6 +86,29 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
       expect(message).toBe(`feat: add login\n\nDetailed description of changes.\n\n${TEST_ID_KEY}: a1b2c3d4`);
     });
 
+    it('should format subject-only commit correctly', () => {
+        const input = makeCommitInput({
+          subject: 'feat: minimal',
+          trailers: { 'mock': { [TEST_ID_KEY]: ['a1b2c3d4'] } },
+        });
+  
+        const { message } = formatCommit(input, engineConfig, protocolRegistry);
+  
+        expect(message).toBe(`feat: minimal\n\n${TEST_ID_KEY}: a1b2c3d4`);
+    });
+
+    it('should handle empty body string correctly (same as subject-only)', () => {
+        const input = makeCommitInput({
+          subject: 'feat: minimal',
+          body: '',
+          trailers: { 'mock': { [TEST_ID_KEY]: ['a1b2c3d4'] } },
+        });
+  
+        const { message } = formatCommit(input, engineConfig, protocolRegistry);
+  
+        expect(message).toBe(`feat: minimal\n\n${TEST_ID_KEY}: a1b2c3d4`);
+    });
+
     it('should include all trailer types', () => {
       const input = makeCommitInput({
         subject: 'feat: full commit',

@@ -34,6 +34,37 @@ describe('Hydration Logic (Pure Functions)', () => {
       expect(hydrate(body, trailers).body).toBe('Actual message.');
     });
 
+    it('should respect implicit ownership (protocols get what they define, permissive gets orphans)', () => {
+      const p1 = makeMockContext({ 
+        name: 'p1', 
+        namespace: 'p1',
+        identityKey: 'P1-id',
+        trailers: { 'P1-id': { description: 'ID' }, 'Authorized': { description: 'Auth' } } 
+      });
+      
+      const p2 = makeMockContext({ 
+        name: 'p2', 
+        namespace: '', // Root (permissive)
+        permissive: true,
+        identityKey: 'P2-id',
+        trailers: { 'P2-id': { description: 'ID' } }
+      });
+
+      const localRegistry = makeProtocolRegistry([p1 as any, p2 as any]);
+
+      const raw = makeRawCommit({
+        trailers: 'p1: P1-id: 1\np1: Authorized: val\nOrphan: stray\nP2-id: 2'
+      });
+
+      const [atom] = hydrateAtoms([raw], localRegistry);
+      
+      const state1 = atom.protocols.get('p1');
+      const state2 = atom.protocols.get('p2');
+
+      expect(state1?.trailers.Authorized).toEqual(['val']);
+      expect(state2?.trailers.Orphan).toEqual(['stray']); // Orphan went to root permissive protocol
+    });
+
     it('should handle trailers indented with tabs', () => {
       const trailers = 'Id: 12345678\nKey: value';
       const body = 'Actual message.\n\n\tId: 12345678\n\tKey: value';

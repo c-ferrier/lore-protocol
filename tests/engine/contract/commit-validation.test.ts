@@ -1,82 +1,81 @@
-import { registerCommitCommand } from '../../../src/engine/cli/commands/commit.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeMockContext, makeProtocolRegistry } from '../../../src/engine/testing.js';
-import { makeMockFormatter, makeMockGitClient, makeMockHeadIdReader, makeMockInputResolver, makeMockProtocolContext } from '../engine-test-utils.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
+import { 
+    makeMockGitClient, 
+    makeMockProtocolRegistry, 
+    makeMockAtomRepository,
+    makeRawCommit,
+    TEST_ENGINE_CONFIG,
+    createProtocolContext,
+    makeProtocol
+} from '../engine-test-utils.js';
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Command } from 'commander';
+describe('Commit Validation (Shell Orchestrator)', () => {
+  const protocol = createProtocolContext({
+    name: 'Test',
+    version: '1.0',
+    identityKey: 'Test-id',
+    trailers: {
+      'Test-id': { validation: 'pattern', pattern: '^T-\\d+$' } as any,
+      'Ref-id': { validation: 'reference' } as any,
+    }
+  });
 
-function createDeps(overrides: any = {}) {
-  const protocol = makeMockProtocolContext();
-  const protocolRegistry = makeProtocolRegistry([protocol as any]);
-
-  return {
-    gitClient: makeMockGitClient(),
-    getFormatter: () => makeMockFormatter(),
-    commitInputResolver: makeMockInputResolver(),
-    headIdReader: makeMockHeadIdReader(),
-    config: TEST_ENGINE_CONFIG,
-    protocol,
-    protocolRegistry,
-    logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn() },
-    ...overrides
-  };
-}
-
-describe('atom commit (validation logic)', () => {
+  let registry: any;
+  let mockAtomRepo: any;
+  
   beforeEach(() => {
-    vi.spyOn(console, 'log').mockImplementation(() => {});
-    vi.spyOn(console, 'error').mockImplementation(() => {});
+    registry = makeMockProtocolRegistry([protocol]);
+    mockAtomRepo = makeMockAtomRepository();
   });
 
-  it('should abort commit if validation returns errors', async () => {
-    const gitClient = makeMockGitClient();
-    // Simulate invalid schema: Required trailer missing in strict mode
-    const protocol = makeMockContext({
-        name: 'test',
-        namespace: '',
-        identityKey: 'Mock-id',
-        strict: true,
-        trailers: { 
-            'Mock-id': { description: 'ID' },
-            'Required': { description: 'R', required: true } 
-        }
-    });
-    const deps = createDeps({ gitClient, protocol, protocolRegistry: makeProtocolRegistry([protocol as any]) });
-
-    const program = new Command();
-    program.exitOverride();
-    registerCommitCommand(program, deps as any);
-
-    await expect(
-        program.parseAsync(['node', 'atom', 'commit', '--subject', 'test'])
-    ).rejects.toThrow(); // Validation failed
-
-    expect(gitClient.commit).not.toHaveBeenCalled();
+  const getDeps = () => ({
+    atomRepository: mockAtomRepo,
+    config: TEST_ENGINE_CONFIG,
+    protocolRegistry: registry
   });
 
-  it('should proceed with commit but log warnings if validation returns warnings only', async () => {
-    const gitClient = makeMockGitClient();
-    const logger = { warn: vi.fn(), info: vi.fn(), error: vi.fn() } as any;
-    // Simulate warning: Required trailer missing in non-strict mode
-    const protocol = makeMockContext({
-        name: 'test',
-        namespace: '',
-        identityKey: 'Mock-id',
-        strict: false,
-        trailers: { 
-            'Mock-id': { description: 'ID' },
-            'Required': { description: 'R', required: true } 
-        }
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('should validate multiple commits in a batch', async () => {
+    const raw1 = makeRawCommit({ hash: 'abc', trailers: 'Test-id: T-123' });
+    const raw2 = makeRawCommit({ hash: 'def', trailers: 'Test-id: INVALID' });
+
+    const results = await validateCommits([raw1, raw2], getDeps());
+    expect(results).toHaveLength(2);
+    expect(results[0].valid).toBe(true);
+    expect(results[1].valid).toBe(false);
+  });
+
+  it('should orchestrate reference existence check with AtomRepository', async () => {
+    // Mock reference existence check
+    mockAtomRepo.findByIds.mockResolvedValue([]); // Not found
+    
+    const raw = makeRawCommit({
+      hash: 'abc',
+      trailers: 'Test-id: T-123\nRef-id: T-456'
     });
-    const deps = createDeps({ gitClient, protocol, protocolRegistry: makeProtocolRegistry([protocol as any]), logger });
 
-    const program = new Command();
-    program.exitOverride();
-    registerCommitCommand(program, deps as any);
+    const results = await validateCommits([raw], getDeps());
+    const issues = results[0].issues;
+    expect(issues.some(i => i.rule === 'reference-exists')).toBe(true);
+    expect(mockAtomRepo.findByIds).toHaveBeenCalled();
+  });
 
-    await program.parseAsync(['node', 'atom', 'commit', '--subject', 'test']);
+  it('should identify atoms when references exist', async () => {
+    mockAtomRepo.findByIds.mockResolvedValue([{
+        commitHash: 'h1',
+        protocols: new Map([['test', { trailers: { 'Test-id': ['T-456'] }, unauthorized: {} }]])
+    }]);
 
-    expect(gitClient.commit).toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalled();
+    const raw = makeRawCommit({
+        hash: 'abc',
+        trailers: 'Test-id: T-123\nRef-id: T-456'
+    });
+
+    const results = await validateCommits([raw], getDeps());
+    expect(results[0].issues.some(i => i.rule === 'reference-exists')).toBe(false);
   });
 });

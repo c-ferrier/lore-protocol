@@ -43,10 +43,12 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
   });
 
   describe('parseFlagsToInput', () => {
-    it('should map flat flags to protocol trailers', () => {
+    it('should map flat flags to protocol trailers using camelCase', () => {
+      // Confidence -> slug: confidence -> camel: confidence
+      // Scope-risk -> slug: scope-risk -> camel: scopeRisk
       const input = parseFlagsToInput({ 
           subject: 'feat: add login',
-          confidence: 'high' // slugified key for 'Confidence'
+          confidence: 'high'
       }, registry);
 
       expect(input.subject).toBe('feat: add login');
@@ -60,6 +62,23 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
 
         expect(input.trailers?.get('mock')?.['Confidence']).toEqual(['medium']);
         expect(input.trailers?.get('mock')?.['Constraint']).toEqual(['rule1']);
+    });
+
+    it('should merge duplicate values from short flags and explicit trailers', () => {
+        const input = parseFlagsToInput({ 
+            confidence: 'high',
+            trailer: ['Confidence=medium']
+        }, registry);
+
+        expect(input.trailers?.get('mock')?.['Confidence']).toEqual(['high', 'medium']);
+    });
+
+    it('should support multiple values for a single key in catch-all flag', () => {
+        const input = parseFlagsToInput({ 
+            trailer: ['Constraint=c1', 'Constraint=c2']
+        }, registry);
+
+        expect(input.trailers?.get('mock')?.['Constraint']).toEqual(['c1', 'c2']);
     });
 
     it('should support qualified namespaced trailers', () => {

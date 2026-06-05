@@ -1,42 +1,36 @@
-import { normalizePathToRoot } from '../../../..//src/engine/core/logic/path-resolution.js';
-
 import { describe, it, expect } from 'vitest';
-import { resolve } from 'node:path';
-;
+import { normalizePathToRoot } from '../../../../src/engine/core/logic/path-resolution.js';
+import { ProtocolError } from '../../../../src/engine/util/errors.js';
 
 describe('Path Resolution Logic (Pure Functions)', () => {
-  const mockRoot = resolve('/work/project');
-  const mockCwd = resolve('/work/project/src');
+  const protocolRoot = '/work/project';
+  const cwd = '/work/project/src';
 
-  describe('normalizePathToRoot', () => {
-    it('should normalize CWD-relative file to root-relative', () => {
-      const result = normalizePathToRoot('main.ts', mockCwd, mockRoot);
-      expect(result).toBe('src/main.ts');
-    });
+  it('should normalize relative paths within the root', () => {
+    expect(normalizePathToRoot('main.ts', cwd, protocolRoot)).toBe('src/main.ts');
+    expect(normalizePathToRoot('./main.ts', cwd, protocolRoot)).toBe('src/main.ts');
+  });
 
-    it('should handle parent directory references from CWD', () => {
-      const result = normalizePathToRoot('../README.md', mockCwd, mockRoot);
-      expect(result).toBe('README.md');
-    });
+  it('should handle parent navigation within root', () => {
+    expect(normalizePathToRoot('../package.json', cwd, protocolRoot)).toBe('package.json');
+  });
 
-    it('should handle absolute paths inside the root', () => {
-      const absPath = resolve(mockRoot, 'package.json');
-      const result = normalizePathToRoot(absPath, mockCwd, mockRoot);
-      expect(result).toBe('package.json');
-    });
+  it('should throw error for paths outside the root', () => {
+    expect(() => normalizePathToRoot('../../other-project', cwd, protocolRoot)).toThrow(ProtocolError);
+    expect(() => normalizePathToRoot('/etc/passwd', cwd, protocolRoot)).toThrow(ProtocolError);
+  });
 
-    it('should throw error for paths outside the root', () => {
-        expect(() => normalizePathToRoot('../../other/file.txt', mockCwd, mockRoot)).toThrow(/outside the protocol root/);
-    });
+  it('should preserve trailing slashes', () => {
+    expect(normalizePathToRoot('subdir/', cwd, protocolRoot)).toBe('src/subdir/');
+  });
 
-    it('should preserve trailing slash for directory targeting', () => {
-        const result = normalizePathToRoot('services/', mockCwd, mockRoot);
-        expect(result).toBe('src/services/');
-    });
+  it('should return dot for the root itself', () => {
+      expect(normalizePathToRoot('.', protocolRoot, protocolRoot)).toBe('.');
+  });
 
-    it('should return "." for the root itself', () => {
-        const result = normalizePathToRoot('.', mockRoot, mockRoot);
-        expect(result).toBe('.');
-    });
+  it('should normalize windows-style backslashes to POSIX', () => {
+      // Logic uses rel.replace(/\\/g, '/')
+      // Mocking backslashes in input (relative() usually handles this on POSIX but we verify the logic)
+      expect(normalizePathToRoot('src\\file.ts', protocolRoot, protocolRoot)).toBe('src/file.ts');
   });
 });

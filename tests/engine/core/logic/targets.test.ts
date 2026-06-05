@@ -1,8 +1,7 @@
-import { createQueryTarget, createTargetFromIdentities, getCacheFingerprint, getGitBlameArgs, getGitLogArgs } from '../../../..//src/engine/core/logic/query-targets.js';
+import { createQueryTarget, createTargetFromIdentities, getCacheFingerprint, getGitBlameArgs, getGitLogArgs } from '../../../../src/engine/core/logic/query-targets.js';
 
 import { describe, it, expect } from 'vitest';
 import { resolve } from 'node:path';
-;
 
 describe('Query Target Logic (Pure Functions)', () => {
   const context = {
@@ -47,6 +46,22 @@ describe('Query Target Logic (Pure Functions)', () => {
         expect(target.type).toBe('path');
         expect(target.resolvedPaths).toEqual(['file1.ts', 'src/file2.ts']);
     });
+  });
+
+  describe('createTargetFromIdentities', () => {
+      it('should create a target from multiple qualified identities', () => {
+          const ids = [{ protocol: 'p1', id: 'a1' }, { protocol: 'p2', id: 'b2' }];
+          const target = createTargetFromIdentities(ids);
+          expect(target.type).toBe('identity');
+          expect(target.identities).toEqual(ids);
+          expect(target.raw).toEqual(['p1/a1', 'p2/b2']);
+      });
+
+      it('should handle unqualified identities', () => {
+          const ids = [{ protocol: null, id: 'a1' }];
+          const target = createTargetFromIdentities(ids);
+          expect(target.raw).toEqual(['a1']);
+      });
   });
 
   describe('getGitLogArgs', () => {
@@ -94,9 +109,16 @@ describe('Query Target Logic (Pure Functions)', () => {
         expect(getCacheFingerprint(t1)).toContain('path:a.ts,b.ts');
     });
 
-    it('should handle identity targets', () => {
-        const target = createTargetFromIdentities([{ protocol: 'mock', id: 'abc' }]);
-        expect(getCacheFingerprint(target)).toBe('identity:mock/abc');
+    it('should handle identity targets with stable sorting', () => {
+        const t1 = createTargetFromIdentities([{ protocol: 'b', id: '2' }, { protocol: 'a', id: '1' }]);
+        const t2 = createTargetFromIdentities([{ protocol: 'a', id: '1' }, { protocol: 'b', id: '2' }]);
+        expect(getCacheFingerprint(t1)).toBe(getCacheFingerprint(t2));
+        expect(getCacheFingerprint(t1)).toBe('identity:a/1,b/2');
+    });
+
+    it('should handle line-range fingerprints', () => {
+        const target = createQueryTarget('src/main.ts:10-20', context);
+        expect(getCacheFingerprint(target)).toBe('blame:src/main.ts:10-20');
     });
   });
 });

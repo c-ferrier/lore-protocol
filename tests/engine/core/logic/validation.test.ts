@@ -141,5 +141,61 @@ describe('Validation Logic (Pure Functions)', () => {
         const permissive = { ...protocol.def, permissive: true };
         expect(validateProtocolTrailer('Random', 'any', permissive).valid).toBe(true);
     });
-  });
-});
+    });
+
+    describe('Custom Trailer Definitions', () => {
+    it('should error when a trailer marked as required in definitions is missing', async () => {
+      const protocol = makeMockContext({
+        trailers: {
+            Department: { description: 'dept', multivalue: false, validation: 'none' as const, required: true },
+        },
+      });
+
+      const state = { trailers: { 'Mock-id': ['abc'] }, unauthorized: {} };
+      const issues = validateProtocolState(state, protocol.def);
+
+      expect(issues.some(i => i.rule === 'required-trailer')).toBe(true);
+      expect(issues.find(i => i.rule === 'required-trailer')?.message).toContain('Department');
+    });
+
+    it('should error on invalid enum value for custom trailer', async () => {
+      const protocol = makeMockContext({
+        trailers: {
+            Team: {
+              description: 'team',
+              multivalue: false,
+              validation: 'values',
+              values: { Alpha: { description: '' }, Beta: { description: '' } },
+            },
+        },
+      });
+
+      const state = normalizeTrailers({ Team: ['Gamma'] }, protocol);
+      const issues = validateProtocolState(state, protocol.def);
+
+      expect(issues.some(i => i.rule === 'invalid-enum')).toBe(true);
+      expect(issues.find(i => i.rule === 'invalid-enum')?.message).toContain('Alpha, Beta');
+    });
+    });
+
+    describe('Namespacing Logic (Typos)', () => {
+      it('should report unauthorized trailers in a namespaced protocol', async () => {
+          const nsProtocol = makeMockContext({ 
+                name: 'Project', 
+                namespace: 'Project', 
+                identityKey: 'Id',
+                trailers: { 'Id': { description: 'ID' }, 'Team': { description: 'T' } },
+                strict: true,
+                permissive: false
+          });
+
+          const raw = { 'Project': ['Id: a1b2c3d4', 'Tream: typo'] };
+          const state = normalizeTrailers(raw, nsProtocol);
+          const issues = validateProtocolState(state, nsProtocol.def);
+
+          expect(state.unauthorized.Tream).toEqual(['typo']);
+          // Note: unauthorized-trailer rule is currently handled by normalization/orchestration loop
+          // But we verify the state contains it.
+      });
+    });
+    });
