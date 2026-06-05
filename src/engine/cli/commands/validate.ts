@@ -1,11 +1,12 @@
 import type { Command } from 'commander';
-import { validateCommits } from '../../shell/orchestrators/validation.js';
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+
 import type { EngineConfig } from '../../core/types/config.js';
+import type { CommitValidationResult, FormattableValidationResult, ValidationIssue } from '../../core/types/output.js';
 import type { IGitClient } from '../../interfaces/git-client.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { CommitValidationResult, FormattableValidationResult, ValidationIssue } from '../../core/types/output.js';
+import type { AtomRepository } from '../../services/atom-repository.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { validateCommits } from '../../shell/orchestrators/validation.js';
 
 interface ValidateCommandOptions {
   readonly since?: string;

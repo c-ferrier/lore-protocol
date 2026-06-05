@@ -1,16 +1,16 @@
 import type { Command } from 'commander';
-import type { Atom, SupersessionStatus } from '../../core/types/domain.js';
-import type { QueryResult } from '../../core/types/query.js';
-import type { FormattableQueryResult } from '../../core/types/output.js';
-import { buildQueryMeta } from './helpers/build-query-meta.js';
-import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/path-query.js';
-import { mergeOptions } from './helpers/merge-options.js';
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { ILogger } from '../../interfaces/logger.js';
 
 // Pure Logic Modules
 import { createQueryTarget } from '../../core/logic/query-targets.js';
+import type { Atom, SupersessionStatus } from '../../core/types/domain.js';
+import type { FormattableQueryResult } from '../../core/types/output.js';
+import type { QueryResult } from '../../core/types/query.js';
+import type { ILogger } from '../../interfaces/logger.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { AtomRepository } from '../../services/atom-repository.js';
+import { buildQueryMeta } from './helpers/build-query-meta.js';
+import { mergeOptions } from './helpers/merge-options.js';
+import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/path-query.js';
 
 /**
  * Register the `search` command.

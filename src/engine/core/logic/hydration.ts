@@ -1,10 +1,10 @@
-import { ProtocolMap, type Atom, type ProtocolState } from '../types/domain.js';
 import type { RawCommit } from '../../interfaces/git-client.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { type Atom, ProtocolMap, type ProtocolState } from '../types/domain.js';
 import type { QueryIdentity } from '../types/query.js';
+import { normalizeTrailers } from './normalization.js';
 import { escapeRegex } from './regex.js';
 import { parseTrailers } from './trailers.js';
-import { normalizeTrailers } from './normalization.js';
 
 /**
  * Hydrates raw Git commit data into domain-rich Atoms.

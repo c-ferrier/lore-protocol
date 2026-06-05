@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect,it } from 'vitest';
+
 import { escapeRegex } from '../../../../src/engine/core/logic/regex.js';
 
 describe('Regex Logic (Pure Functions)', () => {

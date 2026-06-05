@@ -1,6 +1,6 @@
-import { getEngineVersion } from '../../../../src/engine/core/logic/version.js';
+import { describe, expect,it } from 'vitest';
 
-import { describe, it, expect } from 'vitest';
+import { getEngineVersion } from '../../../../src/engine/core/logic/version.js';
 ;
 
 describe('Version Utilities', () => {

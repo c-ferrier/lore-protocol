@@ -1,7 +1,7 @@
-import { validateFormatting } from '../../../src/engine/core/logic/commit-formatting.js';
-import { TEST_ENGINE_CONFIG, makeCommitInput, makeProtocol, makeProtocolRegistry } from '../../../src/engine/testing.js';
+import { beforeEach,describe, expect, it, vi } from 'vitest';
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { validateFormatting } from '../../../src/engine/core/logic/commit-formatting.js';
+import { makeCommitInput, makeProtocol, makeProtocolRegistry,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 
 describe('Strict Namespaced Validation', () => {
 

@@ -1,12 +1,12 @@
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
 import { type Atom } from '../../src/engine/core/types/domain.js';
 import { runCli } from '../../src/engine/index-impl.js';
 import { TEST_ENGINE_CONFIG } from '../../src/engine/testing.js';
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 ;
-import { resolve, join } from 'node:path';
+import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join,resolve } from 'node:path';
 ;
 
 describe('Agnostic Behavior (Zero Protocols)', () => {

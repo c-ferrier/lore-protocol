@@ -1,8 +1,8 @@
+import { describe, expect,it } from 'vitest';
+
 import { MultiValueTrailerCollector } from '../../../../../src/engine/cli/readers/collectors/multi-value-trailer-collector.js';
 import { TrailerCollectorRegistry } from '../../../../../src/engine/cli/readers/collectors/trailer-collector-registry.js';
-import { TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../../../src/engine/testing.js';
-
-import { describe, it, expect } from 'vitest';
+import { makeProtocol,MOCK_CORE_TRAILERS, TEST_PROTOCOL_DEFINITION } from '../../../../../src/engine/testing.js';
 
 describe('TrailerCollectorRegistry', () => {
   const CORE_SCHEMA = {

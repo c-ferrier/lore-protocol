@@ -1,9 +1,9 @@
-import { makeMockContext } from '../../../../src/engine/testing.js';
-import { type ProtocolDefinition } from '../../../../src/engine/core/types/protocol-definition.js';
+import { describe, expect,it } from 'vitest';
+
 import { getStaleSignals } from '../../../../src/engine/core/logic/staleness.js';
 import { ProtocolMap } from '../../../../src/engine/core/types/domain.js';
-
-import { describe, it, expect } from 'vitest';
+import { type ProtocolDefinition } from '../../../../src/engine/core/types/protocol-definition.js';
+import { makeMockContext } from '../../../../src/engine/testing.js';
 
 describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
   

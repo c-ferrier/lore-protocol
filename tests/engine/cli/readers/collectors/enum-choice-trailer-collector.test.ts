@@ -2,7 +2,7 @@ import { EnumChoiceTrailerCollector } from '../../../../../src/engine/cli/reader
 import { makeMockPrompt } from '../../../engine-test-utils.js';
 
 ;
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 ;
 
 describe('EnumChoiceTrailerCollector', () => {

@@ -1,10 +1,10 @@
-import { buildLoreCli } from '../lore-test-utils.js';
+import { afterAll,beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { buildLoreCli } from '../lore-test-utils.js';
 ;
-import { join } from 'node:path';
+import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 
 describe('Lore CLI Rebranding (Wrapper Logic)', () => {
   const testDir = join(tmpdir(), `lore-rebrand-test-${Date.now()}`);

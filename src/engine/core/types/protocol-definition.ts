@@ -1,11 +1,11 @@
-import type { TrailerDefinition, StaleIfCondition } from './config.js';
+import type { StaleIfCondition,TrailerDefinition } from './config.js';
 import type { 
-    ProtocolState, 
     Atom,
-    SupersessionStatus,
+    ProtocolState, 
     StaleReason,
+    SupersessionStatus,
 } from './domain.js';
-import type { ValidationIssue, FormattableTrailerDefinition } from './output.js';
+import type { FormattableTrailerDefinition,ValidationIssue } from './output.js';
 import type { QualifiedFilter, QueryIdentity } from './query.js';
 
 /**

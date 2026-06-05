@@ -1,7 +1,7 @@
+import * as logic from '../../core/logic/query-adapter.js';
+import type { ProtocolState } from '../../core/types/domain.js';
 import type { ProtocolContext } from '../../core/types/protocol-definition.js';
 import type { QualifiedFilter } from '../../core/types/query.js';
-import type { ProtocolState } from '../../core/types/domain.js';
-import * as logic from '../../core/logic/query-adapter.js';
 
 /**
  * Generates regex patterns to find commits belonging to this protocol.

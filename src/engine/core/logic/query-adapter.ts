@@ -1,8 +1,8 @@
-import type { ProtocolContext } from '../types/protocol-definition.js';
-import type { QualifiedFilter, FilterOperator } from '../types/query.js';
 import type { ProtocolState } from '../types/domain.js';
+import type { ProtocolContext } from '../types/protocol-definition.js';
+import type { FilterOperator,QualifiedFilter } from '../types/query.js';
+import { authorizeKey,ownsKey } from './ownership.js';
 import { escapeRegex } from './regex.js';
-import { ownsKey, authorizeKey } from './ownership.js';
 
 /**
  * Generates regex patterns to find commits belonging to this protocol.

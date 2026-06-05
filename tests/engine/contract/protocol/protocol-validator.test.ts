@@ -1,6 +1,7 @@
-import { makeMockContext, TEST_PROTOCOL_DEFINITION, TEST_ID_KEY } from '../../../../src/engine/testing.js';
+import { describe, expect,it } from 'vitest';
+
 import { validateProtocolState, validateProtocolTrailer } from '../../../../src/engine/core/logic/validation.js';
-import { describe, it, expect } from 'vitest';
+import { makeMockContext, TEST_ID_KEY,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('ProtocolValidator', () => {
   it('should report missing required trailers as errors in strict mode', () => {

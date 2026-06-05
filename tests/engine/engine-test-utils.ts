@@ -1,21 +1,21 @@
 import { vi } from 'vitest';
+
+import type { ProtocolContext,ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
 import { 
-    makeProtocolRegistry as stubProtocolRegistry, 
+    createProtocolContext,
+    makeAtom,
+    makeAtomRepository as realAtomRepository,
+    makeMockContext as stubMockContext,
     makeProtocol as stubProtocol, 
+    makeProtocolRegistry as stubProtocolRegistry, 
+    makeQueryTarget,
+    makeRawCommit,
+    makeStubAtomRepository as stubAtomRepository, 
+    makeStubConfigLoader as stubConfigLoader, 
     makeStubGitClient as stubGitClient, 
     makeStubPrompt as stubPrompt, 
-    makeStubConfigLoader as stubConfigLoader, 
-    makeStubAtomRepository as stubAtomRepository, 
     makeStubStalenessDetector as stubStalenessDetector, 
-    TEST_ENGINE_CONFIG,
-    createProtocolContext,
-    makeRawCommit,
-    makeQueryTarget,
-    makeAtomRepository as realAtomRepository,
-    makeAtom,
-    makeMockContext as stubMockContext
-} from '../../src/engine/testing.js';
-import type { ProtocolDefinition, ProtocolContext } from '../../src/engine/core/types/protocol-definition.js';
+    TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
 
 // 1. Vitest Spies (Middlemen)
 // These wrap framework-agnostic stubs in Vitest mock functions.
@@ -158,12 +158,11 @@ export class TestLogger {
 
 // Named Exports for Level 2 Tests
 export { 
-    makeRawCommit, 
-    makeQueryTarget, 
+    createProtocolContext, 
     makeAtom, 
-    TEST_ENGINE_CONFIG, 
-    createProtocolContext 
-};
+    makeQueryTarget, 
+    makeRawCommit, 
+    TEST_ENGINE_CONFIG};
 
 /** Helper to create search options. */
 export function makeSearchOptions(overrides: any = {}): any {

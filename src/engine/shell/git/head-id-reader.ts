@@ -1,10 +1,10 @@
+import { getProtocolIdentity } from '../../core/logic/identity.js';
+import { normalizeTrailers } from '../../core/logic/normalization.js';
+import { parseTrailers } from '../../core/logic/trailers.js';
+import { isValidProtocolIdentity, validateProtocolTrailer } from '../../core/logic/validation.js';
+import type { AtomId } from '../../core/types/domain.js';
 import type { IGitClient } from '../../interfaces/git-client.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import type { AtomId } from '../../core/types/domain.js';
-import { parseTrailers } from '../../core/logic/trailers.js';
-import { normalizeTrailers } from '../../core/logic/normalization.js';
-import { getProtocolIdentity } from '../../core/logic/identity.js';
-import { isValidProtocolIdentity, validateProtocolTrailer } from '../../core/logic/validation.js';
 
 /**
  * Utility to read protocol identities from the HEAD commit.

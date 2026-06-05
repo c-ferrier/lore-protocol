@@ -1,12 +1,14 @@
-import type { Command } from 'commander';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import { mkdir, writeFile, access, readFile } from 'node:fs/promises';
+import { access, mkdir, readFile,writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { stringify as stringifyToml, parse as parseToml } from 'smol-toml';
-import { ENGINE_CONFIG_SCHEMA } from '../../core/types/config.js';
-import type { EngineConfig } from '../../core/types/config.js';
+
+import type { Command } from 'commander';
+import { parse as parseToml,stringify as stringifyToml } from 'smol-toml';
+
 import { analyzeConfigGaps } from '../../core/logic/config-analyzer.js';
+import type { EngineConfig } from '../../core/types/config.js';
+import { ENGINE_CONFIG_SCHEMA } from '../../core/types/config.js';
 import type { ILogger } from '../../interfaces/logger.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 
 export interface InitDeps {
   getFormatter: () => IOutputFormatter;

@@ -1,16 +1,15 @@
+import { beforeEach,describe, expect, it } from 'vitest';
+
 import { 
     evaluateAgeSignal, 
     evaluateDriftSignal, 
+    evaluateStaleCondition,
     formatAge, 
-    parseDuration,
     getProtocolStaleSignals,
-    evaluateStaleCondition
-} from '../../../../src/engine/core/logic/staleness.js';
+    parseDuration} from '../../../../src/engine/core/logic/staleness.js';
 import { type Atom } from '../../../../src/engine/core/types/domain.js';
+import { makeAtom,makeMockContext } from '../../../../src/engine/testing.js';
 import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
-import { makeMockContext, makeAtom } from '../../../../src/engine/testing.js';
-
-import { describe, it, expect, beforeEach } from 'vitest';
 
 describe('Staleness Logic (Pure Functions)', () => {
 

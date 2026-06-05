@@ -1,10 +1,9 @@
-import { TEST_PROTOCOL_DEFINITION, makeMockContext } from '../../../../src/engine/testing.js';
-import { 
-    isCoreTrailer, 
-    getAuthorizedKeys 
-} from '../../../../src/engine/core/logic/protocols.js';
+import { describe, expect,it } from 'vitest';
 
-import { describe, it, expect } from 'vitest';
+import { 
+    getAuthorizedKeys, 
+    isCoreTrailer} from '../../../../src/engine/core/logic/protocols.js';
+import { makeMockContext,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('Protocol configuration merging', () => {
   it('should identify custom keys in permissive mode', () => {

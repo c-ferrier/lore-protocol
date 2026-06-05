@@ -1,7 +1,7 @@
-import { registerCacheCommand } from '../../../src/engine/cli/commands/cache.js';
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
+import { registerCacheCommand } from '../../../src/engine/cli/commands/cache.js';
 ;
 import { join } from 'node:path';
 

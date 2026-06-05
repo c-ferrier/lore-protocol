@@ -1,4 +1,5 @@
-import { resolve, relative, isAbsolute } from 'node:path';
+import { isAbsolute,relative, resolve } from 'node:path';
+
 import { ProtocolError } from '../../util/errors.js';
 
 /**

@@ -1,15 +1,15 @@
+import { afterAll,beforeAll, describe, expect, it, vi } from 'vitest';
+
 import { runCli } from '../../../src/engine/index-impl.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { LoreConfigLoader } from '../../../src/lore/services/lore-config-loader.js';
-import { buildLoreCli } from '../lore-test-utils.js';
 import { makeMockProtocolContext as makeMockProtocol } from '../../engine/engine-test-utils.js';
-
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { buildLoreCli } from '../lore-test-utils.js';
 ;
 ;
-import { join } from 'node:path';
+import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
 
 ;
 ;

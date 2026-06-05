@@ -1,5 +1,6 @@
-import { createInterface, type Interface as ReadlineInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
+import { createInterface, type Interface as ReadlineInterface } from 'node:readline/promises';
+
 import type { IPrompt } from '../../interfaces/prompt.js';
 
 /**

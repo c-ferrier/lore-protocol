@@ -1,34 +1,32 @@
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { 
-  TEST_PROTOCOL_DEFINITION, 
-  TEST_ENGINE_CONFIG,
-  TEST_ID_KEY,
-  MOCK_CORE_TRAILERS,
-  makeMockContext,
-  makeProtocolRegistry,
-  makeProtocol,
-} from '../../../src/engine/testing.js';
+import { describe, expect,it } from 'vitest';
 
 import { 
-    isCoreTrailer, 
-    getAuthorizedKeys 
-} from '../../../src/engine/core/logic/protocols.js';
+    normalizeTrailers 
+} from '../../../src/engine/core/logic/normalization.js';
+import { 
+    authorizeKey, 
+    ownsKey 
+} from '../../../src/engine/core/logic/ownership.js';
+import { 
+    getAuthorizedKeys, 
+    isCoreTrailer} from '../../../src/engine/core/logic/protocols.js';
+import { validateProtocolTrailer } from '../../../src/engine/core/logic/validation.js';
+import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { 
     claimsTrailers, 
     getDiscoveryPatterns, 
     getSearchPatterns 
 } from '../../../src/engine/shell/git/protocol-query-adapter.js';
 import { 
-    authorizeKey, 
-    ownsKey 
-} from '../../../src/engine/core/logic/ownership.js';
-import { 
-    normalizeTrailers 
-} from '../../../src/engine/core/logic/normalization.js';
-import { validateProtocolTrailer } from '../../../src/engine/core/logic/validation.js';
+  makeMockContext,
+  makeProtocol,
+  makeProtocolRegistry,
+  MOCK_CORE_TRAILERS,
+  TEST_ENGINE_CONFIG,
+  TEST_ID_KEY,
+  TEST_PROTOCOL_DEFINITION, 
+} from '../../../src/engine/testing.js';
 import { TriggerParser } from '../../../src/engine/util/trigger-parser.js';
-
-import { describe, it, expect } from 'vitest';
 
 describe('Protocol Service', () => {
 

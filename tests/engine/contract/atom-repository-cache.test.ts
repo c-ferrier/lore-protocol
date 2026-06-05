@@ -1,11 +1,11 @@
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
 import { hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_PROTOCOL_DEFINITION, makeAtom, makeProtocol } from '../../../src/engine/testing.js';
+import { makeAtom, makeProtocol,TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 ;
 
 

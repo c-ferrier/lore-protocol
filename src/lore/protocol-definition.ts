@@ -1,8 +1,7 @@
 import { 
     type ProtocolDefinition, 
-    type TrailerUiKind, 
-    type TrailerUiColor 
-} from '../engine/index.js';
+    type TrailerUiColor, 
+    type TrailerUiKind} from '../engine/index.js';
 import { LORE_STALE_SIGNAL } from './constants.js';
 
 /**

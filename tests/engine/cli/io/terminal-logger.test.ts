@@ -1,7 +1,7 @@
+import { afterEach,beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { TerminalLogger } from '../../../../src/engine/cli/io/terminal-logger.js';
 import { LogLevel } from '../../../../src/engine/interfaces/logger.js';
-
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 ;
 ;
 

@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect,it } from 'vitest';
+
 import { 
     createProtocolContext, 
     getAuthorizedKeys, 
-    getScalarKeys, 
+    getFormattableDefinitions,
     getListKeys, 
     getReferenceKeys,
-    isCoreTrailer,
-    getFormattableDefinitions
-} from '../../../../src/engine/core/logic/protocols.js';
+    getScalarKeys, 
+    isCoreTrailer} from '../../../../src/engine/core/logic/protocols.js';
 
 describe('Protocols Logic (Pure Functions)', () => {
   const definition = {

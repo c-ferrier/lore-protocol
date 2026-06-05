@@ -1,46 +1,45 @@
-import { Command } from 'commander';
 import { join } from 'node:path';
-import {  ProtocolRegistry  } from './protocol-registry.js';
-import { AtomRepository } from './atom-repository.js';
-import { QueryCache } from '../shell/fs/query-cache.js';
-import { LogLevel } from '../interfaces/logger.js';
+
+import { Command } from 'commander';
+
+import {
+  registerCacheCommand,
+  registerCommitCommand,
+  registerConfigCommand,
+  registerDoctorCommand,
+  registerLogCommand,
+  registerSearchCommand,
+  registerSquashCommand,
+  registerStaleCommand,
+  registerTraceCommand,
+  registerValidateCommand,
+  registerWhyCommand,
+} from '../cli/commands/index.js';
+import { JsonFormatter } from '../cli/formatters/json-formatter.js';
+import { TextFormatter } from '../cli/formatters/text-formatter.js';
 import { TerminalLogger } from '../cli/io/terminal-logger.js';
-import { DEFAULT_CACHE_PRUNE_THRESHOLD, CACHE_DIR, QUERY_CACHE_DIR, PROTOCOLS_DIR_NAME } from '../util/constants.js';
 import { TerminalPrompt } from '../cli/io/terminal-prompt.js';
 import { CommitInputResolver } from '../cli/readers/commit-input-resolver.js';
-import { HeadIdReader } from '../shell/git/head-id-reader.js';
-import { resolveProtocolRoot } from '../shell/fs/root-resolver.js';
-import { DynamicProtocolLoader, ProtocolLoader } from '../shell/fs/protocol-loader.js';
-import { getEngineVersion } from '../core/logic/version.js';
-
 // Pure Logic Modules
 import { createProtocolContext } from '../core/logic/protocols.js';
 import { createQueryTarget } from '../core/logic/query-targets.js';
-import { JsonFormatter } from '../cli/formatters/json-formatter.js';
-import { TextFormatter } from '../cli/formatters/text-formatter.js';
-import { GitClient } from '../shell/git/git-client.js';
-import { EngineConfigLoader } from '../shell/fs/config-loader.js';
-
-import {
-  registerWhyCommand,
-  registerSearchCommand,
-  registerLogCommand,
-  registerStaleCommand,
-  registerTraceCommand,
-  registerCommitCommand,
-  registerValidateCommand,
-  registerSquashCommand,
-  registerCacheCommand,
-  registerConfigCommand,
-  registerDoctorCommand,
-} from '../cli/commands/index.js';
-
-import type { IGitClient } from '../interfaces/git-client.js';
-import type { ProtocolDefinition } from '../core/types/protocol-definition.js';
+import { getEngineVersion } from '../core/logic/version.js';
 import type { EngineConfig } from '../core/types/config.js';
-import type { IQueryCache } from '../interfaces/query-cache.js';
-import type { IOutputFormatter } from '../interfaces/output-formatter.js';
+import type { ProtocolDefinition } from '../core/types/protocol-definition.js';
+import type { IGitClient } from '../interfaces/git-client.js';
 import type { ILogger } from '../interfaces/logger.js';
+import { LogLevel } from '../interfaces/logger.js';
+import type { IOutputFormatter } from '../interfaces/output-formatter.js';
+import type { IQueryCache } from '../interfaces/query-cache.js';
+import { EngineConfigLoader } from '../shell/fs/config-loader.js';
+import { DynamicProtocolLoader, ProtocolLoader } from '../shell/fs/protocol-loader.js';
+import { QueryCache } from '../shell/fs/query-cache.js';
+import { resolveProtocolRoot } from '../shell/fs/root-resolver.js';
+import { GitClient } from '../shell/git/git-client.js';
+import { HeadIdReader } from '../shell/git/head-id-reader.js';
+import { CACHE_DIR, DEFAULT_CACHE_PRUNE_THRESHOLD, PROTOCOLS_DIR_NAME,QUERY_CACHE_DIR } from '../util/constants.js';
+import { AtomRepository } from './atom-repository.js';
+import {  ProtocolRegistry  } from './protocol-registry.js';
 
 export interface EngineOptions {
   binaryName: string;

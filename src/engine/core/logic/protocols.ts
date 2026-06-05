@@ -1,10 +1,10 @@
-import type { ProtocolDefinition, ProtocolContext, IIdentityResolver } from '../types/protocol-definition.js';
-import type { FormattableTrailerDefinition, ValidationIssue } from '../types/output.js';
-import type { ProtocolState, Atom, SupersessionStatus, StaleReason } from '../types/domain.js';
-import type { QualifiedFilter } from '../types/query.js';
 import { ProtocolHydrator } from '../../shell/fs/protocol-hydrator.js';
-import { validateProtocolState, validateProtocolTrailer } from './validation.js';
+import type { Atom, ProtocolState, StaleReason,SupersessionStatus } from '../types/domain.js';
+import type { FormattableTrailerDefinition, ValidationIssue } from '../types/output.js';
+import type { IIdentityResolver,ProtocolContext, ProtocolDefinition } from '../types/protocol-definition.js';
+import type { QualifiedFilter } from '../types/query.js';
 import { getProtocolStaleSignals } from './staleness.js';
+import { validateProtocolState, validateProtocolTrailer } from './validation.js';
 
 /**
  * Transforms a serializable ProtocolDefinition into an operationally optimized ProtocolContext.

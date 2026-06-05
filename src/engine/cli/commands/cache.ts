@@ -1,7 +1,9 @@
-import type { Command } from 'commander';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import { rm } from 'node:fs/promises';
+
+import type { Command } from 'commander';
+
 import type { ILogger } from '../../interfaces/logger.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 
 /**
  * Register the ` cache` command.

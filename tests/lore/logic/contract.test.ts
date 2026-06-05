@@ -1,10 +1,10 @@
-import { buildLoreCli } from '../lore-test-utils.js';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { buildLoreCli } from '../lore-test-utils.js';
 ;
-import { join, resolve } from 'node:path';
+import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 /**
  * LORE CLI CONTRACT TEST (Exhaustive)

@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
 import { createTargetFromIdentities } from '../../../src/engine/core/logic/query-targets.js';
 import { type Atom } from '../../../src/engine/core/types/domain.js';
@@ -6,12 +8,10 @@ import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry
 import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { makeAtom, makeProtocol, makeQueryTarget, makeRawCommit } from '../../../src/engine/testing.js';
 import { makeMockGitClient } from '../engine-test-utils.js';
-
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 ;
 ;
 ;
-import { rmSync, mkdirSync } from 'node:fs';
+import { mkdirSync,rmSync } from 'node:fs';
 
 ;
 import * as HydrationLogic from '../../../src/engine/core/logic/hydration.js';

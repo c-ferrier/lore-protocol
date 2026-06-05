@@ -1,10 +1,11 @@
-import { type Atom } from '../../../src/engine/core/types/domain.js';
-
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'node:child_process';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+
+import { afterAll,beforeAll, describe, expect, it } from 'vitest';
+
+import { type Atom } from '../../../src/engine/core/types/domain.js';
 
 /**
  * LORE OUTPUT PARITY TESTS

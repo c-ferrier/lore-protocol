@@ -1,10 +1,10 @@
-import { type Atom } from '../../../src/engine/core/types/domain.js';
-import { type FormattableQueryResult } from '../../../src/engine/core/types/output.js';
+import { beforeEach,describe, expect, it } from 'vitest';
+
 import { JsonFormatter } from '../../../src/engine/cli/formatters/json-formatter.js';
 import { TextFormatter } from '../../../src/engine/cli/formatters/text-formatter.js';
+import { type Atom } from '../../../src/engine/core/types/domain.js';
+import { type FormattableQueryResult } from '../../../src/engine/core/types/output.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-
-import { describe, it, expect, beforeEach } from 'vitest';
 ;
 ;
 ;

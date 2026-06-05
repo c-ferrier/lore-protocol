@@ -1,9 +1,10 @@
 import { Command } from 'commander';
+
+import type { DoctorCheck,FormattableDoctorResult } from '../../core/types/output.js';
 import type { IGitClient } from '../../interfaces/git-client.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { FormattableDoctorResult, DoctorCheck } from '../../core/types/output.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import type { ILogger } from '../../interfaces/logger.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
 /**
  * Register the doctor command.

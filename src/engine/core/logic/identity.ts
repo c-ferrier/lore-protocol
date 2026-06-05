@@ -1,7 +1,8 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+
+import { ConfigurationError } from '../../util/errors.js';
 import type { AtomId, ProtocolState } from '../types/domain.js';
 import type { ProtocolContext } from '../types/protocol-definition.js';
-import { ConfigurationError } from '../../util/errors.js';
 
 /**
  * Generates a unique identifier based on the protocol's generator setting.

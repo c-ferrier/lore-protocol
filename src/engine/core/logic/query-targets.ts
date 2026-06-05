@@ -1,5 +1,5 @@
+import type { QueryIdentity,QueryTargetAST } from '../types/query.js';
 import { normalizePathToRoot } from './path-resolution.js';
-import type { QueryTargetAST, QueryIdentity } from '../types/query.js';
 
 export interface TargetContext {
   readonly cwd: string;

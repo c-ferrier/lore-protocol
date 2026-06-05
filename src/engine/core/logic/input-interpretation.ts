@@ -1,10 +1,10 @@
-import type { CommitInput } from '../types/commit.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import type { EngineConfig } from '../types/config.js';
-import { ProtocolMap } from '../models/protocol-map.js';
-import { slugify, camelCase } from './string.js';
 import { ProtocolError } from '../../util/errors.js';
+import { ProtocolMap } from '../models/protocol-map.js';
+import type { CommitInput } from '../types/commit.js';
+import type { EngineConfig } from '../types/config.js';
 import { authorizeKey } from './ownership.js';
+import { camelCase,slugify } from './string.js';
 
 /**
  * The modes of commit input resolution, ordered by priority.
@@ -98,7 +98,7 @@ export function parseFlagsToInput(options: CommitCommandOptions, registry: Proto
     const catchAllEntries = parseCustomTrailers(options.trailer);
     for (const entry of catchAllEntries) {
         const { protocolName: entryProtocolName, key, values } = entry;
-        let targetCtx = entryProtocolName 
+        const targetCtx = entryProtocolName 
             ? registry.get(entryProtocolName) 
             : registry.resolveKey(key);
 

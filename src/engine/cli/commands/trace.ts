@@ -1,18 +1,18 @@
 import { Command } from 'commander';
-import type { IGitClient } from '../../interfaces/git-client.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { EngineConfig } from '../../core/types/config.js';
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { FormattableTraceResult, TraceEdge } from '../../core/types/output.js';
-import type { Atom } from '../../core/types/domain.js';
-import { ProtocolError } from '../../util/errors.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import type { ILogger } from '../../interfaces/logger.js';
-import { mergeOptions } from './helpers/merge-options.js';
 
 // Pure Logic Modules
 import { getProtocolIdentity } from '../../core/logic/identity.js';
 import { getReferenceKeys } from '../../core/logic/protocols.js';
+import type { EngineConfig } from '../../core/types/config.js';
+import type { Atom } from '../../core/types/domain.js';
+import type { FormattableTraceResult, TraceEdge } from '../../core/types/output.js';
+import type { IGitClient } from '../../interfaces/git-client.js';
+import type { ILogger } from '../../interfaces/logger.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { AtomRepository } from '../../services/atom-repository.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { ProtocolError } from '../../util/errors.js';
+import { mergeOptions } from './helpers/merge-options.js';
 
 /**
  * Register the trace command.

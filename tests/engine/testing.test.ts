@@ -1,7 +1,7 @@
-import { makeStubGitClient, makeMockContext } from '../../src/engine/testing.js';
-import { ownsKey } from '../../src/engine/core/logic/ownership.js';
+import { describe, expect,it } from 'vitest';
 
-import { describe, it, expect } from 'vitest';
+import { ownsKey } from '../../src/engine/core/logic/ownership.js';
+import { makeMockContext,makeStubGitClient } from '../../src/engine/testing.js';
 
 describe('Testing Gateway Logic', () => {
   describe('makeMockContext', () => {

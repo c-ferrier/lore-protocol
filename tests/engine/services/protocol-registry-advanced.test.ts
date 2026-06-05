@@ -1,7 +1,7 @@
+import { beforeEach,describe, expect, it } from 'vitest';
+
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeProtocol } from '../../../src/engine/testing.js';
-
-import { describe, it, expect, beforeEach } from 'vitest';
 ;
 ;
 

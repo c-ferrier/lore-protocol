@@ -1,5 +1,6 @@
-import { TriggerParser, parseTriggerHints } from '../../../../src/engine/core/logic/trigger-parser.js';
-import { describe, it, expect } from 'vitest';
+import { describe, expect,it } from 'vitest';
+
+import { parseTriggerHints,TriggerParser } from '../../../../src/engine/core/logic/trigger-parser.js';
 
 describe('TriggerParser (Logic)', () => {
   it('should parse simple trigger blocks', () => {

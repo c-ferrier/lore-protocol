@@ -1,8 +1,8 @@
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeProtocol } from '../../../src/engine/testing.js';
 import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 ;
 ;
 

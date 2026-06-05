@@ -1,9 +1,9 @@
-import type { ITrailerCollector } from '../../../interfaces/trailer-collector.js';
-import type { TrailerDefinition } from '../../../core/types/config.js';
-import { MultiValueTrailerCollector } from './multi-value-trailer-collector.js';
-import { EnumChoiceTrailerCollector } from './enum-choice-trailer-collector.js';
-import type { ProtocolContext } from '../../../core/types/protocol-definition.js';
 import { getAuthorizedKeys } from '../../../core/logic/protocols.js';
+import type { TrailerDefinition } from '../../../core/types/config.js';
+import type { ProtocolContext } from '../../../core/types/protocol-definition.js';
+import type { ITrailerCollector } from '../../../interfaces/trailer-collector.js';
+import { EnumChoiceTrailerCollector } from './enum-choice-trailer-collector.js';
+import { MultiValueTrailerCollector } from './multi-value-trailer-collector.js';
 
 /**
  * Registry and factory for trailer collectors.

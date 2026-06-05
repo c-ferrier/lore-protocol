@@ -1,6 +1,6 @@
-import { camelCase, slugify, snakeCase } from '../../../../src/engine/core/logic/string.js';
+import { describe, expect,it } from 'vitest';
 
-import { describe, it, expect } from 'vitest';
+import { camelCase, slugify, snakeCase } from '../../../../src/engine/core/logic/string.js';
 ;
 
 describe('String Utilities', () => {

@@ -1,11 +1,11 @@
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
 import { getCacheFingerprint } from '../../../src/engine/core/logic/query-targets.js';
 import { type IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import { type IQueryCache } from '../../../src/engine/interfaces/query-cache.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { makeQueryTarget } from '../../../src/engine/testing.js';
 import { makeAtomRepository, makeMockGitClient, makeMockQueryCache } from '../engine-test-utils.js';
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 
 

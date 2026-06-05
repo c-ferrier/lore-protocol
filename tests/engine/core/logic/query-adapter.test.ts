@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import { makeMockContext } from '../../../../src/engine/testing.js';
+import { describe, expect,it } from 'vitest';
+
 import { 
+    claimsTrailers,
     getDiscoveryPatterns, 
     getIdentityPattern, 
     getSearchPatterns, 
-    matchesFilters,
-    claimsTrailers
-} from '../../../../src/engine/core/logic/query-adapter.js';
+    matchesFilters} from '../../../../src/engine/core/logic/query-adapter.js';
+import { makeMockContext } from '../../../../src/engine/testing.js';
 
 describe('Query Adapter Logic (Pure Functions)', () => {
   const rootCtx = makeMockContext({

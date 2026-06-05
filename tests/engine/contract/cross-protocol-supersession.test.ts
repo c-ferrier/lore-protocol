@@ -1,9 +1,9 @@
+import { beforeEach,describe, expect, it } from 'vitest';
+
 import { resolveSupersession } from '../../../src/engine/core/logic/supersession.js';
 import { type Atom, type Trailers } from '../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_PROTOCOL_DEFINITION, makeProtocol } from '../../../src/engine/testing.js';
-
-import { describe, it, expect, beforeEach } from 'vitest';
+import { makeProtocol,TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 ;
 ;
 ;

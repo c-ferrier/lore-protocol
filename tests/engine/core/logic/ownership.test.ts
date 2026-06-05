@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect,it } from 'vitest';
+
+import { authorizeKey, getQualifiedKey,isBucketOwner, ownsKey } from '../../../../src/engine/core/logic/ownership.js';
 import { makeProtocol, MOCK_CORE_TRAILERS } from '../../../../src/engine/testing.js';
-import { ownsKey, authorizeKey, isBucketOwner, getQualifiedKey } from '../../../../src/engine/core/logic/ownership.js';
 
 describe('Ownership Logic (Pure Functions)', () => {
   const rootProtocol = makeProtocol({

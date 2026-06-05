@@ -1,10 +1,10 @@
+import { beforeEach,describe, expect, it } from 'vitest';
+
 import { type Atom, ProtocolMap } from '../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { analyzeStaleness } from '../../../src/engine/shell/orchestrators/staleness.js';
-import { TEST_ENGINE_CONFIG, makeMockContext } from '../../../src/engine/testing.js';
+import { makeMockContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 import { STALE_SIGNAL } from '../../../src/engine/util/constants.js';
-
-import { describe, it, expect, beforeEach } from 'vitest';
 
 describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
   let registry: ProtocolRegistry;

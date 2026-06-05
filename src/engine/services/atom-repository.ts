@@ -1,25 +1,24 @@
-import type { IGitClient, StorageQuery } from '../interfaces/git-client.js';
-import type { SearchOptions, QueryTargetAST, QueryIdentity } from '../core/types/query.js';
-import type { Atom } from '../core/types/domain.js';
-import { GLOBAL_CACHE_KEY } from '../util/constants.js';
-import { ProtocolError } from '../util/errors.js';
-import type { ProtocolRegistry } from './protocol-registry.js';
-import type { IQueryCache } from '../interfaces/query-cache.js';
-import { escapeRegex } from '../core/logic/regex.js';
-
-// Pure Logic Modules
-import { hydrateAtoms, extractReferenceIds } from '../core/logic/hydration.js';
-import { resolveSupersession } from '../core/logic/supersession.js';
 import { filterAtoms, resolveFilters } from '../core/logic/filtering.js';
+// Pure Logic Modules
+import { extractReferenceIds,hydrateAtoms } from '../core/logic/hydration.js';
+import { getProtocolIdentity } from '../core/logic/identity.js';
+import { authorizeKey } from '../core/logic/ownership.js';
 import { 
     createTargetFromIdentities, 
     getCacheFingerprint, 
     isBlameTarget, 
 } from '../core/logic/query-targets.js';
-import { getIdentityPattern } from '../shell/git/protocol-query-adapter.js';
-import { authorizeKey } from '../core/logic/ownership.js';
-import { getProtocolIdentity } from '../core/logic/identity.js';
+import { escapeRegex } from '../core/logic/regex.js';
+import { resolveSupersession } from '../core/logic/supersession.js';
 import { isValidProtocolIdentity } from '../core/logic/validation.js';
+import type { Atom } from '../core/types/domain.js';
+import type { QueryIdentity,QueryTargetAST, SearchOptions } from '../core/types/query.js';
+import type { IGitClient, StorageQuery } from '../interfaces/git-client.js';
+import type { IQueryCache } from '../interfaces/query-cache.js';
+import { getIdentityPattern } from '../shell/git/protocol-query-adapter.js';
+import { GLOBAL_CACHE_KEY } from '../util/constants.js';
+import { ProtocolError } from '../util/errors.js';
+import type { ProtocolRegistry } from './protocol-registry.js';
 
 /**
  * Retrieves Atoms from git history.

@@ -1,8 +1,8 @@
-import type { StaleReason, Atom, ProtocolState, SupersessionStatus } from '../types/domain.js';
-import type { ProtocolContext } from '../types/protocol-definition.js';
-import type { StaleIfCondition } from '../types/config.js';
+import { parseTriggerHints,TriggerParser } from '../../core/logic/trigger-parser.js';
 import { STALE_SIGNAL } from '../../util/constants.js';
-import { TriggerParser, parseTriggerHints } from '../../core/logic/trigger-parser.js';
+import type { StaleIfCondition } from '../types/config.js';
+import type { Atom, ProtocolState, StaleReason, SupersessionStatus } from '../types/domain.js';
+import type { ProtocolContext } from '../types/protocol-definition.js';
 import { getProtocolIdentity } from './identity.js';
 
 /**

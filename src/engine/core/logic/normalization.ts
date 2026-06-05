@@ -1,6 +1,6 @@
 import type { ProtocolState } from '../types/domain.js';
 import type { ProtocolContext } from '../types/protocol-definition.js';
-import { isBucketOwner, authorizeKey, ownsKey } from './ownership.js';
+import { authorizeKey, isBucketOwner, ownsKey } from './ownership.js';
 
 /**
  * Normalizes trailers using the Strict Segmented Waterfall.

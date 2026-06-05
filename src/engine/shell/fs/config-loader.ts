@@ -1,8 +1,10 @@
-import { readFile, access, stat } from 'node:fs/promises';
-import { join, dirname, resolve, parse as parsePath } from 'node:path';
+import { access, readFile, stat } from 'node:fs/promises';
+import { dirname, join, parse as parsePath,resolve } from 'node:path';
+
 import { parse as parseToml } from 'smol-toml';
-import type { IConfigLoader } from '../../interfaces/config-loader.js';
+
 import type { EngineConfig } from '../../core/types/config.js';
+import type { IConfigLoader } from '../../interfaces/config-loader.js';
 
 type ConfigSection = keyof EngineConfig;
 

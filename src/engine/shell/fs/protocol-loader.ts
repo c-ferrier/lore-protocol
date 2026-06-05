@@ -1,10 +1,12 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { join, basename, extname } from 'node:path';
+import { basename, extname,join } from 'node:path';
+
 import { parse as parseToml } from 'smol-toml';
-import type { ProtocolDefinition } from '../../core/types/protocol-definition.js';
+
 import type { EngineConfig, TrailerDefinition } from '../../core/types/config.js';
-import { ProtocolHydrator } from './protocol-hydrator.js';
+import type { ProtocolDefinition } from '../../core/types/protocol-definition.js';
 import { ConfigurationError } from '../../util/errors.js';
+import { ProtocolHydrator } from './protocol-hydrator.js';
 
 /**
  * Dynamically loads protocol definitions from .atom/protocols/*.toml

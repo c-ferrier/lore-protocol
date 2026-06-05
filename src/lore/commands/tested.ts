@@ -1,11 +1,11 @@
 import type { Command } from 'commander';
+
 import { 
-    executePathQuery, 
     addPathQueryOptions, 
-    type PathQueryDeps, 
+    executePathQuery, 
+    mergeOptions, 
     type PathQueryCommandOptions,
-    mergeOptions 
-} from '../../engine/index.js';
+    type PathQueryDeps} from '../../engine/index.js';
 
 /**
  * Register the `lore tested <target>` and `lore coverage <target>` commands.

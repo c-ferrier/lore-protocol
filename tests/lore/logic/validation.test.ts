@@ -1,12 +1,12 @@
+import { beforeEach,describe, expect, it } from 'vitest';
+
 import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG, makeProtocol, makeRawCommit } from '../../../src/engine/testing.js';
+import { makeProtocol, makeRawCommit,TEST_ENGINE_CONFIG, TEST_PROTOCOL_CONFIG } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { makeMockAtomRepository } from '../../engine/engine-test-utils.js';
-
-import { describe, it, expect, beforeEach } from 'vitest';
 
 
 describe('Lore Protocol Validation Contract', () => {

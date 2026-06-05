@@ -1,10 +1,11 @@
 import type { Command } from 'commander';
-import type { IConfigLoader } from '../../interfaces/config-loader.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { FormattableConfigResult, FormattableTrailerDefinition } from '../../core/types/output.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import type { ILogger } from '../../interfaces/logger.js';
+
 import { getFormattableDefinitions } from '../../core/logic/protocols.js';
+import type { FormattableConfigResult, FormattableTrailerDefinition } from '../../core/types/output.js';
+import type { IConfigLoader } from '../../interfaces/config-loader.js';
+import type { ILogger } from '../../interfaces/logger.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
 /**
  * Register the config command.

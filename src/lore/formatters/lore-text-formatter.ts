@@ -1,19 +1,19 @@
-import {  
-    type IOutputFormatter,
-    type ProtocolRegistry, 
-    type Atom,
-    type FormattableQueryResult, 
-    type FormattableDoctorResult, 
-    type FormattableStalenessResult, 
-    type FormattableTraceResult,
-    type FormattableValidationResult,
-    type FormattableConfigResult,
-    type ErrorMessage
- } from '../../engine/index.js';
+import chalk from 'chalk';
+
 import { createBaseFormatter } from '../../engine/cli/formatters/index.js';
 import { getProtocolIdentity } from '../../engine/core/logic/identity.js';
 import { getAuthorizedKeys } from '../../engine/core/logic/protocols.js';
-import chalk from 'chalk';
+import {  
+    type Atom,
+    type ErrorMessage,
+    type FormattableConfigResult,
+    type FormattableDoctorResult, 
+    type FormattableQueryResult, 
+    type FormattableStalenessResult, 
+    type FormattableTraceResult,
+    type FormattableValidationResult,
+    type IOutputFormatter,
+    type ProtocolRegistry } from '../../engine/index.js';
 
 /**
  * Lore-specific Text Formatter.
@@ -344,7 +344,7 @@ export class LoreTextFormatter implements IOutputFormatter {
 
     for (const check of checks) {
       let statusLabel: string;
-      let checkStatus = check.status;
+      const checkStatus = check.status;
 
       switch (checkStatus) {
         case 'ok':

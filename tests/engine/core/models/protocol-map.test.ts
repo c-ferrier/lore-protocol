@@ -1,5 +1,6 @@
+import { describe, expect,it } from 'vitest';
+
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
-import { describe, it, expect } from 'vitest';
 
 describe('ProtocolMap (Logic)', () => {
   it('should normalize keys to lowercase', () => {

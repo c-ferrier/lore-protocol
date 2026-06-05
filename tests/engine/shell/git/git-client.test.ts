@@ -1,7 +1,8 @@
-import { GitClient } from '../../../../src/engine/shell/git/git-client.js';
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { execFile as execFileCb } from 'node:child_process';
+
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
+import { GitClient } from '../../../../src/engine/shell/git/git-client.js';
 
 vi.mock('node:util', async () => {
   const actual = await vi.importActual('node:util');

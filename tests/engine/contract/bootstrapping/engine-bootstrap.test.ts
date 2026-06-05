@@ -1,3 +1,5 @@
+import { describe, expect, it, vi } from 'vitest';
+
 import { JsonFormatter } from '../../../../src/engine/cli/formatters/json-formatter.js';
 import { LogLevel } from '../../../../src/engine/interfaces/logger.js';
 import { EngineBootstrapper } from '../../../../src/engine/services/engine-bootstrapper.js';
@@ -5,9 +7,7 @@ import { EngineConfigLoader } from '../../../../src/engine/shell/fs/config-loade
 import { DynamicProtocolLoader } from '../../../../src/engine/shell/fs/protocol-loader.js';
 import { resolveProtocolRoot } from '../../../../src/engine/shell/fs/root-resolver.js';
 import { GitClient } from '../../../../src/engine/shell/git/git-client.js';
-import { TEST_ENGINE_CONFIG, makeMockContext } from '../../../../src/engine/testing.js';
-
-import { describe, it, expect, vi } from 'vitest';
+import { makeMockContext,TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
 
 // Mock dependency services to avoid FS/Git access
 vi.mock('../../../../src/engine/shell/git/git-client.js', () => ({

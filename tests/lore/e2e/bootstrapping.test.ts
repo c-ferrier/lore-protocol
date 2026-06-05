@@ -1,13 +1,13 @@
-import { EngineBootstrapper } from '../../../src/engine/services/engine-bootstrapper.js';
-import { DEFAULT_ENGINE_CONFIG } from '../../../src/engine/defaults.js';
-import { getAuthorizedKeys } from '../../../src/engine/core/logic/protocols.js';
+import { afterEach,beforeEach, describe, expect, it } from 'vitest';
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { getAuthorizedKeys } from '../../../src/engine/core/logic/protocols.js';
+import { DEFAULT_ENGINE_CONFIG } from '../../../src/engine/defaults.js';
+import { EngineBootstrapper } from '../../../src/engine/services/engine-bootstrapper.js';
 ;
-import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { execSync } from 'node:child_process';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 describe('Engine Bootstrapping Integration', () => {
   let testDir: string;

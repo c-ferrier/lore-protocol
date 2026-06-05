@@ -1,15 +1,16 @@
-import { GitClient } from '../../../src/engine/shell/git/git-client.js';
-
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execSync } from 'node:child_process';
-import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll,beforeAll, describe, expect, it } from 'vitest';
+
+import { GitClient } from '../../../src/engine/shell/git/git-client.js';
 
 describe('GitClient Bulk Fetch (System)', () => {
   const testDir = join(tmpdir(), `lore-test-git-bulk-${Math.random().toString(36).slice(2)}`);
   let client: GitClient;
-  let commitHashes: string[] = [];
+  const commitHashes: string[] = [];
 
   const run = (cmd: string) => execSync(cmd, { cwd: testDir, stdio: 'ignore' });
 

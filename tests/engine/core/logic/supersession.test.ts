@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach,describe, expect, it } from 'vitest';
+
+import { filterActiveAtoms,resolveSupersession } from '../../../../src/engine/core/logic/supersession.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeAtom, makeMockContext } from '../../../../src/engine/testing.js';
-import { resolveSupersession, filterActiveAtoms } from '../../../../src/engine/core/logic/supersession.js';
 
 describe('Supersession Logic (Pure Functions)', () => {
   let registry: ProtocolRegistry;

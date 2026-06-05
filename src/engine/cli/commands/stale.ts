@@ -1,18 +1,18 @@
 import type { Command } from 'commander';
-import { analyzeStaleness } from '../../shell/orchestrators/staleness.js';
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import type { IGitClient } from '../../interfaces/git-client.js';
-import type { EngineConfig } from '../../core/types/config.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { PathQueryOptions } from '../../core/types/query.js';
-import type { FormattableStalenessResult } from '../../core/types/output.js';
-import { STALE_SIGNAL } from '../../util/constants.js';
-import { mergeOptions } from './helpers/merge-options.js';
-import type { ILogger } from '../../interfaces/logger.js';
 
 // Pure Logic Modules
 import { createQueryTarget } from '../../core/logic/query-targets.js';
+import type { EngineConfig } from '../../core/types/config.js';
+import type { FormattableStalenessResult } from '../../core/types/output.js';
+import type { PathQueryOptions } from '../../core/types/query.js';
+import type { IGitClient } from '../../interfaces/git-client.js';
+import type { ILogger } from '../../interfaces/logger.js';
+import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { AtomRepository } from '../../services/atom-repository.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { analyzeStaleness } from '../../shell/orchestrators/staleness.js';
+import { STALE_SIGNAL } from '../../util/constants.js';
+import { mergeOptions } from './helpers/merge-options.js';
 
 interface StaleCommandOptions {
   readonly olderThan?: string;

@@ -36,7 +36,7 @@ export class MultiValueTrailerCollector implements ITrailerCollector {
   async collect(prompt: IPrompt): Promise<TrailerCollectionResult> {
     const values: string[] = [];
 
-    // eslint-disable-next-line no-constant-condition
+     
     while (true) {
       const wantsMore = await prompt.askConfirm(this.confirmMessage, false);
       if (!wantsMore) break;

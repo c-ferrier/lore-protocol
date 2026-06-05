@@ -1,12 +1,12 @@
+import { describe, expect, it, vi } from 'vitest';
+
 import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol-definition.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
-import { TEST_PROTOCOL_CONFIG, makeProtocol, makeQueryTarget } from '../../../src/engine/testing.js';
+import { makeProtocol, makeQueryTarget,TEST_PROTOCOL_CONFIG } from '../../../src/engine/testing.js';
 import { LoreJsonFormatter } from '../../../src/lore/formatters/lore-json-formatter.js';
 import { makeMockGitClient } from '../../engine/engine-test-utils.js';
-
-import { describe, it, expect, vi } from 'vitest';
 ;
 ;
 ;

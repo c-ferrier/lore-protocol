@@ -1,4 +1,5 @@
 import chalk, { Chalk, type ChalkInstance } from 'chalk';
+
 import { type ILogger, LogLevel } from '../../interfaces/logger.js';
 
 /**

@@ -1,16 +1,15 @@
-import { InputMode, finalizeCommitInput, parseFlagsToInput, selectInputMode } from '../../../../src/engine/core/logic/input-interpretation.js';
+import { beforeEach,describe, expect, it } from 'vitest';
+
+import { finalizeCommitInput, InputMode, parseFlagsToInput, selectInputMode } from '../../../../src/engine/core/logic/input-interpretation.js';
+import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { 
-    TEST_ENGINE_CONFIG, 
-    TEST_PROTOCOL_DEFINITION, 
-    MOCK_CORE_TRAILERS, 
     makeMockContext,
-    makeProtocolRegistry 
-} from '../../../../src/engine/testing.js';
+    makeProtocolRegistry, 
+    MOCK_CORE_TRAILERS, 
+    TEST_ENGINE_CONFIG, 
+    TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
 import { ProtocolError } from '../../../../src/engine/util/errors.js';
-import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
-
-import { describe, it, expect, beforeEach } from 'vitest';
 
 describe('Input Interpretation Logic (Pure Functions)', () => {
   let registry: ProtocolRegistry;

@@ -1,18 +1,19 @@
-import { QueryCache } from '../../../../src/engine/shell/fs/query-cache.js';
+import { mkdtemp, readdir,rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { QueryOptions, SearchOptions } from '../../../../src/engine/core/types/query.js';
 import { runCli } from '../../../../src/engine/index-impl.js';
+import { QueryCache } from '../../../../src/engine/shell/fs/query-cache.js';
 import { 
+    assertIsolatedEngine,
     TEST_ENGINE_CONFIG, 
     TEST_ENGINE_DIR, 
     TEST_PROTOCOL_DEFINITION, 
-    assertIsolatedEngine,
 } from '../../../../src/engine/testing.js';
 import { ENGINE_CONFIG_FILENAME, GLOBAL_CACHE_KEY } from '../../../../src/engine/util/constants.js';
-import type { QueryOptions, SearchOptions } from '../../../../src/engine/core/types/query.js';
-
-import { describe, it, expect, beforeEach, afterEach, beforeAll, vi } from 'vitest';
-import { mkdtemp, rm, readdir } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
 
 describe('QueryCache Implementation', () => {
   let tempDir: string;

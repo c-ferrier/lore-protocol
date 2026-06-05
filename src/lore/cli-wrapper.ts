@@ -1,40 +1,41 @@
+import { join,resolve } from 'node:path';
+
+import type { Command } from 'commander';
+
 import { 
-    runCli, 
-    execute, 
-    type EngineOptions,
-    ProtocolRegistry,
+    camelCase,
+    checkForUpdates,
+    DEFAULT_ENGINE_CONFIG,
     ENGINE_CONFIG_FILENAME, 
     ENGINE_DIR_NAME, 
-    TRAILER_UI_KINDS, 
-    TRAILER_UI_COLORS,
-    DEFAULT_ENGINE_CONFIG,
-    getEngineVersion, 
+    type EngineConfig, 
+    type EngineOptions,
+    execute, 
     getEnginePackageName, 
     getEnginePublishedVersion,
-    checkForUpdates,
-    camelCase,
-    type EngineConfig, 
+    getEngineVersion, 
+    type ProtocolDefinition,
+    ProtocolRegistry,
+    runCli, 
+    TRAILER_UI_COLORS,
+    TRAILER_UI_KINDS, 
     type TrailerDefinition, 
-    type ValueDefinition, 
-    type TrailerUiKind, 
     type TrailerUiColor, 
-    type ProtocolDefinition
-    } from '../engine/index.js';
-import { LoreProtocolDefinition } from './protocol-definition.js';
-import { LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from './defaults.js';
-import { registerInitCommand } from './commands/init.js';
-import { registerContextCommand } from './commands/context.js';
+    type TrailerUiKind, 
+    type ValueDefinition    } from '../engine/index.js';
 import { registerConstraintsCommand } from './commands/constraints.js';
+import { registerContextCommand } from './commands/context.js';
 import { registerDirectivesCommand } from './commands/directives.js';
-import { registerTestedCommand } from './commands/tested.js';
+import { registerInitCommand } from './commands/init.js';
 import { registerRejectedCommand } from './commands/rejected.js';
+import { registerTestedCommand } from './commands/tested.js';
+import { LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from './defaults.js';
 import { LoreJsonFormatter } from './formatters/lore-json-formatter.js';
 import { LoreTextFormatter } from './formatters/lore-text-formatter.js';
+import { LoreProtocolDefinition } from './protocol-definition.js';
 import { LoreConfigLoader } from './services/lore-config-loader.js';
-import { getLoreVersion, getLorePackageName, getLorePublishedVersion } from './util/version.js';
-import { mapConfig, LORE_TO_ENGINE_RULES } from './util/config-mapper.js';
-import { resolve, join } from 'node:path';
-import type { Command } from 'commander';
+import { LORE_TO_ENGINE_RULES,mapConfig } from './util/config-mapper.js';
+import { getLorePackageName, getLorePublishedVersion,getLoreVersion } from './util/version.js';
 
 /**
  * Lore CLI Compatibility Layer.

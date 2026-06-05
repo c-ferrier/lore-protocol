@@ -1,4 +1,5 @@
 import { dirname } from 'node:path';
+
 import type { IConfigLoader } from '../../interfaces/config-loader.js';
 import type { IGitClient } from '../../interfaces/git-client.js';
 

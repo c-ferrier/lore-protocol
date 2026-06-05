@@ -2,122 +2,109 @@
 export { ProtocolMap, type ProtocolName } from './core/models/protocol-map.js';
 
 // --- Domain Types (Explicit Named Exports to prevent circular shadowing) ---
-export type { 
-    Atom, 
-    ProtocolState, 
-    SupersessionStatus,
-    Trailers,
-    HierarchicalTrailers,
-    StaleReason,
-    StaleSignal
-} from './core/types/domain.js';
-
+export type { CommitInput } from './core/types/commit.js';
 export type { 
     EngineConfig, 
-    TrailerUiKind, 
-    TrailerUiColor, 
+    StaleIfCondition,
     TrailerDefinition,
-    ValueDefinition,
-    StaleIfCondition
-} from './core/types/config.js';
-
+    TrailerUiColor, 
+    TrailerUiKind, 
+    ValueDefinition} from './core/types/config.js';
 export type { 
-    QualifiedFilter, 
-    SearchOptions, 
-    FilterOperator,
-    QueryTargetAST, 
-    QueryIdentity 
-} from './core/types/query.js';
-
+    Atom, 
+    HierarchicalTrailers,
+    ProtocolState, 
+    StaleReason,
+    StaleSignal,
+    SupersessionStatus,
+    Trailers} from './core/types/domain.js';
 export type { 
-    QueryResult, 
-    QueryMeta,
     CommitValidationResult, 
-    ValidationIssue, 
-    FormattableTrailerDefinition,
-    FormattableQueryResult,
-    FormattableValidationResult,
-    FormattableStalenessResult,
-    FormattableTraceResult,
+    DoctorCheck,
     FormattableConfigResult,
     FormattableDoctorResult,
-    DoctorCheck
-} from './core/types/output.js';
-
-export type { CommitInput } from './core/types/commit.js';
-export type { ProtocolDefinition, ProtocolContext, IIdentityResolver } from './core/types/protocol-definition.js';
+    FormattableQueryResult,
+    FormattableStalenessResult,
+    FormattableTraceResult,
+    FormattableTrailerDefinition,
+    FormattableValidationResult,
+    QueryMeta,
+    QueryResult, 
+    ValidationIssue} from './core/types/output.js';
+export type { IIdentityResolver,ProtocolContext, ProtocolDefinition } from './core/types/protocol-definition.js';
+export type { 
+    FilterOperator,
+    QualifiedFilter, 
+    QueryIdentity, 
+    QueryTargetAST, 
+    SearchOptions} from './core/types/query.js';
 
 // --- Primary Public Interfaces ---
-export type { IGitClient, RawCommit, CommitResult, BlameLine } from './interfaces/git-client.js';
+export type { BlameLine,CommitResult, IGitClient, RawCommit } from './interfaces/git-client.js';
 export type { ILogger } from './interfaces/logger.js';
 export { LogLevel } from './interfaces/logger.js';
-export type { IOutputFormatter, ErrorMessage } from './interfaces/output-formatter.js';
+export type { ErrorMessage,IOutputFormatter } from './interfaces/output-formatter.js';
 
 // --- Pure Logic Modules (@experimental) ---
 // Explicitly export key functions to provide a stable surface and avoid cycle noise
+export { formatCommit, validateFormatting } from './core/logic/commit-formatting.js';
+export { filterAtoms, resolveFilters, resolveFilterStrings } from './core/logic/filtering.js';
+export { extractReferenceIds,hydrateAtoms } from './core/logic/hydration.js';
+export { generateId } from './core/logic/identity.js';
+export { normalizeTrailers } from './core/logic/normalization.js';
+export { authorizeKey,getQualifiedKey, isBucketOwner, ownsKey } from './core/logic/ownership.js';
+export { normalizePathToRoot as resolvePath } from './core/logic/path-resolution.js';
 export { 
     createProtocolContext,
     getAuthorizedKeys,
-    getScalarKeys,
+    getFormattableDefinitions,
     getListKeys,
     getReferenceKeys,
-    isCoreTrailer,
-    getFormattableDefinitions
-} from './core/logic/protocols.js';
-export { getQualifiedKey, isBucketOwner, ownsKey, authorizeKey } from './core/logic/ownership.js';
-export { normalizeTrailers } from './core/logic/normalization.js';
-export { hydrateAtoms, extractReferenceIds } from './core/logic/hydration.js';
-export { resolveSupersession, filterActiveAtoms } from './core/logic/supersession.js';
-export { generateId } from './core/logic/identity.js';
-export { parseTrailers, serializeTrailers } from './core/logic/trailers.js';
-export { filterAtoms, resolveFilters, resolveFilterStrings } from './core/logic/filtering.js';
-export { squashAtoms } from './core/logic/squashing.js';
-export { formatCommit, validateFormatting } from './core/logic/commit-formatting.js';
-export { normalizePathToRoot as resolvePath } from './core/logic/path-resolution.js';
-export { resolveProtocolRoot as resolveGitRoot } from './shell/fs/root-resolver.js';
+    getScalarKeys,
+    isCoreTrailer} from './core/logic/protocols.js';
 export { 
     createQueryTarget, 
     createTargetFromIdentities, 
     getCacheFingerprint, 
-    isBlameTarget, 
+    getGitBlameArgs, 
     getGitLogArgs, 
-    getGitBlameArgs 
-} from './core/logic/query-targets.js';
+    isBlameTarget} from './core/logic/query-targets.js';
+export { squashAtoms } from './core/logic/squashing.js';
 export { evaluateAgeSignal, evaluateDriftSignal } from './core/logic/staleness.js';
+export { filterActiveAtoms,resolveSupersession } from './core/logic/supersession.js';
+export { parseTrailers, serializeTrailers } from './core/logic/trailers.js';
+export { resolveProtocolRoot as resolveGitRoot } from './shell/fs/root-resolver.js';
 
 // --- Orchestrating Services (Runtime) ---
+export { InMemoryLogger } from './services/in-memory-logger.js';
 export { ProtocolRegistry } from './services/protocol-registry.js';
 export { 
+    claimsTrailers, 
     getDiscoveryPatterns, 
     getSearchPatterns, 
-    matchesFilters, 
-    claimsTrailers 
-} from './shell/git/protocol-query-adapter.js';
-export { InMemoryLogger } from './services/in-memory-logger.js';
+    matchesFilters} from './shell/git/protocol-query-adapter.js';
 
 // --- CLI Commands & Adapters ---
-export { runCli, execute } from './index-impl.js';
+export { execute,runCli } from './index-impl.js';
 export { EngineBootstrapper, type EngineOptions } from './services/engine-bootstrapper.js';
 
 // --- Command Toolkit (For Wrappers/CLI) ---
-export { executePathQuery, addPathQueryOptions, type PathQueryDeps, type PathQueryCommandOptions } from './cli/commands/helpers/path-query.js';
 export { mergeOptions } from './cli/commands/helpers/merge-options.js';
+export { addPathQueryOptions, executePathQuery, type PathQueryCommandOptions,type PathQueryDeps } from './cli/commands/helpers/path-query.js';
 export { executeEngineInit } from './cli/commands/init.js';
 
 // --- Internal Utilities (Exposed for Power Users) ---
-export { slugify, camelCase, snakeCase } from './core/logic/string.js';
-export { 
-    getEngineVersion, 
-    getEnginePackageName, 
-    getEnginePublishedVersion 
-} from './core/logic/version.js';
+export { camelCase, slugify, snakeCase } from './core/logic/string.js';
 export { checkForUpdates } from './core/logic/update-check.js';
-export { ProtocolError, ConfigurationError } from './util/errors.js';
+export { 
+    getEnginePackageName, 
+    getEnginePublishedVersion, 
+    getEngineVersion} from './core/logic/version.js';
+export { DEFAULT_ENGINE_CONFIG } from './defaults.js';
 export { 
     ENGINE_CONFIG_FILENAME, 
     ENGINE_DIR_NAME, 
-    TRAILER_UI_KINDS, 
+    GLOBAL_CACHE_KEY, 
     TRAILER_UI_COLORS,
-    GLOBAL_CACHE_KEY 
-} from './util/constants.js';
-export { DEFAULT_ENGINE_CONFIG } from './defaults.js';
+    TRAILER_UI_KINDS} from './util/constants.js';
+export { ConfigurationError,ProtocolError } from './util/errors.js';

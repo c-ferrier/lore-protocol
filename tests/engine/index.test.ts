@@ -1,27 +1,29 @@
-import * as rootResolver from '../../src/engine/shell/fs/root-resolver.js';
-import { AtomRepository } from '../../src/engine/services/atom-repository.js';
-import { ENGINE_CONFIG_FILENAME } from '../../src/engine/util/constants.js';
-import { JsonFormatter } from '../../src/engine/cli/formatters/json-formatter.js';
-import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
-import { NullQueryCache } from '../../src/engine/shell/fs/query-cache.js';
-import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
-import { TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, makeProtocol, makeQueryTarget } from '../../src/engine/testing.js';
-import { TEST_ENGINE_DIR, assertIsolatedEngine } from '../../src/engine/testing.js';
-import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../src/engine/testing.js';
-import { describe, it, expect } from 'vitest';
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
-import { makeMockGitClient } from './engine-test-utils.js';
-import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
-import { parseFlagsToInput } from '../../src/engine/core/logic/input-interpretation.js';
-import { resolve, join } from 'node:path';
-import { resolveProtocolRoot } from '../../src/engine/shell/fs/root-resolver.js';
-import { runCli } from '../../src/engine/index-impl.js';
+import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join,resolve } from 'node:path';
+
+import { describe, expect,it } from 'vitest';
+import { afterAll,beforeAll, describe, expect, it, vi } from 'vitest';
+
+import { JsonFormatter } from '../../src/engine/cli/formatters/json-formatter.js';
+import { parseFlagsToInput } from '../../src/engine/core/logic/input-interpretation.js';
 import { type Atom } from '../../src/engine/core/types/domain.js';
 import { type Atom, type Trailers } from '../../src/engine/core/types/domain.js';
 import { type FormattableQueryResult } from '../../src/engine/core/types/output.js';
 import { type ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
+import { runCli } from '../../src/engine/index-impl.js';
+import { AtomRepository } from '../../src/engine/services/atom-repository.js';
+import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
+import { NullQueryCache } from '../../src/engine/shell/fs/query-cache.js';
+import * as rootResolver from '../../src/engine/shell/fs/root-resolver.js';
+import { resolveProtocolRoot } from '../../src/engine/shell/fs/root-resolver.js';
 import { validateCommits } from '../../src/engine/shell/orchestrators/validation.js';
+import { makeProtocol, makeQueryTarget,TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION } from '../../src/engine/testing.js';
+import { assertIsolatedEngine,TEST_ENGINE_DIR } from '../../src/engine/testing.js';
+import { makeProtocol,TEST_PROTOCOL_CONFIG } from '../../src/engine/testing.js';
+import { ENGINE_CONFIG_FILENAME } from '../../src/engine/util/constants.js';
+import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
+import { makeMockGitClient } from './engine-test-utils.js';
 
 const LORE_ID_KEY = 'Lore-id';
 describe('Engine Assembly (Agnostic Bootstrap)', () => {

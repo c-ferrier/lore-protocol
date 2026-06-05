@@ -1,9 +1,9 @@
+import { authorizeKey } from '../../core/logic/ownership.js';
+import type { CommitInput } from '../../core/types/commit.js';
 import { ProtocolMap } from '../../core/types/domain.js';
 import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js';
-import type { CommitInput } from '../../core/types/commit.js';
-import { ProtocolError } from '../../util/errors.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import { authorizeKey } from '../../core/logic/ownership.js';
+import { ProtocolError } from '../../util/errors.js';
 
 /**
  * Reads commit input by parsing a JSON string.

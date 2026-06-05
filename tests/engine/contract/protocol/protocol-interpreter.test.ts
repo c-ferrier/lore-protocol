@@ -1,9 +1,9 @@
-import { TEST_PROTOCOL_DEFINITION, makeMockContext, normalizeTrailers } from '../../../../src/engine/testing.js';
+import { describe, expect,it } from 'vitest';
+
 import { getProtocolIdentity } from '../../../../src/engine/core/logic/identity.js';
 import { getStaleSignals } from '../../../../src/engine/core/logic/staleness.js';
 import { ProtocolMap } from '../../../../src/engine/core/types/domain.js';
-
-import { describe, it, expect } from 'vitest';
+import { makeMockContext, normalizeTrailers,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('Protocol Interpreter Logic (via Pure Functions)', () => {
 

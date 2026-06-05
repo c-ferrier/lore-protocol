@@ -1,11 +1,11 @@
+import { afterEach,beforeEach, describe, expect, it } from 'vitest';
+
 import { type Atom } from '../../../src/engine/core/types/domain.js';
 import { EngineConfigLoader } from '../../../src/engine/shell/fs/config-loader.js';
-
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 ;
-import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 describe('Layered Configuration Integration', () => {
   let tempDir: string;

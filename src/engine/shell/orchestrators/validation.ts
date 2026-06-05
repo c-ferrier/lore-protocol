@@ -1,12 +1,6 @@
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { EngineConfig } from '../../core/types/config.js';
-import type { RawCommit } from '../../interfaces/git-client.js';
-import type { CommitValidationResult, ValidationIssue } from '../../core/types/output.js';
-import type { Trailers } from '../../core/types/domain.js';
-import type { QueryIdentity } from '../../core/types/query.js';
-import type { ProtocolContext } from '../../core/types/protocol-definition.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-
+import { getProtocolIdentity } from '../../core/logic/identity.js';
+import { normalizeTrailers } from '../../core/logic/normalization.js';
+import { getReferenceKeys } from '../../core/logic/protocols.js';
 import { parseTrailers } from '../../core/logic/trailers.js';
 import { 
     evaluateHygiene, 
@@ -14,9 +8,14 @@ import {
     validateProtocolState,
     validateProtocolTrailer
 } from '../../core/logic/validation.js';
-import { normalizeTrailers } from '../../core/logic/normalization.js';
-import { getProtocolIdentity } from '../../core/logic/identity.js';
-import { getReferenceKeys } from '../../core/logic/protocols.js';
+import type { EngineConfig } from '../../core/types/config.js';
+import type { Trailers } from '../../core/types/domain.js';
+import type { CommitValidationResult, ValidationIssue } from '../../core/types/output.js';
+import type { ProtocolContext } from '../../core/types/protocol-definition.js';
+import type { QueryIdentity } from '../../core/types/query.js';
+import type { RawCommit } from '../../interfaces/git-client.js';
+import type { AtomRepository } from '../../services/atom-repository.js';
+import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
 /**
  * Orchestrates the validation of commits across all registered protocols.
@@ -37,7 +36,7 @@ export async function validateCommits(
   const claimedKeys = protocolRegistry.getClaimedKeys();
 
   return Promise.all(rawCommits.map(async (raw) => {
-    let issues: ValidationIssue[] = [];
+    const issues: ValidationIssue[] = [];
     let trailers: Trailers;
 
     try {

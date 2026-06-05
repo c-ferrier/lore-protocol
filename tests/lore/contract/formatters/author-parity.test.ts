@@ -1,8 +1,8 @@
+import { beforeEach,describe, expect, it } from 'vitest';
+
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeAtom } from '../../../../src/engine/testing.js';
 import { LoreTextFormatter } from '../../../../src/lore/formatters/lore-text-formatter.js';
-
-import { describe, it, expect, beforeEach } from 'vitest';
 ;
 ;
 ;

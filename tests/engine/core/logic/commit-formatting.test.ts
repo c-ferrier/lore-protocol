@@ -1,17 +1,16 @@
+import { afterEach,beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { formatCommit, validateFormatting } from '../../../../src/engine/core/logic/commit-formatting.js';
 import { generateId } from '../../../../src/engine/core/logic/identity.js';
 import { serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
 import { type EngineConfig } from '../../../../src/engine/core/types/config.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { 
-  TEST_ENGINE_CONFIG, 
-  TEST_PROTOCOL_DEFINITION, 
-  MOCK_CORE_TRAILERS,
   makeCommitInput, 
-  makeMockContext 
-} from '../../../../src/engine/testing.js';
-
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+  makeMockContext, 
+  MOCK_CORE_TRAILERS,
+  TEST_ENGINE_CONFIG, 
+  TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
 ;
 ;
 

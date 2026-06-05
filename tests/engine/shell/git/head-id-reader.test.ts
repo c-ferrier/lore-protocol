@@ -5,7 +5,7 @@ import { HeadIdReader } from '../../../../src/engine/shell/git/head-id-reader.js
 import { makeProtocol } from '../../../../src/engine/testing.js';
 
 ;
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach,describe, expect, it, vi } from 'vitest';
 ;
 
 

@@ -1,17 +1,17 @@
-import {  
-    type IOutputFormatter,
-    type ErrorMessage,
-    type ProtocolRegistry,
-    type FormattableQueryResult, 
-    type FormattableValidationResult, 
-    type FormattableStalenessResult, 
-    type FormattableTraceResult, 
-    type FormattableDoctorResult, 
-    type FormattableConfigResult,
-    snakeCase
- } from '../../engine/index.js';
 import { createBaseFormatter } from '../../engine/cli/formatters/index.js';
 import { getProtocolIdentity } from '../../engine/core/logic/identity.js';
+import {  
+    type ErrorMessage,
+    type FormattableConfigResult,
+    type FormattableDoctorResult, 
+    type FormattableQueryResult, 
+    type FormattableStalenessResult, 
+    type FormattableTraceResult, 
+    type FormattableValidationResult, 
+    type IOutputFormatter,
+    type ProtocolRegistry,
+    snakeCase
+ } from '../../engine/index.js';
 
 /**
  * Lore CLI 0.5.0 Legacy JSON Formatter.

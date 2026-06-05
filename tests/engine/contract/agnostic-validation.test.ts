@@ -1,9 +1,9 @@
+import { describe, expect,it } from 'vitest';
+
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
 import { TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
-
-import { describe, it, expect } from 'vitest';
 
 
 describe('Agnostic Validation (Zero Protocols)', () => {

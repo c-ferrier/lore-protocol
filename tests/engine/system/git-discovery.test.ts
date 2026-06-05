@@ -1,3 +1,9 @@
+import { execSync } from 'node:child_process';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { afterAll, beforeAll, beforeEach,describe, expect, it } from 'vitest';
+
 import { createQueryTarget } from '../../../src/engine/core/logic/query-targets.js';
 import { type Atom } from '../../../src/engine/core/types/domain.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
@@ -6,11 +12,6 @@ import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { GitClient } from '../../../src/engine/shell/git/git-client.js';
 import { makeProtocol } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { rmSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { execSync } from 'node:child_process';
 ;
 ;
 ;

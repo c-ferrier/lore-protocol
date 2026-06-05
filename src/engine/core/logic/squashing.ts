@@ -1,8 +1,8 @@
-import type { Atom, AtomId, ProtocolState } from '../types/domain.js';
 import {  ProtocolRegistry  } from '../../services/protocol-registry.js';
 import { ProtocolError } from '../../util/errors.js';
-import type { CommitInput } from '../types/commit.js';
 import { ProtocolMap } from '../models/protocol-map.js';
+import type { CommitInput } from '../types/commit.js';
+import type { Atom, AtomId, ProtocolState } from '../types/domain.js';
 
 /**
  * Merge a collection of atoms into a single enriched commit input (used for squashing).

@@ -1,9 +1,9 @@
+import { describe, expect, it, vi } from 'vitest';
+
 import { createTrailerCollectors } from '../../../../src/engine/cli/readers/collectors/trailer-collector-registry.js';
 import { InteractiveInputReader } from '../../../../src/engine/cli/readers/interactive-input-reader.js';
-import { TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../../src/engine/testing.js';
+import { makeProtocol,MOCK_CORE_TRAILERS, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { makeMockPrompt } from '../../engine-test-utils.js';
-
-import { describe, it, expect, vi } from 'vitest';
 
 describe('InteractiveInputReader', () => {
   const CORE_SCHEMA = {

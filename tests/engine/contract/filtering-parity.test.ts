@@ -1,13 +1,13 @@
-import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
 import { type Atom } from '../../../src/engine/core/types/domain.js';
+import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
 import { type SearchOptions } from '../../../src/engine/core/types/query.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS, makeProtocol } from '../../../src/engine/testing.js';
+import { makeProtocol,MOCK_CORE_TRAILERS, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 ;
 
 

@@ -1,15 +1,15 @@
-import type { IOutputFormatter, ErrorMessage } from '../../interfaces/output-formatter.js';
+import { getProtocolIdentity } from '../../core/logic/identity.js';
+import type { Atom, ProtocolState } from '../../core/types/domain.js';
 import type {
+  FormattableConfigResult,
+  FormattableDoctorResult,
   FormattableQueryResult,
-  FormattableValidationResult,
   FormattableStalenessResult,
   FormattableTraceResult,
-  FormattableDoctorResult,
-  FormattableConfigResult,
+  FormattableValidationResult,
 } from '../../core/types/output.js';
-import type { Atom, ProtocolState } from '../../core/types/domain.js';
+import type { ErrorMessage,IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import { getProtocolIdentity } from '../../core/logic/identity.js';
 
 /**
  * Strategy implementation for JSON output.

@@ -1,16 +1,15 @@
-import { type ActiveTrailer } from '../../../../src/engine/core/models/active-protocol.js';
+import { describe, expect,it } from 'vitest';
+
+import { authorizeKey } from '../../../../src/engine/core/logic/ownership.js';
 import { 
-    isCoreTrailer, 
     getAuthorizedKeys, 
-    getScalarKeys, 
+    getFormattableDefinitions,
     getListKeys, 
     getReferenceKeys,
-    getFormattableDefinitions
-} from '../../../../src/engine/core/logic/protocols.js';
-import { authorizeKey } from '../../../../src/engine/core/logic/ownership.js';
+    getScalarKeys, 
+    isCoreTrailer} from '../../../../src/engine/core/logic/protocols.js';
+import { type ActiveTrailer } from '../../../../src/engine/core/models/active-protocol.js';
 import { makeMockContext } from '../../../../src/engine/testing.js';
-
-import { describe, it, expect } from 'vitest';
 
 describe('Protocol Schema Logic (via Context)', () => {
   const createSchema = (definitions: Map<string, ActiveTrailer>, permissive = true) => {

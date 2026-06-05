@@ -4,7 +4,7 @@ import { makeProtocol } from '../../../../src/engine/testing.js';
 import { ProtocolError } from '../../../../src/engine/util/errors.js';
 
 ;
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach,describe, expect, it } from 'vitest';
 ;
 ;
 ;

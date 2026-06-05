@@ -1,10 +1,10 @@
 import type {
+  FormattableConfigResult,
+  FormattableDoctorResult,
   FormattableQueryResult,
-  FormattableValidationResult,
   FormattableStalenessResult,
   FormattableTraceResult,
-  FormattableDoctorResult,
-  FormattableConfigResult,
+  FormattableValidationResult,
 } from '../core/types/output.js';
 
 export interface ErrorMessage {

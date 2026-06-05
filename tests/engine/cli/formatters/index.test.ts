@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect,it } from 'vitest';
+
 import { createBaseFormatter, JsonFormatter, TextFormatter } from '../../../../src/engine/cli/formatters/index.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 

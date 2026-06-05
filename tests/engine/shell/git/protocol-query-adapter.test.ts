@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect,it } from 'vitest';
+
 import { getDiscoveryPatterns, getSearchPatterns } from '../../../../src/engine/shell/git/protocol-query-adapter.js';
 import { makeMockContext } from '../../../../src/engine/testing.js';
 

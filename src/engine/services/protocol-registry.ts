@@ -1,16 +1,15 @@
-import { ProtocolMap, type Atom, type SupersessionStatus } from '../core/types/domain.js';
-import type { QualifiedFilter, QueryIdentity } from '../core/types/query.js';
-import { ProtocolError, ConfigurationError } from '../util/errors.js';
-import type { ProtocolDefinition, ProtocolContext, IIdentityResolver } from '../core/types/protocol-definition.js';
-import { createProtocolContext, getAuthorizedKeys } from '../core/logic/protocols.js';
-import { 
-    getDiscoveryPatterns, 
-    getSearchPatterns, 
-    claimsTrailers 
-} from '../shell/git/protocol-query-adapter.js';
-import { authorizeKey } from '../core/logic/ownership.js';
 import { getProtocolIdentity } from '../core/logic/identity.js';
+import { authorizeKey } from '../core/logic/ownership.js';
+import { createProtocolContext, getAuthorizedKeys } from '../core/logic/protocols.js';
 import { isValidProtocolIdentity } from '../core/logic/validation.js';
+import { type Atom, ProtocolMap, type SupersessionStatus } from '../core/types/domain.js';
+import type { IIdentityResolver,ProtocolContext, ProtocolDefinition } from '../core/types/protocol-definition.js';
+import type { QualifiedFilter, QueryIdentity } from '../core/types/query.js';
+import { 
+    claimsTrailers, 
+    getDiscoveryPatterns, 
+    getSearchPatterns} from '../shell/git/protocol-query-adapter.js';
+import { ConfigurationError,ProtocolError } from '../util/errors.js';
 
 /**
  * Orchestrates multiple decision protocols using the Strict Isolation Model.

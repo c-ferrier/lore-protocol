@@ -1,13 +1,12 @@
-import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
-import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../../src/engine/testing.js';
-import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { 
-    getScalarKeys, 
-    getListKeys,
-    getFormattableDefinitions
-} from '../../../src/engine/core/logic/protocols.js';
+import { beforeEach,describe, expect, it } from 'vitest';
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { 
+    getFormattableDefinitions,
+    getListKeys,
+    getScalarKeys} from '../../../src/engine/core/logic/protocols.js';
+import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
+import { makeProtocol,TEST_PROTOCOL_CONFIG } from '../../../src/engine/testing.js';
+import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
 const LORE_ID_KEY = 'Lore-id';
 

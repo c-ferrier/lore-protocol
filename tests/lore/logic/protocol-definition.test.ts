@@ -1,10 +1,10 @@
-import { type Atom, type SupersessionStatus, ProtocolMap } from '../../../src/engine/core/types/domain.js';
-import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../../src/engine/testing.js';
+import { describe, expect,it } from 'vitest';
+
+import { getStaleSignals } from '../../../src/engine/core/logic/staleness.js';
+import { type Atom, ProtocolMap,type SupersessionStatus } from '../../../src/engine/core/types/domain.js';
+import { makeProtocol,TEST_PROTOCOL_CONFIG } from '../../../src/engine/testing.js';
 import { LORE_STALE_SIGNAL } from '../../../src/lore/constants.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-import { getStaleSignals } from '../../../src/engine/core/logic/staleness.js';
-
-import { describe, it, expect } from 'vitest';
 
 describe('LoreProtocolDefinition Declarative Triggers', () => {
   const protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);

@@ -1,9 +1,9 @@
-import { executePathQuery } from '../../../../src/engine/cli/commands/helpers/path-query.js';
-import { registerContextCommand } from '../../../../src/lore/commands/context.js';
-import { registerConstraintsCommand } from '../../../../src/lore/commands/constraints.js';
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
+import { executePathQuery } from '../../../../src/engine/cli/commands/helpers/path-query.js';
+import { registerConstraintsCommand } from '../../../../src/lore/commands/constraints.js';
+import { registerContextCommand } from '../../../../src/lore/commands/context.js';
 ;
 ;
 ;

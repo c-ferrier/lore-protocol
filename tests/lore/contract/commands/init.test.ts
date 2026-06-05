@@ -1,12 +1,12 @@
-import { registerInitCommand } from '../../../../src/lore/commands/init.js';
-import { TestLogger, makeMockFormatter } from '../../../engine/engine-test-utils.js';
-import { DEFAULT_ENGINE_CONFIG } from '../../../../src/engine/defaults.js';
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Command } from 'commander';
-
 import * as fs from 'node:fs/promises';
 import { join } from 'node:path';
+
+import { Command } from 'commander';
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
+import { DEFAULT_ENGINE_CONFIG } from '../../../../src/engine/defaults.js';
+import { registerInitCommand } from '../../../../src/lore/commands/init.js';
+import { makeMockFormatter,TestLogger } from '../../../engine/engine-test-utils.js';
 
 const CONFIG_DIR = '.lore';
 const CONFIG_FILENAME = 'config.toml';

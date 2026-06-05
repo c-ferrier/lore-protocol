@@ -1,8 +1,8 @@
-import type { Atom, SupersessionStatus, StaleSignal, StaleReason } from './domain.js';
-import type { QueryResult, QueryMeta } from './query.js';
+import type { Atom, StaleReason,StaleSignal, SupersessionStatus } from './domain.js';
+import type { QueryMeta,QueryResult } from './query.js';
 
-export type { QueryResult, QueryMeta };
-import type { ValueDefinition, TrailerUiKind, TrailerUiColor } from './config.js';
+export type { QueryMeta,QueryResult };
+import type { TrailerUiColor,TrailerUiKind, ValueDefinition } from './config.js';
 
 export interface FormattableQueryResult {
   readonly result: QueryResult;

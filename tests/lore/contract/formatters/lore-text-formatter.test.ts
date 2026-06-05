@@ -1,11 +1,11 @@
+import { beforeEach,describe, expect, it } from 'vitest';
+
 import { type Atom, type Trailers } from '../../../../src/engine/core/types/domain.js';
 import { type FormattableQueryResult } from '../../../../src/engine/core/types/output.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { TEST_PROTOCOL_CONFIG, makeProtocol } from '../../../../src/engine/testing.js';
+import { makeProtocol,TEST_PROTOCOL_CONFIG } from '../../../../src/engine/testing.js';
 import { LoreTextFormatter } from '../../../../src/lore/formatters/lore-text-formatter.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
-
-import { describe, it, expect, beforeEach } from 'vitest';
 ;
 ;
 ;

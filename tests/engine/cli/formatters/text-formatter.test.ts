@@ -1,10 +1,11 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { TextFormatter } from '../../../../src/engine/cli/formatters/text-formatter.js';
+import { type Atom, ProtocolMap,type Trailers } from '../../../../src/engine/core/types/domain.js';
+import { type FormattableDoctorResult, type FormattableQueryResult, type FormattableStalenessResult, type FormattableTraceResult, type FormattableValidationResult } from '../../../../src/engine/core/types/output.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { TextFormatter } from '../../../../src/engine/cli/formatters/text-formatter.js';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { makeMockContext as makeMockProtocol } from '../../../../src/engine/testing.js';
-import { type Atom, type Trailers, ProtocolMap } from '../../../../src/engine/core/types/domain.js';
-import { type FormattableDoctorResult, type FormattableQueryResult, type FormattableStalenessResult, type FormattableTraceResult, type FormattableValidationResult } from '../../../../src/engine/core/types/output.js';
 
 const TEST_ID_KEY = "Mock-id";
 function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {

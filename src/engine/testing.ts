@@ -1,42 +1,40 @@
 import { existsSync, mkdirSync } from 'node:fs';
-import { ProtocolMap } from './core/models/protocol-map.js';
-import { ProtocolRegistry } from './services/protocol-registry.js';
-import { ProtocolLoader } from './shell/fs/protocol-loader.js';
-import type { ProtocolDefinition, IIdentityResolver, ProtocolContext } from './core/types/protocol-definition.js';
-import type { EngineConfig, TrailerUiKind, TrailerUiColor, TrailerDefinition } from './core/types/config.js';
-import type { Atom, SupersessionStatus, StaleReason, ProtocolState } from './core/types/domain.js';
-import type { RawCommit as IGitRawCommit } from './interfaces/git-client.js';
-import type { QueryTargetAST, QueryIdentity, QualifiedFilter } from './core/types/query.js';
-import type { CommitInput } from './core/types/commit.js';
-import { AtomRepository } from './services/atom-repository.js';
 
+import { getProtocolIdentity } from './core/logic/identity.js';
+import { normalizeTrailers } from './core/logic/normalization.js';
+import { authorizeKey, isBucketOwner,ownsKey } from './core/logic/ownership.js';
 import { 
     createProtocolContext,
     getAuthorizedKeys,
-    getScalarKeys,
+    getFormattableDefinitions,
     getListKeys,
     getReferenceKeys,
-    isCoreTrailer,
-    getFormattableDefinitions
-} from './core/logic/protocols.js';
-import { authorizeKey, ownsKey, isBucketOwner } from './core/logic/ownership.js';
-import { normalizeTrailers } from './core/logic/normalization.js';
-import { getProtocolIdentity } from './core/logic/identity.js';
+    getScalarKeys,
+    isCoreTrailer} from './core/logic/protocols.js';
 import { getProtocolStaleSignals } from './core/logic/staleness.js';
+import { ProtocolMap } from './core/models/protocol-map.js';
+import type { CommitInput } from './core/types/commit.js';
+import type { EngineConfig, TrailerDefinition,TrailerUiColor, TrailerUiKind } from './core/types/config.js';
+import type { Atom, ProtocolState,StaleReason, SupersessionStatus } from './core/types/domain.js';
+import type { IIdentityResolver, ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
+import type { QualifiedFilter,QueryIdentity, QueryTargetAST } from './core/types/query.js';
+import type { RawCommit as IGitRawCommit } from './interfaces/git-client.js';
+import { AtomRepository } from './services/atom-repository.js';
+import { ProtocolRegistry } from './services/protocol-registry.js';
+import { ProtocolLoader } from './shell/fs/protocol-loader.js';
 
 export { 
+    authorizeKey,
     createProtocolContext,
     getAuthorizedKeys,
-    getScalarKeys,
+    getFormattableDefinitions,
     getListKeys,
     getReferenceKeys,
-    isCoreTrailer,
-    getFormattableDefinitions,
-    authorizeKey,
-    ownsKey,
+    getScalarKeys,
     isBucketOwner,
-    normalizeTrailers
-};
+    isCoreTrailer,
+    normalizeTrailers,
+    ownsKey};
 
 /** Key for the standard baseline protocol ID. */
 export const TEST_ID_KEY = 'Mock-id';

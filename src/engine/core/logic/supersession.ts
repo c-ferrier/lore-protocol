@@ -1,5 +1,5 @@
-import { ProtocolMap, type Atom, type SupersessionStatus } from '../types/domain.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { type Atom, ProtocolMap, type SupersessionStatus } from '../types/domain.js';
 import { getProtocolIdentity } from './identity.js';
 
 /**

@@ -1,10 +1,11 @@
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
 import { ProtocolMap } from '../../../src/engine/core/types/domain.js';
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, makeAtom, makeMockContext, makeRawCommit } from '../../../src/engine/testing.js';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { makeAtomRepository, makeMockGitClient, makeQueryOptions } from '../engine-test-utils.js';
+import { makeAtom, makeMockContext, makeRawCommit,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 import { makeQueryTarget } from '../../../src/engine/testing.js';
+import { makeAtomRepository, makeMockGitClient, makeQueryOptions } from '../engine-test-utils.js';
 
 describe('AtomRepository', () => {
   let gitClient: any;

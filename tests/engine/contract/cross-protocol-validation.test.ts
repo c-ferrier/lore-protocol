@@ -1,10 +1,10 @@
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
 import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol-definition.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
-import { TEST_ENGINE_CONFIG, makeProtocol } from '../../../src/engine/testing.js';
+import { makeProtocol,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 import { makeMockGitClient } from '../engine-test-utils.js';
-
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 describe('Cross-Protocol Reference Validation', () => {
   let registry: ProtocolRegistry;

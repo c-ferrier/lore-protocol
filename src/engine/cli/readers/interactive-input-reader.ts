@@ -1,6 +1,6 @@
+import type { CommitInput } from '../../core/types/commit.js';
 import { ProtocolMap } from '../../core/types/domain.js';
 import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js';
-import type { CommitInput } from '../../core/types/commit.js';
 import type { IPrompt } from '../../interfaces/prompt.js';
 import type { ITrailerCollector } from '../../interfaces/trailer-collector.js';
 import { PROMPT_STRINGS } from '../../util/constants.js';

@@ -1,7 +1,7 @@
-import type { ValidationIssue } from '../types/output.js';
 import type { EngineConfig } from '../types/config.js';
-import type { Trailers, ProtocolState } from '../types/domain.js';
-import type { IIdentityResolver, ProtocolDefinition, ProtocolContext } from '../types/protocol-definition.js';
+import type { ProtocolState,Trailers } from '../types/domain.js';
+import type { ValidationIssue } from '../types/output.js';
+import type { IIdentityResolver, ProtocolContext,ProtocolDefinition } from '../types/protocol-definition.js';
 
 /**
  * Basic commit message structural hygiene.
