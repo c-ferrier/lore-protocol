@@ -1,20 +1,20 @@
 import type { Command } from 'commander';
 
 import { getFormattableDefinitions } from '../../core/logic/protocols.js';
+import type { EngineConfig } from '../../core/types/config.js';
 import type { FormattableConfigResult, FormattableTrailerDefinition } from '../../core/types/output.js';
-import type { IConfigLoader } from '../../interfaces/config-loader.js';
 import type { ILogger } from '../../interfaces/logger.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
 /**
  * Register the config command.
- * Outputs the effective configuration for the current path.
+ * Outputs the effective configuration for the current active context.
  */
 export function registerConfigCommand(
   program: Command,
   deps: {
-    configLoader: IConfigLoader;
+    config: EngineConfig;
     getFormatter: () => IOutputFormatter;
     protocolRegistry: ProtocolRegistry;
     logger: ILogger;
@@ -26,8 +26,7 @@ export function registerConfigCommand(
     .option('--core', 'Show only core trailer definitions')
     .option('--custom', 'Show only custom trailer definitions')
     .action(async (options: { core?: boolean; custom?: boolean }) => {
-      const { configLoader, getFormatter, protocolRegistry, logger } = deps;
-      const config = await configLoader.loadForPath(process.cwd());
+      const { config, getFormatter, protocolRegistry, logger } = deps;
       
       const hasFilters = options.core !== undefined || options.custom !== undefined;
       const showCore = options.core ?? !hasFilters;

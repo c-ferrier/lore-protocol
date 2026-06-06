@@ -195,7 +195,6 @@ export class EngineBootstrapper {
       protocolRegistry,
       protocolRoot: protocolRoot || activeRoot,
       cwd,
-      configLoader: engineConfigLoader as any,
 
       cacheDir: join(activeRoot, this.options.engineDirName, CACHE_DIR),
       defaultConfig: this.options.defaultConfig,

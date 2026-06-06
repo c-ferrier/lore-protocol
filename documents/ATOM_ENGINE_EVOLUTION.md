@@ -69,11 +69,6 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 *   Execute exactly *one* bounded subprocess: `git log --format=format:%H --name-only <oldestHash>..HEAD`.
 *   Build a localized timeline in memory and calculate file drift counts synchronously, dropping subprocess overhead to O(1).
 
-### PHASE 7.6: Universal TypeScript Conversion
-**Urgency**: Medium | **Importance**: High | **Difficulty**: Low
-**Concept**: Eliminate the last remaining `.js` orphans in the source tree to ensure total type safety and testability.
-**Action**: Convert `rebase-editor.js`, `rewrite-trailers.js`, and `extract-lore-state.cjs` to `.ts`. Add isolated tests for programmatic rebase logic.
-
 ### PHASE 7.7: Strict CLI Guardrails (Typo Prevention)
 **Urgency**: Low | **Importance**: Medium | **Difficulty**: Low
 **Concept**: Prevent metadata loss caused by CLI flag typos.
@@ -81,6 +76,15 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 *   **Behavior (Standard)**: Print a warning for unknown flags.
 *   **Behavior (Strict Protocol)**: If a protocol is marked `strict: true`, throw a `ProtocolError` for any unknown flags that slugify to its namespace.
 **Value**: Ensures high-fidelity data entry and provides immediate feedback for configuration errors.
+
+### PHASE 11: Dynamic Context Pivoting
+**Urgency**: Low | **Importance**: High | **Difficulty**: Medium
+**Concept**: Allow the engine to be invoked from outside a project by "teleporting" into the project context based on positional arguments.
+**Action**: Enhance `EngineBootstrapper` to perform root discovery on positional arguments before initialization.
+*   **Discovery**: If CWD is not a project, scan `argv` for the first valid Git/Protocol root.
+*   **Conflict Resolution**: If multiple positional arguments point to different `gitRoots`, the bootstrapper resolves the conflict at the entry point.
+*   **Encapsulation**: This logic remains entirely within the `EngineBootstrapper`. Downstream commands and repositories remain agnostic of physical anchoring.
+**Value**: Provides a frictionless "Global CLI" experience where users can query projects from anywhere without manual `cd` operations.
 
 
 ### PHASE 4.1: Persistent Identity Index (Discovery Sovereignty)
