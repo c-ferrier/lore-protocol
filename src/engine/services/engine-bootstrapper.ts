@@ -88,7 +88,7 @@ export class EngineBootstrapper {
         configFile, 
         this.options.defaultConfig
     );
-    const { protocolRoot, gitRoot } = await resolveProtocolRoot(cwd, engineConfigLoader, tempGitClient);
+    const { protocolRoot, isScoped } = await resolveProtocolRoot(cwd, engineConfigLoader, tempGitClient);
     const activeRoot = protocolRoot || cwd;
 
     // 2. Load Engine Configuration - ensure defaults are used if file is missing
@@ -113,9 +113,6 @@ export class EngineBootstrapper {
     if (this.options.onProtocolsLoaded) {
       allProtocols = await this.options.onProtocolsLoaded(allProtocols);
     }
-
-    // Determine if we are running in a scoped context
-    const isScoped = !!gitRoot && !!protocolRoot && protocolRoot !== gitRoot;
 
     program
       .name(this.options.binaryName)
@@ -197,7 +194,6 @@ export class EngineBootstrapper {
       logger,
       protocolRegistry,
       protocolRoot: protocolRoot || activeRoot,
-      gitRoot: gitRoot || activeRoot,
       cwd,
       configLoader: engineConfigLoader as any,
 

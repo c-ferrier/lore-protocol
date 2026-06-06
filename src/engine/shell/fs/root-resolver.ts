@@ -5,7 +5,7 @@ import type { IGitClient } from '../../interfaces/git-client.js';
 
 export interface ProtocolRoots {
   readonly protocolRoot: string;
-  readonly gitRoot: string | null;
+  readonly isScoped: boolean;
 }
 
 /**
@@ -15,6 +15,7 @@ export interface ProtocolRoots {
  * 1. Walk up from CWD to find nearest protocol directory (using configLoader's knowledge of dirName).
  * 2. If not found, try to find the git repository root.
  * 3. Fallback to process.cwd().
+ * 4. Determine isScoped: True if protocolRoot is a subdirectory of gitRoot.
  */
 export async function resolveProtocolRoot(
   cwd: string,
@@ -31,9 +32,6 @@ export async function resolveProtocolRoot(
 
     const configPath = await configLoader.findConfigPath(cwd);
     if (configPath) {
-      // configPath is typically /path/to/.protocol/config.toml
-      // so dirname(configPath) is /path/to/.protocol
-      // and dirname(dirname(configPath)) is /path/to
       protocolRoot = dirname(dirname(configPath));
     } else if (gitRoot) {
       protocolRoot = gitRoot;
@@ -42,5 +40,7 @@ export async function resolveProtocolRoot(
     // Best-effort
   }
 
-  return { protocolRoot, gitRoot };
+  const isScoped = !!gitRoot && !!protocolRoot && protocolRoot !== gitRoot;
+
+  return { protocolRoot, isScoped };
 }

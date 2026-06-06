@@ -91,7 +91,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
   it('should determine isScoped=true when protocol root is a subdirectory of git root', async () => {
     const spy = vi.spyOn(rootResolver, 'resolveProtocolRoot').mockResolvedValue({
       protocolRoot: '/repo/sub',
-      gitRoot: '/repo'
+      isScoped: true
     });
     const { sharedDeps } = await runCli({
       binaryName: 'atom', version: '0.0.0-test',
@@ -101,13 +101,14 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [],
     });
-    expect((sharedDeps.atomRepository as any).baseTarget).toBeDefined();
+    // VERIFICATION: baseTarget must be scoped to current directory ['.']
+    expect((sharedDeps.atomRepository as any).baseTarget.resolvedPaths).toEqual(['.']);
     spy.mockRestore();
   });
   it('should determine isScoped=false when protocol root is the git root', async () => {
     const spy = vi.spyOn(rootResolver, 'resolveProtocolRoot').mockResolvedValue({
       protocolRoot: '/repo',
-      gitRoot: '/repo'
+      isScoped: false
     });
     const { sharedDeps } = await runCli({
       binaryName: 'atom', version: '0.0.0-test',
@@ -117,9 +118,11 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [],
     });
-    expect((sharedDeps.atomRepository as any).baseTarget).toBeDefined();
+    // VERIFICATION: baseTarget must be global (empty resolvedPaths)
+    expect((sharedDeps.atomRepository as any).baseTarget.resolvedPaths).toEqual([]);
     spy.mockRestore();
-    });
+  });
+
   describe('Protocol Architectural Integrity', () => {
   it('should flow custom trailers from CLI flags to JSON output via metadata', async () => {
     // 1. Setup metadata in config

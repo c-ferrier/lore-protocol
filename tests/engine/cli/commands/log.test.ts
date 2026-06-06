@@ -55,7 +55,6 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
     getFormatter: () => formatter,
     logger,
     protocolRoot: '/mock',
-    gitRoot: '/mock',
     cwd: '/mock',
   });
 

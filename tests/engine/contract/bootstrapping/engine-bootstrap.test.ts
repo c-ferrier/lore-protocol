@@ -19,7 +19,7 @@ vi.mock('../../../../src/engine/shell/fs/config-loader.js', () => ({
 }));
 
 vi.mock('../../../../src/engine/shell/fs/root-resolver.js', () => ({
-    resolveProtocolRoot: vi.fn(async () => ({ protocolRoot: '/mock', gitRoot: '/mock' })),
+    resolveProtocolRoot: vi.fn(async () => ({ protocolRoot: '/mock', isScoped: false })),
 }));
 
 vi.mock('../../../../src/engine/shell/fs/protocol-loader.js', () => ({

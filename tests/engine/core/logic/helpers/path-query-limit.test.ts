@@ -1,15 +1,11 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
-import { executePathQuery } from '../../../../../src/engine/cli/commands/helpers/path-query.js';
+import {     type PathQueryCommandOptions,
+    type PathQueryDeps,
+    executePathQuery } from '../../../../../src/engine/cli/commands/helpers/path-query.js';
 import { type Atom } from '../../../../../src/engine/core/types/domain.js';
 import { TEST_ENGINE_CONFIG } from '../../../../../src/engine/testing.js';
 import { TestLogger } from '../../../engine-test-utils.js';
-;
-
-
-;
-
-;
 
 const TEST_ID_KEY = "Mock-id";
 
@@ -65,7 +61,6 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
       config: TEST_ENGINE_CONFIG,
       logger,
       protocolRoot: '/mock',
-      gitRoot: '/mock',
       cwd: '/mock'
     };
   });
