@@ -55,24 +55,32 @@ describe('Staleness Logic (Pure Functions)', () => {
   });
 
   describe('evaluateDriftSignal', () => {
-    it('should return null if no files exceed the drift threshold', () => {
+    it('should return empty array if no files exceed the drift threshold', () => {
       const driftMap = { 'src/a.ts': 5, 'src/b.ts': 9 };
-      const signal = evaluateDriftSignal(driftMap, 10);
-      expect(signal).toBeNull();
+      const signals = evaluateDriftSignal(driftMap, 10);
+      expect(signals).toHaveLength(0);
     });
 
-    it('should return a reason if any file exceeds the drift threshold', () => {
+    it('should return reasons if any file exceeds the drift threshold', () => {
       const driftMap = { 'src/a.ts': 5, 'src/b.ts': 15 };
-      const signal = evaluateDriftSignal(driftMap, 10);
+      const signals = evaluateDriftSignal(driftMap, 10);
       
-      expect(signal).not.toBeNull();
-      expect(signal?.signal).toBe(STALE_SIGNAL.DRIFT);
-      expect(signal?.description).toContain('Source files have drifted');
+      expect(signals).toHaveLength(1);
+      expect(signals[0].signal).toBe(STALE_SIGNAL.DRIFT);
+      expect(signals[0].description).toBe('src/b.ts has 15 commits since this atom (threshold: 10)');
+    });
+
+    it('should return multiple reasons for multiple drifted files', () => {
+        const driftMap = { 'src/a.ts': 12, 'src/b.ts': 15 };
+        const signals = evaluateDriftSignal(driftMap, 10);
+        expect(signals).toHaveLength(2);
+        expect(signals[0].description).toContain('src/a.ts has 12 commits');
+        expect(signals[1].description).toContain('src/b.ts has 15 commits');
     });
 
     it('should handle empty drift map', () => {
-        const signal = evaluateDriftSignal({}, 10);
-        expect(signal).toBeNull();
+        const signals = evaluateDriftSignal({}, 10);
+        expect(signals).toHaveLength(0);
     });
   });
 

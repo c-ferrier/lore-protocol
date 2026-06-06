@@ -25,20 +25,16 @@ export function evaluateAgeSignal(atomDate: Date, now: Date, thresholdStr: strin
 
 /**
  * Check if the files associated with the atom have changed significantly.
+ * Returns an array of reasons (one per drifted file).
  */
-export function evaluateDriftSignal(driftMap: Record<string, number>, threshold: number): StaleReason | null {
-  const driftedFiles = Object.entries(driftMap)
-    .filter(([_, count]) => count > threshold)
-    .map(([file]) => file);
+export function evaluateDriftSignal(driftMap: Record<string, number>, threshold: number): StaleReason[] {
+  const driftedEntries = Object.entries(driftMap)
+    .filter(([_, count]) => count > threshold);
 
-  if (driftedFiles.length > 0) {
-    return {
-      signal: STALE_SIGNAL.DRIFT,
-      description: `Source files have drifted (${driftedFiles.length} files with >${threshold} commits)`,
-    };
-  }
-  
-  return null;
+  return driftedEntries.map(([file, count]) => ({
+    signal: STALE_SIGNAL.DRIFT,
+    description: `${file} has ${count} commits since this atom (threshold: ${threshold})`,
+  }));
 }
 
 /**

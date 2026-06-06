@@ -44,6 +44,8 @@ describe('analyzeStaleness (Shell Orchestrator)', () => {
 
     // 2. Drift signal triggered
     expect(reasons.some(r => r.signal === STALE_SIGNAL.DRIFT)).toBe(true);
+    expect(reasons.find(r => r.signal === STALE_SIGNAL.DRIFT)?.description)
+        .toBe('src/logic.ts has 25 commits since this atom (threshold: 20)');
     expect(mockRepo.getAtomDrift).toHaveBeenCalledWith(atom);
   });
 
