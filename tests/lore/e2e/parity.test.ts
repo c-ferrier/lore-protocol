@@ -198,8 +198,38 @@ describe('Lore CLI Output Parity (v0.5.0 vs Local)', () => {
   it('should maintain PARITY: lore squash (Raw)', () => {
     const system = execSystem('squash', ['HEAD~2..HEAD']).trim();
     const local = execLocal('squash', ['HEAD~2..HEAD']).trim();
-    
+
     const normalize = (s: string) => s.replace(/Lore-id: [0-9a-f]{8}/g, 'Lore-id: deterministic');
     expect(normalize(local)).toBe(normalize(system));
   });
-});
+
+  it('should maintain PARITY: lore stale (Drift Detail)', () => {
+    // 1. Create a drift scenario
+    writeFileSync(join(sandboxDir, 'DRIFT.md'), 'initial\n');
+    execSync('git add DRIFT.md', { cwd: sandboxDir });
+    // Use a date far in the future to avoid age-based staleness interference
+    const futureDate = "2026-06-06T12:00:00Z";
+    execSync(`git commit -m "Atom with drift target\n\nLore-id: drift001"`, { 
+        cwd: sandboxDir, 
+        env: { ...process.env, GIT_AUTHOR_DATE: futureDate, GIT_COMMITTER_DATE: futureDate } 
+    });
+
+    // Add 3 commits to trigger drift --drift 2
+    for (let i = 1; i <= 3; i++) {
+        writeFileSync(join(sandboxDir, 'DRIFT.md'), `change ${i}\n`, { flag: 'a' });
+        execSync('git add DRIFT.md', { cwd: sandboxDir });
+        execSync(`git commit -m "Change ${i}"`, { 
+            cwd: sandboxDir, 
+            env: { ...process.env, GIT_AUTHOR_DATE: futureDate, GIT_COMMITTER_DATE: futureDate } 
+        });
+    }
+
+    const system = execSystem('stale', ['--drift', '2', '--no-color']).trim();
+    const local = execLocal('stale', ['--drift', '2', '--no-color']).trim();
+
+    // Filter to only our drift atom block to verify the detailed reason line
+    const filter = (s: string) => s.split('\n\n').filter(block => block.includes('drift001')).join('\n\n');
+
+    expect(filter(local)).toBe(filter(system));
+  });
+  });
