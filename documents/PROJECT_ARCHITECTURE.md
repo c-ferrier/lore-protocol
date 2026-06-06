@@ -1191,7 +1191,7 @@ The `log` command now uses `SupersessionResolver.resolve()` to properly compute 
 
 ### `parseRawCommits` Performance (Resolved)
 
-`AtomRepository.parseRawCommits()` now uses a two-pass approach: first filters and parses trailers synchronously, then batches `getFilesChanged()` calls via `Promise.all` in chunks of `GIT_FILES_CHANGED_BATCH_SIZE` (20). A `buildAtom()` factory method centralizes `RawCommit → LoreAtom` construction.
+`AtomRepository.parseRawCommits()` now uses a two-pass approach: first filters and parses trailers synchronously, then batches `getFilesChanged()` calls via `Promise.all`. The underlying `GitClient` ensures that no more than `GIT_CONCURRENCY_LIMIT` (20) physical subprocesses are active at once via a global semaphore.
 
 ---
 

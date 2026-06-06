@@ -23,8 +23,8 @@ export const STALE_SIGNAL = {
   EXPIRED_HINT: 'expired-hint' as const,
 };
 
-/** Default batch size for parallel git file-change lookups */
-export const GIT_FILES_CHANGED_BATCH_SIZE = 20;
+/** Default concurrency limit for parallel git subprocesses */
+export const GIT_CONCURRENCY_LIMIT = 20;
 
 /** Exit codes for the CLI */
 export const EXIT_CODE_SUCCESS = 0;

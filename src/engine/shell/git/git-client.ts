@@ -2,6 +2,7 @@ import { execFile as execFileCb } from 'node:child_process';
 
 import { escapeRegex } from '../../core/logic/regex.js';
 import type { BlameLine, CommitOptions, CommitResult, IGitClient, RawCommit, StorageQuery } from '../../interfaces/git-client.js';
+import { GIT_CONCURRENCY_LIMIT } from '../../util/constants.js';
 import { GitError } from '../../util/errors.js';
 
 /**
@@ -38,6 +39,8 @@ const BLAME_HASH_PATTERN = /^([0-9a-f]{40})\s/;
  */
 export class GitClient implements IGitClient {
   private readonly cwd: string;
+  private activeProcesses = 0;
+  private readonly queue: Array<() => void> = [];
 
   constructor(cwd?: string) {
     this.cwd = cwd ?? process.cwd();
@@ -454,26 +457,39 @@ export class GitClient implements IGitClient {
    * Throws GitError on non-zero exit or other errors.
    */
   private async exec(args: readonly string[], input?: string): Promise<string> {
-    // // console.log('EXECUTING:', 'git', args.join(' '));
-    return new Promise((resolve, reject) => {
-      const child = execFileCb('git', args as string[], {
-        cwd: this.cwd,
-        maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large repos
-        encoding: 'utf-8',
-      }, (error, stdout, stderr) => {
-        if (error) {
-          const execError = error as { stderr?: string; code?: number };
-          const actualStderr = stderr || execError.stderr || error.message;
-          reject(new GitError(`git ${args[0]} failed: ${actualStderr}`));
-        } else {
-          resolve(stdout);
-        }
-      });
+    // 1. Concurrency Guard: Wait for a slot if we hit the limit
+    if (this.activeProcesses >= GIT_CONCURRENCY_LIMIT) {
+        await new Promise<void>(resolve => this.queue.push(resolve));
+    }
 
-      if (input !== undefined && child.stdin) {
-        child.stdin.write(input);
-        child.stdin.end();
-      }
-    });
+    this.activeProcesses++;
+
+    try {
+        // // console.log('EXECUTING:', 'git', args.join(' '));
+        return await new Promise((resolve, reject) => {
+          const child = execFileCb('git', args as string[], {
+            cwd: this.cwd,
+            maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large repos
+            encoding: 'utf-8',
+          }, (error, stdout, stderr) => {
+            if (error) {
+              const execError = error as { stderr?: string; code?: number };
+              const actualStderr = stderr || execError.stderr || error.message;
+              reject(new GitError(`git ${args[0]} failed: ${actualStderr}`));
+            } else {
+              resolve(stdout);
+            }
+          });
+
+          if (input !== undefined && child.stdin) {
+            child.stdin.write(input);
+            child.stdin.end();
+          }
+        });
+    } finally {
+        this.activeProcesses--;
+        // 2. Release: Trigger the next waiting process
+        this.queue.shift()?.();
+    }
   }
 }
