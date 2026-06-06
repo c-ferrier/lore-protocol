@@ -30,7 +30,8 @@ export function registerSearchCommand(
     .command('search')
     .description('Search for decision atoms across history')
     .option('--text <query>', 'Search commit subjects and bodies')
-    .option('--has <key>', 'Search for atoms containing a specific trailer key');
+    .option('--has <key>', 'Search for atoms containing a specific trailer key')
+    .option('--history', 'Search full physical history including non-protocol commits');
 
   addPathQueryOptions(cmd);
 
@@ -59,7 +60,7 @@ export function registerSearchCommand(
         isScoped: !!searchOptions.scope 
     });
 
-    const atoms = await atomRepository.find(target, searchOptions);
+    const atoms = await atomRepository.find(target, { ...searchOptions, includeAllCommits: !!(mergedOptions as any).history });
     const totalAtoms = atoms.length;
 
     // Step 3: Filter superseded atoms unless --all (Active Truth)

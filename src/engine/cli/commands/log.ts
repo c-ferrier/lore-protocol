@@ -43,7 +43,7 @@ export function registerLogCommand(
         isScoped: !!options.scope 
     });
 
-    const atoms = await atomRepository.find(target, options);
+    const atoms = await atomRepository.find(target, { ...options, includeAllCommits: !!(options as any).history });
     const totalAtoms = atoms.length;
 
     // Step 2: Apply the display-level limit

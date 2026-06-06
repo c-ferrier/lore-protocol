@@ -82,11 +82,19 @@ export function createTargetFromIdentities(identities: readonly QueryIdentity[])
  * Convert a QueryTargetAST into git log arguments.
  */
 export function getGitLogArgs(target: QueryTargetAST): string[] {
+  const args: string[] = [];
+  if (target.revisionRange) {
+    args.push(target.revisionRange);
+  }
+
   switch (target.type) {
     case 'global':
     case 'path':
     case 'identity':
-      return target.resolvedPaths.length > 0 ? ['--', ...target.resolvedPaths] : [];
+      if (target.resolvedPaths.length > 0) {
+        args.push('--', ...target.resolvedPaths);
+      }
+      return args;
 
     case 'line-range':
       if (!target.lineRange) return [];
@@ -95,7 +103,7 @@ export function getGitLogArgs(target: QueryTargetAST): string[] {
         `${target.lineRange.start},${target.lineRange.end}:${target.lineRange.file}`,
       ];
     default:
-      return [];
+      return args;
   }
 }
 
@@ -124,21 +132,23 @@ export function getGitBlameArgs(target: QueryTargetAST): { file: string; lineSta
  * Returns a stable string representing the target's unique identity for caching.
  */
 export function getCacheFingerprint(target: QueryTargetAST): string {
+  const revision = target.revisionRange ? `rev:${target.revisionRange}:` : '';
+  
   switch (target.type) {
     case 'global':
-      return target.resolvedPaths.length > 0 ? 'scoped-global:.' : 'global';
+      return revision + (target.resolvedPaths.length > 0 ? 'scoped-global:.' : 'global');
     case 'path':
-      return `path:${[...target.resolvedPaths].sort().join(',')}`;
+      return revision + `path:${[...target.resolvedPaths].sort().join(',')}`;
     case 'identity': {
-      if (!target.identities) return 'identity:none';
+      if (!target.identities) return revision + 'identity:none';
       const ids = target.identities.map(i => i.protocol ? `${i.protocol}/${i.id}` : i.id);
-      return `identity:${ids.sort().join(',')}`;
+      return revision + `identity:${ids.sort().join(',')}`;
     }
     case 'line-range':
-      if (!target.lineRange) return 'blame:none';
-      return `blame:${target.lineRange.file}:${target.lineRange.start}-${target.lineRange.end}`;
+      if (!target.lineRange) return revision + 'blame:none';
+      return revision + `blame:${target.lineRange.file}:${target.lineRange.start}-${target.lineRange.end}`;
     default:
-      return 'unknown';
+      return revision + 'unknown';
   }
 }
 

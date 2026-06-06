@@ -10,7 +10,11 @@ import { parseTrailers } from './trailers.js';
  * Hydrates raw Git commit data into domain-rich Atoms.
  * Pure function: takes data and registry, returns interpreted atoms.
  */
-export function hydrateAtoms(rawCommits: readonly RawCommit[], registry: ProtocolRegistry): Atom[] {
+export function hydrateAtoms(
+  rawCommits: readonly RawCommit[],
+  registry: ProtocolRegistry,
+  options: { includeAllCommits?: boolean } = {},
+): Atom[] {
   const results: Atom[] = [];
   const allProtocols = registry.getAll();
   const hasProtocols = allProtocols.length > 0;
@@ -18,13 +22,13 @@ export function hydrateAtoms(rawCommits: readonly RawCommit[], registry: Protoco
 
   for (const raw of rawCommits) {
     const activeProtocols = registry.detect(raw.trailers);
-    
-    // If we have protocols registered, we only care about commits they claim.
-    if (hasProtocols && activeProtocols.length === 0) continue;
+
+    // If we are NOT in history mode, skip commits that match zero protocols
+    if (!options.includeAllCommits && hasProtocols && activeProtocols.length === 0) continue;
 
     const protocolMap = new ProtocolMap<ProtocolState>();
     const parsedRaw = parseTrailers(raw.trailers);
-    
+
     if (hasProtocols) {
       for (const p of activeProtocols) {
         protocolMap.set(p.name.toLowerCase(), normalizeTrailers(parsedRaw, p, claimedKeys));
@@ -36,6 +40,7 @@ export function hydrateAtoms(rawCommits: readonly RawCommit[], registry: Protoco
       date: new Date(raw.date),
       author: raw.author,
       subject: raw.subject,
+      rawTrailers: raw.trailers || '',
       body: stripTrailersFromBody(raw.body, raw.trailers),
       filesChanged: raw.filesChanged,
       protocols: protocolMap,

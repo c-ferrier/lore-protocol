@@ -1,21 +1,11 @@
-import { describe, expect,it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
-import { TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { makeAtom, TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 
 
 describe('Agnostic Validation (Zero Protocols)', () => {
-  const mockCommit: RawCommit = {
-    hash: 'h1',
-    date: new Date().toISOString(),
-    author: 'cole@example.com',
-    subject: 'a'.repeat(100), // Exceeds 72
-    body: 'Some body text',
-    trailers: '',
-  };
-
   const deps = {
     atomRepository: {} as any,
     config: TEST_ENGINE_CONFIG,
@@ -23,7 +13,11 @@ describe('Agnostic Validation (Zero Protocols)', () => {
   };
 
   it('should still perform structural hygiene checks without protocols', async () => {
-    const results = await validateCommits([mockCommit], deps);
+    const atom = makeAtom({
+        subject: 'a'.repeat(100), // Exceeds 72
+        protocols: new Map() // No protocols
+    });
+    const results = await validateCommits([atom], deps);
 
     expect(results).toHaveLength(1);
     expect(results[0].valid).toBe(true); // Warnings don't invalidate
@@ -31,8 +25,11 @@ describe('Agnostic Validation (Zero Protocols)', () => {
   });
 
   it('should return valid for a perfect standard git commit', async () => {
-    const perfectCommit = { ...mockCommit, subject: 'feat: valid subject' };
-    const results = await validateCommits([perfectCommit], deps);
+    const perfectAtom = makeAtom({ 
+        subject: 'feat: valid subject',
+        protocols: new Map()
+    });
+    const results = await validateCommits([perfectAtom], deps);
 
     expect(results[0].valid).toBe(true);
     expect(results[0].issues).toHaveLength(0);

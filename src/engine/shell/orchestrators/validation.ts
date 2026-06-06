@@ -9,79 +9,72 @@ import {
     validateProtocolTrailer
 } from '../../core/logic/validation.js';
 import type { EngineConfig } from '../../core/types/config.js';
-import type { Trailers } from '../../core/types/domain.js';
+import { type Atom, type Trailers } from '../../core/types/domain.js';
 import type { CommitValidationResult, ValidationIssue } from '../../core/types/output.js';
 import type { ProtocolContext } from '../../core/types/protocol-definition.js';
 import type { QueryIdentity } from '../../core/types/query.js';
-import type { RawCommit } from '../../interfaces/git-client.js';
 import type { AtomRepository } from '../../services/atom-repository.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
 /**
  * Orchestrates the validation of commits across all registered protocols.
  * UI-Agnostic: Suitable for CLI, Web Services, or CI integration.
- * 
- * DESIGN: Coordinates between Core Logic (pure math) and Shell Services (I/O).
  */
 export async function validateCommits(
-  rawCommits: readonly RawCommit[],
+  atoms: readonly Atom[],
   deps: {
     atomRepository: AtomRepository;
     config: EngineConfig;
     protocolRegistry: ProtocolRegistry;
-  }
-): Promise<CommitValidationResult[]> {
-  const { atomRepository, config, protocolRegistry } = deps;
-  const protocols = protocolRegistry.getAll();
+  },
+): Promise<readonly CommitValidationResult[]> {
+  const { protocolRegistry, atomRepository, config } = deps;
+  const allProtocols = protocolRegistry.getAll();
   const claimedKeys = protocolRegistry.getClaimedKeys();
 
-  return Promise.all(rawCommits.map(async (raw) => {
+  return Promise.all(atoms.map(async (atom) => {
     const issues: ValidationIssue[] = [];
-    let trailers: Trailers;
+    const identities: Record<string, string> = {};
+    let parsedTrailers: Trailers;
 
     try {
-      trailers = parseTrailers(raw.trailers);
+      parsedTrailers = parseTrailers(atom.rawTrailers);
     } catch (err) {
       issues.push({
         severity: 'error',
         rule: 'trailer-format',
         message: `Failed to parse trailers: ${err instanceof Error ? err.message : String(err)}`,
       });
-      return {
-        commit: raw.hash,
-        valid: false,
-        issues,
-        identities: {},
-      };
+      return { commit: atom.commitHash, valid: false, issues, identities: {} };
     }
 
-    // 1. Structural Hygiene (Generic Logic)
-    issues.push(...evaluateHygiene(raw.subject, raw.body, config));
+    // 1. Structural Hygiene (Subject/Body rules)
+    issues.push(...evaluateHygiene(atom.subject, atom.body, config));
 
-        // 2. Multi-Protocol Validation
-    const identities: Record<string, string> = {};
-    for (const ctx of protocols) {
-      // Validation needs to see everything (even invalid values) to report errors
-      const state = normalizeTrailers(trailers, ctx, claimedKeys);
+    // 2. Comprehensive Multi-Protocol Audit
+    for (const ctx of allProtocols) {
+      const state = normalizeTrailers(parsedTrailers, ctx, claimedKeys);
       
-      // Collect identity for this protocol if valid
+      // Collect identity if the protocol claims this commit
       const id = getProtocolIdentity(state, ctx);
       if (id) identities[ctx.name.toLowerCase()] = id;
 
+      // Validate logical state (required fields, enum values, etc.)
       issues.push(...validateProtocolState(state, ctx.def, protocolRegistry));
+      
+      // Validate physical references
       await validateReferenceExistence(ctx, state.trailers, issues, { atomRepository, protocolRegistry });
     }
 
-    // 3. Generic Trailer Hygiene (Logic)
-    issues.push(...evaluateTrailerHygiene(trailers));
+    // 3. Global Physical Audit (Catch Orphans/Typoes)
+    issues.push(...evaluateTrailerHygiene(parsedTrailers));
 
     return {
-      commit: raw.hash,
+      commit: atom.commitHash,
       valid: issues.filter((i) => i.severity === 'error').length === 0,
       issues,
       identities,
     };
-
   }));
 }
 

@@ -1,5 +1,6 @@
-import { afterEach,beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { hydrateAtoms } from '../../../../src/engine/core/logic/hydration.js';
 import { validateCommits } from '../../../../src/engine/shell/orchestrators/validation.js';
 import { 
     createProtocolContext,
@@ -41,7 +42,7 @@ describe('Commit Validation (Shell Orchestrator)', () => {
     const raw1 = makeRawCommit({ hash: 'abc', trailers: 'Test-id: T-123' });
     const raw2 = makeRawCommit({ hash: 'def', trailers: 'Test-id: INVALID' });
 
-    const results = await validateCommits([raw1, raw2], getDeps());
+    const results = await validateCommits(hydrateAtoms([raw1, raw2], registry, { includeAllCommits: true }), getDeps());
     expect(results).toHaveLength(2);
     expect(results[0].valid).toBe(true);
     expect(results[1].valid).toBe(false);
@@ -56,7 +57,7 @@ describe('Commit Validation (Shell Orchestrator)', () => {
       trailers: 'Test-id: T-123\nRef-id: T-456'
     });
 
-    const results = await validateCommits([raw], getDeps());
+    const results = await validateCommits(hydrateAtoms([raw], registry, { includeAllCommits: true }), getDeps());
     const issues = results[0].issues;
     expect(issues.some(i => i.rule === 'reference-exists')).toBe(true);
     expect(mockAtomRepo.findByIds).toHaveBeenCalled();
@@ -73,7 +74,7 @@ describe('Commit Validation (Shell Orchestrator)', () => {
         trailers: 'Test-id: T-123\nRef-id: T-456'
     });
 
-    const results = await validateCommits([raw], getDeps());
+    const results = await validateCommits(hydrateAtoms([raw], registry, { includeAllCommits: true }), getDeps());
     expect(results[0].issues.some(i => i.rule === 'reference-exists')).toBe(false);
   });
 });

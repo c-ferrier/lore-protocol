@@ -1,8 +1,9 @@
-import type { Command } from 'commander';
+import { Command } from 'commander';
 
+import { createQueryTarget } from '../../core/logic/query-targets.js';
 import type { EngineConfig } from '../../core/types/config.js';
 import type { CommitValidationResult, FormattableValidationResult, ValidationIssue } from '../../core/types/output.js';
-import type { IGitClient } from '../../interfaces/git-client.js';
+import type { QueryTargetAST } from '../../core/types/query.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { AtomRepository } from '../../services/atom-repository.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
@@ -24,7 +25,7 @@ export function registerValidateCommand(
     atomRepository: AtomRepository;
     protocolRegistry: ProtocolRegistry;
     config: EngineConfig;
-    gitClient: IGitClient;
+    
     getFormatter: () => IOutputFormatter;
   },
 ): void {
@@ -35,26 +36,20 @@ export function registerValidateCommand(
     .option('--last <n>', 'Validate the last N commits', parseInt)
     .option('--strict', 'Treat warnings as errors')
     .action(async (range: string | undefined, options: ValidateCommandOptions) => {
-      const { atomRepository, protocolRegistry, config, gitClient, getFormatter } = deps;
+      const { atomRepository, protocolRegistry, config, getFormatter } = deps;
 
-      // Determine the revision range
-      let logArgs: string[];
+      const target: QueryTargetAST = range 
+        ? { raw: range, type: 'global', resolvedPaths: [], revisionRange: range }
+        : createQueryTarget(undefined, { cwd: process.cwd(), protocolRoot: process.cwd(), isScoped: false });
 
-      if (range) {
-        logArgs = [range];
-      } else if (options.since) {
-        logArgs = [`${options.since}..HEAD`];
-      } else if (options.last !== undefined && options.last > 0) {
-        logArgs = [`-${options.last}`];
-      } else {
-        logArgs = ['-1'];
-      }
-
-      // Get raw commits from git
-      const rawCommits = await gitClient.log(logArgs);
+      const atoms = await atomRepository.find(target, {
+        since: options.since,
+        maxCommits: options.last,
+        includeAllCommits: true,
+      });
 
       // Validate all commits using the shell orchestrator
-      let results: readonly CommitValidationResult[] = await validateCommits(rawCommits, {
+      let results: readonly CommitValidationResult[] = await validateCommits(atoms, {
         atomRepository,
         config,
         protocolRegistry,

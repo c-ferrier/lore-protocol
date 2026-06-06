@@ -42,6 +42,7 @@ export interface Atom {
   readonly author: string;
   readonly subject: string; // The commit subject line
   readonly body: string;    // Body text (trailers stripped)
+  readonly rawTrailers: string; // Original unparsed trailers
   readonly filesChanged: readonly string[];
 
   /**

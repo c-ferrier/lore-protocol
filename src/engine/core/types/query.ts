@@ -5,7 +5,7 @@ export interface QueryIdentity {
   readonly protocol?: string;
 }
 
-export type QueryTargetType = 'global' | 'path' | 'line-range' | 'identity';
+export type QueryTargetType = 'global' | 'path' | 'line-range' | 'identity' | 'revision';
 
 /**
  * Represents a resolved physical query space (Global, Path, or Line-Range).
@@ -29,6 +29,9 @@ export interface QueryTargetAST {
 
   /** Specific identities to look for. */
   readonly identities?: readonly QueryIdentity[];
+
+  /** Optional graph boundary (revision range, e.g. "main..HEAD"). */
+  readonly revisionRange?: string;
 }
 
 export interface PathQueryOptions {
@@ -86,6 +89,8 @@ export interface SearchOptions extends PathQueryOptions {
   readonly sinceDate?: Date | null;
   /** Pre-resolved date for the authoritative application-level filter pass. */
   readonly untilDate?: Date | null;
+  /** Whether to include every commit in the range, even if it has no protocol trailers. */
+  readonly includeAllCommits?: boolean;
 }
 
 /**

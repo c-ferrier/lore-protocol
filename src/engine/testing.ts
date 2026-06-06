@@ -292,12 +292,13 @@ export function makeAtom(overrides: any = {}): Atom {
         });
     }
 
-    return {
+        return {
         commitHash: overrides.commitHash || 'h1',
         date: overrides.date || new Date(),
         author: overrides.author || 'alice',
         subject: overrides.subject || 'feat: test',
         body: overrides.body || '',
+        rawTrailers: overrides.rawTrailers || `${TEST_ID_KEY}: ${overrides.id || 'a1b2c3d4'}`,
         filesChanged: overrides.filesChanged || [],
         protocols,
     };

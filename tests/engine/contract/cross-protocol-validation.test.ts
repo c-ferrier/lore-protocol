@@ -2,6 +2,7 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol-definition.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
 import { makeProtocol,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 
@@ -59,7 +60,7 @@ describe('Cross-Protocol Reference Validation', () => {
       trailers: 'alphaval: Alpha-id: 123\nalphaval: Depends-on: betaval/abc'
     } as any;
 
-    const results = await validateCommits([rawCommit], getDeps());
+    const results = await validateCommits(hydrateAtoms([rawCommit], registry, { includeAllCommits: true }), getDeps());
     expect(results[0].issues.filter(i => i.rule === 'invalid-reference-format')).toHaveLength(0);
   });
 
@@ -73,7 +74,7 @@ describe('Cross-Protocol Reference Validation', () => {
       trailers: 'alphaval: Alpha-id: 123\nalphaval: Depends-on: ghost/999'
     } as any;
 
-    const results = await validateCommits([rawCommit], getDeps());
+    const results = await validateCommits(hydrateAtoms([rawCommit], registry, { includeAllCommits: true }), getDeps());
     const issue = results[0].issues.find(i => i.rule === 'unknown-protocol-prefix');
     expect(issue).toBeDefined();
     expect(issue?.message).toContain('Unknown protocol prefix: "ghost"');
@@ -89,7 +90,7 @@ describe('Cross-Protocol Reference Validation', () => {
       trailers: 'betaval: Beta-id: abc\nbetaval: Internal-link: alphaval/123'
     } as any;
 
-    const results = await validateCommits([rawCommit], getDeps());
+    const results = await validateCommits(hydrateAtoms([rawCommit], registry, { includeAllCommits: true }), getDeps());
     const issue = results[0].issues.find(i => i.rule === 'cross-protocol-prohibited');
     expect(issue).toBeDefined();
     expect(issue?.message).toContain('does not allow cross-protocol references');
@@ -105,7 +106,7 @@ describe('Cross-Protocol Reference Validation', () => {
       trailers: 'alphaval: Alpha-id: 123\nalphaval: Depends-on: betaval/123' // Beta IDs must be a-z
     } as any;
 
-    const results = await validateCommits([rawCommit], getDeps());
+    const results = await validateCommits(hydrateAtoms([rawCommit], registry, { includeAllCommits: true }), getDeps());
     const issue = results[0].issues.find(i => i.rule === 'invalid-reference-format');
     expect(issue).toBeDefined();
     expect(issue?.message).toContain('not a valid identifier for protocol "betaval"');

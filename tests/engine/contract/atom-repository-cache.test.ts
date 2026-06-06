@@ -51,6 +51,6 @@ describe('AtomRepository Cache Interaction', () => {
     const result = await repo.find();
 
     expect(result).toStrictEqual(mockAtoms);
-    expect(HydrationLogic.hydrateAtoms).toHaveBeenCalledWith([mockCommit], protocolRegistry);
+    expect(HydrationLogic.hydrateAtoms).toHaveBeenCalledWith([mockCommit], protocolRegistry, { includeAllCommits: undefined });
   });
 });

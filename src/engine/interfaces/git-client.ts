@@ -9,6 +9,7 @@ export interface RawCommit {
 }
 
 export interface StorageQuery {
+  readonly revisionRange?: string;
   readonly author?: string;
   readonly sinceDate?: Date;
   readonly untilDate?: Date;

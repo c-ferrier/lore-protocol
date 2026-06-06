@@ -62,6 +62,11 @@ export class GitClient implements IGitClient {
   async query(query: StorageQuery): Promise<readonly RawCommit[]> {
     const args: string[] = [];
 
+    // 0. Revision Range (Graph Bounds)
+    if (query.revisionRange) {
+      args.push(query.revisionRange);
+    }
+
     // 1. Author Filter
     if (query.author) {
       args.push(`--author=${escapeRegex(query.author)}`);

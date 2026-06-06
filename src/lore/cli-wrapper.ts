@@ -254,6 +254,7 @@ export async function buildLoreCli() {
           hideOpt(cmd, '--author');
           hideOpt(cmd, '--until');
           hideOpt(cmd, '--filter');
+          hideOpt(cmd, '--history');
       }
       
       if (name === 'validate') {
@@ -308,6 +309,7 @@ export async function buildLoreCli() {
 
           hideOpt(cmd, '--follow');
           hideOpt(cmd, '--filter');
+          hideOpt(cmd, '--history');
 
           cmd.option('--confidence <level>', 'Filter by confidence: low, medium, high');
           cmd.option('--scope-risk <level>', 'Filter by scope-risk: narrow, moderate, wide');

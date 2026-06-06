@@ -67,7 +67,7 @@ export class AtomRepository {
   async findByRange(range: string, options: SearchOptions = {}): Promise<Atom[]> {
       // Range queries are currently handled as a physical path scan with a ref restriction.
       const rawCommits = await this.gitClient.log([range, ...this.baseTarget.resolvedPaths]);
-      const atoms = hydrateAtoms(rawCommits, this.protocolRegistry);
+      const atoms = hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
       return this.postProcessAtoms(atoms, options);
   }
 
@@ -76,7 +76,7 @@ export class AtomRepository {
    */
   async findByCommitHash(hash: string, options: SearchOptions = {}): Promise<Atom | null> {
       const rawCommits = await this.gitClient.log(['-1', hash, ...this.baseTarget.resolvedPaths]);
-      const atoms = hydrateAtoms(rawCommits, this.protocolRegistry);
+      const atoms = hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
       const processed = this.postProcessAtoms(atoms, options);
       return processed[0] || null;
   }
@@ -105,7 +105,7 @@ export class AtomRepository {
       const cachedHashes = await this.queryCache.get(headHash, fingerprint, resolvedOptions);
       if (cachedHashes) {
         const rawCommits = await this.gitClient.getCommitsByHashes(cachedHashes);
-        const atoms = hydrateAtoms(rawCommits, this.protocolRegistry);
+        const atoms = hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
         return this.postProcessAtoms(atoms, resolvedOptions);
       }
     }
@@ -114,11 +114,11 @@ export class AtomRepository {
     let initialAtoms: Atom[] = [];
 
     if (isBlameTarget(target)) {
-        initialAtoms = await this.discoveryByBlame(target);
+        initialAtoms = await this.discoveryByBlame(target, resolvedOptions);
     } else if (target.type === 'identity') {
-        initialAtoms = await this.discoveryByIdentities(target.identities || [], headHash);
+        initialAtoms = await this.discoveryByIdentities(target, headHash, resolvedOptions);
     } else {
-        initialAtoms = await this.discoveryByPaths(target.resolvedPaths, resolvedOptions);
+        initialAtoms = await this.discoveryByPaths(target, resolvedOptions);
     }
 
     // 3. Expansion Pass (Transitive Link Following)
@@ -143,11 +143,14 @@ export class AtomRepository {
   /**
    * Coarse Discovery: Search by physical paths and regex patterns.
    */
-  private async discoveryByPaths(paths: readonly string[], options: SearchOptions): Promise<Atom[]> {
+  private async discoveryByPaths(target: QueryTargetAST, options: SearchOptions): Promise<Atom[]> {
+    const paths = target.resolvedPaths;
     const regexPatterns: string[][] = [];
     
-    const discoveryPatterns = this.protocolRegistry.getDiscoveryPatterns();
-    if (discoveryPatterns.length > 0) regexPatterns.push(discoveryPatterns);
+    if (!options.includeAllCommits) {
+        const discoveryPatterns = options.includeAllCommits ? [] : this.protocolRegistry.getDiscoveryPatterns();
+        if (discoveryPatterns.length > 0) regexPatterns.push(discoveryPatterns);
+    }
     
     const filterPatterns = this.protocolRegistry.getSearchPatterns(options.filters as any);
     regexPatterns.push(...filterPatterns);
@@ -175,6 +178,7 @@ export class AtomRepository {
     if (options.text) regexPatterns.push([options.text]);
 
     const rawCommits = await this.gitClient.query({
+        revisionRange: target.revisionRange,
         author: options.author || undefined,
         sinceDate: options.sinceDate || undefined,
         untilDate: options.untilDate || undefined,
@@ -183,14 +187,15 @@ export class AtomRepository {
         paths: [...paths],
     });
 
-    const atoms = hydrateAtoms(rawCommits, this.protocolRegistry);
+    const atoms = hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
     return filterAtoms(atoms, options, this.protocolRegistry);
   }
 
   /**
    * Coarse Discovery: Search by logical identities.
    */
-  private async discoveryByIdentities(identities: readonly QueryIdentity[], headHash?: string): Promise<Atom[]> {
+  private async discoveryByIdentities(target: QueryTargetAST, headHash?: string, options: SearchOptions = {}): Promise<Atom[]> {
+    const identities = target.identities || [];
     const results: Atom[] = [];
     const missing: QueryIdentity[] = [];
 
@@ -208,7 +213,7 @@ export class AtomRepository {
             const cached = await this.queryCache.get(headHash, fingerprint, {});
             if (cached && cached.length > 0) {
                 const raw = await this.gitClient.getCommitsByHashes(cached);
-                const hydrated = hydrateAtoms(raw, this.protocolRegistry);
+                const hydrated = hydrateAtoms(raw, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
                 results.push(...hydrated);
             } else {
                 missing.push(identity);
@@ -235,11 +240,12 @@ export class AtomRepository {
     if (patterns.length === 0) return results;
 
     const rawCommits = await this.gitClient.query({
+        revisionRange: target.revisionRange,
         regexPatterns: [patterns],
         paths: [...this.baseTarget.resolvedPaths]
     });
 
-    const hydrated = hydrateAtoms(rawCommits, this.protocolRegistry);
+    const hydrated = hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
 
     // 3. Match result atoms back to requested missing identities
     const foundFromGit: Atom[] = [];
@@ -275,7 +281,7 @@ export class AtomRepository {
   /**
    * Initial Discovery: Search by specific line ranges using git blame.
    */
-  private async discoveryByBlame(target: QueryTargetAST): Promise<Atom[]> {
+  private async discoveryByBlame(target: QueryTargetAST, options: SearchOptions = {}): Promise<Atom[]> {
       const range = target.lineRange;
       if (!range) throw new ProtocolError(`Target "${target.raw}" is not a valid range`, 1);
 
@@ -284,7 +290,7 @@ export class AtomRepository {
 
       const commitHashes = Array.from(new Set(blameLines.map((l: any) => l.commitHash as string)));
       const rawCommits = await this.gitClient.getCommitsByHashes(commitHashes);
-      return hydrateAtoms(rawCommits, this.protocolRegistry);
+      return hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
   }
 
   /**

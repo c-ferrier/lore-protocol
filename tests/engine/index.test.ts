@@ -1,3 +1,4 @@
+import { hydrateAtoms } from '../../src/engine/core/logic/hydration.js';
 import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -276,7 +277,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     expect(json.results[0].protocols.fred.id).toBe('aabbccdd');
     expect(json.results[0].protocols.fred.trailers.Status).toBe('active');
     // 7. Validation Integration (Ensures Validator respects custom definition)
-    const results = await validateCommits([rawFredCommit], { 
+    const results = await validateCommits(hydrateAtoms([rawFredCommit], registry, { includeAllCommits: true }), { 
       atomRepository: repo, 
       config: TEST_ENGINE_CONFIG, 
       protocolRegistry: registry 
@@ -285,7 +286,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     // Negative case: invalid ID based on Fred's custom pattern
     // 5. Verify validation of bad commit
     const badRawCommit = { ...rawFredCommit, trailers: 'fred: Fred-id: not-hex' };
-    const results2 = await validateCommits([badRawCommit], { 
+    const results2 = await validateCommits(hydrateAtoms([badRawCommit], registry, { includeAllCommits: true }), { 
       atomRepository: repo, 
       config: TEST_ENGINE_CONFIG, 
       protocolRegistry: registry 
