@@ -104,7 +104,7 @@ describe('AtomRepository', () => {
       expect(result[0].commitHash).toBe(commit.hash);
       expect(gitClient.blame).toHaveBeenCalledWith('src/main.ts', 10, 20);
     });
-    it('should deduplicate atoms by identity', async () => {
+    it('should return atoms for distinct commit hashes in a line range', async () => {
       const commit1 = makeRawCommit({ hash: 'h1', id: 'aaaa1111', subject: 't' });
       const commit2 = makeRawCommit({ hash: 'h2', id: 'aaaa1111', subject: 't' }); // Same identity, different hash
       gitClient.blame.mockResolvedValue([
@@ -112,10 +112,9 @@ describe('AtomRepository', () => {
         { commitHash: 'h2', lineNumber: 11, content: 'b' }
       ]);
       // The FETCH step is where git actually returns the full commits
-      // The hydrator deduplicates them
       gitClient.getCommitsByHashes.mockResolvedValue([commit1, commit2]);
       const result = await repo.find(makeQueryTarget('src/main.ts:10-20'));
-      expect(result).toHaveLength(1); // Should merge the history of 'aaaa1111'
+      expect(result).toHaveLength(2); // Should show both physical commits that contributed lines
     });
   });
   describe('findById', () => {

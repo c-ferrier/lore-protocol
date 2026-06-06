@@ -70,18 +70,6 @@ export function registerWhyCommand(
       meta,
     };
 
-    // Build a minimal supersession map (no supersession filtering for why)
-    const supersessionMap = new Map<string, SupersessionStatus>();
-    for (const atom of atoms) {
-      const id = protocolRegistry.getIdentity(atom);
-      if (id) {
-        supersessionMap.set(id, {
-          superseded: false,
-          supersededBy: [],
-        });
-      }
-    }
-
     const formattable: FormattableQueryResult = {
       result,
       visibleTrailers: 'all',

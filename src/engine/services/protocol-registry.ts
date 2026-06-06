@@ -66,23 +66,10 @@ export class ProtocolRegistry implements IIdentityResolver {
   }
 
   /**
-   * Return all registered protocol contexts.
+   * Returns all registered protocol contexts.
    */
   getAll(): ProtocolContext[] {
     return Array.from(this.protocols.values());
-  }
-
-  /**
-   * Gets the primary identity for an atom.
-   */
-  getIdentity(atom: Atom): string | null {
-    const root = this.getRoot();
-    if (!root) return null;
-
-    const state = atom.protocols.get(root.name.toLowerCase()) || atom.protocols.get(root.name);
-    if (!state) return null;
-
-    return getProtocolIdentity(state, root);
   }
 
   /**

@@ -280,16 +280,7 @@ export class AtomRepository {
 
       const commitHashes = Array.from(new Set(blameLines.map((l: any) => l.commitHash as string)));
       const rawCommits = await this.gitClient.getCommitsByHashes(commitHashes);
-      const hydratedAtoms = hydrateAtoms(rawCommits, this.protocolRegistry);
-
-      // Deduplicate by identity
-      const seenIds = new Set<string>();
-      return hydratedAtoms.filter(a => {
-          const id = this.protocolRegistry.getIdentity(a);
-          if (!id || seenIds.has(id)) return false;
-          seenIds.add(id);
-          return true;
-      });
+      return hydrateAtoms(rawCommits, this.protocolRegistry);
   }
 
   /**
