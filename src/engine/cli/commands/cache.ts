@@ -13,9 +13,9 @@ export function registerCacheCommand(
   program: Command,
   deps: {
     getFormatter: () => IOutputFormatter;
-    cacheDir: string;
     logger: ILogger;
   },
+  cacheDir: string
 ): void {
   program
     .command('cache')
@@ -26,7 +26,7 @@ export function registerCacheCommand(
 
       if (options.clean) {
         try {
-          await rm(deps.cacheDir, { recursive: true, force: true });
+          await rm(cacheDir, { recursive: true, force: true });
           deps.logger.info(formatter.formatSuccess('Successfully cleared local atom and query caches.'));
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : String(error);

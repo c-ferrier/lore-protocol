@@ -76,7 +76,7 @@ export class JsonFormatter implements IOutputFormatter {
         },
         results: data.results.map((r) => ({
           commit: r.commit,
-          id: r.id,
+          identities: r.identities,
           valid: r.valid,
           issues: r.issues.map((issue) => ({
             severity: issue.severity,

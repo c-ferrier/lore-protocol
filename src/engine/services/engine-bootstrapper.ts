@@ -18,8 +18,6 @@ import {
 import { JsonFormatter } from '../cli/formatters/json-formatter.js';
 import { TextFormatter } from '../cli/formatters/text-formatter.js';
 import { TerminalLogger } from '../cli/io/terminal-logger.js';
-import { TerminalPrompt } from '../cli/io/terminal-prompt.js';
-import { CommitInputResolver } from '../cli/readers/commit-input-resolver.js';
 // Pure Logic Modules
 import { createProtocolContext } from '../core/logic/protocols.js';
 import { createQueryTarget } from '../core/logic/query-targets.js';
@@ -30,6 +28,7 @@ import type { IGitClient } from '../interfaces/git-client.js';
 import type { ILogger } from '../interfaces/logger.js';
 import { LogLevel } from '../interfaces/logger.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
+import type { IPrompt } from '../interfaces/prompt.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import { EngineConfigLoader } from '../shell/fs/config-loader.js';
 import { DynamicProtocolLoader, ProtocolLoader } from '../shell/fs/protocol-loader.js';
@@ -48,6 +47,7 @@ export interface EngineOptions {
   configFileName: string;
   defaultConfig: EngineConfig;
   staticProtocols: ProtocolDefinition[];
+  prompt: IPrompt;
   jsonFormatterFactory?: (registry: ProtocolRegistry) => IOutputFormatter;
   textFormatterFactory?: (registry: ProtocolRegistry, options: { color: boolean }) => IOutputFormatter;
 
@@ -159,8 +159,6 @@ export class EngineBootstrapper {
       baseTarget,
     );
 
-    const prompt = new TerminalPrompt();
-    const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry, config);
 
     // 6. Formatter factory
     let cachedFormatter: IOutputFormatter | null = null;
@@ -182,19 +180,15 @@ export class EngineBootstrapper {
     };
 
     // 8. Register Commands
-    const sharedDeps = {
+        const sharedDeps = {
       atomRepository,
       gitClient,
-      commitInputResolver,
       getFormatter,
       config: config as any,
       logger,
       protocolRegistry,
       protocolRoot: protocolRoot || activeRoot,
       cwd,
-
-      cacheDir: join(activeRoot, this.options.engineDirName, CACHE_DIR),
-      defaultConfig: this.options.defaultConfig,
     };
 
     registerWhyCommand(program, sharedDeps);
@@ -202,10 +196,10 @@ export class EngineBootstrapper {
     registerLogCommand(program, sharedDeps);
     registerStaleCommand(program, sharedDeps);
     registerTraceCommand(program, sharedDeps);
-    registerCommitCommand(program, sharedDeps);
+    registerCommitCommand(program, sharedDeps, this.options.prompt);
     registerValidateCommand(program, sharedDeps);
     registerSquashCommand(program, sharedDeps);
-    registerCacheCommand(program, sharedDeps);
+    registerCacheCommand(program, sharedDeps, join(activeRoot, this.options.engineDirName, CACHE_DIR));
     registerConfigCommand(program, sharedDeps);
     registerDoctorCommand(program, sharedDeps);
 

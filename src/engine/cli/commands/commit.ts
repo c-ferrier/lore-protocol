@@ -9,10 +9,11 @@ import type { AtomId } from '../../core/types/domain.js';
 import type { IGitClient } from '../../interfaces/git-client.js';
 import type { ILogger } from '../../interfaces/logger.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { IPrompt } from '../../interfaces/prompt.js';
 import { ProtocolRegistry } from '../../services/protocol-registry.js';
 import { readHeadIdentities } from '../../shell/git/head-id-reader.js';
 import { ProtocolError } from '../../util/errors.js';
-import type { CommitInputResolver } from '../readers/commit-input-resolver.js';
+import { resolveCommitInput } from '../readers/commit-input-resolver.js';
 import { mergeOptions } from './helpers/merge-options.js';
 
 /**
@@ -39,12 +40,12 @@ export function registerCommitCommand(
   program: Command,
   deps: {
     gitClient: IGitClient;
-    commitInputResolver: CommitInputResolver;
     getFormatter: () => IOutputFormatter;
     protocolRegistry: ProtocolRegistry;
     config: EngineConfig;
     logger: ILogger;
   },
+  prompt: IPrompt
 ): void {
   const { protocolRegistry, logger, config } = deps;
   const cmd = program
@@ -62,7 +63,7 @@ export function registerCommitCommand(
     }, []);
 
   cmd.action(async (_options: CommitCommandOptions, command: Command) => {
-    const { gitClient, getFormatter, commitInputResolver } = deps;
+    const { gitClient, getFormatter } = deps;
     const options = mergeOptions<CommitCommandOptions>(command);
     
     const isNoEdit = options.edit === false;
@@ -117,7 +118,7 @@ export function registerCommitCommand(
       }
     }
 
-    const input = await commitInputResolver.read(options);
+    const input = await resolveCommitInput(options, { prompt, protocolRegistry, config });
 
     // Validate input before building
     const validationIssues = await validateFormatting(input, config, protocolRegistry);

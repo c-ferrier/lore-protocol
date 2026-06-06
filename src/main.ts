@@ -1,3 +1,4 @@
+import { TerminalPrompt } from './engine/cli/io/terminal-prompt.js';
 import { checkForUpdates } from './engine/core/logic/update-check.js';
 import { getEnginePackageName, getEnginePublishedVersion,getEngineVersion } from './engine/core/logic/version.js';
 import { DEFAULT_ENGINE_CONFIG } from './engine/defaults.js';
@@ -16,6 +17,7 @@ async function main() {
     configFileName: ENGINE_CONFIG_FILENAME,
     defaultConfig: DEFAULT_ENGINE_CONFIG,
     staticProtocols: [], // Atom starts with zero protocols by default
+    prompt: new TerminalPrompt(),
   };
 
   const { program, getFormatter, config } = await runCli(options);

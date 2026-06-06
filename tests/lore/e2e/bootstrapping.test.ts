@@ -50,7 +50,8 @@ pattern = "^[0-9]+$"
         engineDirName: engineDir,
         configFileName: configFile,
         defaultConfig: DEFAULT_ENGINE_CONFIG,
-        staticProtocols: []
+        staticProtocols: [],
+          prompt: { askConfirm: async () => true, askChoice: async () => '', askInput: async () => '' } as any
     });
 
     const { sharedDeps } = await bootstrapper.bootstrap(testDir, []);
@@ -86,7 +87,8 @@ description = "new"
         engineDirName: engineDir,
         configFileName: configFile,
         defaultConfig: DEFAULT_ENGINE_CONFIG,
-        staticProtocols: []
+        staticProtocols: [],
+          prompt: { askConfirm: async () => true, askChoice: async () => '', askInput: async () => '' } as any
     });
 
     const { sharedDeps } = await bootstrapper.bootstrap(testDir, []);
@@ -107,7 +109,8 @@ description = "new"
           engineDirName: engineDir,
           configFileName: configFile,
           defaultConfig: DEFAULT_ENGINE_CONFIG,
-          staticProtocols: []
+          staticProtocols: [],
+          prompt: { askConfirm: async () => true, askChoice: async () => '', askInput: async () => '' } as any
       });
 
       // Expect it to throw (smol-toml error)
@@ -127,7 +130,8 @@ description = "new"
           engineDirName: engineDir,
           configFileName: configFile,
           defaultConfig: DEFAULT_ENGINE_CONFIG,
-          staticProtocols: []
+          staticProtocols: [],
+          prompt: { askConfirm: async () => true, askChoice: async () => '', askInput: async () => '' } as any
       });
 
       await expect(bootstrapper.bootstrap(testDir, [])).rejects.toThrow(/Duplicate protocol definition/);

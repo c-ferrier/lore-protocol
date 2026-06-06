@@ -14,7 +14,6 @@ export interface InitDeps {
   getFormatter: () => IOutputFormatter;
   engineDirName: string;
   configFileName: string;
-  defaultConfig: EngineConfig;
   logger: ILogger;
 }
 
@@ -22,7 +21,7 @@ export interface InitDeps {
  * Shared logic to initialize the Atom Engine.
  * Responsible for creating the .atom/ directory and initial config.toml
  */
-export async function executeEngineInit(deps: InitDeps): Promise<void> {
+export async function executeEngineInit(deps: InitDeps, defaultConfig: EngineConfig): Promise<void> {
   const formatter = deps.getFormatter();
   const configDir = join(process.cwd(), deps.engineDirName);
   const configPath = join(configDir, deps.configFileName);
@@ -36,7 +35,7 @@ export async function executeEngineInit(deps: InitDeps): Promise<void> {
   // 3. Write default config if missing
   if (!(await fileExists(configPath))) {
     // Convert camelCase config to snake_case for TOML
-    const tomlData = serializeToToml(deps.defaultConfig);
+    const tomlData = serializeToToml(defaultConfig);
     await writeFile(configPath, tomlData, 'utf-8');
     deps.logger.info(formatter.formatSuccess(`Created ${deps.engineDirName}/${deps.configFileName}`));
   } else {
@@ -46,7 +45,7 @@ export async function executeEngineInit(deps: InitDeps): Promise<void> {
     try {
         const content = await readFile(configPath, 'utf-8');
         const parsed = parseToml(content) as any;
-        const { missing } = analyzeConfigGaps(parsed, ENGINE_CONFIG_SCHEMA, deps.defaultConfig);
+        const { missing } = analyzeConfigGaps(parsed, ENGINE_CONFIG_SCHEMA, defaultConfig);
 
         if (missing.length > 0) {
             deps.logger.info('\n' + formatter.formatSuccess('Your engine configuration is missing new options:'));
@@ -67,12 +66,13 @@ export async function executeEngineInit(deps: InitDeps): Promise<void> {
 export function registerInitCommand(
   program: Command,
   deps: InitDeps,
+  defaultConfig: EngineConfig,
 ): void {
   program
     .command('init')
     .description('Initialize Atom Engine in repository')
     .action(async () => {
-      await executeEngineInit(deps);
+      await executeEngineInit(deps, defaultConfig);
     });
 }
 

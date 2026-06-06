@@ -72,7 +72,7 @@ export function registerValidateCommand(
           const hasErrors = upgradedIssues.some((i) => i.severity === 'error');
           return {
             commit: result.commit,
-            id: result.id,
+            identities: result.identities,
             valid: !hasErrors,
             issues: upgradedIssues,
           };

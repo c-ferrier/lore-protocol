@@ -41,7 +41,7 @@ export function registerInitCommand(
   const runEngineSilent = async () => {
     const silentLogger = new InMemoryLogger();
     try {
-      await executeEngineInit({ ...deps, logger: silentLogger });
+      await executeEngineInit({ ...deps, logger: silentLogger }, deps.defaultConfig);
     } catch (err) {
       // If engine init fails, dump the silent logs so we can debug
       for (const log of silentLogger.logs) {

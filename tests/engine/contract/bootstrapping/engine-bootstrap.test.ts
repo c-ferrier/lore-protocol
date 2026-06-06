@@ -41,6 +41,7 @@ describe('EngineBootstrapper', () => {
     configFileName: 'config.toml',
     defaultConfig: TEST_ENGINE_CONFIG,
     staticProtocols: [],
+    prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn() } as any,
     logLevel: LogLevel.SILENT
   };
 

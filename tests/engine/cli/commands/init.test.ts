@@ -25,14 +25,15 @@ describe('Engine registerInitCommand', () => {
 
   let logger: TestLogger;
 
+  const MOCK_CONFIG = {
+    cli: { updateCheck: true, cache: true },
+    validation: { subjectMaxLength: 72 }
+  } as any;
+
   const MOCK_DEPS = {
     getFormatter: () => formatter,
     engineDirName: '.atom',
     configFileName: 'config.toml',
-    defaultConfig: {
-      cli: { updateCheck: true, cache: true },
-      validation: { subjectMaxLength: 72 }
-    } as any,
     logger: null as any,
   };
 
@@ -44,7 +45,7 @@ describe('Engine registerInitCommand', () => {
 
   it('should create .atom directory and default config.toml', async () => {
     const program = new Command();
-    registerInitCommand(program, MOCK_DEPS);
+    registerInitCommand(program, MOCK_DEPS, MOCK_CONFIG);
 
     vi.mocked(fs.access).mockRejectedValue(new Error('ENOENT'));
     vi.mocked(fs.readFile).mockResolvedValue('');
@@ -63,7 +64,7 @@ describe('Engine registerInitCommand', () => {
 
   it('should not overwrite existing config.toml', async () => {
     const program = new Command();
-    registerInitCommand(program, MOCK_DEPS);
+    registerInitCommand(program, MOCK_DEPS, MOCK_CONFIG);
 
     vi.mocked(fs.access).mockResolvedValue(undefined); // File exists
 
@@ -79,7 +80,7 @@ describe('Engine registerInitCommand', () => {
 
   it('should update .gitignore if cache pattern is missing', async () => {
     const program = new Command();
-    registerInitCommand(program, MOCK_DEPS);
+    registerInitCommand(program, MOCK_DEPS, MOCK_CONFIG);
 
     vi.mocked(fs.access).mockResolvedValue(undefined);
     vi.mocked(fs.readFile).mockResolvedValue('node_modules\n');

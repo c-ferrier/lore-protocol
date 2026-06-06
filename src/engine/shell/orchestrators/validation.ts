@@ -49,9 +49,9 @@ export async function validateCommits(
       });
       return {
         commit: raw.hash,
-        id: null,
         valid: false,
         issues,
+        identities: {},
       };
     }
 

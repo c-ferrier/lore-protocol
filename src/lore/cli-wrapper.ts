@@ -15,7 +15,7 @@ import {
     getEnginePublishedVersion,
     getEngineVersion,
     ProtocolRegistry,
-    runCli, 
+    runCli, TerminalPrompt, 
     type TrailerDefinition    } from '../engine/index.js';
 import { registerConstraintsCommand } from './commands/constraints.js';
 import { registerContextCommand } from './commands/context.js';
@@ -57,6 +57,7 @@ export async function buildLoreCli() {
     configFileName: ENGINE_CONFIG_FILENAME,
     defaultConfig: DEFAULT_ENGINE_CONFIG,
     staticProtocols: [LoreProtocolDefinition],
+    prompt: new TerminalPrompt(),
     
     // Inject Legacy Parity Formatters
     jsonFormatterFactory: (registry: ProtocolRegistry) => new LoreJsonFormatter(registry),
