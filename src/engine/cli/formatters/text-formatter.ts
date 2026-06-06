@@ -12,7 +12,7 @@ import type {
 } from '../../core/types/output.js';
 import type { ErrorMessage,IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import { ROOT_NAMESPACE } from '../../util/constants.js';
+import { GLOBAL_NAMESPACE } from '../../util/constants.js';
 
 /**
  * Strategy implementation for human-readable terminal output.
@@ -209,7 +209,7 @@ export class TextFormatter implements IOutputFormatter {
       lines.push('');
 
       for (const p of data.protocols) {
-          const nsDisplay = p.namespace === ROOT_NAMESPACE ? '(none)' : `"${p.namespace}"`;
+          const nsDisplay = p.namespace === GLOBAL_NAMESPACE ? '(none)' : `"${p.namespace}"`;
           lines.push(this.c.bold(`\u2500\u2500 Protocol: ${p.name} (v${p.version}) `));
           lines.push(this.c.dim(`   Namespace: ${nsDisplay}, Permissive: ${p.permissive}`));
           lines.push('');

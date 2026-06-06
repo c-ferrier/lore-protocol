@@ -1,4 +1,4 @@
-import { ROOT_NAMESPACE } from '../../../src/engine/util/constants.js';
+import { GLOBAL_NAMESPACE } from '../../../src/engine/util/constants.js';
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
@@ -30,10 +30,10 @@ describe('ProtocolRegistry', () => {
     const other = makeProtocol({ name: 'Other', namespace: 'other' });
     
     registry.register(other);
-    expect(registry.getByNamespace(ROOT_NAMESPACE)).toBeUndefined();
+    expect(registry.getByNamespace(GLOBAL_NAMESPACE)).toBeUndefined();
     
     registry.register(root);
-    expect(registry.getByNamespace(ROOT_NAMESPACE)).toBe(root);
+    expect(registry.getByNamespace(GLOBAL_NAMESPACE)).toBe(root);
   });
 
   it('should detect protocols that claim raw trailers', () => {
@@ -128,7 +128,7 @@ describe('ProtocolRegistry', () => {
    });
    
    registry.register(p1);
-   expect(registry.getByNamespace(ROOT_NAMESPACE)).toBeUndefined();
+   expect(registry.getByNamespace(GLOBAL_NAMESPACE)).toBeUndefined();
    
    const p2 = makeProtocol({
      name: 'P2',
@@ -136,7 +136,7 @@ describe('ProtocolRegistry', () => {
    });
    
    registry.register(p2);
-   expect(registry.getByNamespace(ROOT_NAMESPACE)).toBe(p2);
+   expect(registry.getByNamespace(GLOBAL_NAMESPACE)).toBe(p2);
   });
 
   describe('Key Routing', () => {

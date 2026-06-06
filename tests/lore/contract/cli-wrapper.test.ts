@@ -1,4 +1,4 @@
-import { ROOT_NAMESPACE } from '../../../src/engine/util/constants.js';
+import { GLOBAL_NAMESPACE } from '../../../src/engine/util/constants.js';
 import { afterAll,beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
@@ -39,7 +39,7 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
     const { program, sharedDeps } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
 
     expect(program.name()).toBe('lore');
-    const rootProtocol = sharedDeps.protocolRegistry.getByNamespace(ROOT_NAMESPACE);
+    const rootProtocol = sharedDeps.protocolRegistry.getByNamespace(GLOBAL_NAMESPACE);
     expect(rootProtocol).toBeDefined();
     expect(rootProtocol?.name).toBe('lore');
 

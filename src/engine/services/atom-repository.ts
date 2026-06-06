@@ -16,7 +16,7 @@ import type { QueryIdentity,QueryTargetAST, SearchOptions } from '../core/types/
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import { getIdentityPattern } from '../shell/git/protocol-query-adapter.js';
-import { ROOT_NAMESPACE } from '../util/constants.js';
+import { GLOBAL_NAMESPACE } from '../util/constants.js';
 import { ProtocolError } from '../util/errors.js';
 import { ProtocolRegistry } from './protocol-registry.js';
 
@@ -194,9 +194,11 @@ export class AtomRepository {
     const results: Atom[] = [];
     const missing: QueryIdentity[] = [];
 
-    const root = this.protocolRegistry.getByNamespace(ROOT_NAMESPACE);
-    const primaryProtocol = root?.def.name.toLowerCase() || 
-                           this.protocolRegistry.getAll()[0]?.def.name.toLowerCase() || '';
+    const root = this.protocolRegistry.getByNamespace(GLOBAL_NAMESPACE);
+    if (!root && identities.some(i => !i.protocol)) {
+        throw new ProtocolError('Cannot resolve unqualified identity: No global protocol is registered. Please use "protocol/id" format.', 1);
+    }
+    const primaryProtocol = root?.def.name.toLowerCase() || '';
 
     // 1. Check Atomic Cache First
     if (headHash) {
@@ -322,7 +324,7 @@ export class AtomRepository {
     
     const localKnowledge = new Map<string, Atom>();
     const indexAtoms = (list: readonly Atom[]) => {
-        const root = this.protocolRegistry.getByNamespace(ROOT_NAMESPACE);
+        const root = this.protocolRegistry.getByNamespace(GLOBAL_NAMESPACE);
         const rootName = root?.def.name.toLowerCase();
 
         for (const atom of list) {

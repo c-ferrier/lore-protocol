@@ -6,7 +6,7 @@ import type { ILogger } from '../../interfaces/logger.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
-import { ROOT_NAMESPACE } from '../../util/constants.js';
+import { GLOBAL_NAMESPACE } from '../../util/constants.js';
 
 /**
  * Register the doctor command.
@@ -48,7 +48,7 @@ export function registerDoctorCommand(
 
       // 2. Protocol Configuration Check
       const protocols = protocolRegistry.getAll();
-      const root = protocolRegistry.getByNamespace(ROOT_NAMESPACE);
+      const root = protocolRegistry.getByNamespace(GLOBAL_NAMESPACE);
       checks.push({
         name: 'Protocols',
         status: 'ok',

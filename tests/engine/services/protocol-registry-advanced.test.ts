@@ -1,4 +1,4 @@
-import { ROOT_NAMESPACE } from '../../../src/engine/util/constants.js';
+import { GLOBAL_NAMESPACE } from '../../../src/engine/util/constants.js';
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
@@ -47,7 +47,7 @@ describe('ProtocolRegistry Advanced', () => {
    });
    
    registry.register(p1);
-   expect(registry.getByNamespace(ROOT_NAMESPACE)).toBeUndefined();
+   expect(registry.getByNamespace(GLOBAL_NAMESPACE)).toBeUndefined();
    
    const p2 = makeProtocol({
      name: 'P2',
@@ -56,6 +56,6 @@ describe('ProtocolRegistry Advanced', () => {
    });
    
    registry.register(p2);
-   expect(registry.getByNamespace(ROOT_NAMESPACE)).toBe(p2);
+   expect(registry.getByNamespace(GLOBAL_NAMESPACE)).toBe(p2);
  });
 });

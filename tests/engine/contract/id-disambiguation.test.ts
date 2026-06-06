@@ -96,7 +96,19 @@ describe('AtomRepository Identity Disambiguation', () => {
     expect(result!.protocols.has('beta')).toBe(true);
   });
 
-  it('should resolve ambiguous IDs by checking all protocols (three-pass)', async () => {
+  it('should resolve ambiguous IDs by checking all protocols (three-pass) when a global protocol exists', async () => {
+    // Register a Global protocol (no namespace)
+    const LORE_DEF = {
+        name: 'Lore',
+        version: '1.0',
+        identityKey: 'Lore-id',
+        namespace: '', // Global
+        trailers: {
+          'Lore-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' },
+        }
+    };
+    protocolRegistry.register(makeProtocol(LORE_DEF));
+
     const targetId = '12345678';
     // Commit only has Beta ID
     const commit: RawCommit = {
@@ -115,12 +127,19 @@ describe('AtomRepository Identity Disambiguation', () => {
 
     expect(result).not.toBeNull();
     expect(result!.protocols.has('beta')).toBe(true);
-    
-    // Verification: ensure the query included both possible patterns in an OR-set
+
+    // Verification: ensure the query included all possible patterns in an OR-set
     const query = vi.mocked(gitClient.query).mock.calls[0][0];
-    expect(query.regexPatterns).toContainEqual([
+    expect(query.regexPatterns[0]).toEqual(expect.arrayContaining([
+        '^Lore-id: 12345678$',
         '^alpha: Alpha-id: 12345678$',
         '^beta: Beta-id: 12345678$'
-    ]);
+    ]));
+  });
+
+  it('should throw an error for unqualified queries when no global protocol is registered', async () => {
+    const targetId = '12345678';
+    await expect(repo.findById({ id: targetId }))
+      .rejects.toThrow(/No global protocol is registered/);
   });
 });

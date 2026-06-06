@@ -10,7 +10,7 @@ import type {
 } from '../../core/types/output.js';
 import type { ErrorMessage,IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import { ROOT_NAMESPACE } from '../../util/constants.js';
+import { GLOBAL_NAMESPACE } from '../../util/constants.js';
 
 /**
  * Strategy implementation for JSON output.

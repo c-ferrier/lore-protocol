@@ -60,7 +60,7 @@ export const QUERY_CACHE_DIR = 'query';
 export const GLOBAL_CACHE_KEY = 'GLOBAL';
 
 /** The namespace used by the primary "Global" protocol (empty string) */
-export const ROOT_NAMESPACE = '';
+export const GLOBAL_NAMESPACE = '';
 
 /** Engine configuration component names */
 export const ENGINE_DIR_NAME = '.atom';

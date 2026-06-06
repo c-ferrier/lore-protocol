@@ -1,5 +1,5 @@
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import { ROOT_NAMESPACE } from '../../util/constants.js';
+import { GLOBAL_NAMESPACE } from '../../util/constants.js';
 import { ProtocolError } from '../../util/errors.js';
 import { ProtocolMap } from '../models/protocol-map.js';
 import type { CommitInput } from '../types/commit.js';
@@ -118,7 +118,7 @@ export function parseFlagsToInput(options: CommitCommandOptions, registry: Proto
         }
 
         // C. Orphan Fallback (Permissive Root)
-        const root = registry.getByNamespace(ROOT_NAMESPACE);
+        const root = registry.getByNamespace(GLOBAL_NAMESPACE);
         if (root?.def.permissive) {
             const pName = root.def.name.toLowerCase();
             const pMap = trailersMap.get(pName) || {};
