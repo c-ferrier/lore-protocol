@@ -5,7 +5,6 @@ import { createQueryTarget } from '../../core/logic/query-targets.js';
 import type { EngineConfig } from '../../core/types/config.js';
 import type { FormattableStalenessResult } from '../../core/types/output.js';
 import type { PathQueryOptions } from '../../core/types/query.js';
-import type { IGitClient } from '../../interfaces/git-client.js';
 import type { ILogger } from '../../interfaces/logger.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { AtomRepository } from '../../services/atom-repository.js';
@@ -30,7 +29,6 @@ export function registerStaleCommand(
   deps: {
     atomRepository: AtomRepository;
     protocolRegistry: ProtocolRegistry;
-    gitClient: IGitClient;
     config: EngineConfig;
     getFormatter: () => IOutputFormatter;
     logger: ILogger;
@@ -46,7 +44,7 @@ export function registerStaleCommand(
     .option('--drift <n>', 'File drift threshold (commits since atom)', parseInt)
     .action(async (rawTarget: string | undefined, _options: StaleCommandOptions, command: Command) => {
       const options = mergeOptions<StaleCommandOptions & PathQueryOptions>(command);
-      const { atomRepository, protocolRegistry, gitClient, config, getFormatter } = deps;
+      const { atomRepository, protocolRegistry, config, getFormatter } = deps;
 
       // 1. Resolve target using the pure logic
       const target = createQueryTarget(rawTarget, { cwd, protocolRoot, isScoped: false });
@@ -66,9 +64,7 @@ export function registerStaleCommand(
         activeAtoms,
         new Map(),
         {
-            gitClient,
-            config,
-            protocolRegistry
+            atomRepository, config, protocolRegistry
         }
       );
 

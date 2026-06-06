@@ -87,7 +87,8 @@ export function makeMockAtomRepository(overrides: any = {}): any {
             const results = await mock.findByIds([id], opts);
             return results[0] || null;
         }),
-        findByCommitHash: vi.fn(stub.findByCommitHash)
+        findByCommitHash: vi.fn(stub.findByCommitHash),
+        getAtomDrift: vi.fn().mockResolvedValue({})
     };
     return mock;
 }

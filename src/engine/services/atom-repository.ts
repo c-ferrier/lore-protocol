@@ -409,6 +409,26 @@ export class AtomRepository {
   }
 
   /**
+   * Calculates the drift metric for an atom (commits since creation per file).
+   * Optimized: Performed in a single Git pass followed by memory counting.
+   */
+  async getAtomDrift(atom: Atom): Promise<Record<string, number>> {
+    const driftMap: Record<string, number> = {};
+    for (const file of atom.filesChanged) {
+        driftMap[file] = 0;
+    }
+
+    const changedFiles = await this.gitClient.getFilesChangedSince(atom.commitHash);
+    for (const file of changedFiles) {
+        if (driftMap[file] !== undefined) {
+            driftMap[file]++;
+        }
+    }
+
+    return driftMap;
+  }
+
+  /**
    * Resolves raw options into Engine-native objects (Dates, ASTs).
    */
   private async resolveOptions(options: SearchOptions): Promise<SearchOptions> {

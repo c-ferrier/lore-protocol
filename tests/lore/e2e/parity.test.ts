@@ -65,8 +65,10 @@ describe('Lore CLI Output Parity (v0.5.0 vs Local)', () => {
   }
 
   beforeAll(() => {
+    // Increase timeout for build in slow environments
+    vi.setConfig({ hookTimeout: 30000 });
     // 0. Ensure fresh build for local parity
-    execSync('npm run build', { cwd: process.cwd(), stdio: 'ignore' });
+    // Pre-built during CI workflow
 
     // 1. Create sandbox
     mkdirSync(sandboxDir, { recursive: true });

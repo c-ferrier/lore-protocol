@@ -234,15 +234,28 @@ export class GitClient implements IGitClient {
     return this.parseLogOutput(stdout);
   }
 
-  async countCommitsSince(path: string, sinceCommitHash: string): Promise<number> {
+  async getFilesChangedSince(commitHash: string): Promise<readonly string[]> {
+    const RECORD_SEP = '!!COMMIT_START!!';
     const stdout = await this.exec([
-      'rev-list',
-      '--count',
-      `${sinceCommitHash}..HEAD`,
-      '--',
-      path,
+      'log',
+      '--name-only',
+      `--format=format:${RECORD_SEP}`,
+      `${commitHash}..HEAD`,
     ]);
-    return parseInt(stdout.trim(), 10);
+
+    if (!stdout.trim()) return [];
+
+    const files: string[] = [];
+    const chunks = stdout.split(RECORD_SEP);
+    for (const chunk of chunks) {
+        if (!chunk.trim()) continue;
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed) files.push(trimmed);
+        }
+    }
+    return files;
   }
 
   async resolveRef(ref: string): Promise<string> {

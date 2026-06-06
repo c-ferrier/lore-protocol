@@ -1,33 +1,38 @@
-import { beforeEach,describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { analyzeStaleness } from '../../../../src/engine/shell/orchestrators/staleness.js';
-import { makeAtom, makeMockContext, makeProtocol,makeProtocolRegistry, TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { 
+    makeAtom, 
+    makeMockAtomRepository, 
+    makeProtocolRegistry,
+    makeMockProtocolContext,
+    makeProtocol,
+    TEST_ENGINE_CONFIG 
+} from '../../engine-test-utils.js';
 import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
-import { makeMockGitClient } from '../../engine-test-utils.js';
-
 
 describe('analyzeStaleness (Shell Orchestrator)', () => {
-  let gitClient: any;
-  let registry: any;
+  let mockRepo: any;
 
   beforeEach(() => {
-    gitClient = makeMockGitClient();
-    registry = makeProtocolRegistry([makeProtocol()]);
+    mockRepo = makeMockAtomRepository();
   });
 
-  const getDeps = () => ({
-    gitClient,
+  const getDeps = (registry?: any) => ({
+    atomRepository: mockRepo,
     config: TEST_ENGINE_CONFIG,
-    protocolRegistry: registry
+    protocolRegistry: registry || new ProtocolRegistry()
   });
 
-  it('should orchestrate Age and Drift signals using IGitClient', async () => {
-    const now = new Date();
-    const oldDate = new Date(now.getTime() - 1000 * 60 * 60 * 24 * 400); // > 1 year
-    const atom = makeAtom({ date: oldDate, filesChanged: ['src/logic.ts'] });
+  it('should orchestrate Age and Drift signals using Repository', async () => {
+    const atom = makeAtom({ 
+        date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 365), // 1 year old
+        filesChanged: ['src/logic.ts'] 
+    });
 
-    // Mock Git: 25 commits since atom for this file (threshold is 20)
-    gitClient.countCommitsSince.mockResolvedValue(25);
+    // Mock Repository: 25 commits since atom for this file (threshold is 20)
+    mockRepo.getAtomDrift.mockResolvedValue({ 'src/logic.ts': 25 });
 
     const reports = await analyzeStaleness([atom], new Map(), getDeps());
 
@@ -37,36 +42,39 @@ describe('analyzeStaleness (Shell Orchestrator)', () => {
     // 1. Age signal triggered
     expect(reasons.some(r => r.signal === STALE_SIGNAL.AGE)).toBe(true);
 
-    // 2. Drift signal triggered (threshold is 20 in TEST_ENGINE_CONFIG)
+    // 2. Drift signal triggered
     expect(reasons.some(r => r.signal === STALE_SIGNAL.DRIFT)).toBe(true);
-    expect(gitClient.countCommitsSince).toHaveBeenCalledWith('src/logic.ts', atom.commitHash);
+    expect(mockRepo.getAtomDrift).toHaveBeenCalledWith(atom);
   });
 
   it('should delegate to protocols for domain-specific signals', async () => {
-    const protocol = makeMockContext({
+    const protocol = makeMockProtocolContext({
         name: 'mock',
-        trailers: { 
-            Confidence: { 
-                description: 'conf', 
-                stale_if: { kind: 'value-equals', value: 'low', signal: STALE_SIGNAL.CONFIDENCE } 
-            } as any 
+        trailers: {
+            Confidence: {
+                description: 'conf',
+                stale_if: { kind: 'value-equals', value: 'low', signal: 'confidence' }
+            } as any
         }
     });
 
     const registry = makeProtocolRegistry([protocol]);
     const atom = makeAtom({ date: new Date(), trailers: { Confidence: ['low'] } });
-    const reports = await analyzeStaleness([atom], new Map(), { ...getDeps(), protocolRegistry: registry });
+    mockRepo.getAtomDrift.mockResolvedValue({});
+
+    const reports = await analyzeStaleness([atom], new Map(), getDeps(registry));
 
     expect(reports).toHaveLength(1);
-    // Find the confidence signal
-    expect(reports[0].reasons.some(r => r.signal === 'value-match')).toBe(true);
+    expect(reports[0].reasons.some(r => r.signal === 'confidence')).toBe(true);
   });
 
   it('should handle Git errors gracefully during drift check', async () => {
     const atom = makeAtom({ date: new Date(), filesChanged: ['deleted.ts'] });
-    gitClient.countCommitsSince.mockRejectedValue(new Error('Git error'));
+    mockRepo.getAtomDrift.mockRejectedValue(new Error('Git error'));
 
     const reports = await analyzeStaleness([atom], new Map(), getDeps());
+
+    // Should still return, just without the drift signal
     expect(reports).toHaveLength(0);
   });
 });
