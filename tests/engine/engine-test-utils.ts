@@ -102,13 +102,6 @@ export function makeMockPrompt(overrides: any = {}): any {
     };
 }
 
-export function makeMockHeadIdReader(overrides: any = {}): any {
-    return {
-        readIds: vi.fn().mockResolvedValue({}),
-        ...overrides
-    };
-}
-
 export function makeMockInputResolver(overrides: any = {}): any {
     return {
         resolve: vi.fn().mockResolvedValue({}),

@@ -1,17 +1,10 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
 import { type IGitClient } from '../../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { HeadIdReader } from '../../../../src/engine/shell/git/head-id-reader.js';
+import { readHeadIdentities } from '../../../../src/engine/shell/git/head-id-reader.js';
 import { makeProtocol } from '../../../../src/engine/testing.js';
-
-;
-import { beforeEach,describe, expect, it, vi } from 'vitest';
-;
-
-
-;
-
-;
 
 const TEST_ID_KEY = "Mock-id";
 
@@ -37,7 +30,7 @@ function createMockGitClient(headMessage: string): IGitClient {
   } as any;
 }
 
-describe('HeadIdReader', () => {
+describe('readHeadIdentities', () => {
   let protocolRegistry: ProtocolRegistry;
   let protocol: ProtocolContext;
 
@@ -56,25 +49,21 @@ describe('HeadIdReader', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadIdReader(gitClient, protocolRegistry);
+    const result = await readHeadIdentities(gitClient, protocolRegistry);
 
-    const result = await reader.read();
-
-    expect(result).toBe('a1b2c3d4');
+    expect(result.mock).toBe('a1b2c3d4');
   });
 
-  it('should return null when HEAD has no trailers', async () => {
+  it('should return empty object when HEAD has no trailers', async () => {
     const message = 'feat: simple commit with no trailers';
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadIdReader(gitClient, protocolRegistry);
+    const result = await readHeadIdentities(gitClient, protocolRegistry);
 
-    const result = await reader.read();
-
-    expect(result).toBeNull();
+    expect(result).toEqual({});
   });
 
-  it(`should return null when HEAD has trailers but no ${TEST_ID_KEY}`, async () => {
+  it(`should return empty object when HEAD has trailers but no ${TEST_ID_KEY}`, async () => {
     const message = [
       'feat: add login flow',
       '',
@@ -82,20 +71,16 @@ describe('HeadIdReader', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadIdReader(gitClient, protocolRegistry);
+    const result = await readHeadIdentities(gitClient, protocolRegistry);
 
-    const result = await reader.read();
-
-    expect(result).toBeNull();
+    expect(result.mock).toBeUndefined();
   });
 
   it('should handle empty commit message', async () => {
     const gitClient = createMockGitClient('');
-    const reader = new HeadIdReader(gitClient, protocolRegistry);
+    const result = await readHeadIdentities(gitClient, protocolRegistry);
 
-    const result = await reader.read();
-
-    expect(result).toBeNull();
+    expect(result).toEqual({});
   });
 
   it(`should return ${TEST_ID_KEY} from a full commit message with body`, async () => {
@@ -109,14 +94,12 @@ describe('HeadIdReader', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadIdReader(gitClient, protocolRegistry);
+    const result = await readHeadIdentities(gitClient, protocolRegistry);
 
-    const result = await reader.read();
-
-    expect(result).toBe('deadbeef');
+    expect(result.mock).toBe('deadbeef');
   });
 
-  it(`should return null when ${TEST_ID_KEY} is not valid hex format`, async () => {
+  it(`should return empty object when ${TEST_ID_KEY} is not valid hex format`, async () => {
     const message = [
       'feat: add login flow',
       '',
@@ -124,10 +107,8 @@ describe('HeadIdReader', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const reader = new HeadIdReader(gitClient, protocolRegistry);
+    const result = await readHeadIdentities(gitClient, protocolRegistry);
 
-    const result = await reader.read();
-
-    expect(result).toBeNull();
+    expect(result.mock).toBeUndefined();
   });
 });

@@ -3,7 +3,7 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { registerCommitCommand } from '../../../../src/engine/cli/commands/commit.js';
 import { makeCommitInput, makeProtocol, makeProtocolRegistry,TEST_ENGINE_CONFIG, TEST_ID_KEY } from '../../../../src/engine/testing.js';
-import { makeMockFormatter, makeMockGitClient, makeMockHeadIdReader, makeMockInputResolver } from '../../engine-test-utils.js';
+import { makeMockFormatter, makeMockGitClient, makeMockInputResolver } from '../../engine-test-utils.js';
 ;
 
 
@@ -13,6 +13,11 @@ import { makeMockFormatter, makeMockGitClient, makeMockHeadIdReader, makeMockInp
 ;
 
 import * as FormattingLogic from '../../../../src/engine/core/logic/commit-formatting.js';
+import * as HeadIdReader from '../../../../src/engine/shell/git/head-id-reader.js';
+
+vi.mock('../../../../src/engine/shell/git/head-id-reader.js', () => ({
+    readHeadIdentities: vi.fn().mockResolvedValue({})
+}));
 
 vi.mock('../../../../src/engine/core/logic/commit-formatting.js', async (importOriginal) => {
     const actual = await importOriginal<any>();
@@ -39,7 +44,7 @@ function createDeps(overrides: any = {}) {
     gitClient: makeMockGitClient(),
     getFormatter: () => formatter,
     commitInputResolver: makeMockInputResolver(),
-    headIdReader: makeMockHeadIdReader(),
+    
     config: TEST_ENGINE_CONFIG,
     protocol,
     protocolRegistry,
@@ -65,17 +70,15 @@ describe('atom commit --amend', () => {
   });
 
   it(`should pass existing ${TEST_ID_KEY} to formatCommit when amending`, async () => {
-    const headIdReader = makeMockHeadIdReader({ 
-        readIds: vi.fn().mockResolvedValue({ mock: 'cafebabe' }) 
-    });
+    vi.mocked(HeadIdReader.readHeadIdentities).mockResolvedValue({ mock: 'cafebabe' });
     const commitInputResolver = makeMockInputResolver({
         read: vi.fn().mockResolvedValue(makeCommitInput({ subject: 'amend test' }))
     });
-    const deps = createDeps({ headIdReader, commitInputResolver });
+    const deps = createDeps({ commitInputResolver });
 
     await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
 
-    expect(headIdReader.readIds).toHaveBeenCalledOnce();
+    expect(HeadIdReader.readHeadIdentities).toHaveBeenCalledOnce();
     expect(FormattingLogic.formatCommit).toHaveBeenCalledWith(
       expect.objectContaining({ subject: 'amend test' }),
       expect.anything(),
@@ -163,12 +166,12 @@ describe('atom commit --amend', () => {
   });
 
   it(`should generate new ${TEST_ID_KEY} when amending a non-Mock commit`, async () => {
-    const headIdReader = makeMockHeadIdReader({});
-    const deps = createDeps({ headIdReader });
+    vi.mocked(HeadIdReader.readHeadIdentities).mockResolvedValue({});
+    const deps = createDeps();
 
     await runCommitCommand(['--amend', '--subject', 'amend non-mock'], deps);
 
-    expect(headIdReader.readIds).toHaveBeenCalledOnce();
+    expect(HeadIdReader.readHeadIdentities).toHaveBeenCalledOnce();
     expect(FormattingLogic.formatCommit).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -178,12 +181,12 @@ describe('atom commit --amend', () => {
   });
 
   it(`should not read ${TEST_ID_KEY} from HEAD for normal commits`, async () => {
-    const headIdReader = makeMockHeadIdReader({ mock: 'cafebabe' });
-    const deps = createDeps({ headIdReader });
+    vi.mocked(HeadIdReader.readHeadIdentities).mockResolvedValue({ mock: 'cafebabe' });
+    const deps = createDeps();
 
     await runCommitCommand(['--subject', 'normal commit'], deps);
 
-    expect(headIdReader.readIds).not.toHaveBeenCalled();
+    expect(HeadIdReader.readHeadIdentities).not.toHaveBeenCalled();
     expect(FormattingLogic.formatCommit).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),

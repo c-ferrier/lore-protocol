@@ -3,7 +3,7 @@ import { ProtocolMap, type ProtocolName } from '../models/protocol-map.js';
 export { ProtocolMap };
 export type { ProtocolName };
 
-/** 8-character hex string identifying a protocol atom. */
+/** String identifying a protocol atom. */
 export type AtomId = string;
 
 /**

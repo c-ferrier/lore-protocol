@@ -36,7 +36,6 @@ import { DynamicProtocolLoader, ProtocolLoader } from '../shell/fs/protocol-load
 import { QueryCache } from '../shell/fs/query-cache.js';
 import { resolveProtocolRoot } from '../shell/fs/root-resolver.js';
 import { GitClient } from '../shell/git/git-client.js';
-import { HeadIdReader } from '../shell/git/head-id-reader.js';
 import { CACHE_DIR, DEFAULT_CACHE_PRUNE_THRESHOLD, PROTOCOLS_DIR_NAME,QUERY_CACHE_DIR } from '../util/constants.js';
 import { AtomRepository } from './atom-repository.js';
 import {  ProtocolRegistry  } from './protocol-registry.js';
@@ -162,7 +161,6 @@ export class EngineBootstrapper {
 
     const prompt = new TerminalPrompt();
     const commitInputResolver = new CommitInputResolver(prompt, protocolRegistry, config);
-    const headIdReader = new HeadIdReader(gitClient, protocolRegistry);
 
     // 6. Formatter factory
     let cachedFormatter: IOutputFormatter | null = null;
@@ -188,7 +186,6 @@ export class EngineBootstrapper {
       atomRepository,
       gitClient,
       commitInputResolver,
-      headIdReader,
       getFormatter,
       config: config as any,
       logger,
