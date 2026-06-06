@@ -206,19 +206,24 @@ export class AtomRepository {
     const primaryProtocol = root?.def.name.toLowerCase() || '';
 
     // 1. Check Atomic Cache First
+    const cachedHashes = new Set<string>();
     if (headHash) {
         await Promise.all(identities.map(async (identity) => {
             const pName = (identity.protocol || primaryProtocol).toLowerCase();
             const fingerprint = `identity:${pName}/${identity.id}`;
             const cached = await this.queryCache.get(headHash, fingerprint, {});
             if (cached && cached.length > 0) {
-                const raw = await this.gitClient.getCommitsByHashes(cached);
-                const hydrated = hydrateAtoms(raw, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
-                results.push(...hydrated);
+                for (const hash of cached) cachedHashes.add(hash);
             } else {
                 missing.push(identity);
             }
         }));
+
+        if (cachedHashes.size > 0) {
+            const raw = await this.gitClient.getCommitsByHashes([...cachedHashes]);
+            const hydrated = hydrateAtoms(raw, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
+            results.push(...hydrated);
+        }
     } else {
         missing.push(...identities);
     }
