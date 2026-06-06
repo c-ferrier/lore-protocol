@@ -59,6 +59,9 @@ export const QUERY_CACHE_DIR = 'query';
 /** Sentinel key for global query cache entries (when no paths are provided) */
 export const GLOBAL_CACHE_KEY = 'GLOBAL';
 
+/** The namespace used by the primary "Host" protocol (empty string) */
+export const ROOT_NAMESPACE = '';
+
 /** Engine configuration component names */
 export const ENGINE_DIR_NAME = '.atom';
 export const PROTOCOLS_DIR_NAME = 'protocols';

@@ -1,6 +1,5 @@
 import chalk, { Chalk, type ChalkInstance } from 'chalk';
 
-import { getProtocolIdentity } from '../../core/logic/identity.js';
 import { getAuthorizedKeys } from '../../core/logic/protocols.js';
 import type { Atom } from '../../core/types/domain.js';
 import type {
@@ -13,6 +12,7 @@ import type {
 } from '../../core/types/output.js';
 import type { ErrorMessage,IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { ROOT_NAMESPACE } from '../../util/constants.js';
 
 /**
  * Strategy implementation for human-readable terminal output.
@@ -27,8 +27,12 @@ export class TextFormatter implements IOutputFormatter {
     protected readonly protocolRegistry: ProtocolRegistry,
     options: { color: boolean }
   ) {
-    this.c = new Chalk({ level: options.color ? (chalk.level || 1) : 0 });
+    // Force color level 1 if requested, otherwise respect global chalk level or default to 0
+    const level = options.color ? (chalk.level > 0 ? chalk.level : 1) : 0;
+    this.c = new Chalk({ level });
   }
+
+
 
   formatQueryResult(data: FormattableQueryResult): string {
     const { result, visibleTrailers } = data;
@@ -40,33 +44,20 @@ export class TextFormatter implements IOutputFormatter {
     }
 
     for (const atom of result.atoms) {
-      // Find a representative ID for the header (root preferred)
-      const rootProtocol = this.protocolRegistry.getRoot();
-      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.def.name.toLowerCase()) || atom.protocols.get(rootProtocol.def.name) : null;
-      
-      let id = (rootProtocol && primaryState) ? getProtocolIdentity(primaryState, rootProtocol) : undefined;
-      if (!id) {
-          // Try to find ANY protocol identity
-          for (const [name, state] of atom.protocols) {
-              const p = this.protocolRegistry.get(name);
-              id = p ? getProtocolIdentity(state, p) : undefined;
-              if (id) break;
-          }
-      }
-
-      // Final fallback to shortened commit hash
-      const displayId = id || atom.commitHash.slice(0, 8);
+      // Agnostic Anchor: Always use short commit hash
+      const displayId = atom.commitHash.slice(0, 7);
 
       // Determine supersession for the displayId
-      const isSuperseded = primaryState?.supersession?.superseded ?? false;
-
-      const header = this.formatAtomHeader(atom, displayId, isSuperseded);
-      lines.push(header);
-
-      if (isSuperseded && primaryState?.supersession?.supersededBy?.length) {
-        const successors = primaryState.supersession.supersededBy.join(', ');
-        lines.push(this.c.dim(`  (superseded by ${successors})`));
+      // In agnostic mode, we just check if the commit itself is superseded
+      let isSuperseded = false;
+      for (const state of atom.protocols.values()) {
+        if (state.supersession?.superseded) {
+          isSuperseded = true;
+          break;
+        }
       }
+
+      lines.push(this.formatAtomHeader(atom, displayId, isSuperseded));
 
       // Always show the subject line
       lines.push(`  ${this.c.bold(atom.subject)}`);
@@ -75,7 +66,7 @@ export class TextFormatter implements IOutputFormatter {
         lines.push(`  ${this.c.dim(atom.body)}`);
       }
 
-      const trailerLines = this.formatTrailers(atom, visibleTrailers, displayId);
+      const trailerLines = this.formatTrailers(atom, visibleTrailers);
       for (const tl of trailerLines) {
         lines.push(`  ${tl}`);
       }
@@ -97,7 +88,7 @@ export class TextFormatter implements IOutputFormatter {
       const icon = commitResult.valid
         ? this.c.green('\u2713')
         : this.c.red('\u2717');
-      const label = commitResult.id ?? commitResult.commit.slice(0, 8);
+      const label = commitResult.commit.slice(0, 7);
       lines.push(`${icon} ${label}`);
 
 
@@ -138,12 +129,9 @@ export class TextFormatter implements IOutputFormatter {
     }
 
     for (const report of data.atoms) {
-      const rootProtocol = this.protocolRegistry.getRoot();
-      const state = rootProtocol ? report.atom.protocols.get(rootProtocol.def.name.toLowerCase()) || report.atom.protocols.get(rootProtocol.def.name) : null;
-      const id = (rootProtocol && state) ? getProtocolIdentity(state, rootProtocol) : report.atom.commitHash.slice(0, 8);
-
+      const displayId = report.atom.commitHash.slice(0, 7);
       const dateStr = report.atom.date.toISOString().slice(0, 10);
-      lines.push(`${this.c('yellow')}STALE${this.c('reset')}  ${this.c('bright')}${id || ''} (${dateStr})${this.c('reset')}`);
+      lines.push(`${this.c.yellow('STALE')}  ${this.c.bold(displayId)} (${dateStr})`);
       lines.push(`  ${report.atom.subject}`);
 
       for (const reason of report.reasons) {
@@ -157,9 +145,7 @@ export class TextFormatter implements IOutputFormatter {
 
   formatTraceResult(data: FormattableTraceResult): string {
     const lines: string[] = [];
-    const rootProtocol = this.protocolRegistry.getRoot();
-    const state = rootProtocol ? data.root.protocols.get(rootProtocol.def.name.toLowerCase()) || data.root.protocols.get(rootProtocol.def.name) : null;
-    const rootId = (rootProtocol && state) ? getProtocolIdentity(state, rootProtocol) : data.root.commitHash.slice(0, 8);
+    const rootId = data.root.commitHash.slice(0, 7);
 
     lines.push(`${this.c.bold('Decision Trace:')} ${rootId}`);
     lines.push(this.c.dim(`${data.root.commitHash} - ${data.root.author}`));
@@ -251,7 +237,7 @@ export class TextFormatter implements IOutputFormatter {
     return this.c.bold(fullHeader);
   }
 
-  private formatTrailers(atom: Atom, visibleTrailers: readonly string[] | 'all', headerId: string): string[] {
+  private formatTrailers(atom: Atom, visibleTrailers: readonly string[] | 'all'): string[] {
     const lines: string[] = [];
     const shouldShow = (key: string): boolean => {
       if (visibleTrailers === 'all') return true;
@@ -267,8 +253,7 @@ export class TextFormatter implements IOutputFormatter {
       const renderedKeys = new Set<string>();
 
       for (const key of authorizedKeys) {
-        const id = getProtocolIdentity(state, p);
-        if (key === p.def.identityKey && id === headerId) continue;
+        
         if (!shouldShow(key)) continue;
 
         const values = state.trailers[key];
@@ -291,8 +276,7 @@ export class TextFormatter implements IOutputFormatter {
       for (const key of allStateKeys) {
           if (renderedKeys.has(key)) continue;
           
-          const id = getProtocolIdentity(state, p);
-          if (key === p.def.identityKey && id === headerId) continue;
+          
           if (!shouldShow(key)) continue;
 
           const values = state.trailers[key];

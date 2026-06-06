@@ -16,6 +16,7 @@ import type { QueryIdentity } from '../../core/types/query.js';
 import type { RawCommit } from '../../interfaces/git-client.js';
 import type { AtomRepository } from '../../services/atom-repository.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { ROOT_NAMESPACE } from '../../util/constants.js';
 
 /**
  * Orchestrates the validation of commits across all registered protocols.
@@ -71,7 +72,7 @@ export async function validateCommits(
     issues.push(...evaluateTrailerHygiene(trailers));
 
     // Final ID for UI parity (prefer root namespace or first protocol)
-    const primary = protocolRegistry.getRoot() || protocols[0];
+    const primary = protocolRegistry.getByNamespace(ROOT_NAMESPACE) || protocols[0];
     const primaryState = primary ? normalizeTrailers(trailers, primary, claimedKeys) : null;
     
     let displayId = null;

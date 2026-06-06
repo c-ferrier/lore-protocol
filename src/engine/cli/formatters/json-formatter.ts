@@ -10,6 +10,7 @@ import type {
 } from '../../core/types/output.js';
 import type { ErrorMessage,IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { ROOT_NAMESPACE } from '../../util/constants.js';
 
 /**
  * Strategy implementation for JSON output.
@@ -30,7 +31,7 @@ export class JsonFormatter implements IOutputFormatter {
 
   formatQueryResult(data: FormattableQueryResult): string {
     const { result, visibleTrailers } = data;
-    const rootProtocol = this.protocolRegistry.getRoot() || this.protocolRegistry.getAll()[0];
+    const rootProtocol = this.protocolRegistry.getByNamespace(ROOT_NAMESPACE);
     const subjectKey = this.getSubjectKey();
 
     const results = result.atoms.map((atom) => {

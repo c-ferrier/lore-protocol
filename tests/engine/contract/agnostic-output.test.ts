@@ -77,7 +77,7 @@ describe('Agnostic Output (Zero Protocols)', () => {
       const output = formatter.formatQueryResult(mockData);
 
       // Header should show first 8 chars of hash
-      expect(output).toContain('abc12345');
+      expect(output).toContain('abc1234');
       expect(output).toContain('feat: agnostic commit');
     });
 

@@ -16,8 +16,10 @@ import type { QueryIdentity,QueryTargetAST, SearchOptions } from '../core/types/
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import { getIdentityPattern } from '../shell/git/protocol-query-adapter.js';
+import { ROOT_NAMESPACE } from '../util/constants.js';
 import { ProtocolError } from '../util/errors.js';
-import type { ProtocolRegistry } from './protocol-registry.js';
+import { ProtocolRegistry } from './protocol-registry.js';
+
 
 /**
  * Retrieves Atoms from git history.
@@ -192,7 +194,7 @@ export class AtomRepository {
     const results: Atom[] = [];
     const missing: QueryIdentity[] = [];
 
-    const root = this.protocolRegistry.getRoot();
+    const root = this.protocolRegistry.getByNamespace(ROOT_NAMESPACE);
     const primaryProtocol = root?.def.name.toLowerCase() || 
                            this.protocolRegistry.getAll()[0]?.def.name.toLowerCase() || '';
 
@@ -320,7 +322,7 @@ export class AtomRepository {
     
     const localKnowledge = new Map<string, Atom>();
     const indexAtoms = (list: readonly Atom[]) => {
-        const root = this.protocolRegistry.getRoot();
+        const root = this.protocolRegistry.getByNamespace(ROOT_NAMESPACE);
         const rootName = root?.def.name.toLowerCase();
 
         for (const atom of list) {

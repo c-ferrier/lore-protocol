@@ -1,3 +1,4 @@
+import { getProtocolIdentity } from '../../src/engine/core/logic/identity.js';
 import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

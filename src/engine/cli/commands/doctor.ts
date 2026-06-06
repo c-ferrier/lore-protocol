@@ -6,6 +6,8 @@ import type { ILogger } from '../../interfaces/logger.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
+import { ROOT_NAMESPACE } from '../../util/constants.js';
+
 /**
  * Register the doctor command.
  * Performs a health check on the decision engine environment.
@@ -46,7 +48,7 @@ export function registerDoctorCommand(
 
       // 2. Protocol Configuration Check
       const protocols = protocolRegistry.getAll();
-      const root = protocolRegistry.getRoot();
+      const root = protocolRegistry.getByNamespace(ROOT_NAMESPACE);
       checks.push({
         name: 'Protocols',
         status: 'ok',

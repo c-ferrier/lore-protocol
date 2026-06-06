@@ -9,6 +9,7 @@ import {
     claimsTrailers, 
     getDiscoveryPatterns, 
     getSearchPatterns} from '../shell/git/protocol-query-adapter.js';
+import { ROOT_NAMESPACE } from '../util/constants.js';
 import { ConfigurationError,ProtocolError } from '../util/errors.js';
 
 /**
@@ -154,7 +155,7 @@ export class ProtocolRegistry implements IIdentityResolver {
     if (nsMatch) return nsMatch;
 
     // 3. Fallback to Root
-    return this.getRoot();
+    return this.getByNamespace(ROOT_NAMESPACE);
   }
 
   /**
@@ -183,7 +184,7 @@ export class ProtocolRegistry implements IIdentityResolver {
         if (isValidProtocolIdentity(id, ctx.def)) return { id, protocol: ctx.name };
     }
 
-    const root = this.getRoot();
+    const root = this.getByNamespace(ROOT_NAMESPACE);
     if (!root) throw new ProtocolError(`Cannot resolve reference "${id}": no root protocol defined`, 1);
     
     return { id, protocol: root.name };
@@ -196,12 +197,5 @@ export class ProtocolRegistry implements IIdentityResolver {
     const protocols = this.getAll().map(ctx => `${ctx.name}@${ctx.version}`);
     protocols.sort();
     return protocols.join(';');
-  }
-
-  /**
-   * Returns the "Root" protocol context (global namespace).
-   */
-  getRoot(): ProtocolContext | undefined {
-    return this.namespaceMap.get('');
   }
 }
