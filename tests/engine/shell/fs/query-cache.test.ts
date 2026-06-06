@@ -7,8 +7,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { QueryOptions, SearchOptions } from '../../../../src/engine/core/types/query.js';
 import { runCli } from '../../../../src/engine/index-impl.js';
 import { QueryCache } from '../../../../src/engine/shell/fs/query-cache.js';
-import { 
-    assertIsolatedEngine,
+import {
     TEST_ENGINE_CONFIG, 
     TEST_ENGINE_DIR, 
     TEST_PROTOCOL_DEFINITION, 
@@ -242,8 +241,14 @@ describe('QueryCache Implementation', () => {
 });
 
 describe('Cache Bypass Integration (--no-cache)', () => {
-  beforeAll(() => {
-    assertIsolatedEngine(TEST_ENGINE_DIR);
+  let integrationTempDir: string;
+
+  beforeAll(async () => {
+    integrationTempDir = await mkdtemp(join(tmpdir(), 'query-cache-bypass-'));
+  });
+
+  afterAll(async () => {
+    await rm(integrationTempDir, { recursive: true, force: true });
   });
 
   it('should verify the atomRepository is created when running a command', async () => {
@@ -257,7 +262,8 @@ describe('Cache Bypass Integration (--no-cache)', () => {
       configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [TEST_PROTOCOL_DEFINITION],
-    });
+      prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn() } as any,
+    }, integrationTempDir);
 
     expect(sharedDeps.atomRepository).toBeDefined();
     process.argv = originalArgv;

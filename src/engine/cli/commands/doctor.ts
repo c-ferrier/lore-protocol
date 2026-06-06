@@ -5,7 +5,6 @@ import type { IGitClient } from '../../interfaces/git-client.js';
 import type { ILogger } from '../../interfaces/logger.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-
 import { GLOBAL_NAMESPACE } from '../../util/constants.js';
 
 /**

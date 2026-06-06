@@ -1,21 +1,19 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import * as HydrationLogic from '../../../src/engine/core/logic/hydration.js';
 import { createTargetFromIdentities } from '../../../src/engine/core/logic/query-targets.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { makeAtom, makeProtocol, makeQueryTarget, makeRawCommit } from '../../../src/engine/testing.js';
 import { makeMockGitClient } from '../engine-test-utils.js';
-;
-;
-;
-import { mkdirSync,rmSync } from 'node:fs';
-
-;
-import * as HydrationLogic from '../../../src/engine/core/logic/hydration.js';
 
 describe('Query Cache Combined Fidelity (Contract)', () => {
-  const testDir = '.test-cache-fidelity';
+  const testDir = join(tmpdir(), `lore-test-cache-${Math.random().toString(36).slice(2)}`);
   let gitClient: any;
   let registry: any;
   let cache: QueryCache;

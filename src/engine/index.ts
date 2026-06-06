@@ -94,14 +94,13 @@ export { addPathQueryOptions, executePathQuery, type PathQueryCommandOptions,typ
 export { executeEngineInit } from './cli/commands/init.js';
 
 // --- Internal Utilities (Exposed for Power Users) ---
+export { TerminalPrompt } from './cli/io/terminal-prompt.js';
 export { camelCase, slugify, snakeCase } from './core/logic/string.js';
 export { checkForUpdates } from './core/logic/update-check.js';
-export { TerminalPrompt } from './cli/io/terminal-prompt.js';
 export { 
     getEnginePackageName, 
     getEnginePublishedVersion, 
     getEngineVersion } from './core/logic/version.js';
-
 export { DEFAULT_ENGINE_CONFIG } from './defaults.js';
 export { 
     ENGINE_CONFIG_FILENAME, 

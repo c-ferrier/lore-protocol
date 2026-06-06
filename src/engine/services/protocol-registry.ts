@@ -1,8 +1,7 @@
-import { getProtocolIdentity } from '../core/logic/identity.js';
 import { authorizeKey } from '../core/logic/ownership.js';
 import { createProtocolContext, getAuthorizedKeys } from '../core/logic/protocols.js';
 import { isValidProtocolIdentity } from '../core/logic/validation.js';
-import { type Atom, ProtocolMap } from '../core/types/domain.js';
+import { ProtocolMap } from '../core/types/domain.js';
 import type { IIdentityResolver,ProtocolContext, ProtocolDefinition } from '../core/types/protocol-definition.js';
 import type { QualifiedFilter, QueryIdentity } from '../core/types/query.js';
 import { 

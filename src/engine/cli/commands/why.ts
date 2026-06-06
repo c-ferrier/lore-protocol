@@ -2,7 +2,6 @@ import type { Command } from 'commander';
 
 // Pure Logic Modules
 import { createQueryTarget } from '../../core/logic/query-targets.js';
-import type { SupersessionStatus } from '../../core/types/domain.js';
 import type { FormattableQueryResult } from '../../core/types/output.js';
 import type { QueryMeta,QueryResult } from '../../core/types/query.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';

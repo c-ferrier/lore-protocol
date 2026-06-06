@@ -1,8 +1,8 @@
-import { GLOBAL_NAMESPACE } from '../../../src/engine/util/constants.js';
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeProtocol } from '../../../src/engine/testing.js';
+import { GLOBAL_NAMESPACE } from '../../../src/engine/util/constants.js';
 import { ConfigurationError } from '../../../src/engine/util/errors.js';
 import { makeMockProtocolContext } from '../engine-test-utils.js';
 

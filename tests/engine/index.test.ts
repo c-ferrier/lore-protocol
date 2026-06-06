@@ -1,10 +1,8 @@
-import { getProtocolIdentity } from '../../src/engine/core/logic/identity.js';
 import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect,it } from 'vitest';
-import { afterAll,beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { JsonFormatter } from '../../src/engine/cli/formatters/json-formatter.js';
 import { parseFlagsToInput } from '../../src/engine/core/logic/input-interpretation.js';
@@ -19,7 +17,6 @@ import { NullQueryCache } from '../../src/engine/shell/fs/query-cache.js';
 import * as rootResolver from '../../src/engine/shell/fs/root-resolver.js';
 import { validateCommits } from '../../src/engine/shell/orchestrators/validation.js';
 import { makeProtocol, makeQueryTarget,TEST_ENGINE_CONFIG } from '../../src/engine/testing.js';
-import { assertIsolatedEngine,TEST_ENGINE_DIR } from '../../src/engine/testing.js';
 import { makeProtocol,TEST_PROTOCOL_CONFIG } from '../../src/engine/testing.js';
 import { ENGINE_CONFIG_FILENAME } from '../../src/engine/util/constants.js';
 import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
@@ -46,7 +43,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     cli: { updateCheck: false, cache: true, queryCache: true }
   } as any;
   beforeAll(() => {
-    assertIsolatedEngine(TEST_ENGINE_DIR);
+    mkdirSync(join(testDir, 'engine-test-dir'), { recursive: true });
     mkdirSync(testDir, { recursive: true });
     writeFileSync(pkgPath, JSON.stringify({ version: '1.0.0' }));
   });
@@ -55,14 +52,15 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
   });
   it('should bootstrap the engine with a custom protocol and no Lore mentions', async () => {
     const { program, sharedDeps } = await runCli({
+      prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn() } as any,
       binaryName: 'test-atom',
       version: '0.0.0-test',
       description: 'Test Engine',
-      engineDirName: TEST_ENGINE_DIR,
+      engineDirName: 'engine-test-dir',
       configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [CUSTOM_PROTOCOL],
-    });
+    }, testDir);
     expect(program.name()).toBe('test-atom');
     const customProtocol = sharedDeps.protocolRegistry.get('custom');
     expect(customProtocol).toBeDefined();
@@ -79,13 +77,14 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
   it('should support running with zero protocols initially', async () => {
     // This tests the "atom" CLI scenario
     const { program } = await runCli({
+      prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn() } as any,
       binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
-      engineDirName: TEST_ENGINE_DIR,
+      engineDirName: 'engine-test-dir',
       configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [], // Atom starts empty
-    });
+    }, testDir);
     expect(program).toBeDefined();
     expect(program.name()).toBe('atom');
   });
@@ -95,13 +94,14 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       isScoped: true
     });
     const { sharedDeps } = await runCli({
+      prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn() } as any,
       binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
-      engineDirName: TEST_ENGINE_DIR,
+      engineDirName: 'engine-test-dir',
       configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [],
-    });
+    }, testDir);
     // VERIFICATION: baseTarget must be scoped to current directory ['.']
     expect((sharedDeps.atomRepository as any).baseTarget.resolvedPaths).toEqual(['.']);
     spy.mockRestore();
@@ -112,13 +112,14 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       isScoped: false
     });
     const { sharedDeps } = await runCli({
+      prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn() } as any,
       binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
-      engineDirName: TEST_ENGINE_DIR,
+      engineDirName: 'engine-test-dir',
       configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [],
-    });
+    }, testDir);
     // VERIFICATION: baseTarget must be global (empty resolvedPaths)
     expect((sharedDeps.atomRepository as any).baseTarget.resolvedPaths).toEqual([]);
     spy.mockRestore();

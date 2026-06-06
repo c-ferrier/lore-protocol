@@ -1,8 +1,7 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
-import {     type PathQueryCommandOptions,
-    type PathQueryDeps,
-    executePathQuery } from '../../../../../src/engine/cli/commands/helpers/path-query.js';
+import {         executePathQuery,type PathQueryCommandOptions,
+    type PathQueryDeps } from '../../../../../src/engine/cli/commands/helpers/path-query.js';
 import { type Atom } from '../../../../../src/engine/core/types/domain.js';
 import { TEST_ENGINE_CONFIG } from '../../../../../src/engine/testing.js';
 import { TestLogger } from '../../../engine-test-utils.js';
