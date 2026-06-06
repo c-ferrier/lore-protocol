@@ -235,11 +235,11 @@ export class GitClient implements IGitClient {
   }
 
   async getFilesChangedSince(commitHash: string): Promise<readonly string[]> {
-    const RECORD_SEP = '!!COMMIT_START!!';
+    const RECORD_SEP = '\x1E';
     const stdout = await this.exec([
       'log',
       '--name-only',
-      `--format=format:${RECORD_SEP}`,
+      '--format=%x1E',
       `${commitHash}..HEAD`,
     ]);
 
@@ -248,11 +248,13 @@ export class GitClient implements IGitClient {
     const files: string[] = [];
     const chunks = stdout.split(RECORD_SEP);
     for (const chunk of chunks) {
-        if (!chunk.trim()) continue;
-        const lines = chunk.split('\n');
+        const trimmedChunk = chunk.trim();
+        if (!trimmedChunk) continue;
+        
+        const lines = trimmedChunk.split('\n');
         for (const line of lines) {
-            const trimmed = line.trim();
-            if (trimmed) files.push(trimmed);
+            const trimmedLine = line.trim();
+            if (trimmedLine) files.push(trimmedLine);
         }
     }
     return files;
