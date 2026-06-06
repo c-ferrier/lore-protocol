@@ -81,9 +81,9 @@ export class GitClient implements IGitClient {
       args.push(`--until=${query.untilDate.toISOString()}`);
     }
 
-    // 3. Limit
-    if (query.limit) {
-      args.push(`--max-count=${query.limit}`);
+    // 3. Physical Limit
+    if (query.maxCommits) {
+      args.push(`--max-count=${query.maxCommits}`);
     }
 
     // 4. Regex Patterns (Greps)
@@ -439,6 +439,7 @@ export class GitClient implements IGitClient {
    * Throws GitError on non-zero exit or other errors.
    */
   private async exec(args: readonly string[], input?: string): Promise<string> {
+    // // console.log('EXECUTING:', 'git', args.join(' '));
     return new Promise((resolve, reject) => {
       const child = execFileCb('git', args as string[], {
         cwd: this.cwd,

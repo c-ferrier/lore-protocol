@@ -9,7 +9,7 @@ import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { AtomRepository } from '../../services/atom-repository.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
 import { mergeOptions } from './helpers/merge-options.js';
-import { addPathQueryOptions } from './helpers/path-query.js';
+import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/path-query.js';
 
 /**
  * Register the log command.
@@ -33,8 +33,9 @@ export function registerLogCommand(
   addPathQueryOptions(cmd);
 
   cmd.action(async (paths: string[] | undefined, _options: any, command: Command) => {
-    const options = mergeOptions<PathQueryOptions>(command);
+    const options = mergeOptions<PathQueryCommandOptions>(command);
     const { atomRepository, getFormatter, logger } = deps;
+    // // console.log('LOG OPTIONS:', JSON.stringify(options));
 
     // Step 1: Resolve target using the pure logic
     const target = createQueryTarget(options.scope ? undefined : paths, { 
@@ -43,7 +44,7 @@ export function registerLogCommand(
         isScoped: !!options.scope 
     });
 
-    const atoms = await atomRepository.find(target, { ...options, includeAllCommits: !!(options as any).history });
+    const atoms = await atomRepository.find(target, { ...options, includeAllCommits: options.history });
     const totalAtoms = atoms.length;
 
     // Step 2: Apply the display-level limit

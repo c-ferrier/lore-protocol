@@ -30,8 +30,7 @@ export function registerSearchCommand(
     .command('search')
     .description('Search for decision atoms across history')
     .option('--text <query>', 'Search commit subjects and bodies')
-    .option('--has <key>', 'Search for atoms containing a specific trailer key')
-    .option('--history', 'Search full physical history including non-protocol commits');
+    .option('--has <key>', 'Search for atoms containing a specific trailer key');
 
   addPathQueryOptions(cmd);
 

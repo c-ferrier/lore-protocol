@@ -38,6 +38,7 @@ export interface PathQueryCommandOptions {
   readonly scope?: string;
   readonly follow?: boolean;
   readonly all?: boolean;
+  readonly history?: boolean;
   readonly author?: string;
   readonly limit?: number;
   readonly maxCommits?: number;
@@ -67,6 +68,7 @@ export async function executePathQuery(
     follow: options.follow ?? false,
     maxDepth: config.follow.maxDepth,
     all: options.all ?? false,
+    includeAllCommits: options.history ?? false,
     author: options.author ?? null,
     limit: options.limit ?? null,
     maxCommits: options.maxCommits ?? null,
@@ -136,6 +138,7 @@ export function addPathQueryOptions(cmd: Command): Command {
     .option('--scope <name>', 'Filter by conventional commit scope instead of path')
     .option('--follow', 'Transitively follow Related/Supersedes/Depends-on links')
     .option('--all', 'Include superseded entries')
+    .option('--history', 'Show full physical history including non-protocol commits')
     .option('--author <email>', 'Filter by commit author')
     .option('--limit <n>', 'Maximum number of results to display', parsePositiveInt)
     .option('--max-commits <n>', 'Maximum git commits to scan (supersession may be incomplete)', parsePositiveInt)

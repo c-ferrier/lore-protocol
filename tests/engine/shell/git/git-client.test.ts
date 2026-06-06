@@ -70,7 +70,7 @@ describe('GitClient Implementation', () => {
           await client.query({
               author: 'Cole',
               sinceDate: new Date('2025-01-01'),
-              limit: 5,
+              maxCommits: 5,
               regexPatterns: [['(^Lore-id: )']],
               paths: ['src/']
           });

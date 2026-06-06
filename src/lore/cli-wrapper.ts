@@ -267,6 +267,7 @@ export async function buildLoreCli() {
           hideOpt(cmd, '--scope');
           hideOpt(cmd, '--follow');
           hideOpt(cmd, '--all');
+          hideOpt(cmd, '--history');
           hideOpt(cmd, '--author');
           hideOpt(cmd, '--limit');
           hideOpt(cmd, '--max-commits');
@@ -354,6 +355,7 @@ export async function buildLoreCli() {
       if (pathQueryCmds.includes(name)) {
           hideOpt(cmd, '--until');
           hideOpt(cmd, '--filter');
+          hideOpt(cmd, '--history');
           const maxCommitsOpt = cmd.options.find(o => o.long === '--max-commits');
           if (maxCommitsOpt) (maxCommitsOpt as any).description = 'Maximum git commits to scan (supersession may be incomplete)';
           if (name === 'rejected') cmd.description('Previously rejected alternatives for a code region');
