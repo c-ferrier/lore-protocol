@@ -205,24 +205,32 @@ export class TextFormatter implements IOutputFormatter {
 
   formatConfig(data: FormattableConfigResult): string {
       const lines: string[] = [];
-      lines.push(this.c.bold(`Active Protocol Config (v${data.version})`));
-      lines.push(this.c.dim(`Permissive: ${data.permissive}`));
+      lines.push(this.c.bold(`Active Protocol Configurations (Engine v${data.engineVersion})`));
       lines.push('');
 
-      for (const [key, def] of Object.entries(data.trailers)) {
-          const isCore = def.isCore;
-          if (data.filters.showCore && !isCore) continue;
-          if (data.filters.showCustom && isCore) continue;
+      for (const p of data.protocols) {
+          const nsDisplay = p.namespace === ROOT_NAMESPACE ? 'host' : `"${p.namespace}"`;
+          lines.push(this.c.bold(`\u2500\u2500 Protocol: ${p.name} (v${p.version}) `));
+          lines.push(this.c.dim(`   Namespace: ${nsDisplay}, Permissive: ${p.permissive}`));
+          lines.push('');
 
-          const colorName = def.ui?.color || 'dim';
-          const color = this.getTrailerColor(colorName);
-          lines.push(`${color(key + ':')} ${def.description}`);
-          if (def.validation === 'values' && def.values) {
-              lines.push(this.c.dim(`  Allowed values: ${Object.keys(def.values).join(', ')}`));
+          const trailerEntries = Object.entries(p.trailers);
+          if (trailerEntries.length === 0) {
+              lines.push(this.c.dim('   (No matching trailers defined)'));
+          } else {
+              for (const [key, def] of trailerEntries) {
+                  const colorName = def.ui?.color || 'dim';
+                  const color = this.getTrailerColor(colorName);
+                  lines.push(`   ${color(key + ':')} ${def.description}`);
+                  if (def.validation === 'values' && def.values) {
+                      lines.push(this.c.dim(`     Allowed values: ${Object.keys(def.values).join(', ')}`));
+                  }
+              }
           }
+          lines.push('');
       }
 
-      return lines.join('\n');
+      return lines.join('\n').trimEnd();
   }
 
   private formatAtomHeader(atom: Atom, displayId: string, superseded: boolean): string {

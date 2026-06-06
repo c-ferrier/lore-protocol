@@ -208,24 +208,7 @@ export class JsonFormatter implements IOutputFormatter {
   }
 
   formatConfig(data: FormattableConfigResult): string {
-    const cleanTrailers: Record<string, any> = {};
-
-    for (const [key, def] of Object.entries(data.trailers)) {
-      const { ...clean } = def;
-      const stripped: any = { ...clean };
-      
-      if (stripped.directives && stripped.directives.length === 0) delete stripped.directives;
-      if (stripped.required === false) delete stripped.required;
-      if (stripped.validation === 'none') delete stripped.validation;
-
-      cleanTrailers[key] = stripped;
-    }
-
-    return JSON.stringify({
-      version: data.version,
-      permissive: data.permissive,
-      trailers: cleanTrailers
-    }, null, 2);
+    return JSON.stringify(data, null, 2);
   }
 
   /**

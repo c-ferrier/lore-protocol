@@ -86,12 +86,15 @@ export interface FormattableTrailerDefinition {
   };
 }
 
-export interface FormattableConfigResult {
+export interface FormattableProtocolConfig {
+  readonly name: string;
   readonly version: string;
+  readonly namespace: string;
   readonly permissive: boolean;
   readonly trailers: Record<string, FormattableTrailerDefinition>;
-  readonly filters: {
-    readonly showCore: boolean;
-    readonly showCustom: boolean;
-  };
+}
+
+export interface FormattableConfigResult {
+  readonly engineVersion: string;
+  readonly protocols: readonly FormattableProtocolConfig[];
 }

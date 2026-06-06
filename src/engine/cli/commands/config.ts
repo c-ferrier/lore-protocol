@@ -1,12 +1,12 @@
 import type { Command } from 'commander';
 
 import { getFormattableDefinitions } from '../../core/logic/protocols.js';
+import { getEngineVersion } from '../../core/logic/version.js';
 import type { EngineConfig } from '../../core/types/config.js';
-import type { FormattableConfigResult, FormattableTrailerDefinition } from '../../core/types/output.js';
+import type { FormattableConfigResult, FormattableProtocolConfig, FormattableTrailerDefinition } from '../../core/types/output.js';
 import type { ILogger } from '../../interfaces/logger.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import { ROOT_NAMESPACE } from '../../util/constants.js';
 
 /**
  * Register the config command.
@@ -24,30 +24,53 @@ export function registerConfigCommand(
   program
     .command('config')
     .description('Show effective configuration')
-    .option('--core', 'Show only core trailer definitions')
-    .option('--custom', 'Show only custom trailer definitions')
-    .action(async (options: { core?: boolean; custom?: boolean }) => {
+    .option('--trailer-type <type>', 'Filter trailers by type (core, custom, all)', 'all')
+    .option('--trailer-name <name>', 'Filter trailers by name (case-insensitive contains)')
+    .option('--protocol <name>', 'Filter configuration by protocol name (case-insensitive contains)')
+    .action(async (options: { trailerType: string; trailerName?: string; protocol?: string }) => {
       const { getFormatter, protocolRegistry, logger } = deps;
       
-      const hasFilters = options.core !== undefined || options.custom !== undefined;
-      const showCore = options.core ?? !hasFilters;
-      const showCustom = options.custom ?? !hasFilters;
+      const trailerType = options.trailerType.toLowerCase();
+      const trailerFilter = options.trailerName?.toLowerCase();
+      const protocolFilter = options.protocol?.toLowerCase();
 
-      const rootProtocol = protocolRegistry.getByNamespace(ROOT_NAMESPACE);
+      const allProtocols = protocolRegistry.getAll();
+      const formattableProtocols: FormattableProtocolConfig[] = [];
 
-      let allTrailers: Record<string, FormattableTrailerDefinition> = {};
-      for (const p of protocolRegistry.getAll()) {
-        allTrailers = { ...allTrailers, ...getFormattableDefinitions(p) };
+      for (const p of allProtocols) {
+        // 1. Protocol Name Filter (case-insensitive contains)
+        if (protocolFilter && !p.name.toLowerCase().includes(protocolFilter)) {
+          continue;
+        }
+
+        const allDefinitions = getFormattableDefinitions(p);
+        const filteredDefinitions: Record<string, FormattableTrailerDefinition> = {};
+
+        for (const [key, def] of Object.entries(allDefinitions)) {
+          // 2. Trailer Type Filter
+          if (trailerType === 'core' && !def.isCore) continue;
+          if (trailerType === 'custom' && def.isCore) continue;
+
+          // 3. Trailer Name Filter (case-insensitive contains)
+          if (trailerFilter && !key.toLowerCase().includes(trailerFilter)) {
+            continue;
+          }
+
+          filteredDefinitions[key] = def;
+        }
+
+        formattableProtocols.push({
+          name: p.name,
+          version: p.def.version,
+          namespace: p.storageNamespace,
+          permissive: p.def.permissive ?? true,
+          trailers: filteredDefinitions,
+        });
       }
 
       const formattable: FormattableConfigResult = {
-        version: rootProtocol?.def.version ?? '0.0.0',
-        permissive: rootProtocol?.def.permissive ?? true,
-        trailers: allTrailers,
-        filters: {
-          showCore,
-          showCustom,
-        },
+        engineVersion: getEngineVersion(),
+        protocols: formattableProtocols,
       };
 
       const formatter = getFormatter();

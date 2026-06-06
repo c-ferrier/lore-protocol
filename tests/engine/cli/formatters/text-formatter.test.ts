@@ -413,6 +413,70 @@ describe('TextFormatter', () => {
     });
   });
 
+  describe('formatConfig', () => {
+    it('should format hierarchical protocol config', () => {
+      const data: FormattableConfigResult = {
+        engineVersion: '1.2.3',
+        protocols: [
+          {
+            name: 'Lore',
+            version: '1.0',
+            namespace: '',
+            permissive: true,
+            trailers: {
+              Confidence: {
+                description: 'C',
+                multivalue: false,
+                validation: 'values',
+                isCore: true,
+                directives: [],
+                values: { high: { description: 'H' } },
+              },
+            },
+          },
+          {
+            name: 'Sec',
+            version: '2.0',
+            namespace: 'sec',
+            permissive: false,
+            trailers: {
+              Level: {
+                description: 'L',
+                multivalue: false,
+                validation: 'none',
+                isCore: false,
+                directives: [],
+              },
+            },
+          },
+        ],
+      };
+
+      const output = formatter.formatConfig(data);
+      expect(output).toContain('Active Protocol Configurations (Engine v1.2.3)');
+      expect(output).toContain('Protocol: Lore (v1.0)');
+      expect(output).toContain('Namespace: host, Permissive: true');
+      expect(output).toContain('Confidence: C');
+      expect(output).toContain('Allowed values: high');
+      
+      expect(output).toContain('Protocol: Sec (v2.0)');
+      expect(output).toContain('Namespace: "sec", Permissive: false');
+      expect(output).toContain('Level: L');
+    });
+
+    it('should show message when no matching trailers are present', () => {
+        const data: FormattableConfigResult = {
+            engineVersion: '1.0',
+            protocols: [{
+                name: 'Empty', version: '0.1', namespace: 'e', permissive: true,
+                trailers: {}
+            }]
+        };
+        const output = formatter.formatConfig(data);
+        expect(output).toContain('(No matching trailers defined)');
+    });
+  });
+
   describe('formatSuccess', () => {
     it('should return the message', () => {
       const output = formatter.formatSuccess('Operation successful');
