@@ -455,7 +455,7 @@ describe('TextFormatter', () => {
       const output = formatter.formatConfig(data);
       expect(output).toContain('Active Protocol Configurations (Engine v1.2.3)');
       expect(output).toContain('Protocol: Lore (v1.0)');
-      expect(output).toContain('Namespace: host, Permissive: true');
+      expect(output).toContain('Namespace: (none), Permissive: true');
       expect(output).toContain('Confidence: C');
       expect(output).toContain('Allowed values: high');
       

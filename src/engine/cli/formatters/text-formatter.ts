@@ -209,7 +209,7 @@ export class TextFormatter implements IOutputFormatter {
       lines.push('');
 
       for (const p of data.protocols) {
-          const nsDisplay = p.namespace === ROOT_NAMESPACE ? 'host' : `"${p.namespace}"`;
+          const nsDisplay = p.namespace === ROOT_NAMESPACE ? '(none)' : `"${p.namespace}"`;
           lines.push(this.c.bold(`\u2500\u2500 Protocol: ${p.name} (v${p.version}) `));
           lines.push(this.c.dim(`   Namespace: ${nsDisplay}, Permissive: ${p.permissive}`));
           lines.push('');
