@@ -31,12 +31,9 @@ export class JsonFormatter implements IOutputFormatter {
 
   formatQueryResult(data: FormattableQueryResult): string {
     const { result, visibleTrailers } = data;
-    const rootProtocol = this.protocolRegistry.getByNamespace(ROOT_NAMESPACE);
     const subjectKey = this.getSubjectKey();
 
     const results = result.atoms.map((atom) => {
-      const primaryState = rootProtocol ? atom.protocols.get(rootProtocol.def.name.toLowerCase()) || atom.protocols.get(rootProtocol.def.name) : null;
-
       return {
         commit: atom.commitHash,
         date: atom.date.toISOString(),
@@ -45,8 +42,6 @@ export class JsonFormatter implements IOutputFormatter {
         body: atom.body,
         protocols: this.serializeProtocols(atom, visibleTrailers),
         files_changed: [...atom.filesChanged],
-        superseded: primaryState?.supersession?.superseded ?? false,
-        superseded_by: primaryState?.supersession?.supersededBy || [],
       };
     });
 
@@ -253,6 +248,8 @@ export class JsonFormatter implements IOutputFormatter {
       version: p?.def.version ?? '1.0',
       trailers: this.serializeTrailers(state, protocolName, visibleTrailers),
       unauthorized: { ...state.unauthorized },
+      superseded: state.supersession?.superseded ?? false,
+      superseded_by: state.supersession?.supersededBy ?? [],
     };
   }
 

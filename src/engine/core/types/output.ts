@@ -17,9 +17,9 @@ export interface FormattableValidationResult {
 
 export interface CommitValidationResult {
   readonly commit: string;
-  readonly id: string | null;
   readonly valid: boolean;
   readonly issues: readonly ValidationIssue[];
+  readonly identities: Record<string, string>;
 }
 
 export interface ValidationIssue {

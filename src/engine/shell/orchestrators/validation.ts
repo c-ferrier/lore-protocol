@@ -16,7 +16,6 @@ import type { QueryIdentity } from '../../core/types/query.js';
 import type { RawCommit } from '../../interfaces/git-client.js';
 import type { AtomRepository } from '../../services/atom-repository.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import { ROOT_NAMESPACE } from '../../util/constants.js';
 
 /**
  * Orchestrates the validation of commits across all registered protocols.
@@ -59,11 +58,16 @@ export async function validateCommits(
     // 1. Structural Hygiene (Generic Logic)
     issues.push(...evaluateHygiene(raw.subject, raw.body, config));
 
-    // 2. Multi-Protocol Validation
+        // 2. Multi-Protocol Validation
+    const identities: Record<string, string> = {};
     for (const ctx of protocols) {
       // Validation needs to see everything (even invalid values) to report errors
       const state = normalizeTrailers(trailers, ctx, claimedKeys);
       
+      // Collect identity for this protocol if valid
+      const id = getProtocolIdentity(state, ctx);
+      if (id) identities[ctx.name.toLowerCase()] = id;
+
       issues.push(...validateProtocolState(state, ctx.def, protocolRegistry));
       await validateReferenceExistence(ctx, state.trailers, issues, { atomRepository, protocolRegistry });
     }
@@ -71,21 +75,13 @@ export async function validateCommits(
     // 3. Generic Trailer Hygiene (Logic)
     issues.push(...evaluateTrailerHygiene(trailers));
 
-    // Final ID for UI parity (prefer root namespace or first protocol)
-    const primary = protocolRegistry.getByNamespace(ROOT_NAMESPACE) || protocols[0];
-    const primaryState = primary ? normalizeTrailers(trailers, primary, claimedKeys) : null;
-    
-    let displayId = null;
-    if (primary && primaryState) {
-        displayId = getProtocolIdentity(primaryState, primary);
-    }
-
     return {
       commit: raw.hash,
-      id: displayId,
       valid: issues.filter((i) => i.severity === 'error').length === 0,
       issues,
+      identities,
     };
+
   }));
 }
 

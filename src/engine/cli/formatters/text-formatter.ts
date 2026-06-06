@@ -306,6 +306,12 @@ export class TextFormatter implements IOutputFormatter {
               }
           }
       }
+
+      // Format Supersession (Protocol-Specific)
+      if (state.supersession?.superseded && state.supersession.supersededBy?.length) {
+          const successors = state.supersession.supersededBy.join(', ');
+          lines.push(this.c.dim(`   [${pName}] (superseded by ${successors})`));
+      }
     }
 
     return lines;

@@ -81,8 +81,8 @@ describe('TextFormatter', () => {
       const output = formatter.formatQueryResult(data);
       // Header should show short hash
       expect(output).toContain('abc1234');
-      // In the test with color: false, we can't easily check for strikethrough 
-      // without mocking chalk, but we verify the displayId was used correctly.
+      // Should show protocol-specific supersession info
+      expect(output).toContain('[mock] (superseded by e5f6a7b8)');
     });
     it('should show "No decision atoms found." when empty', () => {
       const data: FormattableQueryResult = {

@@ -130,6 +130,31 @@ describe('JsonFormatter', () => {
       expect(mock.trailers.Confidence).toBe('high');
       expect(mock.trailers['Depends-on']).toEqual(['aabbccdd']);
     });
+    it('should include protocol-specific supersession data', () => {
+      const atom = makeAtom({
+        protocols: new Map([
+          ['mock', { 
+            trailers: makeTrailers({ [TEST_ID_KEY]: ['a1b2c3d4'] }),
+            unauthorized: {},
+            supersession: { superseded: true, supersededBy: ['e5f6a7b8'] }
+          } as any]
+        ])
+      });
+      const data: FormattableQueryResult = {
+        result: {
+          command: 'log', target: 'all', targetType: 'global',
+          atoms: [atom],
+          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+        },
+        visibleTrailers: 'all',
+      };
+      const output = formatter.formatQueryResult(data);
+      const parsed = JSON.parse(output);
+      const mock = parsed.results[0].protocols.mock;
+      expect(mock.superseded).toBe(true);
+      expect(mock.superseded_by).toEqual(['e5f6a7b8']);
+      expect(parsed.results[0].superseded).toBeUndefined();
+    });
   });
   describe('formatValidationResult', () => {
     it('should produce valid JSON summary', () => {

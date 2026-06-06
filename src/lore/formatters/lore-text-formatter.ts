@@ -232,7 +232,7 @@ export class LoreTextFormatter implements IOutputFormatter {
       const icon = commitResult.valid
         ? this.c.green('✓')
         : this.c.red('✗');
-      const label = commitResult.id ?? commitResult.commit.slice(0, 8);
+      const label = commitResult.identities['lore'] ?? commitResult.commit.slice(0, 8);
       lines.push(`${icon} ${label}`);
 
       for (const issue of commitResult.issues) {
