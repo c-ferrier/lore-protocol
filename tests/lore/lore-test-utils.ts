@@ -1,7 +1,12 @@
-
 import { Command } from 'commander';
 
-import { createLoreProgram, makeLoreProtocol, makeLoreRegistry, makeMockAtomRepository, makeMockFormatter, makeMockLoreContext, makeProtocol, makeProtocolRegistry,TEST_ENGINE_CONFIG } from '../../src/engine/testing.js';
+import { 
+    makeAtomRepository, 
+    makeStubFormatter, 
+    makeProtocol, 
+    makeProtocolRegistry, 
+    TEST_ENGINE_CONFIG 
+} from '../../src/engine/testing.js';
 import { buildLoreCli as realBuildLoreCli } from '../../src/lore/cli-wrapper.js';
 import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
 
@@ -11,24 +16,30 @@ import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
  * =============================================================================
  */
 
+/** Creates a real Lore protocol context using the production definition. */
 export function makeLoreProtocol() {
     return makeProtocol(LoreProtocolDefinition);
 }
 
+/** Creates a registry with the Lore protocol pre-registered. */
 export function makeLoreRegistry() {
     return makeProtocolRegistry([makeLoreProtocol()]);
 }
 
+/** Creates a full mock dependency bag for Lore-level command tests. */
 export function makeMockLoreContext(overrides: any = {}) {
   return {
-    atomRepository: makeMockAtomRepository(),
+    atomRepository: makeAtomRepository(),
     protocolRegistry: makeLoreRegistry(),
-    getFormatter: () => makeMockFormatter(),
+    getFormatter: () => makeStubFormatter(),
     config: TEST_ENGINE_CONFIG,
+    protocolRoot: process.cwd(),
+    cwd: process.cwd(),
     ...overrides
   };
 }
 
+/** Helper to create a Commander program for testing a specific command. */
 export function createLoreProgram(registerFn: (program: Command, deps: any) => void, deps: any) {
     const program = new Command();
     program.exitOverride();
@@ -36,10 +47,7 @@ export function createLoreProgram(registerFn: (program: Command, deps: any) => v
     return program;
 }
 
-export async function buildLoreCli(_options: { basePath: string, engineDirName: string, configFileName: string }) {
-  // Use the real production buildLoreCli to ensure we test the actual 
-  // orchestration logic, hooks, and rebranding shims.
-  // Note: We ignore the options because the production wrapper 
-  // uses process.cwd() and constants, and the tests already stub process.cwd().
+/** Wrapper around the real buildLoreCli for E2E-style testing. */
+export async function buildLoreCli() {
   return realBuildLoreCli();
 }

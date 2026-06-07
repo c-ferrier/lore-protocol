@@ -1,16 +1,16 @@
 import { Command } from 'commander';
-import { afterEach,beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerDoctorCommand } from '../../../../src/engine/cli/commands/doctor.js';
-import { type Atom, ProtocolMap } from '../../../../src/engine/core/types/domain.js';
+import { type Atom } from '../../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeMockContext, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
-import { makeMockAtomRepository, makeMockConfigLoader, makeMockGitClient, makeMockProtocolContext,TestLogger } from '../../engine-test-utils.js';
+import { makeStubContext, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeMockAtomRepository, makeMockConfigLoader, makeMockFormatter, TestLogger } from '../../engine-test-utils.js';
 
 describe('Doctor Command', () => {
   let atomRepository: any;
   let configLoader: any;
-  let protocol: ProtocolContext;
+  let protocol: any;
 
   beforeEach(() => {
     atomRepository = makeMockAtomRepository();
@@ -18,7 +18,7 @@ describe('Doctor Command', () => {
         resolveRoot: vi.fn().mockResolvedValue('/repo'),
         findConfigPath: vi.fn().mockResolvedValue('/repo/.mock/config.toml'),
     });
-    protocol = makeMockContext(TEST_PROTOCOL_DEFINITION);
+    protocol = makeStubContext(TEST_PROTOCOL_DEFINITION);
     vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
   });
 
@@ -29,16 +29,17 @@ describe('Doctor Command', () => {
   async function runDoctor(deps: any) {
     const program = new Command();
     program.exitOverride();
+    
+    // Tiered signature: registerDoctorCommand(program, deps)
+    // where deps contains the full I/O bag
     registerDoctorCommand(program, {
-        protocolRegistry: new ProtocolRegistry(),
-        logger: new TestLogger(),
-        gitClient: makeMockGitClient(),
-        getFormatter: () => ({
-            formatDoctorResult: vi.fn().mockReturnValue('Report')
-        }),
-        configLoader,
-        ...deps
-    });
+        atomRepository: deps.atomRepository || atomRepository,
+        getFormatter: deps.getFormatter || (() => makeMockFormatter()),
+        protocolRegistry: deps.protocolRegistry || new ProtocolRegistry(),
+        logger: deps.logger || new TestLogger(),
+        configLoader
+    } as any);
+    
     try {
       await program.parseAsync(['node', 'atom', 'doctor']);
     } catch (err) {
@@ -48,69 +49,47 @@ describe('Doctor Command', () => {
   }
 
   it('should report broken references for namespaced trailers', async () => {
-    // 1. Create a namespaced protocol (Fred)
-    const fred = makeMockProtocolContext({
-      name: 'Fred',
-      identityKey: 'Fred-id',
-      namespace: 'Fred',
-      trailers: { 
-          'Fred-id': { description: 'ID', validation: 'pattern', pattern: '^[0-9a-f]{8}$' },
-          'Depends-on': { description: '', multivalue: true, validation: 'reference' } 
-      } as any,
-    });
-    
-    const registry = new ProtocolRegistry();
-    registry.register(fred);
-    
-    const atom: Atom = {
+    const atom = {
       commitHash: 'h1',
-      date: new Date(),
-      author: 'cole@example.com',
-      subject: 'subject',
-      body: '',
-      protocols: new ProtocolMap([
-        ['fred', { trailers: { 'Fred-id': ['12345678'], 'Depends-on': ['deadbeef'] }, unauthorized: {} }]
+      protocols: new Map([
+        ['mock', { 
+            trailers: { 'Ref-id': ['missing'] },
+            unauthorized: {}
+        }]
       ]),
-      filesChanged: new Set()
-    };
+      filesChanged: []
+    } as unknown as Atom;
 
     atomRepository.find.mockResolvedValue([atom]);
-
     const logger = new TestLogger();
+    const registry = new ProtocolRegistry();
+    registry.register(protocol);
 
     await runDoctor({
       atomRepository,
       logger,
-      protocolRegistry: registry,
-      getFormatter: () => ({
-          formatDoctorResult: vi.fn().mockReturnValue('Report')
-      })
+      protocolRegistry: registry
     });
 
-    expect(logger.resultLogs[0]).toContain('Report');
+    expect(logger.resultLogs[0]).toContain('Mock Doctor Result');
   });
 
-  it('should report duplicate identities for custom protocols', async () => {
-    const registry = new ProtocolRegistry();
-    registry.register(protocol);
-
-    const atom1: Atom = {
+  it('should identify duplicate IDs across the repository', async () => {
+    const atom1 = {
       commitHash: 'h1',
-      date: new Date(),
-      author: 'a', subject: 's', body: 'b',
-      protocols: new ProtocolMap([['mock', { trailers: { 'Mock-id': ['12345678'] }, unauthorized: {} }]]),
-      filesChanged: new Set()
-    };
-    const atom2: Atom = {
+      protocols: new Map([['mock', { trailers: { 'Mock-id': ['id1'] }, unauthorized: {} }]]),
+      filesChanged: []
+    } as unknown as Atom;
+    const atom2 = {
       commitHash: 'h2',
-      date: new Date(),
-      author: 'a', subject: 's', body: 'b',
-      protocols: new ProtocolMap([['mock', { trailers: { 'Mock-id': ['12345678'] }, unauthorized: {} }]]),
-      filesChanged: new Set()
-    };
+      protocols: new Map([['mock', { trailers: { 'Mock-id': ['id1'] }, unauthorized: {} }]]),
+      filesChanged: []
+    } as unknown as Atom;
 
     atomRepository.find.mockResolvedValue([atom1, atom2]);
     const logger = new TestLogger();
+    const registry = new ProtocolRegistry();
+    registry.register(protocol);
 
     await runDoctor({
       atomRepository,

@@ -75,11 +75,11 @@ describe('QueryCache Implementation', () => {
 
     it('should distinguish between different git log arguments', async () => {
       const options = getMockOptions();
-      await cache.set(H1, ['--a'], options, ['h1']);
-      await cache.set(H1, ['--b'], options, ['h2']);
+      await cache.set(H1, '--a', options, ['h1']);
+      await cache.set(H1, '--b', options, ['h2']);
 
-      const r1 = await cache.get(H1, ['--a'], options);
-      const r2 = await cache.get(H1, ['--b'], options);
+      const r1 = await cache.get(H1, '--a', options);
+      const r2 = await cache.get(H1, '--b', options);
 
       expect(r1).toEqual(['h1']);
       expect(r2).toEqual(['h2']);
@@ -123,66 +123,66 @@ describe('QueryCache Implementation', () => {
       const o1 = { ...getBaseOptions(), text: 'bug' };
       const o2 = { ...getBaseOptions(), text: 'feat' };
       
-      await cache.set(H1, [GLOBAL_CACHE_KEY], o1, ['h1']);
-      await cache.set(H1, [GLOBAL_CACHE_KEY], o2, ['h2']);
+      await cache.set(H1, GLOBAL_CACHE_KEY, o1, ['h1']);
+      await cache.set(H1, GLOBAL_CACHE_KEY, o2, ['h2']);
 
-      expect(await cache.get(H1, [GLOBAL_CACHE_KEY], o1)).toEqual(['h1']);
-      expect(await cache.get(H1, [GLOBAL_CACHE_KEY], o2)).toEqual(['h2']);
+      expect(await cache.get(H1, GLOBAL_CACHE_KEY, o1)).toEqual(['h1']);
+      expect(await cache.get(H1, GLOBAL_CACHE_KEY, o2)).toEqual(['h2']);
     });
 
     it('should distinguish between different "has" trailer filters', async () => {
       const o1 = { ...getBaseOptions(), has: 'Constraint' };
       const o2 = { ...getBaseOptions(), has: 'Directive' };
       
-      await cache.set(H1, [GLOBAL_CACHE_KEY], o1, ['h1']);
-      await cache.set(H1, [GLOBAL_CACHE_KEY], o2, ['h2']);
+      await cache.set(H1, GLOBAL_CACHE_KEY, o1, ['h1']);
+      await cache.set(H1, GLOBAL_CACHE_KEY, o2, ['h2']);
 
-      expect(await cache.get(H1, [GLOBAL_CACHE_KEY], o1)).toEqual(['h1']);
-      expect(await cache.get(H1, [GLOBAL_CACHE_KEY], o2)).toEqual(['h2']);
+      expect(await cache.get(H1, GLOBAL_CACHE_KEY, o1)).toEqual(['h1']);
+      expect(await cache.get(H1, GLOBAL_CACHE_KEY, o2)).toEqual(['h2']);
     });
 
     it('should distinguish between different authors', async () => {
         const o1 = { ...getBaseOptions(), author: 'alice@ex.com' };
         const o2 = { ...getBaseOptions(), author: 'bob@ex.com' };
         
-        await cache.set(H1, [GLOBAL_CACHE_KEY], o1, ['h1']);
-        await cache.set(H1, [GLOBAL_CACHE_KEY], o2, ['h2']);
+        await cache.set(H1, GLOBAL_CACHE_KEY, o1, ['h1']);
+        await cache.set(H1, GLOBAL_CACHE_KEY, o2, ['h2']);
     
-        expect(await cache.get(H1, [GLOBAL_CACHE_KEY], o1)).toEqual(['h1']);
-        expect(await cache.get(H1, [GLOBAL_CACHE_KEY], o2)).toEqual(['h2']);
+        expect(await cache.get(H1, GLOBAL_CACHE_KEY, o1)).toEqual(['h1']);
+        expect(await cache.get(H1, GLOBAL_CACHE_KEY, o2)).toEqual(['h2']);
     });
 
     it('should distinguish between --all and active-only queries', async () => {
         const o1 = { ...getBaseOptions(), all: true };
         const o2 = { ...getBaseOptions(), all: false };
         
-        await cache.set(H1, [GLOBAL_CACHE_KEY], o1, ['h1', 'h2']); // includes superseded
-        await cache.set(H1, [GLOBAL_CACHE_KEY], o2, ['h1']);       // active only
+        await cache.set(H1, GLOBAL_CACHE_KEY, o1, ['h1', 'h2']); // includes superseded
+        await cache.set(H1, GLOBAL_CACHE_KEY, o2, ['h1']);       // active only
     
-        expect(await cache.get(H1, [GLOBAL_CACHE_KEY], o1)).toEqual(['h1', 'h2']);
-        expect(await cache.get(H1, [GLOBAL_CACHE_KEY], o2)).toEqual(['h1']);
+        expect(await cache.get(H1, GLOBAL_CACHE_KEY, o1)).toEqual(['h1', 'h2']);
+        expect(await cache.get(H1, GLOBAL_CACHE_KEY, o2)).toEqual(['h1']);
     });
 
     it('should distinguish between different maxCommits values', async () => {
         const o1 = { ...getBaseOptions(), maxCommits: 10 };
         const o2 = { ...getBaseOptions(), maxCommits: 100 };
         
-        await cache.set(H1, [GLOBAL_CACHE_KEY], o1, ['h1']);
-        await cache.set(H1, [GLOBAL_CACHE_KEY], o2, ['h1', 'h2']);
+        await cache.set(H1, GLOBAL_CACHE_KEY, o1, ['h1']);
+        await cache.set(H1, GLOBAL_CACHE_KEY, o2, ['h1', 'h2']);
     
-        expect(await cache.get(H1, [GLOBAL_CACHE_KEY], o1)).toEqual(['h1']);
-        expect(await cache.get(H1, [GLOBAL_CACHE_KEY], o2)).toEqual(['h1', 'h2']);
+        expect(await cache.get(H1, GLOBAL_CACHE_KEY, o1)).toEqual(['h1']);
+        expect(await cache.get(H1, GLOBAL_CACHE_KEY, o2)).toEqual(['h1', 'h2']);
     });
 
     it('should handle complex mixed filters without collision', async () => {
         const o1 = { ...getBaseOptions(), text: 'bug', author: 'alice' };
         const o2 = { ...getBaseOptions(), text: 'bug', author: 'bob' };
 
-        await cache.set(H1, [GLOBAL_CACHE_KEY], o1, ['h1']);
-        await cache.set(H1, [GLOBAL_CACHE_KEY], o2, ['h2']);
+        await cache.set(H1, GLOBAL_CACHE_KEY, o1, ['h1']);
+        await cache.set(H1, GLOBAL_CACHE_KEY, o2, ['h2']);
 
-        expect(await cache.get(H1, [GLOBAL_CACHE_KEY], o1)).toEqual(['h1']);
-        expect(await cache.get(H1, [GLOBAL_CACHE_KEY], o2)).toEqual(['h2']);
+        expect(await cache.get(H1, GLOBAL_CACHE_KEY, o1)).toEqual(['h1']);
+        expect(await cache.get(H1, GLOBAL_CACHE_KEY, o2)).toEqual(['h2']);
     });
   });
 
@@ -197,7 +197,7 @@ describe('QueryCache Implementation', () => {
     });
 
     it('should invalidate cache if fingerprint changes', async () => {
-      await cache.set(H1, ['--'], getMockOptions(), ['h1']);
+      await cache.set(H1, '--', getMockOptions(), ['h1']);
       
       const otherCache = new QueryCache(tempDir, 100, 'v2-fingerprint');
       expect(await otherCache.get(H1, ['--'], getMockOptions())).toBeNull();

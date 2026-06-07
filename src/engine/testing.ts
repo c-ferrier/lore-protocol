@@ -13,9 +13,9 @@ import {
 import { ProtocolMap } from './core/models/protocol-map.js';
 import type { CommitInput } from './core/types/commit.js';
 import type { EngineConfig, TrailerDefinition,TrailerUiColor, TrailerUiKind } from './core/types/config.js';
-import type { Atom, ProtocolState } from './core/types/domain.js';
+import type { Atom, ProtocolState, Trailers } from './core/types/domain.js';
 import type { ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
-import type { QueryTargetAST } from './core/types/query.js';
+import type { QueryIdentity, QueryTargetAST, SearchOptions } from './core/types/query.js';
 import type { RawCommit as IGitRawCommit } from './interfaces/git-client.js';
 import { AtomRepository } from './services/atom-repository.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
@@ -56,6 +56,9 @@ export const TEST_ENGINE_CONFIG: EngineConfig = {
   cli: { updateCheck: false, cache: true, queryCache: true, queryCachePruneThreshold: 100 },
   protocols: {},
 };
+
+/** Alias for backward compatibility during refactor */
+export const TEST_PROTOCOL_CONFIG = TEST_ENGINE_CONFIG;
 
 /** A generic root, permissive protocol schema definition. */
 export const TEST_PROTOCOL_DEFINITION: ProtocolDefinition = {
@@ -103,18 +106,17 @@ export const MOCK_CORE_TRAILERS: Record<string, TrailerDefinition> = {
 
 /** 
  * Helper: returns a REAL ProtocolContext object.
- * Replaces the legacy protocol factory.
  */
 export function makeProtocol(
     overrides: Partial<ProtocolDefinition> = {},
-    configOverrides: any = {}
+    configOverrides: Partial<ProtocolDefinition> = {}
 ): ProtocolContext {
     const name = overrides.name || configOverrides.name || 'Mock';
     const trailers = { ...(overrides.trailers ?? TEST_PROTOCOL_DEFINITION.trailers) };
     const identityKey = overrides.identityKey || TEST_PROTOCOL_DEFINITION.identityKey;
     
     if (!trailers[identityKey]) {
-        trailers[identityKey] = { description: 'ID', multivalue: false, validation: 'none' };
+        trailers[identityKey] = { description: 'ID', multivalue: false, validation: 'none', isCore: true };
     }
 
     const baseDef = { 
@@ -147,7 +149,7 @@ export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = 
   const identityKey = overrides.identityKey || TEST_PROTOCOL_DEFINITION.identityKey;
 
   if (!trailers[identityKey]) {
-    trailers[identityKey] = { description: 'ID', multivalue: false, validation: 'none' };
+    trailers[identityKey] = { description: 'ID', multivalue: false, validation: 'none', isCore: true };
   }
 
   return {
@@ -158,13 +160,14 @@ export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = 
   };
 }
 
-/**
- * Creates a pure ProtocolContext for testing.
- */
-export function makeMockContext(overrides: Partial<ProtocolDefinition> = {}): ProtocolContext {
+/** Creates a pure ProtocolContext stub for testing. */
+export function makeStubContext(overrides: Partial<ProtocolDefinition> = {}): ProtocolContext {
     const def = makeProtocolDefinition(overrides);
     return createProtocolContext(def);
 }
+
+/** Alias for backward compatibility */
+export const makeMockContext = makeStubContext;
 
 /** Helper to create a raw commit object. */
 export function makeRawCommit(overrides: any = {}): IGitRawCommit {
@@ -179,11 +182,11 @@ export function makeRawCommit(overrides: any = {}): IGitRawCommit {
       subject: overrides.subject || 'feat: test',
       body: overrides.body || 'body content',
       trailers,
-      filesChanged: overrides.files || overrides.filesChanged || [],
+      filesChanged: overrides.filesChanged || overrides.files || [],
     };
 }
 
-/** Helper to create a QueryTargetAST. Handles string, array, or object input for test compatibility. */
+/** Helper to create a QueryTargetAST. */
 export function makeQueryTarget(val: string | string[] | Partial<QueryTargetAST> = 'all'): QueryTargetAST {
     if (Array.isArray(val)) return { type: 'path', resolvedPaths: val, raw: String(val) };
     
@@ -215,10 +218,10 @@ export function makeStubGitClient(overrides: any = {}) {
     query: async () => [],
     blame: async () => [],
     getCommitsByHashes: async () => [],
+    getFilesChangedSince: async () => [],
     commit: async () => ({ hash: 'new-hash', message: 'commit msg', success: true }),
     hasStagedChanges: async () => true,
     isInsideRepo: async () => true,
-    countCommitsSince: async () => 0,
     getHeadMessage: async () => 'feat: head',
     getFilesChanged: async () => new Map(),
     ...overrides,
@@ -232,25 +235,44 @@ export function makeStubAtomRepository(overrides: any = {}) {
         findByIds: async () => [],
         findById: async () => null,
         findByCommitHash: async () => null,
-        ...overrides
-        };
-        }
-
-        /** Stub Protocol Registry. */
-
-export function makeStubPrompt(overrides: any = {}) {
-    return {
-        askConfirm: async () => true,
-        askChoice: async () => '',
-        askInput: async () => '',
+        getAtomDrift: async () => ({}),
+        getHeadHash: async () => 'head-hash',
         ...overrides
     };
 }
+
+/** Stub Formatter for CLI tests. */
+export function makeStubFormatter() {
+    return {
+        formatQueryResult: () => 'Mock Query Result',
+        formatValidationResult: () => 'Mock Validation Result',
+        formatStalenessResult: () => 'Mock Staleness Result',
+        formatTraceResult: () => 'Mock Trace Result',
+        formatConfigResult: () => 'Mock Config Result',
+        formatConfig: () => 'Mock Config Result',
+        formatDoctorResult: () => 'Mock Doctor Result',
+        formatSuccess: (msg: string) => `Success: ${msg}`,
+        formatError: (msg: string) => `Error: ${msg}`,
+    };
+}
+
+/** Alias for backward compatibility */
+export const makeMockFormatter = makeStubFormatter;
 
 /** Stub Config Loader. */
 export function makeStubConfigLoader(overrides: any = {}) {
     return {
         loadForPath: async () => TEST_ENGINE_CONFIG,
+        ...overrides
+    };
+}
+
+/** Stub Query Cache. */
+export function makeStubQueryCache(overrides: any = {}) {
+    return {
+        get: async () => null,
+        set: async () => {},
+        prune: async () => {},
         ...overrides
     };
 }
@@ -265,12 +287,17 @@ export function makeAtomRepository(deps: any = {}) {
     );
 }
 
-/** Null Object for Query Cache. */
-export class NullQueryCache {
-    async get() { return null; }
-    async set() {}
+/** Factory to create a stub for interactive prompts. */
+export function makeStubPrompt(overrides: any = {}) {
+    return {
+        askConfirm: async () => true,
+        askChoice: async () => '',
+        askInput: async () => '',
+        ...overrides
+    };
 }
 
+/** Atom Factory for high-level logic tests. */
 export function makeAtom(overrides: any = {}): Atom {
     const protocols = new ProtocolMap<ProtocolState>();
     
@@ -280,10 +307,13 @@ export function makeAtom(overrides: any = {}): Atom {
             : Object.entries(overrides.protocols);
             
         for (const [name, state] of entries) {
-            protocols.set(name.toLowerCase(), state as ProtocolState);
+            protocols.set(name.toLowerCase(), {
+                trailers: {},
+                unauthorized: {},
+                ...state
+            } as ProtocolState);
         }
     } else {
-        // Convenience: map 'id' and 'trailers' to 'mock' protocol state
         const id = overrides.id || 'a1b2c3d4';
         const rawTrailers = overrides.trailers || { [TEST_ID_KEY]: [id] };
         protocols.set('mock', {
@@ -292,7 +322,7 @@ export function makeAtom(overrides: any = {}): Atom {
         });
     }
 
-        return {
+    return {
         commitHash: overrides.commitHash || 'h1',
         date: overrides.date || new Date(),
         author: overrides.author || 'alice',

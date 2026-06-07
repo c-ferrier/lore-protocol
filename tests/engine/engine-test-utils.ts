@@ -1,11 +1,13 @@
 import { vi } from 'vitest';
 
+import { LogLevel, type ILogger } from '../../src/engine/interfaces/logger.js';
 import type { ProtocolContext,ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
 import { 
     createProtocolContext,
     makeAtom,
     makeAtomRepository as realAtomRepository,
-    makeMockContext as stubMockContext,
+    makeStubContext,
+    makeStubFormatter,
     makeProtocol as stubProtocol, 
     makeProtocolRegistry as stubProtocolRegistry, 
     makeQueryTarget,
@@ -14,6 +16,7 @@ import {
     makeStubConfigLoader as stubConfigLoader, 
     makeStubGitClient as stubGitClient, 
     makeStubPrompt as stubPrompt, 
+    makeStubQueryCache as stubQueryCache,
     TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
 
 // 1. Vitest Spies (Middlemen)
@@ -33,7 +36,7 @@ export function makeMockGitClient(overrides: any = {}): any {
         hasStagedChanges: vi.fn(stub.hasStagedChanges),
         isInsideRepo: vi.fn(stub.isInsideRepo),
         getHeadMessage: vi.fn(stub.getHeadMessage),
-        countCommitsSince: vi.fn(stub.countCommitsSince),
+        getFilesChangedSince: vi.fn(stub.getFilesChangedSince),
         log: vi.fn(stub.log),
         commit: vi.fn(stub.commit)
     };
@@ -45,11 +48,12 @@ export function makeMockProtocolRegistry(protocols: any[] = []): any {
 }
 
 export function makeMockQueryCache(overrides: any = {}): any {
+    const stub = stubQueryCache(overrides);
     return {
-        get: vi.fn().mockResolvedValue(null),
-        set: vi.fn().mockResolvedValue(undefined),
-        clear: vi.fn().mockResolvedValue(undefined),
-        ...overrides
+        ...stub,
+        get: vi.fn(stub.get),
+        set: vi.fn(stub.set),
+        prune: vi.fn(stub.prune)
     };
 }
 
@@ -63,16 +67,18 @@ export function makeMockConfigLoader(overrides: any = {}): any {
 }
 
 export function makeMockFormatter(overrides: any = {}): any {
+    const stub = makeStubFormatter();
     return {
-        formatQueryResult: vi.fn().mockReturnValue(''),
-        formatValidationResult: vi.fn().mockReturnValue(''),
-        formatStalenessResult: vi.fn().mockReturnValue(''),
-        formatTraceResult: vi.fn().mockReturnValue(''),
-        formatConfigResult: vi.fn().mockReturnValue(''),
-        formatConfig: vi.fn().mockReturnValue(''),
-        formatDoctorResult: vi.fn().mockReturnValue(''),
-        formatSuccess: vi.fn().mockReturnValue(''),
-        formatError: vi.fn().mockReturnValue(''),
+        ...stub,
+        formatQueryResult: vi.fn(stub.formatQueryResult),
+        formatValidationResult: vi.fn(stub.formatValidationResult),
+        formatStalenessResult: vi.fn(stub.formatStalenessResult),
+        formatTraceResult: vi.fn(stub.formatTraceResult),
+        formatConfigResult: vi.fn(stub.formatConfigResult),
+        formatConfig: vi.fn(stub.formatConfig),
+        formatDoctorResult: vi.fn(stub.formatDoctorResult),
+        formatSuccess: vi.fn(stub.formatSuccess),
+        formatError: vi.fn(stub.formatError),
         ...overrides
     };
 }
@@ -87,8 +93,8 @@ export function makeMockAtomRepository(overrides: any = {}): any {
             const results = await mock.findByIds([id], opts);
             return results[0] || null;
         }),
-        findByCommitHash: vi.fn(stub.findByCommitHash),
-        getAtomDrift: vi.fn().mockResolvedValue({})
+        getAtomDrift: vi.fn(stub.getAtomDrift),
+        getHeadHash: vi.fn(stub.getHeadHash)
     };
     return mock;
 }
@@ -116,11 +122,7 @@ export function makeMockProtocol(overrides: Partial<ProtocolDefinition> = {}): a
 }
 
 export function makeMockProtocolContext(overrides: any = {}): ProtocolContext {
-    // If the caller didn't provide a mock function but provided values, we should ideally handle it.
-    // For now, we'll just wrap the stub.
-    const hooks: any = {};
-
-    return stubMockContext({ ...overrides, ...hooks });
+    return makeStubContext(overrides);
 }
 
 // Level 2 Tests often need the real repository but with mocks injected
@@ -129,7 +131,8 @@ export function makeAtomRepository(deps: any = {}) {
 }
 
 /** Mock logger that captures all output for inspection. Supports multiple naming conventions. */
-export class TestLogger {
+export class TestLogger implements ILogger {
+    public readonly level: LogLevel = LogLevel.INFO;
     public logs: string[] = [];
     public infoLogs: string[] = [];
     public results: string[] = [];
@@ -137,6 +140,8 @@ export class TestLogger {
     public warnings: string[] = [];
     public errors: string[] = [];
 
+    trace() {}
+    debug() {}
     info(msg: string) { 
         this.logs.push(msg); 
         this.infoLogs.push(msg);
@@ -147,6 +152,7 @@ export class TestLogger {
         this.results.push(msg); 
         this.resultLogs.push(msg);
     }
+    child() { return this; }
 }
 
 // Named Exports for Level 2 Tests
@@ -155,7 +161,9 @@ export {
     makeAtom, 
     makeQueryTarget, 
     makeRawCommit, 
-    TEST_ENGINE_CONFIG};
+    TEST_ENGINE_CONFIG,
+    type ProtocolContext,
+    type ProtocolDefinition};
 
 /** Helper to create search options. */
 export function makeSearchOptions(overrides: any = {}): any {
@@ -174,7 +182,7 @@ export function makeQueryOptions(overrides: any = {}): any {
 // Shims for backward compatibility (Mock versions preferred in tests)
 export const makeProtocolRegistry = makeMockProtocolRegistry;
 export const makeProtocol = makeMockProtocol;
-export const makeStubProtocol = (overrides: any) => stubMockContext(overrides);
+export const makeStubProtocol = (overrides: any) => makeStubContext(overrides);
 export const makeStubGitClient = makeMockGitClient;
 export const makeFormatter = makeMockFormatter;
 export const makeConfigLoader = makeMockConfigLoader;

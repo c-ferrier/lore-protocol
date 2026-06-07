@@ -31,7 +31,7 @@ vi.mock('../../../../src/engine/core/logic/commit-formatting.js', async (importO
 async function runCommitCommand(args: string[], deps: any): Promise<void> {
   const program = new Command();
   program.exitOverride();
-  registerCommitCommand(program, deps);
+  registerCommitCommand(program, deps, deps.prompt, deps.gitClient);
   await program.parseAsync(['node', 'atom', 'commit', ...args]);
 }
 
@@ -119,7 +119,7 @@ describe('atom commit --amend', () => {
     program.exitOverride();
     program.option('--context <path>');
     program.option('--no-color');
-    registerCommitCommand(program, deps);
+    registerCommitCommand(program, deps, deps.prompt);
     
     await program.parseAsync(['node', 'atom', '--context', '/repo', '--no-color', 'commit', '--amend', '--no-edit']);
 
