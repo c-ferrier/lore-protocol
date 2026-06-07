@@ -57,17 +57,21 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 *   **Action**: Promoted logical identities to first-class `IQueryTarget` handles and unified all search paths (Path, ID, Range, Blame) into a single integrated pipeline. Implemented an **Atomic Identity Cache** and an in-memory BFS short-circuit.
 *   **Result**: Achieved absolute structural autonomy. The repository now serves as the single source of truth for "Projected Metadata." Complex discovery (e.g., `lore trace`) is now up to 1.8x faster by neutralizing the Git subprocess bottleneck.
 
+### Phase 2: Drift Bottleneck Optimization
+*   **Action**: Implemented the "Bounded Time Window Stream" optimization in `AtomRepository.getAtomDrift`. Replaced O(N*M) subprocess overhead with a single O(1) bulk file discovery pass (`git log --name-only`).
+*   **Result**: Staleness analysis is now high-performance regardless of repository size. Enclosed the Git driver within the shell layer, removing direct Git dependencies from orchestrators and CLI commands.
+
 ---
 
 ## 4. STRATEGIC ROADMAP: Implementation Phases
 
-### PHASE 2: Drift Bottleneck Optimization
-**Urgency**: High | **Importance**: High | **Difficulty**: Medium
-**Problem:** A global `lore stale` query runs `git rev-list --count` for every file in every active commit, resulting in catastrophic O(N*M) subprocess overhead on large repositories. There is no cache.
-**Action:** Implement the "Bounded Time Window Stream".
-*   Find the timestamp/hash of the oldest active node in the analysis batch.
-*   Execute exactly *one* bounded subprocess: `git log --format=format:%H --name-only <oldestHash>..HEAD`.
-*   Build a localized timeline in memory and calculate file drift counts synchronously, dropping subprocess overhead to O(1).
+### PHASE 12: High-Fidelity Narrative Squashing (AI Synthesis)
+**Urgency**: Medium | **Importance**: High | **Difficulty**: Low
+**Concept**: Enable AI agents to perform high-quality synthesis of squashed history by providing full narrative context.
+**Action**: Implement a `--full` (or `--narrative`) flag for the `squash` command.
+- **Default**: Bulleted list of first-line summaries (Human-readable).
+- **Full Mode**: Concatenate full atom bodies with structured `[Atom ID]` headers.
+**Value**: Turns the `squash` output into a rich "evidence payload" for LLMs to generate holistic PR descriptions and final commits.
 
 ### PHASE 7.7: Strict CLI Guardrails (Typo Prevention)
 **Urgency**: Low | **Importance**: Medium | **Difficulty**: Low
