@@ -2,7 +2,7 @@ import { existsSync,mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterAll, beforeEach,describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { buildLoreCli } from '../lore-test-utils.js';
 
@@ -52,7 +52,6 @@ intent_max_length = 42
 `);
 
     const { sharedDeps } = await buildLoreCli({ 
-        basePath: testDir, 
         engineDirName: '.atom', 
         configFileName: 'config.toml' 
     });
@@ -67,7 +66,6 @@ version = "1.0"
 `);
 
     const { sharedDeps } = await buildLoreCli({ 
-        basePath: testDir, 
         engineDirName: '.atom', 
         configFileName: 'config.toml' 
     });
@@ -85,7 +83,6 @@ custom = ["New-Trailer"]
 `);
 
     const { sharedDeps } = await buildLoreCli({ 
-        basePath: testDir, 
         engineDirName: '.atom', 
         configFileName: 'config.toml' 
     });
@@ -102,7 +99,6 @@ max_depth = 9
 `);
 
     const { sharedDeps } = await buildLoreCli({ 
-        basePath: testDir, 
         engineDirName: '.atom', 
         configFileName: 'config.toml' 
     });
@@ -116,7 +112,6 @@ strict = true
 `);
 
     const { sharedDeps } = await buildLoreCli({ 
-        basePath: testDir, 
         engineDirName: '.atom', 
         configFileName: 'config.toml' 
     });

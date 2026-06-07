@@ -37,13 +37,12 @@ describe('Git Impact Radius (System)', () => {
   });
 
   it('should verify the impact radius logic with real Git history', async () => {
-    // This tests the getCommitsByHashes and name-only path limiting
-    const commits = await client.getCommitsByHashes(['HEAD'], ['README.md']);
+    // This tests the getCommitsByHashes 
+    const commits = await client.getCommitsByHashes(['HEAD']);
     
-    // Should find the commit because getCommitsByHashes is a FETCH operation (names only)
     expect(commits).toHaveLength(1);
 
-    const commitsMatch = await client.getCommitsByHashes(['HEAD'], ['src/logic.ts']);
+    const commitsMatch = await client.getCommitsByHashes(['HEAD']);
     expect(commitsMatch).toHaveLength(1);
     expect(commitsMatch[0].subject).toBe('feat: add logic');
   });

@@ -1,7 +1,7 @@
 import { describe, expect,it } from 'vitest';
 
 import { TrailerCollectorRegistry } from '../../../../../src/engine/cli/readers/collectors/trailer-collector-registry.js';
-import { makeProtocol,MOCK_CORE_TRAILERS, TEST_PROTOCOL_DEFINITION } from '../../../../../src/engine/testing.js';
+import { makeStubProtocolContext,MOCK_CORE_TRAILERS, TEST_PROTOCOL_DEFINITION } from '../../../../../src/engine/testing.js';
 
 describe('TrailerCollectorRegistry', () => {
   const CORE_SCHEMA = {
@@ -12,7 +12,7 @@ describe('TrailerCollectorRegistry', () => {
   };
 
   it('should create default collectors for core trailers', () => {
-    const protocol = makeProtocol({ trailers: CORE_SCHEMA });
+    const protocol = makeStubProtocolContext({ trailers: CORE_SCHEMA });
     const registry = new TrailerCollectorRegistry(protocol);
     const collectors = registry.getCollectors();
     
@@ -23,7 +23,7 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should add custom collectors from definitions', () => {
-    const protocol = makeProtocol({
+    const protocol = makeStubProtocolContext({
       trailers: {
           ...CORE_SCHEMA,
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const },
@@ -39,7 +39,7 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should handle multi-value enum collectors', () => {
-    const protocol = makeProtocol({
+    const protocol = makeStubProtocolContext({
       trailers: {
           'Features': { 
             description: 'Features', 
@@ -59,7 +59,7 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should create collectors for simple custom trailers', () => {
-    const protocol = makeProtocol({
+    const protocol = makeStubProtocolContext({
       trailers: {
           ...CORE_SCHEMA,
           'Project': { description: 'Project name', multivalue: false, validation: 'none' as const },
@@ -75,7 +75,7 @@ describe('TrailerCollectorRegistry', () => {
   });
 
   it('should sort collectors based on metadata order', () => {
-    const protocol = makeProtocol({
+    const protocol = makeStubProtocolContext({
       trailers: {
           'First': { description: 'f', multivalue: false, validation: 'none' as const, prompt: { order: 1 } },
           'Last': { description: 'l', multivalue: false, validation: 'none' as const, prompt: { order: 10000 } }

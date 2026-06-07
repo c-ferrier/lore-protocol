@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 describe('MultiValueTrailerCollector', () => {
   const config = {
+    protocolName: 'mock',
     key: 'Constraint' as const,
     confirmMessage: 'Add a Constraint?',
     inputMessage: 'Constraint:',

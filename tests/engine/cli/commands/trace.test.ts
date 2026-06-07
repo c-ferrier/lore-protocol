@@ -1,13 +1,21 @@
 import { Command } from 'commander';
-import { beforeEach,describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerTraceCommand } from '../../../../src/engine/cli/commands/trace.js';
 import { type IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
-import { makeAtom, makeProtocol, makeProtocolRegistry,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
-import { makeMockAtomRepository, makeMockGitClient,TestLogger } from '../../engine-test-utils.js';
-;
-;
-
+import { 
+    makeAtom, 
+    makeStubProtocolContext, 
+    makeStubProtocolRegistry,
+    TEST_ENGINE_CONFIG,
+    TEST_ID_KEY, 
+    TEST_PROTOCOL_DEFINITION 
+} from '../../../../src/engine/testing.js';
+import { 
+    makeMockAtomRepository, 
+    makeMockGitClient,
+    TestLogger 
+} from '../../engine-test-utils.js';
 
 describe('registerTraceCommand (Integrated Expansion)', () => {
   let atomRepository: any;
@@ -21,11 +29,11 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
     atomRepository = makeMockAtomRepository();
     gitClient = makeMockGitClient();
     // Register protocol with 'Related' reference trailer to enable tracing
-    protocolRegistry = makeProtocolRegistry([makeProtocol({
+    protocolRegistry = makeStubProtocolRegistry([makeStubProtocolContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: {
             ...TEST_PROTOCOL_DEFINITION.trailers,
-            'Related': { description: 'R', validation: 'reference' } as any
+            'Related': { description: 'R', multivalue: true, validation: 'reference', isCore: true } as any
         }
     })]);
     logger = new TestLogger();
@@ -40,6 +48,7 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
       gitClient,
       protocolRegistry,
       logger,
+      config: TEST_ENGINE_CONFIG,
       getFormatter: () => formatter as unknown as IOutputFormatter
     });
   });

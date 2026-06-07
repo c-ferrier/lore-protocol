@@ -3,7 +3,7 @@ import { beforeEach,describe, expect, it } from 'vitest';
 import { type Atom, type Trailers } from '../../../../src/engine/core/types/domain.js';
 import { type FormattableQueryResult } from '../../../../src/engine/core/types/output.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeProtocol,TEST_PROTOCOL_CONFIG } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
 import { LoreJsonFormatter } from '../../../../src/lore/formatters/lore-json-formatter.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 ;
@@ -30,8 +30,9 @@ function makeAtom(overrides: Partial<Atom> = {}): Atom {
     author: 'alice@example.com',
     subject: overrides.subject ?? 'feat: legacy test',
     body: '',
+    rawTrailers: '',
     protocols: new Map([
-      ['lore', { name: 'Lore', version: '1.0', identityKey: LORE_ID_KEY, trailers }]
+      ['lore', { trailers, unauthorized: {} }]
     ]),
     filesChanged: ['src/f1.ts'],
     ...overrides,
@@ -44,7 +45,7 @@ describe('LoreJsonFormatter (0.5.0 Parity)', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    registry.register(makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG));
+    registry.register(makeStubProtocolContext(LoreProtocolDefinition));
     formatter = new LoreJsonFormatter(registry);
   });
 
@@ -58,7 +59,6 @@ describe('LoreJsonFormatter (0.5.0 Parity)', () => {
         atoms: [atom],
         meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
       },
-      supersessionMap: new Map(),
       visibleTrailers: 'all',
     };
 

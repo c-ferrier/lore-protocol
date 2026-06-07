@@ -6,7 +6,11 @@ describe('Update Check (Logic)', () => {
   it('should not check for updates if CI is true', async () => {
     const originalEnv = process.env;
     process.env = { ...originalEnv, CI: 'true' };
-    const result = await checkForUpdates('0.0.0', 'atom-engine');
+    const result = await checkForUpdates({
+        currentVersion: '0.0.0',
+        packageName: 'atom-engine',
+        configEnabled: true
+    });
     expect(result).toBeUndefined();
     process.env = originalEnv;
   });

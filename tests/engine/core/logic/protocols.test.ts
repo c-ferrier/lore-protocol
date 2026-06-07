@@ -14,12 +14,15 @@ describe('Protocols Logic (Pure Functions)', () => {
     name: 'Test',
     version: '1.0',
     identityKey: 'Test-id',
+    strict: true,
+    permissive: false,
+    namespace: '',
     trailers: {
-      'Test-id': { description: 'ID', prompt: { order: 10 } },
-      'Scalar': { description: 'S', multivalue: false, prompt: { order: 20 } },
-      'List': { description: 'L', multivalue: true, prompt: { order: 30 } },
-      'Ref': { description: 'R', validation: 'reference' as const, prompt: { order: 40 } },
-      'Core': { description: 'C', isCore: true } as any
+      'Test-id': { description: 'ID', multivalue: false, validation: 'none' as const, prompt: { order: 10 } },
+      'Scalar': { description: 'S', multivalue: false, validation: 'none' as const, prompt: { order: 20 } },
+      'List': { description: 'L', multivalue: true, validation: 'none' as const, prompt: { order: 30 } },
+      'Ref': { description: 'R', multivalue: true, validation: 'reference' as const, prompt: { order: 40 } },
+      'Core': { description: 'C', multivalue: false, validation: 'none' as const, isCore: true }
     }
   };
 
@@ -39,12 +42,16 @@ describe('Protocols Logic (Pure Functions)', () => {
   it('getAuthorizedKeys should default missing prompt orders to the end of the list (1000)', () => {
     const p = createProtocolContext({
         name: 'test',
+        version: '1.0',
         identityKey: 'Id',
+        strict: true,
+        permissive: false,
+        namespace: '',
         trailers: {
-          'Last': { description: 'L' },
-          'First': { description: 'F', prompt: { order: 1 } }
+          'Last': { description: 'L', multivalue: false, validation: 'none' as const },
+          'First': { description: 'F', multivalue: false, validation: 'none' as const, prompt: { order: 1 } }
         }
-      } as any);
+      });
       // Id has order 0 by default in createProtocolContext if not specified
       expect(getAuthorizedKeys(p)).toEqual(['Id', 'First', 'Last']);
   });
@@ -52,9 +59,13 @@ describe('Protocols Logic (Pure Functions)', () => {
   it('getAuthorizedKeys should default custom trailers to the end of the sort order', () => {
     const p = createProtocolContext({ 
         name: 'OrderTest',
+        version: '1.0',
         identityKey: 'id',
-        trailers: { 'Custom': { description: 'D' } }
-    } as any);
+        strict: true,
+        permissive: false,
+        namespace: '',
+        trailers: { 'Custom': { description: 'D', multivalue: false, validation: 'none' as const } }
+    });
     const keys = getAuthorizedKeys(p);
     expect(keys[keys.length - 1]).toBe('Custom');
   });
@@ -62,9 +73,13 @@ describe('Protocols Logic (Pure Functions)', () => {
   it('should mark a trailer as required if set in definitions', () => {
     const p = createProtocolContext({
       name: 'RequiredTest',
+      version: '1.0',
       identityKey: 'id',
-      trailers: { 'Must-Have': { description: '', required: true } }
-    } as any);
+      strict: true,
+      permissive: false,
+      namespace: '',
+      trailers: { 'Must-Have': { description: '', multivalue: false, validation: 'none' as const, required: true } }
+    });
     expect(p.trailers.get('Must-Have')?.required).toBe(true);
   });
 
@@ -89,7 +104,7 @@ describe('Protocols Logic (Pure Functions)', () => {
 
   it('getFormattableDefinitions should transform definitions for UI', () => {
       const formattable = getFormattableDefinitions(ctx);
-      expect(formattable['Scalar'].ui.kind).toBe('text');
-      expect(formattable['Scalar'].ui.color).toBe('dim');
+      expect(formattable['Scalar'].ui?.kind).toBe('text');
+      expect(formattable['Scalar'].ui?.color).toBe('dim');
   });
 });

@@ -3,8 +3,8 @@ import { Command } from 'commander';
 import { 
     makeAtomRepository, 
     makeStubFormatter, 
-    makeProtocol, 
-    makeProtocolRegistry, 
+    makeStubProtocolContext, 
+    makeStubProtocolRegistry, 
     TEST_ENGINE_CONFIG 
 } from '../../src/engine/testing.js';
 import { buildLoreCli as realBuildLoreCli } from '../../src/lore/cli-wrapper.js';
@@ -18,12 +18,12 @@ import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
 
 /** Creates a real Lore protocol context using the production definition. */
 export function makeLoreProtocol() {
-    return makeProtocol(LoreProtocolDefinition);
+    return makeStubProtocolContext(LoreProtocolDefinition);
 }
 
 /** Creates a registry with the Lore protocol pre-registered. */
 export function makeLoreRegistry() {
-    return makeProtocolRegistry([makeLoreProtocol()]);
+    return makeStubProtocolRegistry([makeLoreProtocol()]);
 }
 
 /** Creates a full mock dependency bag for Lore-level command tests. */
@@ -48,6 +48,6 @@ export function createLoreProgram(registerFn: (program: Command, deps: any) => v
 }
 
 /** Wrapper around the real buildLoreCli for E2E-style testing. */
-export async function buildLoreCli() {
-  return realBuildLoreCli();
+export async function buildLoreCli(overrides: any = {}) {
+  return realBuildLoreCli(overrides);
 }

@@ -2,12 +2,13 @@ import { Command } from 'commander';
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { registerCacheCommand } from '../../../src/engine/cli/commands/cache.js';
-;
+import { TestLogger } from '../engine-test-utils.js';
 import { join } from 'node:path';
 
 describe('Cache Command', () => {
   const mockFormatter = {
     formatSuccess: vi.fn((m) => m),
+    formatError: vi.fn((code, msgs) => msgs[0].message),
   };
 
   beforeEach(() => {
@@ -16,10 +17,15 @@ describe('Cache Command', () => {
 
   it('should register the cache command with clean option', () => {
     const program = new Command();
-    registerCacheCommand(program, {
-      getFormatter: () => mockFormatter as any,
-      cacheDir: join(process.cwd(), '.atom', 'cache'),
-    });
+    const logger = new TestLogger();
+    registerCacheCommand(
+      program, 
+      {
+        getFormatter: () => mockFormatter as any,
+        logger,
+      },
+      join(process.cwd(), '.atom', 'cache')
+    );
 
     const cacheCmd = program.commands.find(c => c.name() === 'cache');
     expect(cacheCmd).toBeDefined();

@@ -2,8 +2,8 @@ import { afterAll,beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { GLOBAL_NAMESPACE } from '../../../src/engine/util/constants.js';
+import { makeStubProtocolContext } from '../../../src/engine/testing.js';
 import { LoreConfigLoader } from '../../../src/lore/services/lore-config-loader.js';
-import { makeMockProtocolContext as makeMockProtocol } from '../../engine/engine-test-utils.js';
 import { buildLoreCli } from '../lore-test-utils.js';
 ;
 ;
@@ -36,7 +36,11 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
   });
 
   it('should assemble the Lore CLI with all expected commands', async () => {
-    const { program, sharedDeps } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
+    const { program, sharedDeps } = await buildLoreCli();
+
+    console.log('DEBUG: protocolRegistry type:', typeof sharedDeps.protocolRegistry);
+    console.log('DEBUG: protocolRegistry methods:', Object.keys(sharedDeps.protocolRegistry || {}));
+    console.log('DEBUG: protocolRegistry instance of ProtocolRegistry:', sharedDeps.protocolRegistry instanceof ProtocolRegistry);
 
     expect(program.name()).toBe('lore');
     const rootProtocol = sharedDeps.protocolRegistry.getByNamespace(GLOBAL_NAMESPACE);
@@ -66,7 +70,7 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
     // We can verify this by checking the sharedDeps or the program options if they were stored,
     // but the most authoritative way is checking the internal wiring if we exposed it.
     // For now, verified via the assembly logic and command existence.
-    const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
+    const { program } = await buildLoreCli();
     expect(program.description()).toBe('CLI tool for the Lore protocol -- structured decision context in git commits');
   });
 
@@ -84,7 +88,7 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
 
       vi.spyOn(LoreConfigLoader.prototype, 'load').mockImplementation(localLoader.load as any);
 
-      const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
+      const { program } = await buildLoreCli();
       
       const commitCmd = program.commands.find(c => c.name() === 'commit');
       expect(commitCmd?.options.find(o => o.long === '--assisted-by')).toBeDefined();
@@ -97,10 +101,10 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
 
     it('should NOT surface non-lore protocol trailers as top-level CLI flags', async () => {
         // Setup: Registry with both 'lore' and 'project' protocols
-        const lore = makeMockProtocol({ name: 'lore' });
-        const project = makeMockProtocol({ 
+        const lore = makeStubProtocolContext({ name: 'lore' });
+        const project = makeStubProtocolContext({ 
             name: 'project', 
-            trailers: { 'Status': { description: 'S' } }
+            trailers: { 'Status': { description: 'S', multivalue: false, validation: 'none' as const } }
         });
 
         // Intercept Registry.getAll to simulate a multi-protocol environment
@@ -111,7 +115,7 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
             return undefined;
         });
 
-        const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
+        const { program } = await buildLoreCli();
         const commitCmd = program.commands.find(c => c.name() === 'commit');
         
         // Assert: Lore flags are present (e.g. from the default definition, 

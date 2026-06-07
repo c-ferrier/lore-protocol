@@ -1,7 +1,7 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { validateFormatting } from '../../../src/engine/core/logic/commit-formatting.js';
-import { makeCommitInput, makeProtocol, makeProtocolRegistry,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { makeCommitInput, makeStubProtocolContext, makeStubProtocolRegistry,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 
 describe('Strict Namespaced Validation', () => {
 
@@ -10,11 +10,11 @@ describe('Strict Namespaced Validation', () => {
 
   it('should reject orphan trailers in a strict namespaced protocol', async () => {
     // 1. Create a STRICT, non-permissive protocol in namespace "fred"
-    const strictProtocol = makeProtocol(
+    const strictProtocol = makeStubProtocolContext(
         { name: 'Fred', namespace: 'fred', identityKey: 'Mock-id' },
         { strict: true, permissive: false }
     );
-    const registry = makeProtocolRegistry([strictProtocol]);
+    const registry = makeStubProtocolRegistry([strictProtocol]);
     
     // 2. Input with an orphan trailer in "fred" namespace
     const input = makeCommitInput({
@@ -34,11 +34,11 @@ describe('Strict Namespaced Validation', () => {
   });
 
   it('should accept valid trailers in a strict namespaced protocol', async () => {
-    const strictProtocol = makeProtocol(
+    const strictProtocol = makeStubProtocolContext(
         { name: 'Fred', namespace: 'fred', identityKey: 'Mock-id' },
         { strict: true, permissive: false }
     );
-    const registry = makeProtocolRegistry([strictProtocol]);
+    const registry = makeStubProtocolRegistry([strictProtocol]);
     
     const input = makeCommitInput({
       subject: 'feat: add feature',
@@ -55,25 +55,20 @@ describe('Strict Namespaced Validation', () => {
   });
 
   it('should report missing required trailers in a strict namespaced protocol', async () => {
-    const strictProtocol = makeProtocol(
+    const strictProtocol = makeStubProtocolContext(
         { 
             name: 'Fred', 
             namespace: 'fred', 
             identityKey: 'Mock-id',
-            trailers: {
-                'Mock-id': { type: 'string', required: true, description: 'ID', aliases: [], ui: { kind: 'identity', color: 'dim' } as any }
-            }
-        },
-        { 
             strict: true, 
             permissive: false,
             trailers: {
-                'Mock-id': { description: 'ID', multivalue: false, validation: 'none', generator: 'none', required: true }
+                'Mock-id': { description: 'ID', multivalue: false, validation: 'none' as const, generator: 'none', required: true, ui: { kind: 'identity', color: 'dim' } }
             }
         }
     );
 
-    const registry = makeProtocolRegistry([strictProtocol]);
+    const registry = makeStubProtocolRegistry([strictProtocol]);
 
     const input = makeCommitInput({
       subject: 'feat: add feature',
@@ -90,11 +85,11 @@ describe('Strict Namespaced Validation', () => {
   });
 
   it('should report unauthorized trailers in a strict namespace', async () => {
-    const strictProtocol = makeProtocol(
+    const strictProtocol = makeStubProtocolContext(
         { name: 'Fred', namespace: 'fred', identityKey: 'Mock-id' },
         { strict: true, permissive: false }
     );
-    const registry = makeProtocolRegistry([strictProtocol]);
+    const registry = makeStubProtocolRegistry([strictProtocol]);
 
     const input = makeCommitInput({
       subject: 'feat: add feature',

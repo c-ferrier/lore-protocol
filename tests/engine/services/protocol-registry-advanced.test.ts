@@ -1,7 +1,7 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeProtocol } from '../../../src/engine/testing.js';
+import { makeStubProtocolContext } from '../../../src/engine/testing.js';
 import { GLOBAL_NAMESPACE } from '../../../src/engine/util/constants.js';
 ;
 ;
@@ -14,16 +14,16 @@ describe('ProtocolRegistry Advanced', () => {
   });
 
   it('should generate correct aggregated discovery patterns for multiple protocols', () => {
-    const p1 = makeProtocol({
+    const p1 = makeStubProtocolContext({
       name: 'P1',
       identityKey: 'P1-id',
-      trailers: { 'P1-id': { description: 'ID', validation: 'pattern', pattern: '[0-9]+' } }
+      trailers: { 'P1-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '[0-9]+' } }
     });
-    const p2 = makeProtocol({
+    const p2 = makeStubProtocolContext({
       name: 'P2',
       namespace: 'ns',
       identityKey: 'P2-id',
-      trailers: { 'P2-id': { description: 'ID', validation: 'none' } }
+      trailers: { 'P2-id': { description: 'ID', multivalue: false, validation: 'none' as const } }
     });
 
     registry.register(p1);
@@ -40,7 +40,7 @@ describe('ProtocolRegistry Advanced', () => {
   });
 
   it('should find protocols by namespace', () => {
-    const p1 = makeProtocol({
+    const p1 = makeStubProtocolContext({
      name: 'P1',
      namespace: 'n1',
      trailers: {}
@@ -49,7 +49,7 @@ describe('ProtocolRegistry Advanced', () => {
    registry.register(p1);
    expect(registry.getByNamespace(GLOBAL_NAMESPACE)).toBeUndefined();
    
-   const p2 = makeProtocol({
+   const p2 = makeStubProtocolContext({
      name: 'P2',
      namespace: '',
      trailers: {}

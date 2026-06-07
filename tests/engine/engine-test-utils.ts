@@ -2,28 +2,34 @@ import { vi } from 'vitest';
 
 import { LogLevel, type ILogger } from '../../src/engine/interfaces/logger.js';
 import type { ProtocolContext,ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
+import type { IPrompt } from '../../src/engine/interfaces/prompt.js';
 import { 
     createProtocolContext,
     makeAtom,
-    makeAtomRepository as realAtomRepository,
-    makeStubContext,
+    makeAtomRepository,
+    makeStubProtocolContext,
     makeStubFormatter,
-    makeProtocol as stubProtocol, 
-    makeProtocolRegistry as stubProtocolRegistry, 
+    makeStubProtocolRegistry, 
     makeQueryTarget,
     makeRawCommit,
-    makeStubAtomRepository as stubAtomRepository, 
-    makeStubConfigLoader as stubConfigLoader, 
-    makeStubGitClient as stubGitClient, 
-    makeStubPrompt as stubPrompt, 
-    makeStubQueryCache as stubQueryCache,
+    makeStubAtomRepository, 
+    makeStubConfigLoader, 
+    makeStubGitClient, 
+    makeStubPrompt, 
+    makeStubQueryCache,
+    makeStubSearchOptions,
     TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
 
-// 1. Vitest Spies (Middlemen)
-// These wrap framework-agnostic stubs in Vitest mock functions.
+/**
+ * =============================================================================
+ * VITEST MOCK HARNESS (PRIVATE)
+ * =============================================================================
+ * Standard naming: makeMock[Type] always returns a Vitest spy-wrapped object.
+ * They delegate to the framework-agnostic stubs in src/engine/testing.ts.
+ */
 
 export function makeMockGitClient(overrides: any = {}): any {
-    const stub = stubGitClient(overrides);
+    const stub = makeStubGitClient(overrides);
     return { 
         ...stub, 
         query: vi.fn(stub.query),
@@ -43,12 +49,12 @@ export function makeMockGitClient(overrides: any = {}): any {
 }
 
 export function makeMockProtocolRegistry(protocols: any[] = []): any {
-    const registry = stubProtocolRegistry(protocols);
+    const registry = makeStubProtocolRegistry(protocols);
     return registry;
 }
 
 export function makeMockQueryCache(overrides: any = {}): any {
-    const stub = stubQueryCache(overrides);
+    const stub = makeStubQueryCache(overrides);
     return {
         ...stub,
         get: vi.fn(stub.get),
@@ -58,7 +64,7 @@ export function makeMockQueryCache(overrides: any = {}): any {
 }
 
 export function makeMockConfigLoader(overrides: any = {}): any {
-    const stub = stubConfigLoader(overrides);
+    const stub = makeStubConfigLoader(overrides);
     return { 
         ...stub, 
         loadForPath: vi.fn(stub.loadForPath),
@@ -84,7 +90,7 @@ export function makeMockFormatter(overrides: any = {}): any {
 }
 
 export function makeMockAtomRepository(overrides: any = {}): any {
-    const stub = stubAtomRepository(overrides);
+    const stub = makeStubAtomRepository(overrides);
     const mock: any = { 
         ...stub, 
         find: vi.fn(stub.find), 
@@ -99,13 +105,16 @@ export function makeMockAtomRepository(overrides: any = {}): any {
     return mock;
 }
 
-export function makeMockPrompt(overrides: any = {}): any {
-    const stub = stubPrompt(overrides);
-    return { 
-        ...stub, 
-        askConfirm: vi.fn(stub.askConfirm), 
-        askChoice: vi.fn(stub.askChoice), 
-        askInput: vi.fn(stub.askInput) 
+export function makeMockPrompt(overrides: any = {}): IPrompt {
+    const stub = makeStubPrompt(overrides);
+    return {
+        ...stub,
+        askConfirm: vi.fn(stub.askConfirm),
+        askChoice: vi.fn(stub.askChoice),
+        askInput: vi.fn(stub.askInput),
+        askText: vi.fn(stub.askText || (async () => '')),
+        askMultiline: vi.fn(stub.askMultiline || (async () => '')),
+        close: vi.fn(stub.close || (() => {})),
     };
 }
 
@@ -117,20 +126,16 @@ export function makeMockInputResolver(overrides: any = {}): any {
     };
 }
 
-export function makeMockProtocol(overrides: Partial<ProtocolDefinition> = {}): any {
-  return stubProtocol(overrides);
-}
-
 export function makeMockProtocolContext(overrides: any = {}): ProtocolContext {
-    return makeStubContext(overrides);
+    return makeStubProtocolContext(overrides);
 }
 
-// Level 2 Tests often need the real repository but with mocks injected
-export function makeAtomRepository(deps: any = {}) {
-    return realAtomRepository(deps);
+/** Helper to create a REAL AtomRepository instance with mocks/stubs injected. */
+export function createMockAtomRepository(deps: any = {}) {
+    return makeAtomRepository(deps);
 }
 
-/** Mock logger that captures all output for inspection. Supports multiple naming conventions. */
+/** Mock logger that captures all output for inspection. */
 export class TestLogger implements ILogger {
     public readonly level: LogLevel = LogLevel.INFO;
     public logs: string[] = [];
@@ -155,7 +160,7 @@ export class TestLogger implements ILogger {
     child() { return this; }
 }
 
-// Named Exports for Level 2 Tests
+// Re-exports of foundational test data/types from the SDK
 export { 
     createProtocolContext, 
     makeAtom, 
@@ -165,25 +170,9 @@ export {
     type ProtocolContext,
     type ProtocolDefinition};
 
-/** Helper to create search options. */
-export function makeSearchOptions(overrides: any = {}): any {
-    return {
-        filters: [],
-        follow: false,
-        cache: true,
-        ...overrides
-    };
-}
+import { QueryOptions, SearchOptions } from '../../src/engine/core/types/query.js';
 
-export function makeQueryOptions(overrides: any = {}): any {
-    return makeSearchOptions(overrides);
+/** Helper to create query/search options for tests. */
+export function makeQueryOptions(overrides: Partial<SearchOptions> = {}): SearchOptions {
+    return makeStubSearchOptions(overrides);
 }
-
-// Shims for backward compatibility (Mock versions preferred in tests)
-export const makeProtocolRegistry = makeMockProtocolRegistry;
-export const makeProtocol = makeMockProtocol;
-export const makeStubProtocol = (overrides: any) => makeStubContext(overrides);
-export const makeStubGitClient = makeMockGitClient;
-export const makeFormatter = makeMockFormatter;
-export const makeConfigLoader = makeMockConfigLoader;
-export const makePrompt = makeMockPrompt;

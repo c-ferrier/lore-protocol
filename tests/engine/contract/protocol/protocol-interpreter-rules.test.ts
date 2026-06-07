@@ -3,12 +3,12 @@ import { describe, expect,it } from 'vitest';
 import { getStaleSignals } from '../../../../src/engine/core/logic/staleness.js';
 import { ProtocolMap } from '../../../../src/engine/core/types/domain.js';
 import { type ProtocolDefinition } from '../../../../src/engine/core/types/protocol-definition.js';
-import { makeMockContext } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
 describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
   
   const createMockProtocol = (definitionOverrides: Partial<ProtocolDefinition> = {}) => {
-    return makeMockContext({
+    return makeStubProtocolContext({
         name: 'Mock',
         version: '1.0',
         namespace: '',
@@ -104,14 +104,14 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
       identityKey: 'Mock-id',
       trailers: {
         'Supersedes': {
-            description: '', multivalue: true, validation: 'reference',
+            description: '', multivalue: true, validation: 'reference' as const,
             stale_if: { kind: 'reference-superseded' }
-        } as any
+        }
       }
     });
 
     const globalMap = new Map([
-        ['mock', new Map([['deadbeef', { superseded: true, supersededBy: 'mock/a1b2c3d4' }]])]
+        ['mock', new Map([['deadbeef', { superseded: true, supersededBy: ['mock/a1b2c3d4'] }]])]
     ]);
 
     const atom: any = {
@@ -121,7 +121,7 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
       }]])
     };
 
-    const signals = getStaleSignals(protocol, atom, new Date(), globalMap);
+    const signals = getStaleSignals(protocol, atom, new Date(), globalMap as any);
     expect(signals).toHaveLength(0);
   });
 
@@ -129,9 +129,9 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
     const protocol = createMockProtocol({
       trailers: {
         'Authorized': {
-            description: '', multivalue: false,
+            description: '', multivalue: false, validation: 'none' as const,
             stale_if: { kind: 'value-equals', value: 'stale' }
-        } as any
+        }
       }
     });
 

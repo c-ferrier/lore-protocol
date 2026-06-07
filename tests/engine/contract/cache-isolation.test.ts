@@ -2,8 +2,8 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { type IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import { type IQueryCache } from '../../../src/engine/interfaces/query-cache.js';
-import { makeQueryTarget } from '../../../src/engine/testing.js';
-import { makeAtomRepository, makeMockGitClient, makeMockQueryCache } from '../engine-test-utils.js';
+import { makeQueryTarget, makeAtomRepository } from '../../../src/engine/testing.js';
+import { makeMockGitClient, makeMockQueryCache } from '../engine-test-utils.js';
 
 
 

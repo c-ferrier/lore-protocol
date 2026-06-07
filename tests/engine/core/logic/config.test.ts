@@ -3,11 +3,11 @@ import { describe, expect,it } from 'vitest';
 import { 
     getAuthorizedKeys, 
     isCoreTrailer} from '../../../../src/engine/core/logic/protocols.js';
-import { makeMockContext,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('Protocol configuration merging', () => {
   it('should identify custom keys in permissive mode', () => {
-    const protocol = makeMockContext({
+    const protocol = makeStubProtocolContext({
       ...TEST_PROTOCOL_DEFINITION,
       strict: false, 
       permissive: true,

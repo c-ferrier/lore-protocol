@@ -2,8 +2,8 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeProtocol } from '../../../src/engine/testing.js';
-import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+import { makeStubProtocolContext, makeAtomRepository } from '../../../src/engine/testing.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
 ;
 
 
@@ -12,7 +12,7 @@ import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
 describe('AtomRepository False Positive Repro', () => {
   let gitClient: any;
   let repository: any;
-  const protocol = makeProtocol({
+  const protocol = makeStubProtocolContext({
     name: 'Mock',
     identityKey: 'Mock-id',
     trailers: {
@@ -36,7 +36,8 @@ describe('AtomRepository False Positive Repro', () => {
       author: 'a',
       subject: `this subject contains ${targetId} by accident`,
       body: 'b',
-      trailers: 'Mock-id: bbbb2222'
+      trailers: 'Mock-id: bbbb2222',
+      filesChanged: []
     };
 
     vi.mocked(gitClient.query).mockResolvedValue([commit]);
@@ -53,7 +54,8 @@ describe('AtomRepository False Positive Repro', () => {
       author: 'a',
       subject: 'this subject contains Mock-id: aaaa1111 by accident',
       body: 'b',
-      trailers: 'Adhoc: value'
+      trailers: 'Adhoc: value',
+      filesChanged: []
     };
 
     vi.mocked(gitClient.query).mockResolvedValue([commit]);

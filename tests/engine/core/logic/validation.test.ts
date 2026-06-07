@@ -8,8 +8,8 @@ import {
     validateProtocolTrailer
 } from '../../../../src/engine/core/logic/validation.js';
 import { 
-    makeMockContext,
-    makeProtocolRegistry,
+    makeStubProtocolContext,
+    makeStubProtocolRegistry,
     MOCK_CORE_TRAILERS, 
     TEST_ENGINE_CONFIG, 
     TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
@@ -55,7 +55,7 @@ describe('Validation Logic (Pure Functions)', () => {
 
   describe('validateProtocolState', () => {
     it('should validate protocol state using pure logic', () => {
-      const protocol = makeMockContext({ 
+      const protocol = makeStubProtocolContext({ 
           ...TEST_PROTOCOL_DEFINITION 
       });
       const state = { trailers: { 'Mock-id': ['abc12345'] }, unauthorized: {} };
@@ -66,7 +66,7 @@ describe('Validation Logic (Pure Functions)', () => {
     });
 
     it('should catch schema violations like invalid enums', () => {
-      const protocol = makeMockContext({
+      const protocol = makeStubProtocolContext({
           ...TEST_PROTOCOL_DEFINITION,
           trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
       });
@@ -77,11 +77,11 @@ describe('Validation Logic (Pure Functions)', () => {
     });
 
     it('should catch missing required trailers in strict mode', () => {
-        const protocol = makeMockContext({
+        const protocol = makeStubProtocolContext({
             ...TEST_PROTOCOL_DEFINITION,
             strict: true,
             trailers: { 
-                Confidence: { description: '', multivalue: false, validation: 'none', required: true }
+                Confidence: { description: '', multivalue: false, validation: 'none' as const, required: true }
             }
         });
         const state = normalizeTrailers({ 'Mock-id': ['a1'] }, protocol);
@@ -92,12 +92,12 @@ describe('Validation Logic (Pure Functions)', () => {
   });
 
   describe('validateProtocolTrailer', () => {
-    const protocol = makeMockContext({ 
+    const protocol = makeStubProtocolContext({ 
         name: 'Mock',
         trailers: { 
             ...TEST_PROTOCOL_DEFINITION.trailers, 
             ...MOCK_CORE_TRAILERS,
-            'Internal': { description: '', validation: 'reference', crossProtocol: false } as any
+            'Internal': { description: '', multivalue: true, validation: 'reference' as const, crossProtocol: false }
         } 
     });
 
@@ -118,13 +118,13 @@ describe('Validation Logic (Pure Functions)', () => {
     });
 
     it('should successfully validate a cross-protocol reference when registry is provided', () => {
-      const otherProtocol = makeMockContext({ 
+      const otherProtocol = makeStubProtocolContext({ 
           name: 'Other', 
           namespace: 'Other', 
           identityKey: 'Other-id', 
           trailers: {} 
       });
-      const registry = makeProtocolRegistry([protocol as any, otherProtocol as any]);
+      const registry = makeStubProtocolRegistry([protocol as any, otherProtocol as any]);
 
       const result = validateProtocolTrailer('Related', 'other/abc', protocol.def, registry);
       expect(result.valid).toBe(true);
@@ -143,7 +143,7 @@ describe('Validation Logic (Pure Functions)', () => {
 
     describe('Custom Trailer Definitions', () => {
     it('should error when a trailer marked as required in definitions is missing', async () => {
-      const protocol = makeMockContext({
+      const protocol = makeStubProtocolContext({
         trailers: {
             Department: { description: 'dept', multivalue: false, validation: 'none' as const, required: true },
         },
@@ -157,12 +157,12 @@ describe('Validation Logic (Pure Functions)', () => {
     });
 
     it('should error on invalid enum value for custom trailer', async () => {
-      const protocol = makeMockContext({
+      const protocol = makeStubProtocolContext({
         trailers: {
             Team: {
               description: 'team',
               multivalue: false,
-              validation: 'values',
+              validation: 'values' as const,
               values: { Alpha: { description: '' }, Beta: { description: '' } },
             },
         },
@@ -178,11 +178,14 @@ describe('Validation Logic (Pure Functions)', () => {
 
     describe('Namespacing Logic (Typos)', () => {
       it('should report unauthorized trailers in a namespaced protocol', async () => {
-          const nsProtocol = makeMockContext({ 
+          const nsProtocol = makeStubProtocolContext({ 
                 name: 'Project', 
                 namespace: 'Project', 
                 identityKey: 'Id',
-                trailers: { 'Id': { description: 'ID' }, 'Team': { description: 'T' } },
+                trailers: { 
+                    'Id': { description: 'ID', multivalue: false, validation: 'none' as const }, 
+                    'Team': { description: 'T', multivalue: false, validation: 'none' as const } 
+                },
                 strict: true,
                 permissive: false
           });

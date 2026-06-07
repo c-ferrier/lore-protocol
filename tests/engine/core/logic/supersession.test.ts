@@ -2,7 +2,7 @@ import { beforeEach,describe, expect, it } from 'vitest';
 
 import { filterActiveAtoms,resolveSupersession } from '../../../../src/engine/core/logic/supersession.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeAtom, makeMockContext } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
 describe('Supersession Logic (Pure Functions)', () => {
   let registry: ProtocolRegistry;
@@ -12,7 +12,7 @@ describe('Supersession Logic (Pure Functions)', () => {
   });
 
   it('should resolve a direct supersession chain', () => {
-    const ctx = makeMockContext({ name: 'mock', identityKey: 'Id' });
+    const ctx = makeStubProtocolContext({ name: 'mock', identityKey: 'Id' });
     registry.register(ctx);
 
     const a1 = makeAtom({ id: 'id1', trailers: { 'Id': ['id1'] } });
@@ -26,7 +26,7 @@ describe('Supersession Logic (Pure Functions)', () => {
   });
 
   it('should handle multiple atoms superseded by one', () => {
-    const ctx = makeMockContext({ name: 'mock', identityKey: 'Id' });
+    const ctx = makeStubProtocolContext({ name: 'mock', identityKey: 'Id' });
     registry.register(ctx);
 
     const a1 = makeAtom({ id: 'a1', trailers: { 'Id': ['a1'], 'Supersedes': ['b2', 'c3'] } });
@@ -43,7 +43,7 @@ describe('Supersession Logic (Pure Functions)', () => {
   });
 
   it('should resolve transitive supersession chains', () => {
-    const ctx = makeMockContext({ name: 'mock', identityKey: 'Id' });
+    const ctx = makeStubProtocolContext({ name: 'mock', identityKey: 'Id' });
     registry.register(ctx);
 
     const a1 = makeAtom({ id: 'id1', trailers: { 'Id': ['id1'] } });
@@ -60,7 +60,7 @@ describe('Supersession Logic (Pure Functions)', () => {
   });
 
   it('should handle circular references without infinite loop', () => {
-    const ctx = makeMockContext({ name: 'mock', identityKey: 'Id' });
+    const ctx = makeStubProtocolContext({ name: 'mock', identityKey: 'Id' });
     registry.register(ctx);
 
     const a1 = makeAtom({ id: 'a1', trailers: { 'Id': ['a1'], 'Supersedes': ['b2'] } });
@@ -75,8 +75,8 @@ describe('Supersession Logic (Pure Functions)', () => {
   });
 
   it('should resolve cross-protocol supersession', () => {
-    const p1 = makeMockContext({ name: 'Alpha', namespace: 'alpha', identityKey: 'Id' });
-    const p2 = makeMockContext({ name: 'Beta', namespace: 'beta', identityKey: 'Id' });
+    const p1 = makeStubProtocolContext({ name: 'Alpha', namespace: 'alpha', identityKey: 'Id' });
+    const p2 = makeStubProtocolContext({ name: 'Beta', namespace: 'beta', identityKey: 'Id' });
     registry.register(p1);
     registry.register(p2);
 
@@ -95,7 +95,7 @@ describe('Supersession Logic (Pure Functions)', () => {
   });
 
   it('should filter active atoms correctly', () => {
-      const ctx = makeMockContext({ name: 'mock', identityKey: 'Id' });
+      const ctx = makeStubProtocolContext({ name: 'mock', identityKey: 'Id' });
       registry.register(ctx);
 
       const a1 = makeAtom({ id: 'id1', trailers: { 'Id': ['id1'] } });

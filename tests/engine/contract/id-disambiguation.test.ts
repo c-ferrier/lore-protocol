@@ -3,14 +3,8 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeProtocol } from '../../../src/engine/testing.js';
-import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
-;
-;
-
-
-;
-;
+import { makeAtomRepository, makeStubProtocolContext } from '../../../src/engine/testing.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
 
 describe('AtomRepository Identity Disambiguation', () => {
   let gitClient: any;
@@ -41,8 +35,8 @@ describe('AtomRepository Identity Disambiguation', () => {
     gitClient = makeMockGitClient();
 
     protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(makeProtocol(ALPHA_DEF));
-    protocolRegistry.register(makeProtocol(BETA_DEF));
+    protocolRegistry.register(makeStubProtocolContext(ALPHA_DEF));
+    protocolRegistry.register(makeStubProtocolContext(BETA_DEF));
 
     repo = makeAtomRepository({
         gitClient,
@@ -59,6 +53,7 @@ describe('AtomRepository Identity Disambiguation', () => {
       subject: 's',
       body: 'b',
       trailers: `alpha: Alpha-id: ${targetId}`,
+      filesChanged: [],
     };
 
     vi.mocked(gitClient.query).mockResolvedValue([commit]);
@@ -86,6 +81,7 @@ describe('AtomRepository Identity Disambiguation', () => {
       subject: 's',
       body: 'b',
       trailers: `beta: Beta-id: ${targetId}`,
+      filesChanged: [],
     };
 
     vi.mocked(gitClient.query).mockResolvedValue([commit]);
@@ -107,7 +103,7 @@ describe('AtomRepository Identity Disambiguation', () => {
           'Lore-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' },
         }
     };
-    protocolRegistry.register(makeProtocol(LORE_DEF));
+    protocolRegistry.register(makeStubProtocolContext(LORE_DEF));
 
     const targetId = '12345678';
     // Commit only has Beta ID
@@ -118,6 +114,7 @@ describe('AtomRepository Identity Disambiguation', () => {
       subject: 's',
       body: 'b',
       trailers: `beta: Beta-id: ${targetId}`,
+      filesChanged: [],
     };
 
     vi.mocked(gitClient.query).mockResolvedValue([commit]);

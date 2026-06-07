@@ -22,40 +22,7 @@ describe('ProtocolLoader', () => {
     permissive: true,
     identityKey: 'Lore-id',
     trailers: {},
-    getStaleSignals: vi.fn()
   };
-
-  it('should merge dynamic blueprints with static logic hooks', async () => {
-    // Dynamic blueprint has trailers but NO logic hooks
-    const dynamicSec: ProtocolDefinition = {
-      name: 'Sec',
-      version: '1.0',
-      namespace: 'sec',
-      strict: true,
-      permissive: false,
-      identityKey: 'CVE',
-      trailers: { CVE: { description: 'id', multivalue: false, validation: 'none' } }
-    };
-    
-    // Static hook for the SAME protocol
-    const staleHook = vi.fn();
-    const staticSec: ProtocolDefinition = {
-        ...dynamicSec,
-        trailers: {}, // empty trailers in static
-        getStaleSignals: staleHook
-    };
-
-    const loader = new ProtocolLoader(
-        createMockDynamicLoader([dynamicSec]),
-        [staticSec]
-    );
-
-    const results = await loader.loadAll(TEST_ENGINE_CONFIG);
-    expect(results).toHaveLength(1);
-    expect(results[0].name).toBe('Sec');
-    expect(results[0].trailers.CVE).toBeDefined(); // Kept from dynamic
-    expect(results[0].getStaleSignals).toBe(staleHook); // Merged from static
-  });
 
   it('should apply repository-level configuration overrides', async () => {
     const loader = new ProtocolLoader(
@@ -70,7 +37,7 @@ describe('ProtocolLoader', () => {
           strict: true,
           permissive: false,
           trailers: {
-            'Custom-Field': { description: 'Overridden', multivalue: true }
+            'Custom-Field': { description: 'Overridden', multivalue: true, validation: 'none' } as any
           }
         }
       }

@@ -4,7 +4,7 @@ import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
-import { makeProtocol, makeQueryTarget,TEST_PROTOCOL_CONFIG } from '../../../src/engine/testing.js';
+import { makeStubProtocolContext, makeQueryTarget,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 import { LoreJsonFormatter } from '../../../src/lore/formatters/lore-json-formatter.js';
 import { makeMockGitClient } from '../../engine/engine-test-utils.js';
 ;
@@ -25,13 +25,15 @@ describe('Lore Wrapper Rebranding Flow', () => {
       version: '0.6.0',
       namespace: '', 
       identityKey: 'Lore-id',
+      strict: true,
+      permissive: false,
       trailers: {
-        'Lore-id': { description: 'ID' },
-        'Status': { description: 'S' }
+        'Lore-id': { description: 'ID', multivalue: false, validation: 'none' },
+        'Status': { description: 'S', multivalue: false, validation: 'none' }
       }
     };
 
-    const loreProtocol = makeProtocol(loreDef, TEST_PROTOCOL_CONFIG);
+    const loreProtocol = makeStubProtocolContext(loreDef);
     const registry = new ProtocolRegistry();
     registry.register(loreProtocol);
 
@@ -69,7 +71,6 @@ describe('Lore Wrapper Rebranding Flow', () => {
         target: 'all',
         targetType: 'global'
       },
-      supersessionMap: new Map(),
       visibleTrailers: 'all',
     }));
 

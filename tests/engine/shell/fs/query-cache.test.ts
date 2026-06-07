@@ -2,7 +2,7 @@ import { mkdtemp, readdir,rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { QueryOptions, SearchOptions } from '../../../../src/engine/core/types/query.js';
 import { runCli } from '../../../../src/engine/index-impl.js';
@@ -13,6 +13,7 @@ import {
     TEST_PROTOCOL_DEFINITION, 
 } from '../../../../src/engine/testing.js';
 import { ENGINE_CONFIG_FILENAME, GLOBAL_CACHE_KEY } from '../../../../src/engine/util/constants.js';
+import { makeMockPrompt } from '../../engine-test-utils.js';
 
 describe('QueryCache Implementation', () => {
   let tempDir: string;
@@ -37,15 +38,14 @@ describe('QueryCache Implementation', () => {
     all: false,
     limit: 10,
     maxCommits: 100,
-    confidence: null,
-    scopeRisk: null,
-    reversibility: null,
+    filters: {},
     has: null,
   });
 
   const getBaseOptions = (): SearchOptions => ({
     scope: null, author: null, since: null, until: null, text: null,
     all: false, limit: null, maxCommits: null, has: null, follow: false,
+    filters: {},
   });
 
   // Valid 40-char hex hashes for testing
@@ -58,8 +58,8 @@ describe('QueryCache Implementation', () => {
       const hashes = ['h1', 'h2', 'h3'];
       const options = getMockOptions();
 
-      await cache.set(H1, gitLogArgs, options, hashes);
-      const retrieved = await cache.get(H1, gitLogArgs, options);
+      await cache.set(H1, gitLogArgs.join(' '), options, hashes);
+      const retrieved = await cache.get(H1, gitLogArgs.join(' '), options);
 
       expect(retrieved).toEqual(hashes);
     });
@@ -67,9 +67,9 @@ describe('QueryCache Implementation', () => {
     it('should return null if HEAD has changed', async () => {
       const gitLogArgs = ['--', 'src/auth.ts'];
       const options = getMockOptions();
-      await cache.set(H1, gitLogArgs, options, ['h1']);
+      await cache.set(H1, gitLogArgs.join(' '), options, ['h1']);
 
-      const retrieved = await cache.get(H2, gitLogArgs, options);
+      const retrieved = await cache.get(H2, gitLogArgs.join(' '), options);
       expect(retrieved).toBeNull();
     });
 
@@ -90,11 +90,11 @@ describe('QueryCache Implementation', () => {
       const o1 = { ...getMockOptions(), since: '2025-01-01' };
       const o2 = { ...getMockOptions(), since: '2025-02-01' };
       
-      await cache.set(H1, args, o1, ['h1']);
-      await cache.set(H1, args, o2, ['h2']);
+      await cache.set(H1, args.join(' '), o1, ['h1']);
+      await cache.set(H1, args.join(' '), o2, ['h2']);
   
-      const r1 = await cache.get(H1, args, o1);
-      const r2 = await cache.get(H1, args, o2);
+      const r1 = await cache.get(H1, args.join(' '), o1);
+      const r2 = await cache.get(H1, args.join(' '), o2);
   
       expect(r1).toEqual(['h1']);
       expect(r2).toEqual(['h2']);
@@ -105,11 +105,11 @@ describe('QueryCache Implementation', () => {
         const options = getMockOptions();
         const H3 = '9991234567890abcdef1234567890abcdef1234';
     
-        await smallCache.set(H1, ['--1'], options, ['v1']);
+        await smallCache.set(H1, ['--1'].join(' '), options, ['v1']);
         await new Promise(r => setTimeout(r, 10)); 
-        await smallCache.set(H2, ['--2'], options, ['v2']);
+        await smallCache.set(H2, ['--2'].join(' '), options, ['v2']);
         await new Promise(r => setTimeout(r, 10));
-        await smallCache.set(H3, ['--3'], options, ['v3']);
+        await smallCache.set(H3, ['--3'].join(' '), options, ['v3']);
     
         await smallCache.prune();
     
@@ -200,7 +200,7 @@ describe('QueryCache Implementation', () => {
       await cache.set(H1, '--', getMockOptions(), ['h1']);
       
       const otherCache = new QueryCache(tempDir, 100, 'v2-fingerprint');
-      expect(await otherCache.get(H1, ['--'], getMockOptions())).toBeNull();
+      expect(await otherCache.get(H1, ['--'].join(' '), getMockOptions())).toBeNull();
     });
 
     it('should be case-insensitive for filter keys', async () => {
@@ -262,8 +262,8 @@ describe('Cache Bypass Integration (--no-cache)', () => {
       configFileName: ENGINE_CONFIG_FILENAME,
       defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [TEST_PROTOCOL_DEFINITION],
-      prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn() } as any,
-    }, integrationTempDir);
+      prompt: makeMockPrompt(),
+    });
 
     expect(sharedDeps.atomRepository).toBeDefined();
     process.argv = originalArgv;

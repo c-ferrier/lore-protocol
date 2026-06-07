@@ -13,7 +13,7 @@ import type { ProtocolContext } from '../../../../src/engine/core/types/protocol
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { 
     makeAtom, 
-    makeProtocol, 
+    makeStubProtocolContext, 
     TEST_ENGINE_CONFIG, 
     TEST_ID_KEY, 
     TEST_PROTOCOL_DEFINITION 
@@ -27,7 +27,7 @@ describe('JsonFormatter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    protocol = makeProtocol();
+    protocol = makeStubProtocolContext();
     registry.register(protocol);
     formatter = new JsonFormatter(registry);
   });
@@ -82,11 +82,11 @@ describe('JsonFormatter', () => {
 
     it('should use canonical trailer keys inside protocol object (symmetry)', () => {
       const registry = new ProtocolRegistry();
-      const protocol = makeProtocol({
+      const protocol = makeStubProtocolContext({
           ...TEST_PROTOCOL_DEFINITION,
           trailers: {
               ...TEST_PROTOCOL_DEFINITION.trailers,
-              'Confidence': { description: 'c', multivalue: false, validation: 'none' } as any
+              'Confidence': { description: 'c', multivalue: false, validation: 'none' as const }
           }
       });
       registry.register(protocol);
@@ -213,7 +213,7 @@ describe('JsonFormatter', () => {
 
   describe('JSON Normalization Matrix', () => {
     it('should correctly coerce core scalars and preserve all other arrays', () => {
-      const protocol = makeProtocol(LoreProtocolDefinition, TEST_ENGINE_CONFIG);
+      const protocol = makeStubProtocolContext(LoreProtocolDefinition);
       const registry = new ProtocolRegistry();
       registry.register(protocol);
       const formatter = new JsonFormatter(registry);

@@ -3,7 +3,7 @@ import { beforeEach,describe, expect, it } from 'vitest';
 import { squashAtoms } from '../../../../src/engine/core/logic/squashing.js';
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeAtom, makeMockContext,TEST_ID_KEY } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext,TEST_ID_KEY } from '../../../../src/engine/testing.js';
 ;
 ;
 
@@ -44,13 +44,31 @@ describe('Squashing Logic (Pure Functions)', () => {
 
   describe('Trailer Merging Strategies', () => {
     beforeEach(() => {
-        registry.register(makeMockContext({
+        registry.register(makeStubProtocolContext({
             name: 'mock',
             trailers: {
-                'Confidence': { description: 'conf', squash: 'rank-max', values: { 'low': {}, 'medium': {}, 'high': {} } },
-                'Severity': { description: 'sev', squash: 'rank-min', values: { 'P0': {}, 'P1': {}, 'P2': {} } },
-                'Constraint': { description: 'cons', squash: 'union' },
-                'Related': { description: 'rel', squash: 'union', ui: { kind: 'reference' } as any }
+                'Confidence': { 
+                    description: 'conf', 
+                    multivalue: false,
+                    validation: 'values' as const,
+                    squash: 'rank-max', 
+                    values: { 'low': { description: 'L' }, 'medium': { description: 'M' }, 'high': { description: 'H' } } 
+                },
+                'Severity': { 
+                    description: 'sev', 
+                    multivalue: false,
+                    validation: 'values' as const,
+                    squash: 'rank-min', 
+                    values: { 'P0': { description: '0' }, 'P1': { description: '1' }, 'P2': { description: '2' } } 
+                },
+                'Constraint': { description: 'cons', multivalue: true, validation: 'none' as const, squash: 'union' },
+                'Related': { 
+                    description: 'rel', 
+                    multivalue: true,
+                    validation: 'reference' as const,
+                    squash: 'union', 
+                    ui: { kind: 'reference', color: 'dim' } 
+                }
             }
         }));
     });
@@ -98,14 +116,14 @@ describe('Squashing Logic (Pure Functions)', () => {
   });
 
   it('should synthesize context for multiple protocols simultaneously', () => {
-    registry.register(makeMockContext({ name: 'Alpha', namespace: 'alpha', identityKey: 'A-id' }));
-    registry.register(makeMockContext({ name: 'Beta', namespace: 'beta', identityKey: 'B-id' }));
+    registry.register(makeStubProtocolContext({ name: 'Alpha', namespace: 'alpha', identityKey: 'A-id' }));
+    registry.register(makeStubProtocolContext({ name: 'Beta', namespace: 'beta', identityKey: 'B-id' }));
 
     const a1 = makeAtom({ 
         id: 'id1', 
         protocols: new ProtocolMap([
-            ['alpha', { name: 'Alpha', trailers: { 'A-id': ['a1'], 'Status': ['active'] } } as any],
-            ['beta', { name: 'Beta', trailers: { 'B-id': ['b1'], 'Priority': ['high'] } } as any]
+            ['alpha', { trailers: { 'A-id': ['a1'], 'Status': ['active'] }, unauthorized: {} }],
+            ['beta', { trailers: { 'B-id': ['b1'], 'Priority': ['high'] }, unauthorized: {} }]
         ])
     });
 

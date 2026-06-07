@@ -6,22 +6,23 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { JsonFormatter } from '../../src/engine/cli/formatters/json-formatter.js';
-import { parseFlagsToInput } from '../../src/engine/core/logic/input-interpretation.js';
-import { type Atom } from '../../src/engine/core/types/domain.js';
-import { type Atom, type Trailers } from '../../src/engine/core/types/domain.js';
+import { parseFlagsToInput, type CommitCommandOptions } from '../../src/engine/core/logic/input-interpretation.js';
+import { type Atom, type ProtocolState, type Trailers } from '../../src/engine/core/types/domain.js';
 import { type FormattableQueryResult } from '../../src/engine/core/types/output.js';
 import { type ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
+import { ProtocolMap } from '../../src/engine/core/models/protocol-map.js';
 import { runCli } from '../../src/engine/index-impl.js';
 import { AtomRepository } from '../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../src/engine/shell/fs/query-cache.js';
 import * as rootResolver from '../../src/engine/shell/fs/root-resolver.js';
 import { validateCommits } from '../../src/engine/shell/orchestrators/validation.js';
-import { makeProtocol, makeQueryTarget,TEST_ENGINE_CONFIG } from '../../src/engine/testing.js';
-import { makeProtocol,TEST_PROTOCOL_CONFIG } from '../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, makeQueryTarget, TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION, TEST_ID_KEY } from '../../src/engine/testing.js';
+
+
 import { ENGINE_CONFIG_FILENAME } from '../../src/engine/util/constants.js';
 import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
-import { makeMockGitClient } from './engine-test-utils.js';
+import { makeMockGitClient, makeMockPrompt } from './engine-test-utils.js';
 
 const LORE_ID_KEY = 'Lore-id';
 describe('Engine Assembly (Agnostic Bootstrap)', () => {
@@ -32,9 +33,11 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     version: '1.0',
     identityKey: 'Custom-id',
     namespace: 'custom',
+    strict: true,
+    permissive: false,
     trailers: {}
   };
-  const TEST_ENGINE_CONFIG = {
+  const MOCK_BOOTSTRAP_CONFIG = {
     protocol: { name: 'Atom', version: '1.0' },
     strict: false, permissive: true, trailers: { definitions: {} },
     validation: { strict: false, maxMessageLines: 50, subjectMaxLength: 72 },
@@ -53,15 +56,15 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
   });
   it('should bootstrap the engine with a custom protocol and no Lore mentions', async () => {
     const { program, sharedDeps } = await runCli({
-      prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn() } as any,
+      prompt: makeMockPrompt(),
       binaryName: 'test-atom',
       version: '0.0.0-test',
       description: 'Test Engine',
       engineDirName: 'engine-test-dir',
       configFileName: ENGINE_CONFIG_FILENAME,
-      defaultConfig: TEST_ENGINE_CONFIG,
+      defaultConfig: MOCK_BOOTSTRAP_CONFIG,
       staticProtocols: [CUSTOM_PROTOCOL],
-    }, testDir);
+    },);
     expect(program.name()).toBe('test-atom');
     const customProtocol = sharedDeps.protocolRegistry.get('custom');
     expect(customProtocol).toBeDefined();
@@ -78,14 +81,14 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
   it('should support running with zero protocols initially', async () => {
     // This tests the "atom" CLI scenario
     const { program } = await runCli({
-      prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn() } as any,
+      prompt: makeMockPrompt(),
       binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
       engineDirName: 'engine-test-dir',
       configFileName: ENGINE_CONFIG_FILENAME,
-      defaultConfig: TEST_ENGINE_CONFIG,
+      defaultConfig: MOCK_BOOTSTRAP_CONFIG,
       staticProtocols: [], // Atom starts empty
-    }, testDir);
+    },);
     expect(program).toBeDefined();
     expect(program.name()).toBe('atom');
   });
@@ -95,14 +98,14 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       isScoped: true
     });
     const { sharedDeps } = await runCli({
-      prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn() } as any,
+      prompt: makeMockPrompt(),
       binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
       engineDirName: 'engine-test-dir',
       configFileName: ENGINE_CONFIG_FILENAME,
-      defaultConfig: TEST_ENGINE_CONFIG,
+      defaultConfig: MOCK_BOOTSTRAP_CONFIG,
       staticProtocols: [],
-    }, testDir);
+    },);
     // VERIFICATION: baseTarget must be scoped to current directory ['.']
     expect((sharedDeps.atomRepository as any).baseTarget.resolvedPaths).toEqual(['.']);
     spy.mockRestore();
@@ -113,14 +116,14 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       isScoped: false
     });
     const { sharedDeps } = await runCli({
-      prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn() } as any,
+      prompt: makeMockPrompt(),
       binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
       engineDirName: 'engine-test-dir',
       configFileName: ENGINE_CONFIG_FILENAME,
-      defaultConfig: TEST_ENGINE_CONFIG,
+      defaultConfig: MOCK_BOOTSTRAP_CONFIG,
       staticProtocols: [],
-    }, testDir);
+    },);
     // VERIFICATION: baseTarget must be global (empty resolvedPaths)
     expect((sharedDeps.atomRepository as any).baseTarget.resolvedPaths).toEqual([]);
     spy.mockRestore();
@@ -129,78 +132,87 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
   describe('Protocol Architectural Integrity', () => {
   it('should flow custom trailers from CLI flags to JSON output via metadata', async () => {
     // 1. Setup metadata in config
-    const config = {
-      ...TEST_PROTOCOL_CONFIG,
+    const configOverrides: Partial<ProtocolDefinition> = {
       trailers: {
           'Ticket-ID': {
             description: 'Issue tracker reference',
             multivalue: true,
             validation: 'pattern' as const,
             pattern: '^[A-Z]+-[0-9]+$',
-            ui: { kind: 'reference' as any, color: 'dim' as any },
+            ui: { kind: 'reference', color: 'dim' },
           },
       },
     };
-    const protocol = makeProtocol(LoreProtocolDefinition, config);
+    
+    // Create protocol context with the overrides from "config"
+    const protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION, configOverrides);
     const registry = new ProtocolRegistry();
     registry.register(protocol);
+
     const options: CommitCommandOptions = {
       subject: 'feat: add stuff',
       'ticket-id': ['PROJ-123', 'PROJ-456'],
-    } as any;
+    };
     const input = parseFlagsToInput(options, registry);
-    // 2. Verify Reader mapped it correctly as a top-level property in root namespace
-    const loreInput = input.trailers.get('lore') || {};
-    expect(loreInput['Ticket-ID']).toEqual(['PROJ-123', 'PROJ-456']);
+
+    // 2. Verify Reader mapped it correctly using the merged metadata
+    const mockInput = input.trailers?.get('mock') || {};
+    expect(mockInput['Ticket-ID']).toEqual(['PROJ-123', 'PROJ-456']);
+
     // 3. Simulate Query Result (Core Logic)
     const trailers: Trailers = {
-      [LORE_ID_KEY]: ['atom-123'],
-      ...loreInput,
+      [TEST_ID_KEY]: ['atom-123'],
+      ...mockInput,
     };
     const atom: Atom = {
       commitHash: 'abc',
       date: new Date(),
       author: 'alice',
-      subject: input.subject,
+      subject: input.subject || '',
       body: '',
+      rawTrailers: '',
       filesChanged: [],
-      protocols: new Map([
-        ['lore', { trailers, unauthorized: {} }]
+      protocols: new ProtocolMap<ProtocolState>([
+        ['mock', { trailers, unauthorized: {} }]
       ]),
     };
     const data: FormattableQueryResult = {
       result: {
         command: 'context',
         target: 't',
-        targetType: 'file',
+        targetType: 'path',
         atoms: [atom],
         meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
       },
-      supersessionMap: new Map(),
       visibleTrailers: 'all',
     };
     // 4. Verify Formatter serializes it correctly
     const formatter = new JsonFormatter(registry);
     const output = JSON.parse(formatter.formatQueryResult(data));
     // Key should be CANONICAL in JSON inside the protocol's trailers object
-    expect(output.results[0].protocols.lore.trailers['Ticket-ID']).toEqual(['PROJ-123', 'PROJ-456']);
+    expect(output.results[0].protocols.mock.trailers['Ticket-ID']).toEqual(['PROJ-123', 'PROJ-456']);
   });
+
   it('should handle a hybrid flow of core and custom trailers simultaneously', async () => {
-    const protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
+    const protocol = makeStubProtocolContext({
+        ...TEST_PROTOCOL_DEFINITION,
+        permissive: true,
+        strict: false
+    });
+
     const registry = new ProtocolRegistry();
     registry.register(protocol);
     const options: CommitCommandOptions = {
       subject: 'feat',
-      confidence: 'high',
-      trailer: ['Project-Code:LORE-001'],
+      trailer: [`${TEST_ID_KEY}=abc12345`, 'Project-Code=LORE-001'],
     };
     const input = parseFlagsToInput(options, registry);
-    // Verify both are captured correctly at top level in root namespace
-    const loreInput = input.trailers.get('lore') || {};
-    expect(loreInput.Confidence).toEqual(['high']);
-    expect(loreInput['Project-Code']).toEqual(['LORE-001']);
+    // Verify both are captured correctly
+    const mockInput = input.trailers?.get('mock') || {};
+    expect(mockInput[TEST_ID_KEY]).toEqual(['abc12345']);
+    expect(mockInput['Project-Code']).toEqual(['LORE-001']);
   });
-})
+});
 });
   describe('Engine Protocol Rebranding Flow', () => {
   it('should flow a custom protocol from raw trailers to namespaced JSON output', async () => {
@@ -210,26 +222,23 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       version: '2.5',
       namespace: 'fred', 
       identityKey: 'Fred-id',
+      strict: true,
+      permissive: false,
       trailers: {
         'Fred-id': {
           description: 'Fred identity',
           multivalue: false,
-          validation: 'pattern',
+          validation: 'pattern' as const,
           pattern: '^[0-9a-f]{8}$',
         },
         'Status': {
           description: 'Fred status',
           multivalue: false,
-          validation: 'none',
+          validation: 'none' as const,
         }
       }
     };
-    const fredProtocol = makeProtocol(fredDef, {
-        identityKey: 'Fred-id',
-        name: 'Fred',
-        namespace: 'fred',
-        trailers: { ...fredDef.trailers, strict: false, permissive: true }
-    });
+    const fredProtocol = makeStubProtocolContext(fredDef);
     const registry = new ProtocolRegistry();
     registry.register(fredProtocol);
     // 2. Mock Storage to return a Fred commit
@@ -269,7 +278,6 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
         target: 'all',
         targetType: 'global'
       },
-      supersessionMap: new Map(),
       visibleTrailers: 'all',
     }));
     // 6. Verify Agnostic Structure (Data is in .protocols.fred)

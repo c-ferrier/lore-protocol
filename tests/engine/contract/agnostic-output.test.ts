@@ -20,6 +20,7 @@ describe('Agnostic Output (Zero Protocols)', () => {
     author: 'cole@example.com',
     subject: 'feat: agnostic commit',
     body: 'Some body text',
+    rawTrailers: '',
     protocols: new Map(), // No protocol interpretations
     filesChanged: ['src/main.ts'],
   };
@@ -37,7 +38,6 @@ describe('Agnostic Output (Zero Protocols)', () => {
         newest: mockAtom.date,
       },
     },
-    supersessionMap: new Map(),
     visibleTrailers: 'all',
   };
 

@@ -7,11 +7,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const MOCK_ENGINE_CONFIG = {
-  validation: { strict: false, maxMessageLines: 50, subjectMaxLength: 72 },
+  validation: { maxMessageLines: 50, subjectMaxLength: 72 },
   stale: { olderThan: '6m', driftThreshold: 20 },
   output: { defaultFormat: 'text' as const },
   follow: { maxDepth: 3 },
   cli: { updateCheck: false, cache: true, queryCache: true, queryCachePruneThreshold: 100 },
+  protocols: {},
 };
 
 describe('EngineConfigLoader', () => {
@@ -38,7 +39,6 @@ describe('EngineConfigLoader', () => {
   it('should load pure engine settings and ignore unknown sections', async () => {
     const configPath = await createConfigFile(tempDir, `
 [validation]
-strict = true
 subject_max_length = 80
 
 [cli]
@@ -50,7 +50,6 @@ foo = "bar"
 
     const config = await loader.loadFromFile(configPath);
 
-    expect(config.validation.strict).toBe(true);
     expect(config.validation.subjectMaxLength).toBe(80);
     expect(config.cli.updateCheck).toBe(true);
     // Section "some_plugin_section" should be ignored by the engine loader
@@ -58,20 +57,20 @@ foo = "bar"
   });
 
   it('should walk up the tree to find .atom/config.toml', async () => {
-    await createConfigFile(tempDir, `[validation]\nstrict = true`);
+    await createConfigFile(tempDir, `[validation]\nsubject_max_length = 80`);
     const subDir = join(tempDir, 'a/b/c');
     await mkdir(subDir, { recursive: true });
 
     const config = await loader.loadForPath(subDir);
-    expect(config.validation.strict).toBe(true);
+    expect(config.validation.subjectMaxLength).toBe(80);
   });
 
   it('should stop walking at Git boundary', async () => {
-    await createConfigFile(tempDir, `[validation]\nstrict = true`);
+    await createConfigFile(tempDir, `[validation]\nsubject_max_length = 80`);
     const subDir = join(tempDir, 'repo');
     await mkdir(join(subDir, '.git'), { recursive: true });
 
     const config = await loader.loadForPath(subDir);
-    expect(config.validation.strict).toBe(false); // Should use defaults
+    expect(config.validation.subjectMaxLength).toBe(72); // Should use defaults
   });
 });

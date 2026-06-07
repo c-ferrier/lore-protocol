@@ -4,21 +4,20 @@ import { normalizeTrailers } from '../../../../src/engine/core/logic/normalizati
 import { getAuthorizedKeys } from '../../../../src/engine/core/logic/protocols.js';
 import { serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
 import { TriggerParser } from '../../../../src/engine/core/logic/trigger-parser.js';
-import { makeProtocol, normalizeTrailers,TEST_PROTOCOL_CONFIG } from '../../../../src/engine/testing.js';
-import { makeProtocol } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext, TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 
 const LORE_ID_KEY = 'Lore-id';
 describe('Normalization Logic (Strict Segmented Waterfall)', () => {
   describe('Root Context (Global)', () => {
-    const rootProtocol = makeProtocol({
+    const rootProtocol = makeStubProtocolContext({
       name: 'Root',
       version: '1.0',
       identityKey: 'Lore-id',
       namespace: '',
       trailers: {
-        'Lore-id': { description: 'ID' },
-        'Constraint': { description: 'Constraint' }
+        'Lore-id': { description: 'ID', multivalue: false, validation: 'none' },
+        'Constraint': { description: 'Constraint', multivalue: true, validation: 'none' }
       }
     });
     it('should parse and normalize authorized trailers', () => {
@@ -56,9 +55,9 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         expect(state.unauthorized.Project).toBeUndefined();
     });
     it('should normalize mixed-case trailers to canonical keys', () => {
-        const protocol = makeProtocol({ 
+        const protocol = makeStubProtocolContext({ 
             name: 'Root', 
-            trailers: { Confidence: { description: 'C' } }
+            trailers: { Confidence: { description: 'C', multivalue: false, validation: 'none' } }
         });
         const raw = {
           'confidence': ['high'],
@@ -68,14 +67,14 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         expect(state.trailers.Confidence).toEqual(['high', 'low']);
       });
   describe('Namespaced Context (Bucket)', () => {
-    const projectProtocol = makeProtocol({
+    const projectProtocol = makeStubProtocolContext({
       name: 'Project',
       version: '1.0',
       identityKey: 'Id',
       namespace: 'Project',
       trailers: {
-        'Id': { description: 'ID' },
-        'Team': { description: 'Team' }
+        'Id': { description: 'ID', multivalue: false, validation: 'none' },
+        'Team': { description: 'Team', multivalue: false, validation: 'none' }
       }
     });
     it('should unpack namespaced bucket trailers', () => {
@@ -118,21 +117,24 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         expect(state.unauthorized['invalid-format']).toEqual(['Not-A-Trailer']);
     });
     it('should report unauthorized trailers in a namespaced protocol', () => {
-        const nsProtocol = makeProtocol({ 
+        const nsProtocol = makeStubProtocolContext({ 
               name: 'Project', 
               namespace: 'Project', 
               identityKey: 'Id',
-              trailers: { 'Id': { description: 'ID' }, 'Team': { description: 'T' } }
-        }, { strict: true, permissive: false });
+              trailers: { 
+                'Id': { description: 'ID', multivalue: false, validation: 'none' }, 
+                'Team': { description: 'T', multivalue: false, validation: 'none' } 
+              }
+        }, { strict: true, permissive: false } as any);
         const raw = { 'Project': ['Id: a1b2c3d4', 'Tream: typo'] };
         const state = normalizeTrailers(raw, nsProtocol);
         expect(state.unauthorized.Tream).toEqual(['typo']);
       });
   describe('Normalization Priority Matrix', () => {
     it('Explicit Ownership should win over Reserved Check', () => {
-        const protocol = makeProtocol({
+        const protocol = makeStubProtocolContext({
             name: 'Mock',
-            trailers: { 'Owned': { description: 'D' } }
+            trailers: { 'Owned': { description: 'D', multivalue: false, validation: 'none' } }
         });
         const raw = { 'Owned': ['value'] };
         const state = normalizeTrailers(raw, protocol, new Set(['owned'])); 
@@ -140,7 +142,7 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         expect(state.trailers.Owned).toEqual(['value']);
     });
     it('Reserved Check should win over Permissive Ingestion', () => {
-        const protocol = makeProtocol({ name: 'Root', namespace: '', permissive: true });
+        const protocol = makeStubProtocolContext({ name: 'Root', namespace: '', permissive: true });
         const raw = { 'Reserved': ['value'] };
         const state = normalizeTrailers(raw, protocol, new Set(['reserved']));
         // It's reserved by someone else, so even though we are permissive, we ignore it.
@@ -149,7 +151,7 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
     });
   describe('Strict Mode Boundaries', () => {
     it('should strictly prune unauthorized custom trailers in non-permissive mode', () => {
-      const protocol = makeProtocol(LoreProtocolDefinition, {
+      const protocol = makeStubProtocolContext(LoreProtocolDefinition, {
         strict: true,
         permissive: false,
         trailers: { 
@@ -168,7 +170,7 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
 });
   describe('Key Case Resilience', () => {
     it('should treat trailers as case-insensitive for core mapping', () => {
-      const protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
+      const protocol = makeStubProtocolContext(LoreProtocolDefinition);
       // User provides lowercase 'confidence'
       const raw = `${LORE_ID_KEY}: abc\nconfidence: low`;
       const result = normalizeTrailers(TriggerParser.parseTrailers(raw), protocol);

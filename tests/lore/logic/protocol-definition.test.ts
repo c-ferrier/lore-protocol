@@ -2,12 +2,12 @@ import { describe, expect,it } from 'vitest';
 
 import { getStaleSignals } from '../../../src/engine/core/logic/staleness.js';
 import { type Atom, ProtocolMap,type SupersessionStatus } from '../../../src/engine/core/types/domain.js';
-import { makeProtocol,TEST_PROTOCOL_CONFIG } from '../../../src/engine/testing.js';
+import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 import { LORE_STALE_SIGNAL } from '../../../src/lore/constants.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
 describe('LoreProtocolDefinition Declarative Triggers', () => {
-  const protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
+  const protocol = makeStubProtocolContext(LoreProtocolDefinition);
 
   const makeMockAtom = (loreTrailers: Record<string, string[]>): Atom => ({
     commitHash: 'h1',
@@ -15,10 +15,11 @@ describe('LoreProtocolDefinition Declarative Triggers', () => {
     author: 'a',
     subject: 's',
     body: '',
+    rawTrailers: '',
     protocols: new ProtocolMap([
       ['lore', { trailers: loreTrailers, unauthorized: {} }]
     ]),
-    filesChanged: new Set()
+    filesChanged: []
   });
 
   describe('getStaleSignals', () => {

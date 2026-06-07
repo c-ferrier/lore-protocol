@@ -1,23 +1,23 @@
 import { describe, expect,it } from 'vitest';
 
 import { ownsKey } from '../../src/engine/core/logic/ownership.js';
-import { makeMockContext,makeStubGitClient } from '../../src/engine/testing.js';
+import { makeStubProtocolContext,makeStubGitClient } from '../../src/engine/testing.js';
 
 describe('Testing Gateway Logic', () => {
-  describe('makeMockContext', () => {
+  describe('makeStubProtocolContext', () => {
     it('should force lowercase name even if provided in overrides', () => {
-      const stub = makeMockContext({ name: 'Alpha' });
+      const stub = makeStubProtocolContext({ name: 'Alpha' });
       expect(stub.name).toBe('alpha');
     });
 
     it('should correctly capture storage namespace', () => {
-      const stub = makeMockContext({ namespace: 'project' });
+      const stub = makeStubProtocolContext({ namespace: 'project' });
       expect(stub.storageNamespace).toBe('project');
       expect(ownsKey('project', stub)).toBe(true);
     });
 
     it('should implement basic owns logic based on namespace', () => {
-        const stub = makeMockContext({ name: 'Alpha', namespace: 'ns' });
+        const stub = makeStubProtocolContext({ name: 'Alpha', namespace: 'ns' });
         // STRICT ISOLATION: Namespaced protocols only own their bucket.
         expect(ownsKey('alpha', stub)).toBe(false);
         expect(ownsKey('ns', stub)).toBe(true);

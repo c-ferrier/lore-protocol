@@ -6,7 +6,7 @@ import {
     formatAge, 
     getProtocolStaleSignals,
     parseDuration} from '../../../../src/engine/core/logic/staleness.js';
-import { makeAtom,makeMockContext } from '../../../../src/engine/testing.js';
+import { makeAtom,makeStubProtocolContext } from '../../../../src/engine/testing.js';
 import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
 
 describe('Staleness Logic (Pure Functions)', () => {
@@ -88,13 +88,15 @@ describe('Staleness Logic (Pure Functions)', () => {
     const now = new Date('2023-06-01T00:00:00Z');
 
     it('should evaluate value-equals condition', () => {
-        const ctx = makeMockContext({
+        const ctx = makeStubProtocolContext({
             name: 'mock',
             trailers: { 
                 'Status': { 
                     description: 'S', 
+                    multivalue: false,
+                    validation: 'none' as const,
                     stale_if: { kind: 'value-equals', value: 'deprecated', signal: 'status-deprecated' } 
-                } as any 
+                }
             }
         });
         const atom = makeAtom({ trailers: { 'Status': ['deprecated'] } });
@@ -104,10 +106,10 @@ describe('Staleness Logic (Pure Functions)', () => {
     });
 
     it('should evaluate date-expired condition', () => {
-        const ctx = makeMockContext({
+        const ctx = makeStubProtocolContext({
             name: 'mock',
             trailers: { 
-                'Until': { description: 'U', stale_if: { kind: 'date-expired', signal: STALE_SIGNAL.EXPIRED_HINT } } as any 
+                'Until': { description: 'U', multivalue: false, validation: 'none' as const, stale_if: { kind: 'date-expired', signal: STALE_SIGNAL.EXPIRED_HINT } }
             }
         });
         // Use a date in the past in YYYY-MM-DD format (supported by parseTriggerHints)
@@ -121,10 +123,10 @@ describe('Staleness Logic (Pure Functions)', () => {
     });
 
     it('should evaluate reference-superseded condition', () => {
-        const ctx = makeMockContext({
+        const ctx = makeStubProtocolContext({
             name: 'mock',
             trailers: { 
-                'Ref': { description: 'R', stale_if: { kind: 'reference-superseded' } } as any 
+                'Ref': { description: 'R', multivalue: true, validation: 'reference' as const, stale_if: { kind: 'reference-superseded' } }
             }
         });
         const atom = makeAtom({ trailers: { 'Ref': ['target-1'] } });
@@ -139,12 +141,12 @@ describe('Staleness Logic (Pure Functions)', () => {
     });
 
     it('should ignore self-supersession in reference signals', () => {
-        const ctx = makeMockContext({
+        const ctx = makeStubProtocolContext({
             name: 'mock',
             identityKey: 'Id',
             trailers: { 
-                'Id': { description: 'ID' },
-                'Ref': { description: 'R', stale_if: { kind: 'reference-superseded' } } as any 
+                'Id': { description: 'ID', multivalue: false, validation: 'none' as const },
+                'Ref': { description: 'R', multivalue: true, validation: 'reference' as const, stale_if: { kind: 'reference-superseded' } }
             }
         });
         // Atom a2 supersedes a1. a2 also references a1 (normal chain).

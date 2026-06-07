@@ -1,16 +1,20 @@
 import { Command } from 'commander';
-import { beforeEach,describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerCommitCommand } from '../../../../src/engine/cli/commands/commit.js';
-import { makeCommitInput, makeProtocol, makeProtocolRegistry,TEST_ENGINE_CONFIG, TEST_ID_KEY } from '../../../../src/engine/testing.js';
-import { makeMockFormatter, makeMockGitClient, makeMockInputResolver } from '../../engine-test-utils.js';
-;
-
-
-
-
-;
-;
+import { 
+    makeCommitInput, 
+    makeStubProtocolContext, 
+    makeStubProtocolRegistry,
+    TEST_ENGINE_CONFIG, 
+    TEST_ID_KEY 
+} from '../../../../src/engine/testing.js';
+import { 
+    makeMockFormatter, 
+    makeMockGitClient, 
+    makeMockInputResolver, 
+    makeMockPrompt 
+} from '../../engine-test-utils.js';
 
 import * as FormattingLogic from '../../../../src/engine/core/logic/commit-formatting.js';
 import * as HeadIdReader from '../../../../src/engine/shell/git/head-id-reader.js';
@@ -31,20 +35,22 @@ vi.mock('../../../../src/engine/core/logic/commit-formatting.js', async (importO
 async function runCommitCommand(args: string[], deps: any): Promise<void> {
   const program = new Command();
   program.exitOverride();
-  registerCommitCommand(program, deps, deps.prompt, deps.gitClient);
+  // registerCommitCommand(program, deps, prompt)
+  registerCommitCommand(program, deps, deps.prompt);
   await program.parseAsync(['node', 'atom', 'commit', ...args]);
 }
 
 function createDeps(overrides: any = {}) {
-  const protocol = makeProtocol();
-  const protocolRegistry = makeProtocolRegistry([protocol]);
+  const protocol = makeStubProtocolContext();
+  const protocolRegistry = makeStubProtocolRegistry([protocol]);
   const formatter = makeMockFormatter();
+  const prompt = makeMockPrompt();
 
   return {
     gitClient: makeMockGitClient(),
     getFormatter: () => formatter,
     commitInputResolver: makeMockInputResolver(),
-    
+    prompt,
     config: TEST_ENGINE_CONFIG,
     protocol,
     protocolRegistry,

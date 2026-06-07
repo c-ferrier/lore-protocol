@@ -1,6 +1,6 @@
 import { JsonInputReader } from '../../../../src/engine/cli/readers/json-input-reader.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeProtocol } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
 ;
 import {describe, expect, it } from 'vitest';
@@ -35,22 +35,28 @@ describe('JsonInputReader', () => {
 
       expect(result.subject).toBe('fix bug in parser');
       expect(result.body).toBe('Detailed explanation');
-      expect(result.trailers.get('').Constraint).toEqual(['must preserve backward compat']);
-      expect(result.trailers.get('').Rejected).toEqual(['approach A | too complex']);
-      expect(result.trailers.get('').Confidence).toEqual(['medium']);
-      expect(result.trailers.get('')?.['Scope-risk']).toEqual(['narrow']);
-      expect(result.trailers.get('').Reversibility).toEqual(['clean']);
-      expect(result.trailers.get('').Directive).toEqual(['use new API']);
-      expect(result.trailers.get('').Tested).toEqual(['unit tests pass']);
-      expect(result.trailers.get('')?.['Not-tested']).toEqual(['load testing']);
-      expect(result.trailers.get('').Supersedes).toEqual(['abcd1234']);
-      expect(result.trailers.get('')?.['Depends-on']).toEqual(['dead0000']);
-      expect(result.trailers.get('').Related).toEqual(['beef1234']);
+      expect(result.trailers.get('')!.Constraint).toEqual(['must preserve backward compat']);
+      expect(result.trailers.get('')!.Rejected).toEqual(['approach A | too complex']);
+      expect(result.trailers.get('')!.Confidence).toEqual(['medium']);
+      expect(result.trailers.get('')!['Scope-risk']).toEqual(['narrow']);
+      expect(result.trailers.get('')!.Reversibility).toEqual(['clean']);
+      expect(result.trailers.get('')!.Directive).toEqual(['use new API']);
+      expect(result.trailers.get('')!.Tested).toEqual(['unit tests pass']);
+      expect(result.trailers.get('')!['Not-tested']).toEqual(['load testing']);
+      expect(result.trailers.get('')!.Supersedes).toEqual(['abcd1234']);
+      expect(result.trailers.get('')!['Depends-on']).toEqual(['dead0000']);
+      expect(result.trailers.get('')!.Related).toEqual(['beef1234']);
     });
 
     it('should handle hierarchical JSON by Protocol Name', async () => {
         const localRegistry = new ProtocolRegistry();
-        localRegistry.register(makeProtocol({ name: 'Project', namespace: 'p1', trailers: { Team: { description: 'T' } } }));
+        localRegistry.register(makeStubProtocolContext({ 
+            name: 'Project', 
+            namespace: 'p1', 
+            trailers: { 
+                Team: { description: 'T', multivalue: false, validation: 'none' } 
+            } 
+        }));
         
         const input = {
             subject: 'test',
@@ -62,7 +68,7 @@ describe('JsonInputReader', () => {
         const reader = new JsonInputReader(JSON.stringify(input), localRegistry);
         const result = await reader.read();
 
-        expect(result.trailers.get('project').Team).toEqual(['Backend']);
+        expect(result.trailers.get('project')!.Team).toEqual(['Backend']);
         });
     it('should throw ProtocolError for unknown protocol in hierarchical JSON', async () => {
         const input = {
@@ -141,7 +147,7 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
       const result = await reader.read();
 
-      expect(result.trailers.get('').Constraint).toEqual(['valid', 'also valid']);
+      expect(result.trailers.get('')!.Constraint).toEqual(['valid', 'also valid']);
     });
 
     it('should coerce a single string trailer value to an array', async () => {
@@ -156,8 +162,8 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
       const result = await reader.read();
 
-      expect(result.trailers.get('').Constraint).toEqual(['single constraint']);
-      expect(result.trailers.get('').Directive).toEqual(['[until:2026-06] Remove before release']);
+      expect(result.trailers.get('')!.Constraint).toEqual(['single constraint']);
+      expect(result.trailers.get('')!.Directive).toEqual(['[until:2026-06] Remove before release']);
     });
 
     it('should return undefined for non-string non-array trailer values', async () => {
@@ -189,8 +195,8 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
       const result = await reader.read();
 
-      expect(result.trailers.get('')?.['Assisted-by']).toEqual(['Gemini:CLI']);
-      expect(result.trailers.get('').Confidence).toEqual(['high']);
+      expect(result.trailers.get('')!['Assisted-by']).toEqual(['Gemini:CLI']);
+      expect(result.trailers.get('')!.Confidence).toEqual(['high']);
     });
 
     it('should collect multiple custom trailers', async () => {
@@ -206,9 +212,9 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
       const result = await reader.read();
 
-      expect(result.trailers.get('')?.['Assisted-by']).toEqual(['Gemini:CLI']);
-      expect(result.trailers.get('').Ticket).toEqual(['PROJ-123', 'PROJ-456']);
-      expect(result.trailers.get('').Constraint).toEqual(['some constraint']);
+      expect(result.trailers.get('')!['Assisted-by']).toEqual(['Gemini:CLI']);
+      expect(result.trailers.get('')!.Ticket).toEqual(['PROJ-123', 'PROJ-456']);
+      expect(result.trailers.get('')!.Constraint).toEqual(['some constraint']);
     });
 
     it('should skip custom trailers with non-string values', async () => {
@@ -223,8 +229,8 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
       const result = await reader.read();
 
-      expect(result.trailers.get('')?.['Valid-custom']).toEqual(['value']);
-      expect(result.trailers.get('')?.['Invalid-custom']).toBeUndefined();
+      expect(result.trailers.get('')!['Valid-custom']).toEqual(['value']);
+      expect(result.trailers.get('')?.[ 'Invalid-custom' ]).toBeUndefined();
     });
   });
 
@@ -242,9 +248,9 @@ describe('JsonInputReader', () => {
       const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
       const result = await reader.read();
 
-      expect(result.trailers.get('').Confidence).toEqual(['high']);
-      expect(result.trailers.get('')?.['Scope-risk']).toEqual(['wide']);
-      expect(result.trailers.get('').Reversibility).toEqual(['irreversible']);
+      expect(result.trailers.get('')!.Confidence).toEqual(['high']);
+      expect(result.trailers.get('')!['Scope-risk']).toEqual(['wide']);
+      expect(result.trailers.get('')!.Reversibility).toEqual(['irreversible']);
     });
 
     it('should return undefined for non-string enum values', async () => {

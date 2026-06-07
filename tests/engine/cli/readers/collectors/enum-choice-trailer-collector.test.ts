@@ -12,6 +12,7 @@ describe('EnumChoiceTrailerCollector', () => {
     });
 
     const collector = new EnumChoiceTrailerCollector({
+      protocolName: 'mock',
       key: 'Confidence',
       confirmMessage: 'Set Confidence?',
       choiceMessage: 'Confidence:',
@@ -20,7 +21,7 @@ describe('EnumChoiceTrailerCollector', () => {
 
     const result = await collector.collect(prompt);
 
-    expect(result).toEqual({ key: 'Confidence', value: undefined });
+    expect(result).toEqual({ protocolName: 'mock', key: 'Confidence', value: undefined });
     expect(prompt.askConfirm).toHaveBeenCalled();
   });
 
@@ -31,6 +32,7 @@ describe('EnumChoiceTrailerCollector', () => {
     });
 
     const collector = new EnumChoiceTrailerCollector({
+      protocolName: 'mock',
       key: 'Confidence',
       confirmMessage: 'Set Confidence?',
       choiceMessage: 'Confidence:',
@@ -39,7 +41,7 @@ describe('EnumChoiceTrailerCollector', () => {
 
     const result = await collector.collect(prompt);
 
-    expect(result).toEqual({ key: 'Confidence', value: 'medium' });
+    expect(result).toEqual({ protocolName: 'mock', key: 'Confidence', value: 'medium' });
     expect(prompt.askChoice).toHaveBeenCalled();
   });
 
@@ -50,6 +52,7 @@ describe('EnumChoiceTrailerCollector', () => {
     });
 
     const collector = new EnumChoiceTrailerCollector({
+      protocolName: 'mock',
       key: 'Confidence',
       confirmMessage: 'Set Confidence?',
       choiceMessage: 'Confidence:',
@@ -68,6 +71,7 @@ describe('EnumChoiceTrailerCollector', () => {
     });
 
     const collector = new EnumChoiceTrailerCollector({
+      protocolName: 'mock',
       key: 'Confidence',
       confirmMessage: 'Set Confidence?',
       choiceMessage: 'Confidence:',
@@ -86,6 +90,7 @@ describe('EnumChoiceTrailerCollector', () => {
     });
 
     const collector = new EnumChoiceTrailerCollector({
+      protocolName: 'mock',
       key: 'Scope-risk',
       confirmMessage: 'Set Scope-risk?',
       choiceMessage: 'Scope-risk:',
@@ -94,7 +99,7 @@ describe('EnumChoiceTrailerCollector', () => {
 
     const result = await collector.collect(prompt);
 
-    expect(result).toEqual({ key: 'Scope-risk', value: 'narrow' });
+    expect(result).toEqual({ protocolName: 'mock', key: 'Scope-risk', value: 'narrow' });
     expect(prompt.askChoice).toHaveBeenCalledWith('Scope-risk:', ['narrow', 'moderate', 'wide']);
   });
 });

@@ -5,11 +5,9 @@ import { ProtocolRegistry } from '../../../../src/engine/services/protocol-regis
 import { 
     makeAtom, 
     makeMockAtomRepository, 
-    makeProtocolRegistry,
-    makeMockProtocolContext,
-    makeProtocol,
     TEST_ENGINE_CONFIG 
 } from '../../engine-test-utils.js';
+import { makeStubProtocolContext, makeStubProtocolRegistry } from '../../../../src/engine/testing.js';
 import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
 
 describe('analyzeStaleness (Shell Orchestrator)', () => {
@@ -50,17 +48,19 @@ describe('analyzeStaleness (Shell Orchestrator)', () => {
   });
 
   it('should delegate to protocols for domain-specific signals', async () => {
-    const protocol = makeMockProtocolContext({
+    const protocol = makeStubProtocolContext({
         name: 'mock',
         trailers: {
             Confidence: {
                 description: 'conf',
-                stale_if: { kind: 'value-equals', value: 'low', signal: 'confidence' }
-            } as any
+                multivalue: false,
+                validation: 'none',
+                stale_if: { kind: 'value-equals' as const, value: 'low', signal: 'confidence' }
+            }
         }
     });
 
-    const registry = makeProtocolRegistry([protocol]);
+    const registry = makeStubProtocolRegistry([protocol]);
     const atom = makeAtom({ date: new Date(), trailers: { Confidence: ['low'] } });
     mockRepo.getAtomDrift.mockResolvedValue({});
 

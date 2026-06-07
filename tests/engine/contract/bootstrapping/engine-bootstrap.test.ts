@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { LogLevel } from '../../../../src/engine/interfaces/logger.js';
 import { EngineBootstrapper } from '../../../../src/engine/services/engine-bootstrapper.js';
-import { makeMockContext,TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
 
 // Mock dependency services to avoid FS/Git access
 vi.mock('../../../../src/engine/shell/git/git-client.js', () => ({
@@ -26,9 +26,14 @@ vi.mock('../../../../src/engine/shell/fs/protocol-loader.js', () => ({
     DynamicProtocolLoader: vi.fn().mockImplementation(() => ({
         loadAll: vi.fn(async () => []),
     })),
-    ProtocolLoader: vi.fn().mockImplementation(() => ({
-        loadAll: vi.fn(async () => []),
-    }))
+    ProtocolLoader: Object.assign(
+        vi.fn().mockImplementation(() => ({
+            loadAll: vi.fn(async () => []),
+        })),
+        {
+            applyOverrides: vi.fn((defs) => defs)
+        }
+    )
 }));
 
 
@@ -83,7 +88,7 @@ describe('EngineBootstrapper', () => {
   });
 
   it('should allow wrappers to mutate protocols via hooks', async () => {
-    const onProtocolsLoaded = vi.fn(async (protos) => [...protos, makeMockContext({ 
+    const onProtocolsLoaded = vi.fn(async (protos) => [...protos, makeStubProtocolContext({ 
         name: 'Hooked', 
         namespace: '', 
         identityKey: 'id', 

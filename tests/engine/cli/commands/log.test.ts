@@ -5,7 +5,7 @@ import { registerLogCommand } from '../../../../src/engine/cli/commands/log.js';
 import { type Atom } from '../../../../src/engine/core/types/domain.js';
 import { type IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeAtom, makeProtocol,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { makeMockAtomRepository,TestLogger } from '../../engine-test-utils.js';
 ;
 
@@ -46,7 +46,7 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
   const program = new Command();
   program.exitOverride();
 
-  const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+  const protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
   const protocolRegistry = new ProtocolRegistry();
   protocolRegistry.register(protocol);
 

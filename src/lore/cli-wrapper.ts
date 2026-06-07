@@ -44,7 +44,7 @@ export async function runLore() {
  * Assembly logic for the Lore CLI.
  * Returns the configured program and dependencies for testing or execution.
  */
-export async function buildLoreCli() {
+export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
   // 1. Initialize the Legacy Loader (relative to CWD)
   const legacyLoader = new LoreConfigLoader(join(process.cwd(), LORE_CONFIG_DIR, LORE_CONFIG_FILENAME));
   const legacyData = await legacyLoader.load();
@@ -118,6 +118,7 @@ export async function buildLoreCli() {
 
         return result as EngineConfig;
     },
+    ...overrides
   };
 
   const { program, getFormatter, sharedDeps, config } = await runCli(options);

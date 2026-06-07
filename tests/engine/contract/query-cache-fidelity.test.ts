@@ -9,7 +9,7 @@ import { createTargetFromIdentities } from '../../../src/engine/core/logic/query
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
-import { makeAtom, makeProtocol, makeQueryTarget, makeRawCommit } from '../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, makeQueryTarget, makeRawCommit } from '../../../src/engine/testing.js';
 import { makeMockGitClient } from '../engine-test-utils.js';
 
 describe('Query Cache Combined Fidelity (Contract)', () => {
@@ -25,7 +25,7 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
 
     gitClient = makeMockGitClient();
     registry = new ProtocolRegistry();
-    registry.register(makeProtocol());
+    registry.register(makeStubProtocolContext());
     
     cache = new QueryCache(testDir, 100, 'test-fingerprint');
 

@@ -1,8 +1,8 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeProtocol } from '../../../src/engine/testing.js';
-import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+import { makeStubProtocolContext, makeAtomRepository } from '../../../src/engine/testing.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
 ;
 ;
 
@@ -18,19 +18,19 @@ describe('Multi-Protocol Integration', () => {
     version: '1.0',
     namespace: 'fred',
     identityKey: 'Fred-id',
-    trailers: { 'Fred-id': { description: 'ID', validation: 'none' } }
+    trailers: { 'Fred-id': { description: 'ID', multivalue: false, validation: 'none' as const } }
   };
 
   beforeEach(() => {
     gitClient = makeMockGitClient();
 
     registry = new ProtocolRegistry();
-    const mock = makeProtocol({
+    const mock = makeStubProtocolContext({
         name: 'Mock',
         identityKey: 'Mock-id',
-        trailers: { 'Mock-id': { description: 'ID' } }
+        trailers: { 'Mock-id': { description: 'ID', multivalue: false, validation: 'none' as const } }
     });
-    const fred = makeProtocol(FRED_DEF);
+    const fred = makeStubProtocolContext(FRED_DEF);
     registry.register(mock);
     registry.register(fred);
 
@@ -57,7 +57,8 @@ describe('Multi-Protocol Integration', () => {
       author: 'a',
       subject: 's',
       body: 'b',
-      trailers: 'Mock-id: m1\nfred: Fred-id: f1'
+      trailers: 'Mock-id: m1\nfred: Fred-id: f1',
+      filesChanged: [],
     };
 
     vi.mocked(gitClient.query).mockResolvedValue([commit]);
@@ -75,8 +76,8 @@ describe('Multi-Protocol Integration', () => {
   });
 
   it('Conflict: should not allow two protocols with same name', () => {
-    const p1 = makeProtocol({ name: 'Dup', trailers: {} });
-    const p2 = makeProtocol({ name: 'Dup', trailers: {} });
+    const p1 = makeStubProtocolContext({ name: 'Dup', trailers: {} });
+    const p2 = makeStubProtocolContext({ name: 'Dup', trailers: {} });
     
     const reg = new ProtocolRegistry();
     reg.register(p1);

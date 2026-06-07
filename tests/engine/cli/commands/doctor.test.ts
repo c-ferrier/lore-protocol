@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerDoctorCommand } from '../../../../src/engine/cli/commands/doctor.js';
 import { type Atom } from '../../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeStubContext, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { makeMockAtomRepository, makeMockConfigLoader, makeMockFormatter, TestLogger } from '../../engine-test-utils.js';
 
 describe('Doctor Command', () => {
@@ -18,7 +18,7 @@ describe('Doctor Command', () => {
         resolveRoot: vi.fn().mockResolvedValue('/repo'),
         findConfigPath: vi.fn().mockResolvedValue('/repo/.mock/config.toml'),
     });
-    protocol = makeStubContext(TEST_PROTOCOL_DEFINITION);
+    protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
     vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
   });
 

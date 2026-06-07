@@ -59,7 +59,7 @@ describe('Query Target Logic (Pure Functions)', () => {
       });
 
       it('should handle unqualified identities', () => {
-          const ids = [{ protocol: null, id: 'a1' }];
+          const ids = [{ protocol: undefined, id: 'a1' }];
           const target = createTargetFromIdentities(ids);
           expect(target.raw).toEqual(['a1']);
       });

@@ -5,8 +5,8 @@ import { type SearchOptions } from '../../../src/engine/core/types/query.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeProtocol,MOCK_CORE_TRAILERS, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
-import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+import { makeStubProtocolContext,MOCK_CORE_TRAILERS, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, makeAtomRepository } from '../../../src/engine/testing.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
 ;
 
 
@@ -25,7 +25,7 @@ describe('AtomRepository Filtering Parity', () => {
   beforeEach(() => {
     gitClient = makeMockGitClient();
 
-    protocol = makeProtocol({
+    protocol = makeStubProtocolContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
     });
@@ -118,11 +118,13 @@ describe('AtomRepository Filtering Parity', () => {
       // Mock Git returning two commits, one of which is a false positive
       const commit1: RawCommit = {
         hash: 'h1', date: '2023-01-01', author: 'alice', subject: 'feat: sub', body: 'body',
-        trailers: `${TEST_ID_KEY}: aaaaaaaa\nConfidence: high`
+        trailers: `${TEST_ID_KEY}: aaaaaaaa\nConfidence: high`,
+        filesChanged: []
       };
       const commit2: RawCommit = {
         hash: 'h2', date: '2023-01-01', author: 'bob', subject: 'feat: sub', body: 'body',
-        trailers: `${TEST_ID_KEY}: bbbbbbbb\nConfidence: low`
+        trailers: `${TEST_ID_KEY}: bbbbbbbb\nConfidence: low`,
+        filesChanged: []
       };
 
       vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
@@ -136,11 +138,13 @@ describe('AtomRepository Filtering Parity', () => {
     it('should correctly refine results for Enums and Has', async () => {
       const commit1: RawCommit = {
         hash: 'h1', date: '2023-01-01', author: 'alice', subject: 's', body: 'b',
-        trailers: `${TEST_ID_KEY}: aaaaaaaa\nConfidence: high`
+        trailers: `${TEST_ID_KEY}: aaaaaaaa\nConfidence: high`,
+        filesChanged: []
       };
       const commit2: RawCommit = {
         hash: 'h2', date: '2023-01-01', author: 'alice', subject: 's', body: 'b',
-        trailers: `${TEST_ID_KEY}: bbbbbbbb\nConfidence: low`
+        trailers: `${TEST_ID_KEY}: bbbbbbbb\nConfidence: low`,
+        filesChanged: []
       };
 
       vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
@@ -153,13 +157,15 @@ describe('AtomRepository Filtering Parity', () => {
     });
 
     it('should correctly refine results for full-text search', async () => {
-       const commit1: RawCommit = {
+      const commit1: RawCommit = {
         hash: 'h1', date: '2023-01-01', author: 'a', subject: 'target word', body: 'b',
-        trailers: `${TEST_ID_KEY}: aaaaaaaa`
+        trailers: `${TEST_ID_KEY}: aaaaaaaa`,
+        filesChanged: []
       };
       const commit2: RawCommit = {
         hash: 'h2', date: '2023-01-01', author: 'a', subject: 'no match', body: 'b',
-        trailers: `${TEST_ID_KEY}: bbbbbbbb`
+        trailers: `${TEST_ID_KEY}: bbbbbbbb`,
+        filesChanged: []
       };
 
 
@@ -177,11 +183,13 @@ describe('AtomRepository Filtering Parity', () => {
     it('behaves as an AND operation across different filter types', async () => {
       const commit1: RawCommit = {
         hash: 'h1', date: '2023-01-01', author: 'alice', subject: 'feat(ui): s', body: 'b',
-        trailers: `${TEST_ID_KEY}: aaaaaaaa\nConfidence: high`
+        trailers: `${TEST_ID_KEY}: aaaaaaaa\nConfidence: high`,
+        filesChanged: []
       };
       const commit2: RawCommit = {
         hash: 'h2', date: '2023-01-01', author: 'alice', subject: 'feat(auth): s', body: 'b',
-        trailers: `${TEST_ID_KEY}: bbbbbbbb\nConfidence: low`
+        trailers: `${TEST_ID_KEY}: bbbbbbbb\nConfidence: low`,
+        filesChanged: []
       };
 
       vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);

@@ -3,7 +3,7 @@ import { beforeEach,describe, expect, it } from 'vitest';
 import { type Atom, type Trailers } from '../../../../src/engine/core/types/domain.js';
 import { type FormattableQueryResult } from '../../../../src/engine/core/types/output.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeProtocol,TEST_PROTOCOL_CONFIG } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
 import { LoreTextFormatter } from '../../../../src/lore/formatters/lore-text-formatter.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 ;
@@ -14,8 +14,8 @@ import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition
 const LORE_ID_KEY = "Lore-id";
 
 function makeAtom(overrides: Partial<Atom> & { trailers?: Record<string, string[]> } = {}): Atom {
-  const trailers: Trailers = overrides.trailers 
-    ? (overrides.trailers as any)
+  const trailers: Record<string, string[]> = overrides.trailers 
+    ? overrides.trailers
     : {
         [LORE_ID_KEY]: ['a1b2c3d4'],
         Confidence: ['high'],
@@ -28,11 +28,9 @@ function makeAtom(overrides: Partial<Atom> & { trailers?: Record<string, string[
     author: overrides.author ?? 'alice@example.com',
     subject: overrides.subject ?? 'feat: test subject',
     body: overrides.body ?? '',
+    rawTrailers: '',
     protocols: new Map([
       ['lore', { 
-          name: 'Lore', 
-          version: '1.0', 
-          identityKey: LORE_ID_KEY, 
           trailers,
           unauthorized: {}
       }]
@@ -48,8 +46,8 @@ describe('LoreTextFormatter (0.5.0 Parity)', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    registry.register(makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG));
-    formatter = new LoreTextFormatter(registry, { color: false, subjectLabel: 'Intent' });
+    registry.register(makeStubProtocolContext(LoreProtocolDefinition));
+    formatter = new LoreTextFormatter(registry, { color: false });
   });
 
   describe('formatSuccess', () => {
@@ -73,7 +71,6 @@ describe('LoreTextFormatter (0.5.0 Parity)', () => {
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
           command: 'log', target: 'all', targetType: 'global'
         },
-        supersessionMap: new Map(),
         visibleTrailers: 'all',
       };
 
@@ -98,7 +95,6 @@ describe('LoreTextFormatter (0.5.0 Parity)', () => {
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
           command: 'log', target: 'all', targetType: 'global'
         },
-        supersessionMap: new Map(),
         visibleTrailers: 'all',
       };
 
@@ -124,7 +120,6 @@ describe('LoreTextFormatter (0.5.0 Parity)', () => {
           meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
           command: 'log', target: 'all', targetType: 'global'
         },
-        supersessionMap: new Map(),
         visibleTrailers: 'all',
       };
 
@@ -141,7 +136,6 @@ describe('LoreTextFormatter (0.5.0 Parity)', () => {
           meta: { totalAtoms: 50, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
           command: 'log', target: 'all', targetType: 'global'
         },
-        supersessionMap: new Map(),
         visibleTrailers: 'all',
       };
 

@@ -9,7 +9,7 @@ import { AtomRepository } from '../../../src/engine/services/atom-repository.js'
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { GitClient } from '../../../src/engine/shell/git/git-client.js';
-import { makeProtocol } from '../../../src/engine/testing.js';
+import { makeStubProtocolContext } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 ;
 ;
@@ -65,7 +65,7 @@ describe('AtomRepository Git Integration', () => {
   beforeEach(() => {
     gitClient = new GitClient(testDir);
     const protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(makeProtocol(LoreProtocolDefinition));
+    protocolRegistry.register(makeStubProtocolContext(LoreProtocolDefinition));
     const queryCache = new NullQueryCache();
 
     const baseTarget = createQueryTarget(undefined, {

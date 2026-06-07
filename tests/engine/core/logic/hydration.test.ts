@@ -1,10 +1,10 @@
 import { describe, expect,it } from 'vitest';
 
 import { extractReferenceIds, hydrateAtoms } from '../../../../src/engine/core/logic/hydration.js';
-import { makeAtom, makeMockContext, makeProtocolRegistry, makeRawCommit,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, makeStubProtocolRegistry, makeRawCommit,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('Hydration Logic (Pure Functions)', () => {
-  const protocol = makeMockContext({
+  const protocol = makeStubProtocolContext({
     name: 'test',
     version: '1.0',
     identityKey: 'Id',
@@ -15,7 +15,7 @@ describe('Hydration Logic (Pure Functions)', () => {
     }
   });
 
-  const registry = makeProtocolRegistry([protocol as any]);
+  const registry = makeStubProtocolRegistry([protocol as any]);
 
   describe('hydrateAtoms (Trailer Stripping)', () => {
     const hydrate = (body: string, trailers: string) => {
@@ -35,22 +35,27 @@ describe('Hydration Logic (Pure Functions)', () => {
     });
 
     it('should respect implicit ownership (protocols get what they define, permissive gets orphans)', () => {
-      const p1 = makeMockContext({ 
+      const p1 = makeStubProtocolContext({ 
         name: 'p1', 
         namespace: 'p1',
         identityKey: 'P1-id',
-        trailers: { 'P1-id': { description: 'ID' }, 'Authorized': { description: 'Auth' } } 
+        trailers: { 
+          'P1-id': { description: 'ID', multivalue: false, validation: 'none' as const }, 
+          'Authorized': { description: 'Auth', multivalue: false, validation: 'none' as const } 
+        } 
       });
       
-      const p2 = makeMockContext({ 
+      const p2 = makeStubProtocolContext({ 
         name: 'p2', 
         namespace: '', // Root (permissive)
         permissive: true,
         identityKey: 'P2-id',
-        trailers: { 'P2-id': { description: 'ID' } }
+        trailers: { 
+          'P2-id': { description: 'ID', multivalue: false, validation: 'none' as const } 
+        }
       });
 
-      const localRegistry = makeProtocolRegistry([p1 as any, p2 as any]);
+      const localRegistry = makeStubProtocolRegistry([p1 as any, p2 as any]);
 
       const raw = makeRawCommit({
         trailers: 'p1: P1-id: 1\np1: Authorized: val\nOrphan: stray\nP2-id: 2'
@@ -90,8 +95,8 @@ describe('Hydration Logic (Pure Functions)', () => {
     });
 
     it('should handle multiple protocols in trailer block', () => {
-        const p2 = makeMockContext({ name: 'fred', namespace: 'fred', identityKey: 'Fred-id' });
-        const localRegistry = makeProtocolRegistry([protocol as any, p2 as any]);
+        const p2 = makeStubProtocolContext({ name: 'fred', namespace: 'fred', identityKey: 'Fred-id' });
+        const localRegistry = makeStubProtocolRegistry([protocol as any, p2 as any]);
         const trailers = 'Id: 12345678\nfred: Fred-id: abcdefgh';
         const body = 'Message.\n\nId: 12345678\nfred: Fred-id: abcdefgh';
         const raw = makeRawCommit({ trailers, body });
@@ -102,13 +107,13 @@ describe('Hydration Logic (Pure Functions)', () => {
 
   describe('extractReferenceIds', () => {
       it('should extract unique identities from atom protocol state', () => {
-          const mockProtocol = makeMockContext({
+          const mockProtocol = makeStubProtocolContext({
               trailers: {
                   ...TEST_PROTOCOL_DEFINITION.trailers,
-                  'Related': { description: 'R', validation: 'reference' } as any
+                  'Related': { description: 'R', multivalue: true, validation: 'reference' as const, isCore: true }
               }
           }); 
-          const localRegistry = makeProtocolRegistry([mockProtocol as any]);
+          const localRegistry = makeStubProtocolRegistry([mockProtocol as any]);
 
           const atom = makeAtom({
               protocols: new Map([['mock', { 
@@ -126,9 +131,16 @@ describe('Hydration Logic (Pure Functions)', () => {
       });
 
       it('should handle qualified references (protocol/id)', () => {
-          const p1 = makeMockContext({ name: 'p1', namespace: 'p1', identityKey: 'id', trailers: { 'Ref': { validation: 'reference' } } as any });
-          const p2 = makeMockContext({ name: 'p2', namespace: 'p2', identityKey: 'id' });
-          const localRegistry = makeProtocolRegistry([p1 as any, p2 as any]);
+          const p1 = makeStubProtocolContext({ 
+              name: 'p1', 
+              namespace: 'p1', 
+              identityKey: 'id', 
+              trailers: { 
+                  'Ref': { description: 'R', multivalue: true, validation: 'reference' as const } 
+              } 
+          });
+          const p2 = makeStubProtocolContext({ name: 'p2', namespace: 'p2', identityKey: 'id' });
+          const localRegistry = makeStubProtocolRegistry([p1 as any, p2 as any]);
 
           const atom = makeAtom({
               protocols: new Map([['p1', { trailers: { 'Ref': ['p2/target'] }, unauthorized: {} }]])
@@ -139,8 +151,14 @@ describe('Hydration Logic (Pure Functions)', () => {
       });
 
       it('should deduplicate references across multiple atoms', () => {
-          const p1 = makeMockContext({ name: 'p1', identityKey: 'id', trailers: { 'Ref': { validation: 'reference' } } as any });
-          const localRegistry = makeProtocolRegistry([p1 as any]);
+          const p1 = makeStubProtocolContext({ 
+              name: 'p1', 
+              identityKey: 'id', 
+              trailers: { 
+                  'Ref': { description: 'R', multivalue: true, validation: 'reference' as const } 
+              } 
+          });
+          const localRegistry = makeStubProtocolRegistry([p1 as any]);
 
           const a1 = makeAtom({ protocols: new Map([['p1', { trailers: { 'Ref': ['shared'] }, unauthorized: {} }]]) });
           const a2 = makeAtom({ protocols: new Map([['p1', { trailers: { 'Ref': ['shared'] }, unauthorized: {} }]]) });

@@ -1,28 +1,28 @@
 import { describe, expect,it } from 'vitest';
 
 import { authorizeKey, getQualifiedKey,isBucketOwner, ownsKey } from '../../../../src/engine/core/logic/ownership.js';
-import { makeProtocol, MOCK_CORE_TRAILERS } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext, MOCK_CORE_TRAILERS } from '../../../../src/engine/testing.js';
 
 describe('Ownership Logic (Pure Functions)', () => {
-  const rootProtocol = makeProtocol({
+  const rootProtocol = makeStubProtocolContext({
     name: 'Root',
     version: '1.0',
     identityKey: 'Lore-id',
     namespace: '',
     trailers: {
-      'Lore-id': { description: 'ID' },
-      'Constraint': { description: 'Constraint' }
+      'Lore-id': { description: 'ID', multivalue: false, validation: 'none' },
+      'Constraint': { description: 'Constraint', multivalue: true, validation: 'none' }
     }
   });
 
-  const projectProtocol = makeProtocol({
+  const projectProtocol = makeStubProtocolContext({
     name: 'Project',
     version: '1.0',
     identityKey: 'Project-id',
     namespace: 'Project',
     trailers: {
-      'Project-id': { description: 'ID' },
-      'Team': { description: 'Team' }
+      'Project-id': { description: 'ID', multivalue: false, validation: 'none' },
+      'Team': { description: 'Team', multivalue: false, validation: 'none' }
     }
   });
 
@@ -55,7 +55,7 @@ describe('Ownership Logic (Pure Functions)', () => {
     });
 
     it('should prioritize core casing over ad-hoc casing', () => {
-        const protocol = makeProtocol({ 
+        const protocol = makeStubProtocolContext({ 
             name: 'PriorityCaseTest',
             trailers: { ...rootProtocol.def.trailers, ...MOCK_CORE_TRAILERS }
         });

@@ -4,9 +4,9 @@ import { createQueryTarget } from '../../../src/engine/core/logic/query-targets.
 import { ProtocolMap } from '../../../src/engine/core/types/domain.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtom, makeMockContext, makeRawCommit,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, makeRawCommit,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 import { makeQueryTarget } from '../../../src/engine/testing.js';
-import { makeAtomRepository, makeMockGitClient, makeQueryOptions } from '../engine-test-utils.js';
+import { makeMockGitClient, makeQueryOptions } from '../engine-test-utils.js'; import { makeAtomRepository } from '../../../src/engine/testing.js';
 
 describe('AtomRepository', () => {
   let gitClient: any;
@@ -15,7 +15,7 @@ describe('AtomRepository', () => {
   beforeEach(() => {
     gitClient = makeMockGitClient();
     protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(makeMockContext({
+    protocolRegistry.register(makeStubProtocolContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: {
             ...TEST_PROTOCOL_DEFINITION.trailers,
@@ -155,8 +155,8 @@ describe('AtomRepository', () => {
       expect(gitClient.query).not.toHaveBeenCalled();
     });
     it('should handle multiple protocols correctly', async () => {
-        const p1 = makeMockContext({ name: 'P1', version: '1', strict: true, permissive: false, namespace: 'ns1', identityKey: 'P1-id', trailers: { 'P1-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
-        const p2 = makeMockContext({ name: 'P2', version: '1', strict: true, permissive: false, namespace: 'ns2', identityKey: 'P2-id', trailers: { 'P2-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
+        const p1 = makeStubProtocolContext({ name: 'P1', version: '1', strict: true, permissive: false, namespace: 'ns1', identityKey: 'P1-id', trailers: { 'P1-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
+        const p2 = makeStubProtocolContext({ name: 'P2', version: '1', strict: true, permissive: false, namespace: 'ns2', identityKey: 'P2-id', trailers: { 'P2-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
         const multiRegistry = new ProtocolRegistry();
         multiRegistry.register(p1);
         multiRegistry.register(p2);
@@ -238,8 +238,8 @@ describe('AtomRepository', () => {
   });
   describe('Multi-Protocol Hydration', () => {
     it('should hydrate an atom with multiple protocol states if claimed by multiple protocols', async () => {
-      const p1 = makeMockContext({ name: 'P1', version: '1', strict: true, permissive: false, namespace: 'ns1', identityKey: 'P1-id', trailers: { 'P1-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
-      const p2 = makeMockContext({ name: 'P2', version: '1', strict: true, permissive: false, namespace: 'ns2', identityKey: 'P2-id', trailers: { 'P2-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
+      const p1 = makeStubProtocolContext({ name: 'P1', version: '1', strict: true, permissive: false, namespace: 'ns1', identityKey: 'P1-id', trailers: { 'P1-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
+      const p2 = makeStubProtocolContext({ name: 'P2', version: '1', strict: true, permissive: false, namespace: 'ns2', identityKey: 'P2-id', trailers: { 'P2-id': { description: 'ID', multivalue: false, validation: 'none' } as any } });
       const localRegistry = new ProtocolRegistry();
       localRegistry.register(p1);
       localRegistry.register(p2);

@@ -2,8 +2,8 @@ import { beforeEach,describe, expect, it } from 'vitest';
 
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeProtocol } from '../../../src/engine/testing.js';
-import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+import { makeStubProtocolContext, makeAtomRepository } from '../../../src/engine/testing.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
 ;
 ;
 
@@ -17,13 +17,13 @@ describe('Git Security (Argument Escaping)', () => {
   beforeEach(() => {
     gitClient = makeMockGitClient();
     registry = new ProtocolRegistry();
-    registry.register(makeProtocol({
+    registry.register(makeStubProtocolContext({
         name: 'Mock',
         identityKey: 'Mock-id',
         permissive: true, // Need permissive mode or explicitly defined trailer
         trailers: { 
-            'Mock-id': { description: 'ID' },
-            'Secret: ) | grep': { description: 'Malicious' } as any
+            'Mock-id': { description: 'ID', multivalue: false, validation: 'none' },
+            'Secret: ) | grep': { description: 'Malicious', multivalue: false, validation: 'none' }
         }
     }));
     

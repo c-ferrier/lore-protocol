@@ -4,7 +4,7 @@ import { resolveCommitInput } from '../../../../src/engine/cli/readers/commit-in
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
 import { type IPrompt } from '../../../../src/engine/interfaces/prompt.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeProtocol, TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext, TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 function createMockPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
   return {
@@ -25,7 +25,7 @@ describe('resolveCommitInput', () => {
 
   beforeEach(() => {
     prompt = createMockPrompt();
-    protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+    protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
     registry = new ProtocolRegistry();
     registry.register(protocol);
   });

@@ -8,16 +8,16 @@ import {
     getReferenceKeys,
     getScalarKeys, 
     isCoreTrailer} from '../../../../src/engine/core/logic/protocols.js';
-import { type ActiveTrailer } from '../../../../src/engine/core/models/active-protocol.js';
-import { makeMockContext } from '../../../../src/engine/testing.js';
+import type { TrailerDefinition } from '../../../../src/engine/core/types/config.js';
+import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
 describe('Protocol Schema Logic (via Context)', () => {
-  const createSchema = (definitions: Map<string, ActiveTrailer>, permissive = true) => {
-    const trailers: any = {};
+  const createSchema = (definitions: Map<string, TrailerDefinition>, permissive = true) => {
+    const trailers: Record<string, TrailerDefinition> = {};
     for (const [key, def] of definitions.entries()) {
         trailers[key] = def;
     }
-    return makeMockContext({
+    return makeStubProtocolContext({
         name: 'Schema',
         trailers,
         permissive,
@@ -26,8 +26,8 @@ describe('Protocol Schema Logic (via Context)', () => {
   };
 
   it('should authorize registered keys case-insensitively', () => {
-    const definitions = new Map<string, ActiveTrailer>([
-      ['Confidence', { key: 'Confidence', description: '', multivalue: false }]
+    const definitions = new Map<string, TrailerDefinition>([
+      ['Confidence', { description: '', multivalue: false, validation: 'none' as const }]
     ]);
     const schema = createSchema(definitions);
 
@@ -47,9 +47,9 @@ describe('Protocol Schema Logic (via Context)', () => {
   });
 
   it('should identify core trailers correctly', () => {
-    const definitions = new Map<string, ActiveTrailer>([
-      ['Core-Key', { key: 'Core-Key', description: '', multivalue: false, isCore: true }],
-      ['Custom-Key', { key: 'Custom-Key', description: '', multivalue: false, isCore: false }]
+    const definitions = new Map<string, TrailerDefinition>([
+      ['Core-Key', { description: '', multivalue: false, validation: 'none' as const, isCore: true }],
+      ['Custom-Key', { description: '', multivalue: false, validation: 'none' as const, isCore: false }]
     ]);
     const schema = createSchema(definitions);
 
@@ -59,21 +59,21 @@ describe('Protocol Schema Logic (via Context)', () => {
   });
 
   it('should sort authorized keys based on prompt order', () => {
-    const definitions = new Map<string, ActiveTrailer>([
-      ['Last', { key: 'Last', description: '', multivalue: false, prompt: { order: 100 } }],
-      ['First', { key: 'First', description: '', multivalue: false, prompt: { order: 10 } }],
-      ['Middle', { key: 'Middle', description: '', multivalue: false, prompt: { order: 50 } }]
+    const definitions = new Map<string, TrailerDefinition>([
+      ['Last', { description: '', multivalue: false, validation: 'none' as const, prompt: { order: 100 } }],
+      ['First', { description: '', multivalue: false, validation: 'none' as const, prompt: { order: 10 } }],
+      ['Middle', { description: '', multivalue: false, validation: 'none' as const, prompt: { order: 50 } }]
     ]);
     const schema = createSchema(definitions);
 
-    // Mock-id has order 0 by default in makeMockContext/makeProtocolDefinition
+    // Mock-id has order 0 by default in makeStubProtocolContext/makeStubProtocolContextDefinition
     expect(getAuthorizedKeys(schema)).toEqual(['Mock-id', 'First', 'Middle', 'Last']);
   });
 
   it('should return semantic UI metadata', () => {
-    const definitions = new Map<string, ActiveTrailer>([
-      ['Identity', { key: 'Identity', description: '', multivalue: false, ui: { kind: 'identity', color: 'dim' } }],
-      ['Default', { key: 'Default', description: '', multivalue: false }]
+    const definitions = new Map<string, TrailerDefinition>([
+      ['Identity', { description: '', multivalue: false, validation: 'none' as const, ui: { kind: 'identity', color: 'dim' } }],
+      ['Default', { description: '', multivalue: false, validation: 'none' as const }]
     ]);
     const schema = createSchema(definitions);
 
@@ -85,10 +85,10 @@ describe('Protocol Schema Logic (via Context)', () => {
   });
 
   it('should categorise keys by type', () => {
-    const definitions = new Map<string, ActiveTrailer>([
-        ['Scalar', { key: 'Scalar', description: '', multivalue: false }],
-        ['List', { key: 'List', description: '', multivalue: true }],
-        ['Ref', { key: 'Ref', description: '', multivalue: false, validation: 'reference' }]
+    const definitions = new Map<string, TrailerDefinition>([
+        ['Scalar', { description: '', multivalue: false, validation: 'none' as const }],
+        ['List', { description: '', multivalue: true, validation: 'none' as const }],
+        ['Ref', { description: '', multivalue: false, validation: 'reference' as const }]
     ]);
     const schema = createSchema(definitions);
 
@@ -105,9 +105,9 @@ describe('Protocol Schema Logic (via Context)', () => {
   });
 
   it('should default missing prompt orders to the end of the list (1000)', () => {
-    const definitions = new Map<string, ActiveTrailer>([
-      ['Last', { key: 'Last', description: '', multivalue: false }],
-      ['First', { key: 'First', description: '', multivalue: false, prompt: { order: 1 } }]
+    const definitions = new Map<string, TrailerDefinition>([
+      ['Last', { description: '', multivalue: false, validation: 'none' as const }],
+      ['First', { description: '', multivalue: false, validation: 'none' as const, prompt: { order: 1 } }]
     ]);
     const schema = createSchema(definitions);
 

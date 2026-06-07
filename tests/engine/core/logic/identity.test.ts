@@ -1,16 +1,16 @@
 import { describe, expect,it } from 'vitest';
 
 import { generateId, getProtocolIdentity } from '../../../../src/engine/core/logic/identity.js';
-import { makeProtocol } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
 import { ConfigurationError } from '../../../../src/engine/util/errors.js';
 
 describe('Identity Logic (Pure Functions)', () => {
-  const rootProtocol = makeProtocol({
+  const rootProtocol = makeStubProtocolContext({
     name: 'Root',
     version: '1.0',
     identityKey: 'Lore-id',
     trailers: {
-      'Lore-id': { description: 'ID', generator: 'hex8' } as any
+      'Lore-id': { description: 'ID', multivalue: false, validation: 'pattern', pattern: '^[0-9a-f]{8}$', generator: 'hex8' }
     }
   });
 
@@ -29,29 +29,29 @@ describe('Identity Logic (Pure Functions)', () => {
     });
 
     it('should support UUID generation', () => {
-      const uuidProtocol = makeProtocol({
+      const uuidProtocol = makeStubProtocolContext({
           name: 'UUID',
           identityKey: 'Id',
-          trailers: { 'Id': { description: 'ID', generator: 'uuid' } as any }
+          trailers: { 'Id': { description: 'ID', multivalue: false, validation: 'none', generator: 'uuid' } }
       });
       const id = generateId(uuidProtocol);
       expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
 
     it('should throw error if generator is "none"', () => {
-      const noneProtocol = makeProtocol({
+      const noneProtocol = makeStubProtocolContext({
           name: 'None',
           identityKey: 'Id',
-          trailers: { 'Id': { description: 'ID', generator: 'none' } as any }
+          trailers: { 'Id': { description: 'ID', multivalue: false, validation: 'none', generator: 'none' } }
       });
       expect(() => generateId(noneProtocol)).toThrow(ConfigurationError);
     });
 
     it('should default to hex8 if generator is undefined', () => {
-        const ctx = makeProtocol({
+        const ctx = makeStubProtocolContext({
             name: 'Default',
             identityKey: 'id',
-            trailers: { 'id': { description: 'ID' } as any }
+            trailers: { 'id': { description: 'ID', multivalue: false, validation: 'none' } }
         });
         const id = generateId(ctx);
         expect(id).toHaveLength(8);
@@ -59,7 +59,7 @@ describe('Identity Logic (Pure Functions)', () => {
     });
 
     it('should allow overriding via mock hook', () => {
-        const mockProtocol = makeProtocol(rootProtocol['definition']);
+        const mockProtocol = makeStubProtocolContext(rootProtocol.def);
         (mockProtocol.def as any).generateId = () => 'FIXED-ID';
         expect(generateId(mockProtocol)).toBe('FIXED-ID');
     });

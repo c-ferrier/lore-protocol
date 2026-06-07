@@ -1,15 +1,15 @@
 import { describe, expect,it } from 'vitest';
 
 import { validateProtocolState, validateProtocolTrailer } from '../../../../src/engine/core/logic/validation.js';
-import { makeMockContext, TEST_ID_KEY,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext, TEST_ID_KEY,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('ProtocolValidator', () => {
   it('should report missing required trailers as errors in strict mode', () => {
-    const protocol = makeMockContext({ 
+    const protocol = makeStubProtocolContext({ 
         strict: true, 
         trailers: { 
             [TEST_ID_KEY]: TEST_PROTOCOL_DEFINITION.trailers[TEST_ID_KEY],
-            'Confidence': { description: 'C', required: true } 
+            'Confidence': { description: 'C', multivalue: false, validation: 'none', required: true } 
         } 
     });
     
@@ -28,11 +28,11 @@ describe('ProtocolValidator', () => {
   });
 
   it('should report missing optional required trailers as warnings in non-strict mode', () => {
-    const protocol = makeMockContext({ 
+    const protocol = makeStubProtocolContext({ 
         strict: false, 
         trailers: { 
             [TEST_ID_KEY]: TEST_PROTOCOL_DEFINITION.trailers[TEST_ID_KEY],
-            'Confidence': { description: 'C', required: true } 
+            'Confidence': { description: 'C', multivalue: false, validation: 'none', required: true } 
         } 
     });
     
@@ -52,8 +52,8 @@ describe('ProtocolValidator', () => {
   });
 
   it('should validate enum values', () => {
-    const protocol = makeMockContext({ 
-        trailers: { Confidence: { description: 'C', validation: 'values', values: { high: {} } } }
+    const protocol = makeStubProtocolContext({ 
+        trailers: { Confidence: { description: 'C', multivalue: false, validation: 'values' as const, values: { high: { description: 'H' } } } }
     });
 
     const validResult = validateProtocolTrailer('Confidence', 'high', protocol.def);
@@ -65,7 +65,7 @@ describe('ProtocolValidator', () => {
   });
 
   it('should report unauthorized trailers in non-permissive mode', () => {
-    const protocol = makeMockContext({ permissive: false });
+    const protocol = makeStubProtocolContext({ permissive: false });
 
     const state = {
         trailers: { [TEST_ID_KEY]: ['abc'] },
@@ -81,8 +81,8 @@ describe('ProtocolValidator', () => {
   });
 
   it('should validate pattern formats', () => {
-    const protocol = makeMockContext({
-        trailers: { Id: { description: 'D', validation: 'pattern', pattern: '^[0-9]+$' } }
+    const protocol = makeStubProtocolContext({
+        trailers: { Id: { description: 'D', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9]+$' } }
     });
 
     const validResult = validateProtocolTrailer('Id', '12345', protocol.def);
@@ -94,10 +94,10 @@ describe('ProtocolValidator', () => {
   });
 
   it('should validate local reference formats without a registry', () => {
-    const protocol = makeMockContext({
+    const protocol = makeStubProtocolContext({
         trailers: { 
             [TEST_ID_KEY]: TEST_PROTOCOL_DEFINITION.trailers[TEST_ID_KEY],
-            Ref: { description: 'R', validation: 'reference' } 
+            Ref: { description: 'R', multivalue: true, validation: 'reference' as const } 
         }
     });
 
@@ -111,9 +111,9 @@ describe('ProtocolValidator', () => {
   });
 
   it('should enforce boundary rules (crossProtocol: false)', () => {
-    const protocol = makeMockContext({
+    const protocol = makeStubProtocolContext({
         name: 'Strict',
-        trailers: { Ref: { description: 'R', validation: 'reference', crossProtocol: false } }
+        trailers: { Ref: { description: 'R', multivalue: true, validation: 'reference' as const, crossProtocol: false } }
     });
 
     // Cross-protocol ref to 'other' -> prohibited

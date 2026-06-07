@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createTrailerCollectors } from '../../../../src/engine/cli/readers/collectors/trailer-collector-registry.js';
 import { InteractiveInputReader } from '../../../../src/engine/cli/readers/interactive-input-reader.js';
-import { makeProtocol,MOCK_CORE_TRAILERS, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext,MOCK_CORE_TRAILERS, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { makeMockPrompt } from '../../engine-test-utils.js';
 
 describe('InteractiveInputReader', () => {
@@ -53,14 +53,14 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeProtocol({ trailers: CORE_SCHEMA })));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeStubProtocolContext({ trailers: CORE_SCHEMA })));
       const result = await reader.read();
 
       expect(result.subject).toBe('refactor auth module');
       expect(result.body).toBe('This is the body text.');
-      expect(result.trailers.get('mock').Constraint).toEqual(['must be fast']);
-      expect(result.trailers.get('mock').Confidence).toEqual(['high']);
-      expect(result.trailers.get('mock').Related).toEqual(['beef1234']);
+      expect(result.trailers.get('mock')!.Constraint).toEqual(['must be fast']);
+      expect(result.trailers.get('mock')!.Confidence).toEqual(['high']);
+      expect(result.trailers.get('mock')!.Related).toEqual(['beef1234']);
       expect(prompt.close).toHaveBeenCalled();
     });
   });
@@ -73,7 +73,7 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeProtocol({ trailers: CORE_SCHEMA })));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeStubProtocolContext({ trailers: CORE_SCHEMA })));
       const result = await reader.read();
 
       expect(result.subject).toBe('minimal subject');
@@ -118,10 +118,10 @@ describe('InteractiveInputReader', () => {
         close: vi.fn(),
       });
 
-      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeProtocol({ trailers: CORE_SCHEMA })));
+      const reader = new InteractiveInputReader(prompt, createTrailerCollectors(makeStubProtocolContext({ trailers: CORE_SCHEMA })));
       const result = await reader.read();
 
-      expect(result.trailers.get('mock').Constraint).toEqual([
+      expect(result.trailers.get('mock')!.Constraint).toEqual([
         'constraint one',
         'constraint two',
         'constraint three',

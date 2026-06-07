@@ -3,20 +3,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hydrateAtoms } from '../../../../src/engine/core/logic/hydration.js';
 import { validateCommits } from '../../../../src/engine/shell/orchestrators/validation.js';
 import { 
-    createProtocolContext,
     makeMockAtomRepository, 
-    makeMockProtocolRegistry,
-    makeRawCommit,
     TEST_ENGINE_CONFIG} from '../../engine-test-utils.js';
+import { 
+    makeRawCommit, 
+    makeStubProtocolContext, 
+    makeStubProtocolRegistry 
+} from '../../../../src/engine/testing.js';
 
 describe('Commit Validation (Shell Orchestrator)', () => {
-  const protocol = createProtocolContext({
+  const protocol = makeStubProtocolContext({
     name: 'Test',
     version: '1.0',
     identityKey: 'Test-id',
     trailers: {
-      'Test-id': { validation: 'pattern', pattern: '^T-\\d+$' } as any,
-      'Ref-id': { validation: 'reference' } as any,
+      'Test-id': { description: 'ID', multivalue: false, validation: 'pattern', pattern: '^T-\\d+$' },
+      'Ref-id': { description: 'Ref', multivalue: true, validation: 'reference' },
     }
   });
 
@@ -24,7 +26,7 @@ describe('Commit Validation (Shell Orchestrator)', () => {
   let mockAtomRepo: any;
   
   beforeEach(() => {
-    registry = makeMockProtocolRegistry([protocol]);
+    registry = makeStubProtocolRegistry([protocol]);
     mockAtomRepo = makeMockAtomRepository();
   });
 

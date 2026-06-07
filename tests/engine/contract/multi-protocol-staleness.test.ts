@@ -5,9 +5,9 @@ import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry
 import { 
     makeAtom, 
     makeMockAtomRepository, 
-    makeProtocolRegistry, 
     TEST_ENGINE_CONFIG 
 } from '../engine-test-utils.js';
+import { makeStubProtocolContext, makeStubProtocolRegistry } from '../../../src/engine/testing.js';
 
 describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
   let registry: ProtocolRegistry;
@@ -17,31 +17,35 @@ describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
   });
 
   it('should aggregate staleness signals from multiple protocols for a single atom', async () => {
-    const p1 = {
+    const p1 = makeStubProtocolContext({
       name: 'p1',
       identityKey: 'P1-id',
       trailers: { 
-          'P1-id': { description: 'ID', validation: 'none' },
+          'P1-id': { description: 'ID', multivalue: false, validation: 'none' },
           'Status': { 
               description: 'S', 
-              stale_if: { kind: 'value-equals', value: 'stale', signal: 'p1-signal' } 
+              multivalue: false,
+              validation: 'none',
+              stale_if: { kind: 'value-equals' as const, value: 'stale', signal: 'p1-signal' } 
           }
       }
-    };
-    const p2 = {
+    });
+    const p2 = makeStubProtocolContext({
       name: 'p2',
       identityKey: 'P2-id',
       namespace: 'p2',
       trailers: { 
-          'P2-id': { description: 'ID', validation: 'none' },
+          'P2-id': { description: 'ID', multivalue: false, validation: 'none' },
           'Level': { 
               description: 'L', 
-              stale_if: { kind: 'value-equals', value: 'high', signal: 'p2-signal' } 
+              multivalue: false,
+              validation: 'none',
+              stale_if: { kind: 'value-equals' as const, value: 'high', signal: 'p2-signal' } 
           }
       }
-    };
+    });
 
-    const reg = makeProtocolRegistry([p1, p2]);
+    const reg = makeStubProtocolRegistry([p1, p2]);
     const atom = makeAtom({
       protocols: new Map([
         ['p1', { trailers: { 'Status': ['stale'] }, unauthorized: {} }],

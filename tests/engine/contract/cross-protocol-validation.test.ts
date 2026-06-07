@@ -4,7 +4,7 @@ import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
-import { makeProtocol,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 
 describe('Cross-Protocol Reference Validation', () => {
   let registry: ProtocolRegistry;
@@ -13,29 +13,33 @@ describe('Cross-Protocol Reference Validation', () => {
   const ALPHA_DEF: ProtocolDefinition = {
     name: 'AlphaVal',
     version: '1.0',
+    strict: true,
+    permissive: false,
     identityKey: 'Alpha-id',
     namespace: 'alphaval',
     trailers: {
-      'Alpha-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[0-9]+$' },
-      'Depends-on': { description: 'Dep', validation: 'reference' as const, crossProtocol: true }
+      'Alpha-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9]+$' },
+      'Depends-on': { description: 'Dep', multivalue: true, validation: 'reference' as const, crossProtocol: true }
     }
   };
 
   const BETA_DEF: ProtocolDefinition = {
     name: 'BetaVal',
     version: '1.0',
+    strict: true,
+    permissive: false,
     identityKey: 'Beta-id',
     namespace: 'betaval',
     trailers: {
-      'Beta-id': { description: 'ID', validation: 'pattern' as const, pattern: '^[a-z]+$' },
-      'Internal-link': { description: 'Int', validation: 'reference' as const, crossProtocol: false }
+      'Beta-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[a-z]+$' },
+      'Internal-link': { description: 'Int', multivalue: true, validation: 'reference' as const, crossProtocol: false }
     }
   };
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    const alpha = makeProtocol(ALPHA_DEF, { permissive: false });
-    const beta = makeProtocol(BETA_DEF, { permissive: false });
+    const alpha = makeStubProtocolContext(ALPHA_DEF, { permissive: false });
+    const beta = makeStubProtocolContext(BETA_DEF, { permissive: false });
     registry.register(alpha);
     registry.register(beta);
 

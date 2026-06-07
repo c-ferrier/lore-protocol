@@ -12,7 +12,7 @@ import type {
 } from '../../../../src/engine/core/types/output.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeAtom, makeStubContext as makeMockProtocol, TEST_ID_KEY } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, TEST_ID_KEY } from '../../../../src/engine/testing.js';
 
 describe('TextFormatter', () => {
   let registry: ProtocolRegistry;
@@ -21,7 +21,7 @@ describe('TextFormatter', () => {
 
   beforeEach(() => {
     registry = new ProtocolRegistry();
-    protocol = makeMockProtocol();
+    protocol = makeStubProtocolContext();
     registry.register(protocol);
     formatter = new TextFormatter(registry, { color: false });
   });
@@ -195,7 +195,7 @@ describe('TextFormatter', () => {
         ])
       });
 
-      const fredProtocol = makeMockProtocol({
+      const fredProtocol = makeStubProtocolContext({
         name: 'Fred',
         namespace: 'fred',
         identityKey: 'Fred-id',
@@ -228,9 +228,9 @@ describe('TextFormatter', () => {
         results: [
           {
             commit: 'abc1234567890',
-            id: 'abc1234',
             valid: true,
             issues: [],
+            identities: {},
           },
         ],
         valid: true
@@ -248,12 +248,12 @@ describe('TextFormatter', () => {
         results: [
           {
             commit: 'abc1234567890',
-            id: null,
             valid: false,
             issues: [
               { severity: 'error', rule: 'mock-id-present', message: `Mock-id trailer is missing` },
               { severity: 'warning', rule: 'subject-length', message: 'Subject too long' },
             ],
+            identities: {},
           },
         ],
         valid: false
@@ -355,8 +355,6 @@ describe('TextFormatter', () => {
             version: '1.0',
             namespace: '',
             permissive: true,
-            strict: true,
-            identityKey: 'Lore-id',
             trailers: {
               Confidence: {
                 description: 'C',
@@ -373,8 +371,6 @@ describe('TextFormatter', () => {
             version: '2.0',
             namespace: 'sec',
             permissive: false,
-            strict: true,
-            identityKey: 'Sec-id',
             trailers: {
               Level: {
                 description: 'L',
@@ -404,8 +400,7 @@ describe('TextFormatter', () => {
         const data: FormattableConfigResult = {
             engineVersion: '1.0',
             protocols: [{
-                name: 'Empty', version: '0.1', namespace: 'e', permissive: true, strict: true,
-                identityKey: 'E-id',
+                name: 'Empty', version: '0.1', namespace: 'e', permissive: true,
                 trailers: {}
             }]
         };
@@ -416,7 +411,7 @@ describe('TextFormatter', () => {
 
   describe('formatSuccess', () => {
     it('should return the message', () => {
-      const output = formatter.formatSuccess('Operation successful', { hash: 'h1' });
+      const output = formatter.formatSuccess('Operation successful');
       expect(output).toContain('Operation successful');
     });
   });
@@ -424,7 +419,7 @@ describe('TextFormatter', () => {
   describe('color support', () => {
     it('should produce output with color disabled', () => {
       const noColor = new TextFormatter(registry, { color: false });
-      const output = noColor.formatSuccess('OK', { hash: 'h1' });
+      const output = noColor.formatSuccess('OK');
       expect(output).not.toMatch(/\x1b\[/);
     });
   });

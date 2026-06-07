@@ -4,7 +4,7 @@ import type { ProtocolContext } from '../../../../src/engine/core/types/protocol
 import { type IGitClient } from '../../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { readHeadIdentities } from '../../../../src/engine/shell/git/head-id-reader.js';
-import { makeProtocol } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
 const TEST_ID_KEY = "Mock-id";
 
@@ -36,7 +36,7 @@ describe('readHeadIdentities', () => {
 
   beforeEach(() => {
     protocolRegistry = new ProtocolRegistry();
-    protocol = makeProtocol();
+    protocol = makeStubProtocolContext();
     protocolRegistry.register(protocol);
   });
 

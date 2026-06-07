@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterAll,beforeAll, describe, expect, it } from 'vitest';
+import { afterAll,beforeAll, describe, expect, it, vi } from 'vitest';
 
 
 /**
@@ -170,13 +170,10 @@ describe('Lore CLI Output Parity (v0.5.0 vs Local)', () => {
     const system = execSystem('validate', ['HEAD~4..HEAD', '--no-color']).trim();
     const local = execLocal('validate', ['HEAD~4..HEAD', '--no-color']).trim();
     
-    // Normalize new message format to legacy for parity comparison
-    let normalizedLocal = local.replace('Required trailer missing: "Lore-id"', 'Lore-id trailer is missing');
-    
     // Normalize labels (Old: ID, New: Hash) to ensure logical check consistency
     const labelRegex = /^[✓✗] [a-f0-9]{8}/gm;
     const normalizedSystem = system.replace(labelRegex, '[LABEL]');
-    normalizedLocal = normalizedLocal.replace(labelRegex, '[LABEL]');
+    const normalizedLocal = local.replace(labelRegex, '[LABEL]');
 
     expect(normalizedLocal).toBe(normalizedSystem);
   });

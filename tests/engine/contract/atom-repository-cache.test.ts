@@ -3,8 +3,8 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtom, makeProtocol,TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
-import { makeAtomRepository, makeMockGitClient } from '../engine-test-utils.js';
+import { makeAtom, makeStubProtocolContext,TEST_PROTOCOL_DEFINITION, makeAtomRepository } from '../../../src/engine/testing.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
 ;
 
 
@@ -23,7 +23,7 @@ describe('AtomRepository Cache Interaction', () => {
   beforeEach(() => {
     gitClient = makeMockGitClient();
 
-    const protocol = makeProtocol(TEST_PROTOCOL_DEFINITION);
+    const protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
     protocolRegistry = new ProtocolRegistry();
     protocolRegistry.register(protocol);
 

@@ -15,7 +15,7 @@ import type { CommitInput } from './core/types/commit.js';
 import type { EngineConfig, TrailerDefinition,TrailerUiColor, TrailerUiKind } from './core/types/config.js';
 import type { Atom, ProtocolState, Trailers } from './core/types/domain.js';
 import type { ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
-import type { QueryIdentity, QueryTargetAST, SearchOptions } from './core/types/query.js';
+import type { QueryTargetAST, SearchOptions } from './core/types/query.js';
 import type { RawCommit as IGitRawCommit } from './interfaces/git-client.js';
 import { AtomRepository } from './services/atom-repository.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
@@ -56,9 +56,6 @@ export const TEST_ENGINE_CONFIG: EngineConfig = {
   cli: { updateCheck: false, cache: true, queryCache: true, queryCachePruneThreshold: 100 },
   protocols: {},
 };
-
-/** Alias for backward compatibility during refactor */
-export const TEST_PROTOCOL_CONFIG = TEST_ENGINE_CONFIG;
 
 /** A generic root, permissive protocol schema definition. */
 export const TEST_PROTOCOL_DEFINITION: ProtocolDefinition = {
@@ -105,9 +102,10 @@ export const MOCK_CORE_TRAILERS: Record<string, TrailerDefinition> = {
 };
 
 /** 
- * Helper: returns a REAL ProtocolContext object.
+ * Authoritative ProtocolContext factory for tests. 
+ * Framework-agnostic.
  */
-export function makeProtocol(
+export function makeStubProtocolContext(
     overrides: Partial<ProtocolDefinition> = {},
     configOverrides: Partial<ProtocolDefinition> = {}
 ): ProtocolContext {
@@ -134,40 +132,14 @@ export function makeProtocol(
     return createProtocolContext(finalized);
 }
 
-/** Helper: returns a REAL ProtocolRegistry instance. */
-export function makeProtocolRegistry(protocols: ProtocolContext[] = []): ProtocolRegistry {
+/** Standard ProtocolRegistry factory for tests. */
+export function makeStubProtocolRegistry(protocols: ProtocolContext[] = []): ProtocolRegistry {
   const registry = new ProtocolRegistry();
   for (const p of protocols) {
     registry.register(p);
   }
   return registry;
 }
-
-/** Helper to create a ProtocolDefinition with deep partial overrides. */
-export function makeProtocolDefinition(overrides: Partial<ProtocolDefinition> = {}): ProtocolDefinition {
-  const trailers = { ...TEST_PROTOCOL_DEFINITION.trailers, ...(overrides.trailers || {}) };
-  const identityKey = overrides.identityKey || TEST_PROTOCOL_DEFINITION.identityKey;
-
-  if (!trailers[identityKey]) {
-    trailers[identityKey] = { description: 'ID', multivalue: false, validation: 'none', isCore: true };
-  }
-
-  return {
-    ...TEST_PROTOCOL_DEFINITION,
-    ...overrides,
-    identityKey,
-    trailers
-  };
-}
-
-/** Creates a pure ProtocolContext stub for testing. */
-export function makeStubContext(overrides: Partial<ProtocolDefinition> = {}): ProtocolContext {
-    const def = makeProtocolDefinition(overrides);
-    return createProtocolContext(def);
-}
-
-/** Alias for backward compatibility */
-export const makeMockContext = makeStubContext;
 
 /** Helper to create a raw commit object. */
 export function makeRawCommit(overrides: any = {}): IGitRawCommit {
@@ -256,9 +228,6 @@ export function makeStubFormatter() {
     };
 }
 
-/** Alias for backward compatibility */
-export const makeMockFormatter = makeStubFormatter;
-
 /** Stub Config Loader. */
 export function makeStubConfigLoader(overrides: any = {}) {
     return {
@@ -273,6 +242,16 @@ export function makeStubQueryCache(overrides: any = {}) {
         get: async () => null,
         set: async () => {},
         prune: async () => {},
+        ...overrides
+    };
+}
+
+/** Stub Search Options. */
+export function makeStubSearchOptions(overrides: Partial<SearchOptions> = {}): SearchOptions {
+    return {
+        filters: [],
+        follow: false,
+        cache: true,
         ...overrides
     };
 }

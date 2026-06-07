@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerConfigCommand } from '../../../../src/engine/cli/commands/config.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeMockContext as makeMockProtocol } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
 describe('Config Command', () => {
   let program: Command;
@@ -17,7 +17,7 @@ describe('Config Command', () => {
     logger = { result: vi.fn() };
     formatter = { formatConfig: vi.fn().mockReturnValue('formatted') };
 
-    const lore = makeMockProtocol({ 
+    const lore = makeStubProtocolContext({ 
         name: 'Lore', 
         namespace: '',
         trailers: { 
@@ -25,7 +25,7 @@ describe('Config Command', () => {
             Legacy: { description: 'L', isCore: false }
         } as any
     });
-    const sec = makeMockProtocol({ 
+    const sec = makeStubProtocolContext({ 
         name: 'Sec', 
         namespace: 'sec',
         trailers: { 

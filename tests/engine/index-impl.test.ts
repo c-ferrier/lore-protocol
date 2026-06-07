@@ -1,7 +1,8 @@
-import {describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { runCli } from '../../src/engine/index-impl.js';
 import { TEST_ENGINE_CONFIG } from '../../src/engine/testing.js';
+import { makeMockPrompt } from './engine-test-utils.js';
 ;
 import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -31,6 +32,7 @@ describe('Agnostic Behavior (Zero Protocols)', () => {
       configFileName: 'config.toml',
       defaultConfig: TEST_ENGINE_CONFIG,
       staticProtocols: [], // NO protocols
+      prompt: makeMockPrompt(),
     });
 
     const helpText = program.helpInformation();

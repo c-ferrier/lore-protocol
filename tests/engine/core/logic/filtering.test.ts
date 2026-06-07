@@ -2,7 +2,7 @@ import { beforeEach,describe, expect, it } from 'vitest';
 
 import { filterAtoms, resolveFilters,resolveFilterStrings } from '../../../../src/engine/core/logic/filtering.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeAtom, makeMockContext } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
 describe('Filtering Logic (Pure Functions)', () => {
   let registry: ProtocolRegistry;
@@ -11,23 +11,23 @@ describe('Filtering Logic (Pure Functions)', () => {
     registry = new ProtocolRegistry();
     
     // P1: Root protocol
-    const protocol = makeMockContext({
+    const protocol = makeStubProtocolContext({
         name: 'mock',
         namespace: '',
         trailers: {
-            'Mock-id': { description: 'ID' },
-            'Confidence': { description: 'C' }
+            'Mock-id': { description: 'ID', multivalue: false, validation: 'none' },
+            'Confidence': { description: 'C', multivalue: false, validation: 'none' }
         }
     });
     registry.register(protocol);
 
     // P2: Namespaced protocol
-    const fredProtocol = makeMockContext({
+    const fredProtocol = makeStubProtocolContext({
         name: 'fred',
         namespace: 'fred',
         trailers: {
-            'Fred-id': { description: 'ID' },
-            'Team': { description: 'T' }
+            'Fred-id': { description: 'ID', multivalue: false, validation: 'none' },
+            'Team': { description: 'T', multivalue: false, validation: 'none' }
         }
     });
     registry.register(fredProtocol);
@@ -153,8 +153,7 @@ describe('Filtering Logic (Pure Functions)', () => {
     });
 
     it('should filter by author', () => {
-      const atom = makeAtom({});
-      atom.author = 'Alice';
+      const atom = makeAtom({ author: 'Alice' });
       
       expect(filterAtoms([atom], { author: 'alice' }, registry)).toHaveLength(1);
       expect(filterAtoms([atom], { author: 'bob' }, registry)).toHaveLength(0);
@@ -181,8 +180,7 @@ describe('Filtering Logic (Pure Functions)', () => {
     });
 
     it('should filter by dates', () => {
-      const atom = makeAtom({});
-      atom.date = new Date('2023-05-15T00:00:00Z');
+      const atom = makeAtom({ date: new Date('2023-05-15T00:00:00Z') });
       
       expect(filterAtoms([atom], { sinceDate: new Date('2023-05-14T00:00:00Z') }, registry)).toHaveLength(1);
       expect(filterAtoms([atom], { sinceDate: new Date('2023-05-16T00:00:00Z') }, registry)).toHaveLength(0);
@@ -192,9 +190,10 @@ describe('Filtering Logic (Pure Functions)', () => {
     });
 
     it('should search across ALL trailers for --text query', () => {
-        const atom = makeAtom({});
-        atom.subject = 'fix: bug';
-        atom.body = 'Detailed notes.';
+        const atom = makeAtom({ 
+            subject: 'fix: bug',
+            body: 'Detailed notes.'
+        });
         atom.protocols.set('mock', { trailers: { 'Confidence': ['low'] }, unauthorized: {} });
         atom.protocols.set('fred', { trailers: { 'Team': ['backend'] }, unauthorized: {} });
 

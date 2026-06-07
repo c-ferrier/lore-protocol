@@ -6,21 +6,21 @@ import {
     getIdentityPattern, 
     getSearchPatterns, 
     matchesFilters} from '../../../../src/engine/core/logic/query-adapter.js';
-import { makeMockContext } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
 describe('Query Adapter Logic (Pure Functions)', () => {
-  const rootCtx = makeMockContext({
+  const rootCtx = makeStubProtocolContext({
     name: 'Root',
     namespace: '',
     identityKey: 'Lore-id',
-    trailers: { 'Lore-id': { description: 'ID', pattern: '^[0-9a-f]{8}$' } } as any
+    trailers: { 'Lore-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' } }
   });
 
-  const nsCtx = makeMockContext({
+  const nsCtx = makeStubProtocolContext({
     name: 'Project',
     namespace: 'Project',
     identityKey: 'Id',
-    trailers: { 'Id': { description: 'ID' } }
+    trailers: { 'Id': { description: 'ID', multivalue: false, validation: 'none' as const } }
   });
 
   describe('getDiscoveryPatterns', () => {

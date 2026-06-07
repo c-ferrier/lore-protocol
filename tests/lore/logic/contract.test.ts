@@ -211,7 +211,7 @@ describe('Lore CLI 0.5.0 Exhaustive Compatibility Contract', () => {
   });
 
   it('should maintain CONTRACT: Global options must match exactly', async () => {
-    const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
+    const { program } = await buildLoreCli({ engineDirName: '.atom', configFileName: 'config.toml' });
     const globalExpected = LORE_050_STATE['help'].options;
     
     for (const expected of globalExpected) {
@@ -223,7 +223,7 @@ describe('Lore CLI 0.5.0 Exhaustive Compatibility Contract', () => {
   });
 
   it('should maintain CONTRACT: All commands and their options must match 0.5.0 exactly', async () => {
-    const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
+    const { program } = await buildLoreCli({ engineDirName: '.atom', configFileName: 'config.toml' });
 
     for (const [cmdName, cmdContract] of Object.entries(LORE_050_STATE)) {
       if (cmdName === 'help') continue;
@@ -234,12 +234,12 @@ describe('Lore CLI 0.5.0 Exhaustive Compatibility Contract', () => {
       expect(cmd?.description().trim(), `Description mismatch for ${cmdName}`).toBe(cmdContract.description);
 
       const contractOpts = cmdContract.options;
-      const visibleOpts = cmd?.options.filter(o => !(o as any).hidden);
+      const visibleOpts = (cmd!.options.filter(o => !(o as any).hidden)) as any[];
 
       // 1. Check all required options exist and match
       for (const expectedOpt of contractOpts) {
         const flag = expectedOpt.flags.split(', ').pop().split(' ')[0];
-        const opt = visibleOpts?.find(o => o.flags.includes(flag));
+        const opt = visibleOpts.find(o => o.flags.includes(flag));
         
         expect(opt, `Option ${flag} missing or hidden in command ${cmdName}`).toBeDefined();
         expect(opt?.description.trim(), `Option description mismatch for ${cmdName} ${flag}`).toBe(expectedOpt.description);
@@ -254,7 +254,7 @@ describe('Lore CLI 0.5.0 Exhaustive Compatibility Contract', () => {
 
       // 2. STRICT: Check for unexpected visible options
       const contractFlagNames = new Set(contractOpts.map((o: any) => o.flags.split(', ').pop().split(' ')[0]));
-      for (const opt of (visibleOpts || [])) {
+      for (const opt of visibleOpts) {
           const flag = opt.flags.split(', ').pop().split(' ')[0];
           if (flag === '--help') continue;
           expect(contractFlagNames.has(flag), `Unexpected visible option ${flag} found in command ${cmdName}`).toBe(true);

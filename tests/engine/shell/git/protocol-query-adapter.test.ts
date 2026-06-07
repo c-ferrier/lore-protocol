@@ -1,10 +1,10 @@
 import { describe, expect,it } from 'vitest';
 
 import { getDiscoveryPatterns, getSearchPatterns } from '../../../../src/engine/shell/git/protocol-query-adapter.js';
-import { makeMockContext } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
 describe('ProtocolQueryAdapter (Implementation)', () => {
-  const ctx = makeMockContext({ name: 'Mock', identityKey: 'Mock-id' });
+  const ctx = makeStubProtocolContext({ name: 'Mock', identityKey: 'Mock-id' });
 
   it('should delegate discovery patterns to logic', () => {
     const patterns = getDiscoveryPatterns(ctx);

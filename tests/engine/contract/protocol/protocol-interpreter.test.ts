@@ -3,12 +3,12 @@ import { describe, expect,it } from 'vitest';
 import { getProtocolIdentity } from '../../../../src/engine/core/logic/identity.js';
 import { getStaleSignals } from '../../../../src/engine/core/logic/staleness.js';
 import { ProtocolMap } from '../../../../src/engine/core/types/domain.js';
-import { makeMockContext, normalizeTrailers,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext, normalizeTrailers,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('Protocol Interpreter Logic (via Pure Functions)', () => {
 
   it('should normalize raw trailers into authorized and unauthorized buckets', () => {
-    const protocol = makeMockContext({ ...TEST_PROTOCOL_DEFINITION, permissive: false });
+    const protocol = makeStubProtocolContext({ ...TEST_PROTOCOL_DEFINITION, permissive: false });
     
     const raw = {
       'Mock-id': ['a1b2c3d4'],
@@ -21,7 +21,7 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
   });
 
   it('should ingest unknown trailers in permissive mode', () => {
-    const protocol = makeMockContext({ ...TEST_PROTOCOL_DEFINITION, permissive: true });
+    const protocol = makeStubProtocolContext({ ...TEST_PROTOCOL_DEFINITION, permissive: true });
     
     const raw = {
       'Unknown': ['value']
@@ -33,11 +33,11 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
   });
 
   it('should handle namespaced trailers when configured', () => {
-    const protocol = makeMockContext({ 
+    const protocol = makeStubProtocolContext({ 
         ...TEST_PROTOCOL_DEFINITION, 
         namespace: 'Project',
         permissive: false,
-        trailers: { id: { description: 'ID' } }
+        trailers: { id: { description: 'ID', multivalue: false, validation: 'none' } }
     });
     
     const raw = {
@@ -50,7 +50,7 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
   });
 
   it('should extract identity from protocol state', () => {
-    const protocol = makeMockContext(TEST_PROTOCOL_DEFINITION);
+    const protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
     
     const state = {
       trailers: { 'Mock-id': ['a1b2c3d4'] },
@@ -62,7 +62,7 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
   });
 
   it('should handle namespaced trailers with invalid formats by putting them in unauthorized bucket', () => {
-    const protocol = makeMockContext({ ...TEST_PROTOCOL_DEFINITION, namespace: 'Project' });
+    const protocol = makeStubProtocolContext({ ...TEST_PROTOCOL_DEFINITION, namespace: 'Project' });
     
     const raw = {
       'Project': ['this is not a key-value pair']
@@ -73,7 +73,7 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
   });
 
   it('should respect claimed keys in permissive mode', () => {
-    const protocol = makeMockContext({ ...TEST_PROTOCOL_DEFINITION, permissive: true });
+    const protocol = makeStubProtocolContext({ ...TEST_PROTOCOL_DEFINITION, permissive: true });
     
     const raw = {
       'Other': ['value']
@@ -84,9 +84,9 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
   });
 
   it('should normalize mixed-case trailers to canonical keys', () => {
-    const protocol = makeMockContext({ 
+    const protocol = makeStubProtocolContext({ 
         ...TEST_PROTOCOL_DEFINITION, 
-        trailers: { Confidence: { description: 'C' } }
+        trailers: { Confidence: { description: 'C', multivalue: false, validation: 'none' } }
     });
     
     const raw = {
@@ -100,11 +100,13 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
 
   describe('getStaleSignals (Declarative Triggers)', () => {
     it('should evaluate "value-equals" condition', () => {
-      const protocol = makeMockContext({
+      const protocol = makeStubProtocolContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: {
           Confidence: {
             description: 'C',
+            multivalue: false,
+            validation: 'none',
             stale_if: { kind: 'value-equals', value: 'low', signal: 'low-conf' }
           }
         }
@@ -121,11 +123,13 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
     });
 
     it('should evaluate "date-expired" condition', () => {
-      const protocol = makeMockContext({
+      const protocol = makeStubProtocolContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: {
           Deadline: {
             description: 'D',
+            multivalue: false,
+            validation: 'none',
             stale_if: { kind: 'date-expired', signal: 'expired-hint' }
           }
         }
@@ -142,11 +146,12 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
     });
 
     it('should evaluate "reference-superseded" condition', () => {
-      const protocol = makeMockContext({
+      const protocol = makeStubProtocolContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: {
           Ref: {
             description: 'R',
+            multivalue: false,
             validation: 'reference',
             stale_if: { kind: 'reference-superseded', signal: 'orphaned-dep' }
           }
@@ -168,11 +173,12 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
     });
 
     it('should NOT evaluate "reference-superseded" if the target is superseded by the atom itself', () => {
-        const protocol = makeMockContext({
+        const protocol = makeStubProtocolContext({
             ...TEST_PROTOCOL_DEFINITION,
             trailers: {
               Ref: {
                 description: 'R',
+                multivalue: false,
                 validation: 'reference',
                 stale_if: { kind: 'reference-superseded', signal: 'orphaned-dep' }
               }

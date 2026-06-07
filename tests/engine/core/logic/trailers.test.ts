@@ -2,8 +2,7 @@ import { describe, expect,it } from 'vitest';
 
 import { getAuthorizedKeys } from '../../../../src/engine/core/logic/protocols.js';
 import { parseTrailers, serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
-import { serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
-import { makeProtocol,TEST_PROTOCOL_CONFIG } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 
 const LORE_ID_KEY = 'Lore-id';
@@ -101,7 +100,7 @@ describe('Trailer Logic (Pure Functions)', () => {
 });
   describe('Canonical Ordering', () => {
     it('should always serialize in protocol-defined order regardless of insertion order', () => {
-      const protocol = makeProtocol(LoreProtocolDefinition, TEST_PROTOCOL_CONFIG);
+      const protocol = makeStubProtocolContext(LoreProtocolDefinition);
       // Input in "wrong" order
       const trailers = {
         'Tested': ['T1'],
@@ -109,7 +108,7 @@ describe('Trailer Logic (Pure Functions)', () => {
         [LORE_ID_KEY]: ['id123'],
         'Constraint': ['C1'],
         'My-Custom': ['Val']
-      } as any;
+      };
       const output = serializeTrailers(trailers, getAuthorizedKeys(protocol));
       const lines = output.split('\n');
       // Canonical order from core-definitions.ts: 

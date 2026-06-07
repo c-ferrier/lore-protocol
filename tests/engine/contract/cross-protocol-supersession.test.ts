@@ -3,7 +3,7 @@ import { beforeEach,describe, expect, it } from 'vitest';
 import { resolveSupersession } from '../../../src/engine/core/logic/supersession.js';
 import { type Atom, type Trailers } from '../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeProtocol,TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
+import { makeStubProtocolContext,TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 ;
 ;
 ;
@@ -25,13 +25,13 @@ function makeAtom(options: {
   protocol?: string;
   supersedes?: string[];
 }): Atom {
-  const pName = options.protocol ?? 'mock';
+  const pName = (options.protocol ?? 'mock').toLowerCase();
   const idKey = pName === 'mock' ? TEST_ID_KEY : LORE_ID_KEY;
   
-  const trailers: Trailers = {
+  const trailers: Record<string, string[]> = {
     [idKey]: [options.id],
     Supersedes: options.supersedes ?? [],
-  } as any;
+  };
 
   return {
     commitHash: `hash-${pName}-${options.id}`,
@@ -39,8 +39,9 @@ function makeAtom(options: {
     author: 'dev@example.com',
     subject: 'test commit',
     body: '',
+    rawTrailers: '',
     protocols: new Map([
-      [pName, { name: pName.charAt(0).toUpperCase() + pName.slice(1), version: '1.0', identityKey: idKey, trailers }]
+      [pName, { trailers, unauthorized: {} }]
     ]),
     filesChanged: [],
   };
@@ -52,8 +53,8 @@ describe('Supersession Logic Cross-Protocol', () => {
   beforeEach(() => {
     registry = new ProtocolRegistry();
     // Use different namespaces to avoid root permissive conflict
-    registry.register(makeProtocol({ ...TEST_PROTOCOL_DEFINITION, namespace: 'mock' }));
-    registry.register(makeProtocol({ ...LORE_DEFINITION, namespace: 'lore' }));
+    registry.register(makeStubProtocolContext({ ...TEST_PROTOCOL_DEFINITION, namespace: 'mock' }));
+    registry.register(makeStubProtocolContext({ ...LORE_DEFINITION, namespace: 'lore' }));
   });
 
   it('should resolve supersession across protocols (Lore supersedes Mock)', () => {

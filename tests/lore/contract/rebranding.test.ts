@@ -29,7 +29,7 @@ describe('Lore CLI Rebranding (Wrapper Logic)', () => {
   });
 
   it('should hide --subject and show --intent in help output', async () => {
-    const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
+    const { program } = await buildLoreCli({ engineDirName: '.atom', configFileName: 'config.toml' });
     const commitCmd = program.commands.find(c => c.name() === 'commit')!;
 
     const subjectOpt = commitCmd.options.find(o => o.long === '--subject');
@@ -46,7 +46,7 @@ describe('Lore CLI Rebranding (Wrapper Logic)', () => {
   });
 
   it('should map --intent value to subject internally via preAction hook', async () => {
-    const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
+    const { program } = await buildLoreCli({ engineDirName: '.atom', configFileName: 'config.toml' });
     const commitCmd = program.commands.find(c => c.name() === 'commit')!;
 
     // Stub the action to prevent it from actually running (and calling process.exit)
@@ -61,7 +61,7 @@ describe('Lore CLI Rebranding (Wrapper Logic)', () => {
   });
 
   it('should prioritize --subject if both are somehow provided (edge case)', async () => {
-    const { program } = await buildLoreCli({ basePath: testDir, engineDirName: '.atom', configFileName: 'config.toml' });
+    const { program } = await buildLoreCli({ engineDirName: '.atom', configFileName: 'config.toml' });
     const commitCmd = program.commands.find(c => c.name() === 'commit')!;
 
     commitCmd.action(vi.fn());
