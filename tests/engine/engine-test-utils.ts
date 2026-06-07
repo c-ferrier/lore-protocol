@@ -1,21 +1,21 @@
 import { vi } from 'vitest';
 
-import { LogLevel, type ILogger } from '../../src/engine/interfaces/logger.js';
 import type { ProtocolContext,ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
+import { type ILogger,LogLevel } from '../../src/engine/interfaces/logger.js';
 import type { IPrompt } from '../../src/engine/interfaces/prompt.js';
 import { 
     createProtocolContext,
     makeAtom,
     makeAtomRepository,
-    makeStubProtocolContext,
-    makeStubFormatter,
-    makeStubProtocolRegistry, 
     makeQueryTarget,
     makeRawCommit,
     makeStubAtomRepository, 
     makeStubConfigLoader, 
+    makeStubFormatter,
     makeStubGitClient, 
     makeStubPrompt, 
+    makeStubProtocolContext,
+    makeStubProtocolRegistry, 
     makeStubQueryCache,
     makeStubSearchOptions,
     TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
@@ -166,11 +166,10 @@ export {
     makeAtom, 
     makeQueryTarget, 
     makeRawCommit, 
-    TEST_ENGINE_CONFIG,
     type ProtocolContext,
-    type ProtocolDefinition};
+    type ProtocolDefinition,    TEST_ENGINE_CONFIG};
 
-import { QueryOptions, SearchOptions } from '../../src/engine/core/types/query.js';
+import { SearchOptions } from '../../src/engine/core/types/query.js';
 
 /** Helper to create query/search options for tests. */
 export function makeQueryOptions(overrides: Partial<SearchOptions> = {}): SearchOptions {

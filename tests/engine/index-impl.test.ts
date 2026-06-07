@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { runCli } from '../../src/engine/index-impl.js';
 import { TEST_ENGINE_CONFIG } from '../../src/engine/testing.js';

@@ -3,7 +3,7 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtom, makeStubProtocolContext,TEST_PROTOCOL_DEFINITION, makeAtomRepository } from '../../../src/engine/testing.js';
+import { makeAtom, makeAtomRepository,makeStubProtocolContext,TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 import { makeMockGitClient } from '../engine-test-utils.js';
 ;
 

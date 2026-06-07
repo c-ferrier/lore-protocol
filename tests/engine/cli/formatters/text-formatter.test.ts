@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { TextFormatter } from '../../../../src/engine/cli/formatters/text-formatter.js';
-import { type Atom, type ProtocolState, type Trailers } from '../../../../src/engine/core/types/domain.js';
+import { type ProtocolState, type Trailers } from '../../../../src/engine/core/types/domain.js';
 import type { 
     FormattableConfigResult,
     FormattableDoctorResult, 
@@ -146,7 +146,8 @@ describe('TextFormatter', () => {
 
       expect(output).toContain('Assisted-by:');
       expect(output).toContain('Gemini');
-      expect(output).toMatch(/\x1b\[/);
+      // eslint-disable-next-line no-control-regex
+      expect(output).toMatch(new RegExp('\\x1b\\['));
     });
 
     it('should show body text when present', () => {
@@ -420,7 +421,8 @@ describe('TextFormatter', () => {
     it('should produce output with color disabled', () => {
       const noColor = new TextFormatter(registry, { color: false });
       const output = noColor.formatSuccess('OK');
-      expect(output).not.toMatch(/\x1b\[/);
+      // eslint-disable-next-line no-control-regex
+      expect(output).not.toMatch(new RegExp('\\x1b\\['));
     });
   });
 });

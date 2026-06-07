@@ -2,6 +2,8 @@ import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerCommitCommand } from '../../../../src/engine/cli/commands/commit.js';
+import * as FormattingLogic from '../../../../src/engine/core/logic/commit-formatting.js';
+import * as HeadIdReader from '../../../../src/engine/shell/git/head-id-reader.js';
 import { 
     makeCommitInput, 
     makeStubProtocolContext, 
@@ -15,9 +17,6 @@ import {
     makeMockInputResolver, 
     makeMockPrompt 
 } from '../../engine-test-utils.js';
-
-import * as FormattingLogic from '../../../../src/engine/core/logic/commit-formatting.js';
-import * as HeadIdReader from '../../../../src/engine/shell/git/head-id-reader.js';
 
 vi.mock('../../../../src/engine/shell/git/head-id-reader.js', () => ({
     readHeadIdentities: vi.fn().mockResolvedValue({})

@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { analyzeStaleness } from '../../../src/engine/shell/orchestrators/staleness.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { analyzeStaleness } from '../../../src/engine/shell/orchestrators/staleness.js';
+import { makeStubProtocolContext, makeStubProtocolRegistry } from '../../../src/engine/testing.js';
 import { 
     makeAtom, 
     makeMockAtomRepository, 
     TEST_ENGINE_CONFIG 
 } from '../engine-test-utils.js';
-import { makeStubProtocolContext, makeStubProtocolRegistry } from '../../../src/engine/testing.js';
 
 describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
   let registry: ProtocolRegistry;

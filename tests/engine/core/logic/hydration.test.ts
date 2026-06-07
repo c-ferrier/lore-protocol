@@ -1,7 +1,7 @@
 import { describe, expect,it } from 'vitest';
 
 import { extractReferenceIds, hydrateAtoms } from '../../../../src/engine/core/logic/hydration.js';
-import { makeAtom, makeStubProtocolContext, makeStubProtocolRegistry, makeRawCommit,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeAtom, makeRawCommit,makeStubProtocolContext, makeStubProtocolRegistry, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('Hydration Logic (Pure Functions)', () => {
   const protocol = makeStubProtocolContext({

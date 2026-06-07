@@ -3,13 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hydrateAtoms } from '../../../../src/engine/core/logic/hydration.js';
 import { validateCommits } from '../../../../src/engine/shell/orchestrators/validation.js';
 import { 
-    makeMockAtomRepository, 
-    TEST_ENGINE_CONFIG} from '../../engine-test-utils.js';
-import { 
     makeRawCommit, 
     makeStubProtocolContext, 
     makeStubProtocolRegistry 
 } from '../../../../src/engine/testing.js';
+import { 
+    makeMockAtomRepository, 
+    TEST_ENGINE_CONFIG} from '../../engine-test-utils.js';
 
 describe('Commit Validation (Shell Orchestrator)', () => {
   const protocol = makeStubProtocolContext({

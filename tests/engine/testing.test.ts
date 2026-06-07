@@ -1,7 +1,7 @@
 import { describe, expect,it } from 'vitest';
 
 import { ownsKey } from '../../src/engine/core/logic/ownership.js';
-import { makeStubProtocolContext,makeStubGitClient } from '../../src/engine/testing.js';
+import { makeStubGitClient,makeStubProtocolContext } from '../../src/engine/testing.js';
 
 describe('Testing Gateway Logic', () => {
   describe('makeStubProtocolContext', () => {

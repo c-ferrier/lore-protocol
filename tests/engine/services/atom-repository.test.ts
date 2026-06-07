@@ -4,9 +4,10 @@ import { createQueryTarget } from '../../../src/engine/core/logic/query-targets.
 import { ProtocolMap } from '../../../src/engine/core/types/domain.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtom, makeStubProtocolContext, makeRawCommit,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
+import { makeAtom, makeRawCommit,makeStubProtocolContext, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 import { makeQueryTarget } from '../../../src/engine/testing.js';
-import { makeMockGitClient, makeQueryOptions } from '../engine-test-utils.js'; import { makeAtomRepository } from '../../../src/engine/testing.js';
+import { makeAtomRepository } from '../../../src/engine/testing.js';
+import { makeMockGitClient, makeQueryOptions } from '../engine-test-utils.js'; 
 
 describe('AtomRepository', () => {
   let gitClient: any;

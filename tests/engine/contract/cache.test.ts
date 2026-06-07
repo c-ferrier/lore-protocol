@@ -1,9 +1,10 @@
+import { join } from 'node:path';
+
 import { Command } from 'commander';
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { registerCacheCommand } from '../../../src/engine/cli/commands/cache.js';
 import { TestLogger } from '../engine-test-utils.js';
-import { join } from 'node:path';
 
 describe('Cache Command', () => {
   const mockFormatter = {

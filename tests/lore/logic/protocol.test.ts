@@ -5,7 +5,7 @@ import {
     getListKeys,
     getScalarKeys} from '../../../src/engine/core/logic/protocols.js';
 import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
-import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { makeStubProtocolContext } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
 const LORE_ID_KEY = 'Lore-id';

@@ -2,7 +2,7 @@ import { describe, expect,it } from 'vitest';
 
 import { getStaleSignals } from '../../../src/engine/core/logic/staleness.js';
 import { type Atom, ProtocolMap,type SupersessionStatus } from '../../../src/engine/core/types/domain.js';
-import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { makeStubProtocolContext } from '../../../src/engine/testing.js';
 import { LORE_STALE_SIGNAL } from '../../../src/lore/constants.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 

@@ -1,8 +1,8 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
+import { hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
 import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol-definition.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
 import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 

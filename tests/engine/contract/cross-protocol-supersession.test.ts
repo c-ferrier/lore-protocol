@@ -1,7 +1,7 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { resolveSupersession } from '../../../src/engine/core/logic/supersession.js';
-import { type Atom, type Trailers } from '../../../src/engine/core/types/domain.js';
+import { type Atom } from '../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeStubProtocolContext,TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 ;

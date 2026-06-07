@@ -13,7 +13,7 @@ import {
 import { ProtocolMap } from './core/models/protocol-map.js';
 import type { CommitInput } from './core/types/commit.js';
 import type { EngineConfig, TrailerDefinition,TrailerUiColor, TrailerUiKind } from './core/types/config.js';
-import type { Atom, ProtocolState, Trailers } from './core/types/domain.js';
+import type { Atom, ProtocolState } from './core/types/domain.js';
 import type { ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
 import type { QueryTargetAST, SearchOptions } from './core/types/query.js';
 import type { RawCommit as IGitRawCommit } from './interfaces/git-client.js';

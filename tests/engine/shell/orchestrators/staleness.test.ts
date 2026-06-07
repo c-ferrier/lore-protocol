@@ -1,14 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-import { analyzeStaleness } from '../../../../src/engine/shell/orchestrators/staleness.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { analyzeStaleness } from '../../../../src/engine/shell/orchestrators/staleness.js';
+import { makeStubProtocolContext, makeStubProtocolRegistry } from '../../../../src/engine/testing.js';
+import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
 import { 
     makeAtom, 
     makeMockAtomRepository, 
     TEST_ENGINE_CONFIG 
 } from '../../engine-test-utils.js';
-import { makeStubProtocolContext, makeStubProtocolRegistry } from '../../../../src/engine/testing.js';
-import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
 
 describe('analyzeStaleness (Shell Orchestrator)', () => {
   let mockRepo: any;

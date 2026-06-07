@@ -2,7 +2,7 @@ import { mkdtemp, readdir,rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import type { QueryOptions, SearchOptions } from '../../../../src/engine/core/types/query.js';
 import { runCli } from '../../../../src/engine/index-impl.js';

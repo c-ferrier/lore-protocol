@@ -1,7 +1,7 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeStubProtocolContext, makeAtomRepository } from '../../../src/engine/testing.js';
+import { makeAtomRepository,makeStubProtocolContext } from '../../../src/engine/testing.js';
 import { makeMockGitClient } from '../engine-test-utils.js';
 ;
 ;

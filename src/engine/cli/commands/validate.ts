@@ -3,7 +3,6 @@ import { Command } from 'commander';
 import { createQueryTarget } from '../../core/logic/query-targets.js';
 import type { EngineConfig } from '../../core/types/config.js';
 import type { CommitValidationResult, FormattableValidationResult, ValidationIssue } from '../../core/types/output.js';
-import type { QueryTargetAST } from '../../core/types/query.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { AtomRepository } from '../../services/atom-repository.js';
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';

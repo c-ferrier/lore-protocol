@@ -4,7 +4,7 @@ import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
-import { makeStubProtocolContext, makeQueryTarget,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { makeQueryTarget,makeStubProtocolContext } from '../../../src/engine/testing.js';
 import { LoreJsonFormatter } from '../../../src/lore/formatters/lore-json-formatter.js';
 import { makeMockGitClient } from '../../engine/engine-test-utils.js';
 ;

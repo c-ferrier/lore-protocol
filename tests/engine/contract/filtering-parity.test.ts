@@ -5,7 +5,7 @@ import { type SearchOptions } from '../../../src/engine/core/types/query.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeStubProtocolContext,MOCK_CORE_TRAILERS, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, makeAtomRepository } from '../../../src/engine/testing.js';
+import { makeAtomRepository,makeStubProtocolContext,MOCK_CORE_TRAILERS, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 import { makeMockGitClient } from '../engine-test-utils.js';
 ;
 

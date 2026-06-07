@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+/* global process, console */
+
 /**
  * Programmatic Git Rebase Sequence Editor.
  * 

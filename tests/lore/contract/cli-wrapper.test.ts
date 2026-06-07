@@ -1,8 +1,8 @@
 import { afterAll,beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { GLOBAL_NAMESPACE } from '../../../src/engine/util/constants.js';
 import { makeStubProtocolContext } from '../../../src/engine/testing.js';
+import { GLOBAL_NAMESPACE } from '../../../src/engine/util/constants.js';
 import { LoreConfigLoader } from '../../../src/lore/services/lore-config-loader.js';
 import { buildLoreCli } from '../lore-test-utils.js';
 ;
@@ -37,10 +37,6 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
 
   it('should assemble the Lore CLI with all expected commands', async () => {
     const { program, sharedDeps } = await buildLoreCli();
-
-    console.log('DEBUG: protocolRegistry type:', typeof sharedDeps.protocolRegistry);
-    console.log('DEBUG: protocolRegistry methods:', Object.keys(sharedDeps.protocolRegistry || {}));
-    console.log('DEBUG: protocolRegistry instance of ProtocolRegistry:', sharedDeps.protocolRegistry instanceof ProtocolRegistry);
 
     expect(program.name()).toBe('lore');
     const rootProtocol = sharedDeps.protocolRegistry.getByNamespace(GLOBAL_NAMESPACE);
