@@ -196,13 +196,20 @@ describe('Lore CLI Output Parity (v0.5.0 vs Local)', () => {
   });
 
   it('should maintain PARITY: lore squash (Raw)', () => {
-    const system = execSystem('squash', ['HEAD~2..HEAD']).trim();
-    const local = execLocal('squash', ['HEAD~2..HEAD']).trim();
+    // 1. Get the physical hashes for Atoms C and D in the sandbox
+    const hashC = execSync('git log --grep="Lore-id: cccc3333" --format=%H', { cwd: sandboxDir }).toString().trim();
+    const hashD = execSync('git log --grep="Lore-id: dddd4444" --format=%H', { cwd: sandboxDir }).toString().trim();
+    
+    if (!hashC || !hashD) throw new Error('Could not find test atoms in sandbox');
 
+    // 2. Perform the squash on the physical range
+    const system = execSystem('squash', [`${hashC}..${hashD}`]).trim();
+    const local = execLocal('squash', [`${hashC}..${hashD}`]).trim();
+    
+    // 3. Content Parity Check
     const normalize = (s: string) => s.replace(/Lore-id: [0-9a-f]{8}/g, 'Lore-id: deterministic');
     expect(normalize(local)).toBe(normalize(system));
   });
-
   it('should maintain PARITY: lore stale (Drift Detail)', () => {
     // 1. Create a drift scenario
     writeFileSync(join(sandboxDir, 'DRIFT.md'), 'initial\n');

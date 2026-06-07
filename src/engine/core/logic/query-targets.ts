@@ -1,4 +1,4 @@
-import type { QueryIdentity,QueryTargetAST } from '../types/query.js';
+import type { QueryIdentity, QueryTargetAST, QueryTargetType } from '../types/query.js';
 import { normalizePathToRoot } from './path-resolution.js';
 
 export interface TargetContext {
@@ -9,13 +9,16 @@ export interface TargetContext {
 
 /**
  * Resolves raw user input into a formal QueryTargetAST.
+ * Standardizes physical scopes (Paths, Revisions, Line-Ranges).
  */
 export function createQueryTarget(
   input: string | readonly string[] | undefined, 
   context: TargetContext
 ): QueryTargetAST {
-  // 1. Handle Global Target (Empty input or empty array)
-  if (!input || (Array.isArray(input) && input.length === 0)) {
+  const items = Array.isArray(input) ? input : (input ? [input] : []);
+  
+  // 1. Handle Global Target (Empty input)
+  if (items.length === 0) {
     return {
       raw: input || '',
       type: 'global',
@@ -23,46 +26,79 @@ export function createQueryTarget(
     };
   }
 
-  // 2. Handle Multiple Paths
-  if (Array.isArray(input)) {
-      const resolvedPaths = input.map(p => normalizePathToRoot(p, context.cwd, context.protocolRoot));
-      return {
-          raw: input,
-          type: 'path',
-          resolvedPaths
-      };
-  }
+  let revisionRange: string | undefined;
+  let lineRange: { file: string; start: number; end: number } | null = null;
+  const resolvedPaths: string[] = [];
 
-  // 3. Handle Single String (File or Line-Range)
-  if (typeof input === 'string') {
-      const lineRangeMatch = /^(.*):(\d+)(?:-(\d+))?$/.exec(input);
-      if (lineRangeMatch) {
-          const filePath = lineRangeMatch[1];
-          const start = parseInt(lineRangeMatch[2], 10);
-          const end = lineRangeMatch[3] ? parseInt(lineRangeMatch[3], 10) : start;
+  // 2. Partition inputs into Scopes and Anchors
+  for (const item of items) {
+      if (!item) continue;
+
+      // 2a. Line Range (file:line-line)
+      const lrMatch = /^(.*):(\d+)(?:-(\d+))?$/.exec(item);
+      if (lrMatch) {
+          const filePath = lrMatch[1];
+          const start = parseInt(lrMatch[2], 10);
+          const end = lrMatch[3] ? parseInt(lrMatch[3], 10) : start;
+          const resolved = normalizePathToRoot(filePath, context.cwd, context.protocolRoot);
           
-          const resolvedPath = normalizePathToRoot(filePath, context.cwd, context.protocolRoot);
-          return {
-              raw: input,
-              type: 'line-range',
-              resolvedPaths: [resolvedPath],
-              lineRange: { file: resolvedPath, start, end }
-          };
+          if (!lineRange) {
+              lineRange = { file: resolved, start, end };
+          }
+          resolvedPaths.push(resolved);
+          continue;
       }
-      
-      return {
-          raw: input,
-          type: 'path',
-          resolvedPaths: [normalizePathToRoot(input, context.cwd, context.protocolRoot)]
-      };
+
+      // 2b. Git Revision (Range, Hash, or Ref)
+      if (!revisionRange && isRevision(item)) {
+          revisionRange = item;
+          continue;
+      }
+
+      // 2c. Path (Default)
+      resolvedPaths.push(normalizePathToRoot(item, context.cwd, context.protocolRoot));
   }
 
-  // 4. Fallback
+  // 3. Resolve Target Type
+  let type: QueryTargetType = 'path';
+  if (lineRange) {
+      type = 'line-range';
+  } else if (revisionRange && resolvedPaths.length === 0) {
+      type = 'revision';
+  } else if (resolvedPaths.length === 0) {
+      type = 'global';
+      if (context.isScoped) resolvedPaths.push('.');
+  }
+
   return {
-    raw: '',
-    type: 'global',
-    resolvedPaths: []
+    raw: input || '',
+    type,
+    resolvedPaths,
+    lineRange,
+    revisionRange
   };
+}
+
+/**
+ * Heuristic: Checks if a string looks like a Git physical anchor.
+ * Context-aware to avoid collisions with relative paths (../).
+ */
+function isRevision(str: string): boolean {
+    // 1. Explicit path indicators (Relative nav)
+    if (str.startsWith('../') || str.startsWith('./') || str.includes('/../')) {
+        return false;
+    }
+    
+    // 2. Git Range Indicators
+    if (str.includes('..')) return true;
+    
+    // 3. Git Relative Indicators (HEAD~1, HEAD^)
+    if (str.includes('~') || str.includes('^')) return true;
+    
+    // 4. Git Hash (7-40 hex chars)
+    if (/^[0-9a-f]{7,40}$/i.test(str)) return true;
+    
+    return false;
 }
 
 /**

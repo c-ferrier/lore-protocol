@@ -1,5 +1,6 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
+import { createQueryTarget } from '../../../src/engine/core/logic/query-targets.js';
 import { ProtocolMap } from '../../../src/engine/core/types/domain.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
@@ -168,26 +169,27 @@ describe('AtomRepository', () => {
         expect(results).toHaveLength(2);
     });
   });
-  describe('findByCommitHash', () => {
-    it('should fetch and parse a single commit', async () => {
+  describe('discovery by commit hash', () => {
+    it('should fetch and parse a single commit via the unified find pipeline', async () => {
       const commit = makeRawCommit({ hash: 'abc12345', subject: 't' });
-      gitClient.log.mockResolvedValue([commit]);
-      const result = await repo.findByCommitHash('abc12345');
-      expect(result).toBeDefined();
-      expect(result?.commitHash).toBe('abc12345');
-    });
-    it('should return null if no commit found', async () => {
-      gitClient.log.mockResolvedValue([]);
-      const result = await repo.findByCommitHash('missing');
-      expect(result).toBeNull();
+      gitClient.query.mockResolvedValue([commit]);
+      
+      const target = createQueryTarget('abc12345', { cwd: '/', protocolRoot: '/', isScoped: false });
+      const result = await repo.find(target);
+      
+      expect(result).toHaveLength(1);
+      expect(result[0].commitHash).toBe('abc12345');
     });
   });
-  describe('findByRange', () => {
-    it('should pass the range directly to git log', async () => {
-      gitClient.log.mockResolvedValue([]);
-      await repo.findByRange('main..HEAD');
-      // The first arg to gitClient.log is an array of git arguments
-      expect(gitClient.log).toHaveBeenCalledWith(expect.arrayContaining(['main..HEAD']));
+  describe('discovery by range', () => {
+    it('should pass the range to the unified find pipeline', async () => {
+      gitClient.query.mockResolvedValue([]);
+      const target = createQueryTarget('main..HEAD', { cwd: '/', protocolRoot: '/', isScoped: false });
+      await repo.find(target);
+      
+      expect(gitClient.query).toHaveBeenCalledWith(expect.objectContaining({
+          revisionRange: 'main..HEAD'
+      }));
     });
   });
   describe('global find', () => {

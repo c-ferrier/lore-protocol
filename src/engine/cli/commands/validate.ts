@@ -25,10 +25,12 @@ export function registerValidateCommand(
     atomRepository: AtomRepository;
     protocolRegistry: ProtocolRegistry;
     config: EngineConfig;
-    
     getFormatter: () => IOutputFormatter;
+    protocolRoot: string;
+    cwd: string;
   },
 ): void {
+  const { protocolRoot, cwd } = deps;
   program
     .command('validate [range]')
     .description('Validate commits for protocol compliance')
@@ -38,9 +40,7 @@ export function registerValidateCommand(
     .action(async (range: string | undefined, options: ValidateCommandOptions) => {
       const { atomRepository, protocolRegistry, config, getFormatter } = deps;
 
-      const target: QueryTargetAST = range 
-        ? { raw: range, type: 'global', resolvedPaths: [], revisionRange: range }
-        : createQueryTarget(undefined, { cwd: process.cwd(), protocolRoot: process.cwd(), isScoped: false });
+      const target = createQueryTarget(range, { cwd, protocolRoot, isScoped: false });
 
       const atoms = await atomRepository.find(target, {
         since: options.since,

@@ -5,7 +5,7 @@ export interface QueryIdentity {
   readonly protocol?: string;
 }
 
-export type QueryTargetType = 'global' | 'path' | 'line-range' | 'identity' | 'revision';
+export type QueryTargetType = 'global' | 'path' | 'line-range' | 'identity' | 'revision' | 'commit';
 
 /**
  * Represents a resolved physical query space (Global, Path, or Line-Range).

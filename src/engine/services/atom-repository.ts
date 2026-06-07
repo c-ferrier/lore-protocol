@@ -23,9 +23,10 @@ import { ProtocolRegistry } from './protocol-registry.js';
 
 /**
  * Retrieves Atoms from git history.
- * The central query engine for all protocol-related git log queries.
+ * Standardizes discovery across protocols by centralizing Git I/O.
  * 
  * SRP: Focused on Git history I/O and query orchestration.
+ * Tier: Shell Service (Encloses physical storage)
  */
 export class AtomRepository {
   constructor(
@@ -56,37 +57,10 @@ export class AtomRepository {
   /**
    * Find multiple atoms by their identity keys.
    */
-  async findByIds(identities: readonly QueryIdentity[], options: SearchOptions = {}): Promise<Atom[]> {
+  async findByIds(identities: readonly QueryIdentity[], options: SearchOptions = {}, headHash?: string): Promise<Atom[]> {
       if (identities.length === 0) return [];
-      return this.find(createTargetFromIdentities(identities), options);
-  }
-
-  /**
-   * Find atoms by a git revision range.
-   */
-  async findByRange(range: string, options: SearchOptions = {}): Promise<Atom[]> {
-      // Range queries are currently handled as a physical path scan with a ref restriction.
-      const rawCommits = await this.gitClient.log([range, ...this.baseTarget.resolvedPaths]);
-      const atoms = hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
-      return this.postProcessAtoms(atoms, options);
-  }
-
-  /**
-   * Find a single atom by its commit hash.
-   */
-  async findByCommitHash(hash: string, options: SearchOptions = {}): Promise<Atom | null> {
-      const rawCommits = await this.gitClient.log(['-1', hash, ...this.baseTarget.resolvedPaths]);
-      const atoms = hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
-      const processed = this.postProcessAtoms(atoms, options);
-      return processed[0] || null;
-  }
-
-  /**
-   * Find atoms for a conventional commit scope.
-   */
-  async findByScope(scope: string, options: SearchOptions): Promise<Atom[]> {
-    const grepPattern = `^[a-zA-Z]+\\(${escapeRegex(scope)}\\):`;
-    return this.find(this.baseTarget, { ...options, scope: grepPattern });
+      const hash = headHash || await this.getHeadHash();
+      return this.internalQuery(createTargetFromIdentities(identities), options, hash);
   }
 
   /**
@@ -100,6 +74,8 @@ export class AtomRepository {
     const resolvedOptions = await this.resolveOptions(options);
 
     // 1. Try Cache First (Fast Path)
+    // Only enabled for global/path discovery to avoid redundant full-repo greps.
+    // Identity discovery handles its own atomic caching for fine-grained link resolution.
     const fingerprint = getCacheFingerprint(target);
     if (headHash && resolvedOptions.cache !== false && !isBlameTarget(target) && target.type !== 'identity') {
       const cachedHashes = await this.queryCache.get(headHash, fingerprint, resolvedOptions);
@@ -125,7 +101,7 @@ export class AtomRepository {
     let expandedAtoms = initialAtoms;
     if (resolvedOptions.follow && initialAtoms.length > 0) {
         const maxDepth = resolvedOptions.maxDepth ?? 10;
-        expandedAtoms = await this.resolveFollowLinks(initialAtoms, maxDepth);
+        expandedAtoms = await this.resolveFollowLinks(initialAtoms, maxDepth, headHash);
     }
 
     // 4. Projection Pass (Internalized Truth)
@@ -137,7 +113,8 @@ export class AtomRepository {
       this.queryCache.set(headHash, fingerprint, resolvedOptions, hashes).catch(() => {});
     }
 
-    return resultAtoms;
+    // 6. Domain Filtering (Logical)
+    return filterAtoms(resultAtoms, resolvedOptions, this.protocolRegistry);
   }
 
   /**
@@ -187,8 +164,7 @@ export class AtomRepository {
         paths: [...paths],
     });
 
-    const atoms = hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
-    return filterAtoms(atoms, options, this.protocolRegistry);
+    return hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
   }
 
   /**
@@ -203,9 +179,9 @@ export class AtomRepository {
     if (!root && identities.some(i => !i.protocol)) {
         throw new ProtocolError('Cannot resolve unqualified identity: No global protocol is registered. Please use "protocol/id" format.', 1);
     }
-    const primaryProtocol = root?.def.name.toLowerCase() || '';
+    const primaryProtocol = (root?.def.name || '').toLowerCase();
 
-    // 1. Check Atomic Cache First
+    // 1. Check Atomic Cache First (Batch)
     const cachedHashes = new Set<string>();
     if (headHash) {
         await Promise.all(identities.map(async (identity) => {
@@ -230,7 +206,7 @@ export class AtomRepository {
 
     if (missing.length === 0) return results;
 
-    // 2. Batch missing IDs into one Git query
+    // 2. Batch missing IDs into one Git query (Logical Grep)
     const patterns: string[] = [];
     for (const { id, protocol: pName } of missing) {
       if (!id) continue;
@@ -242,45 +218,53 @@ export class AtomRepository {
       }
     }
     
-    if (patterns.length === 0) return results;
-
-    const rawCommits = await this.gitClient.query({
-        revisionRange: target.revisionRange,
-        regexPatterns: [patterns],
-        paths: [...this.baseTarget.resolvedPaths]
-    });
-
-    const hydrated = hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
-
-    // 3. Match result atoms back to requested missing identities
-    const foundFromGit: Atom[] = [];
-    for (const { id, protocol: pName } of missing) {
-        const matchingAtom = hydrated.find(a => {
-            if (pName) {
-                const ctx = this.protocolRegistry.get(pName);
-                const state = a.protocols.get(pName.toLowerCase()) || a.protocols.get(pName);
-                const foundId = getProtocolIdentity(state, ctx!);
-                return foundId === id;
-            }
-            for (const [name, state] of a.protocols) {
-                const ctx = this.protocolRegistry.get(name);
-                if (ctx && getProtocolIdentity(state, ctx) === id) return true;
-            }
-            return false;
+    if (patterns.length > 0) {
+        const rawCommits = await this.gitClient.query({
+            revisionRange: target.revisionRange,
+            regexPatterns: [patterns],
+            paths: [...this.baseTarget.resolvedPaths]
         });
+        const hydrated = hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
 
-        if (matchingAtom) {
-            foundFromGit.push(matchingAtom);
-            // 4. Persist Atomic Cache (Background)
-            if (headHash) {
-                const pNameFinal = (pName || primaryProtocol).toLowerCase();
-                const fingerprint = `identity:${pNameFinal}/${id}`;
-                this.queryCache.set(headHash, fingerprint, {}, [matchingAtom.commitHash]).catch(() => {});
+        // 3. Match result atoms back to requested missing identities
+        const foundFromGit: Atom[] = [];
+        for (const { id, protocol: pName } of missing) {
+            const matchingAtom = hydrated.find(a => {
+                // Priority 1: If protocol specified, check only that one
+                if (pName) {
+                    const ctx = this.protocolRegistry.get(pName);
+                    const state = a.protocols.get(pName.toLowerCase()) || a.protocols.get(pName);
+                    if (!state || !ctx) return false;
+                    const foundId = getProtocolIdentity(state, ctx);
+                    return foundId?.toLowerCase() === id.toLowerCase();
+                }
+
+                // Priority 2: If no protocol, check ALL registered protocols (Disambiguation)
+                const primaryProtocol = (this.protocolRegistry.getByNamespace(GLOBAL_NAMESPACE)?.def.name || '').toLowerCase();
+                for (const [name, state] of a.protocols) {
+                    const ctx = this.protocolRegistry.get(name);
+                    if (ctx) {
+                        const foundId = getProtocolIdentity(state, ctx);
+                        if (foundId?.toLowerCase() === id.toLowerCase()) return true;
+                    }
+                }
+                return false;
+            });
+
+            if (matchingAtom) {
+                foundFromGit.push(matchingAtom);
+                // 4. Persist Atomic Cache (Background)
+                if (headHash) {
+                    const pNameFinal = (pName || primaryProtocol).toLowerCase();
+                    const fingerprint = `identity:${pNameFinal}/${id}`;
+                    this.queryCache.set(headHash, fingerprint, {}, [matchingAtom.commitHash]).catch(() => {});
+                }
             }
         }
+        results.push(...foundFromGit);
     }
 
-    return [...results, ...foundFromGit];
+    return results;
   }
 
   /**
@@ -293,7 +277,7 @@ export class AtomRepository {
       const blameLines = await this.gitClient.blame(range.file, range.start, range.end);
       if (blameLines.length === 0) return [];
 
-      const commitHashes = Array.from(new Set(blameLines.map((l: any) => l.commitHash as string)));
+      const commitHashes = Array.from(new Set(blameLines.map((l: any) => (l as any).commitHash as string)));
       const rawCommits = await this.gitClient.getCommitsByHashes(commitHashes);
       return hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
   }
@@ -329,9 +313,10 @@ export class AtomRepository {
   /**
    * Resolve BFS traversal for Related/Supersedes/Depends-on links.
    */
-  async resolveFollowLinks(atoms: readonly Atom[], maxDepth: number): Promise<Atom[]> {
+  async resolveFollowLinks(atoms: readonly Atom[], maxDepth: number, headHash?: string): Promise<Atom[]> {
     const result = [...atoms];
     const visited = new Set(atoms.map((a) => a.commitHash));
+    const hash = headHash || await this.getHeadHash();
     
     const localKnowledge = new Map<string, Atom>();
     const indexAtoms = (list: readonly Atom[]) => {
@@ -383,7 +368,7 @@ export class AtomRepository {
       }
 
       if (missingIdentities.length > 0) {
-          const linkedAtoms = await this.findByIds(missingIdentities, { follow: false });
+          const linkedAtoms = await this.findByIds(missingIdentities, { follow: false }, hash);
           foundAtoms.push(...linkedAtoms);
           indexAtoms(linkedAtoms);
       }
@@ -405,7 +390,7 @@ export class AtomRepository {
     return result;
   }
 
-  private async getHeadHash(): Promise<string | undefined> {
+  async getHeadHash(): Promise<string | undefined> {
     try {
       return await this.gitClient.resolveRef('HEAD');
     } catch {
