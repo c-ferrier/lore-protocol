@@ -6,16 +6,16 @@ import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../../src/engi
 
 // Mock dependency services to avoid FS/Git access
 vi.mock('../../../../src/engine/shell/git/git-client.js', () => ({
-    GitClient: vi.fn().mockImplementation(() => ({
-        resolveRef: vi.fn(async () => 'head'),
-        resolveDate: vi.fn(async () => new Date()),
-    }))
+    GitClient: class {
+        resolveRef = vi.fn(async () => 'head');
+        resolveDate = vi.fn(async () => new Date());
+    }
 }));
 
 vi.mock('../../../../src/engine/shell/fs/config-loader.js', () => ({
-    EngineConfigLoader: vi.fn().mockImplementation(() => ({
-        loadForPath: vi.fn(async () => TEST_ENGINE_CONFIG),
-    }))
+    EngineConfigLoader: class {
+        loadForPath = vi.fn(async () => TEST_ENGINE_CONFIG);
+    }
 }));
 
 vi.mock('../../../../src/engine/shell/fs/root-resolver.js', () => ({
@@ -23,13 +23,13 @@ vi.mock('../../../../src/engine/shell/fs/root-resolver.js', () => ({
 }));
 
 vi.mock('../../../../src/engine/shell/fs/protocol-loader.js', () => ({
-    DynamicProtocolLoader: vi.fn().mockImplementation(() => ({
-        loadAll: vi.fn(async () => []),
-    })),
+    DynamicProtocolLoader: class {
+        loadAll = vi.fn(async () => []);
+    },
     ProtocolLoader: Object.assign(
-        vi.fn().mockImplementation(() => ({
-            loadAll: vi.fn(async () => []),
-        })),
+        class {
+            loadAll = vi.fn(async () => []);
+        },
         {
             applyOverrides: vi.fn((defs) => defs)
         }
