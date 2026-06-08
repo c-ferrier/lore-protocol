@@ -5,7 +5,7 @@ import type { QueryIdentity } from './query.js';
  * Interface for resolving identities across protocols.
  */
 export interface IIdentityResolver {
-    resolveIdentity(val: string, currentProtocol: string): QueryIdentity;
+    resolveIdentity(val: string, currentProtocol?: string): QueryIdentity;
     get(name: string): ProtocolContext | undefined;
 }
 

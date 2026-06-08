@@ -24,13 +24,10 @@ export class ProtocolRegistry implements IIdentityResolver {
   private readonly namespaceMap = new Map<string, ProtocolContext>();
 
   /**
-   * Register a new protocol definition or context.
-   * Preserves existing context objects (useful for mocks in tests).
+   * Register a new protocol context.
    */
-  register(input: ProtocolDefinition | ProtocolContext | { def: ProtocolDefinition }): void {
-     const def = (input as any).def || input;
-     const ctx = (input as any).caseMap ? (input as ProtocolContext) : createProtocolContext(def);
-     
+  register(ctx: ProtocolContext): void {
+     const def = ctx.def;
      const name = def.name.toLowerCase();
      const ns = (def.namespace ?? '').toLowerCase();
 
