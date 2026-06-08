@@ -1,4 +1,4 @@
-import { defineConfig } from 'tsup';
+import { defineConfig } from 'tsdown';
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
@@ -46,8 +46,11 @@ export default defineConfig({
   target: 'node22',
   dts: true, // Generate .d.ts files for library consumers
   clean: true,
-  splitting: false,
   sourcemap: true,
+  outputOptions: {
+    entryFileNames: '[name].js',
+    chunkFileNames: '[name]-[hash].js',
+  },
   define: {
     __ATOM_VERSION__: JSON.stringify(FINAL_ATOM_VERSION),
     __LORE_VERSION__: JSON.stringify(FINAL_LORE_VERSION),
