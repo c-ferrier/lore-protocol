@@ -1,4 +1,5 @@
 import { ProtocolHydrator } from '../../shell/fs/protocol-hydrator.js';
+import type { TrailerDefinition } from '../types/config.js';
 import type { FormattableTrailerDefinition } from '../types/output.js';
 import type {ProtocolContext, ProtocolDefinition } from '../types/protocol-definition.js';
 
@@ -8,7 +9,7 @@ import type {ProtocolContext, ProtocolDefinition } from '../types/protocol-defin
  */
 export function createProtocolContext(def: ProtocolDefinition): ProtocolContext {
     const caseMap = new Map<string, string>();
-    const trailers = new Map<string, any>();
+    const trailers = new Map<string, TrailerDefinition & { key: string }>();
     
     const rawTrailers = { ...(def.trailers || {}) };
     const namespace = def.namespace || '';
@@ -22,7 +23,7 @@ export function createProtocolContext(def: ProtocolDefinition): ProtocolContext 
         caseMap.set(key.toLowerCase(), key);
         
         const hydrated = ProtocolHydrator.hydrateTrailer(key, tDef);
-        const isCore = (hydrated as any).isCore ?? false;
+        const isCore = hydrated.isCore ?? false;
         
         // Identity key always defaults to order 0 if not set
         const prompt = { ...(hydrated.prompt || {}) };
@@ -112,13 +113,24 @@ export function getFormattableDefinitions(ctx: ProtocolContext): Record<string, 
         const tDef = ctx.trailers.get(key);
         if (!tDef) continue;
 
+        // Ensure values are fully hydrated into objects for UI consistency
+        const hydratedValues: Record<string, { description: string }> = {};
+        if (tDef.values) {
+            for (const [vKey, vVal] of Object.entries(tDef.values)) {
+                hydratedValues[vKey] = typeof vVal === 'string' ? { description: vVal } : vVal;
+            }
+        }
+
         results[key] = {
             ...tDef,
+            values: tDef.values ? hydratedValues : undefined,
+            directives: tDef.directives || [],
+            isCore: tDef.isCore ?? false,
             ui: {
-                kind: (tDef.ui?.kind || 'text') as any,
+                kind: tDef.ui?.kind || 'custom',
                 color: tDef.ui?.color || 'dim',
             }
-        } as any;
+        };
     }
 
     return results;

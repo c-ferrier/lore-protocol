@@ -53,7 +53,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
 
       expect(message).toContain('feat: add login');
       expect(message).toContain(`${TEST_ID_KEY}: a1b2c3d4`);
-      expect(protocols.mock.id).toBe('a1b2c3d4');
+      expect(protocols.get('mock')!.trailers[TEST_ID_KEY][0]).toBe('a1b2c3d4');
     });
 
     it('should pass correct trailers to serialize', () => {
@@ -131,7 +131,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
         const existingIds = { 'mock': 'old-id-123' };
         
         const { protocols } = formatCommit(input, engineConfig, protocolRegistry, existingIds);
-        expect(protocols.mock.id).toBe('old-id-123');
+        expect(protocols.get('mock')!.trailers[TEST_ID_KEY][0]).toBe('old-id-123');
         expect(idSpy).not.toHaveBeenCalled();
     });
   });

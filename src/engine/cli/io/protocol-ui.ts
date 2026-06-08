@@ -14,7 +14,7 @@ export function getFormattableDefinitions(ctx: ProtocolContext): Record<string, 
 export function getUiKind(ctx: ProtocolContext, key: string): TrailerUiKind {
     const canonical = ctx.caseMap.get(key.toLowerCase());
     const def = canonical ? ctx.def.trailers[canonical] : null;
-    return (def?.ui?.kind || 'text') as any;
+    return def?.ui?.kind || 'custom';
 }
 
 export function getUiColor(ctx: ProtocolContext, key: string): TrailerUiColor {

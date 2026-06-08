@@ -1,8 +1,8 @@
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import { ProtocolError } from '../../util/errors.js';
-import type { CommitInput } from '../types/commit.js';
+import type { CommitInput, PreparedCommit } from '../types/commit.js';
 import type { EngineConfig } from '../types/config.js';
-import type { AtomId } from '../types/domain.js';
+import { ProtocolMap, type AtomId, type ProtocolState } from '../types/domain.js';
 import type { ValidationIssue } from '../types/output.js';
 import { generateId } from './identity.js';
 import { normalizeTrailers } from './normalization.js';
@@ -18,8 +18,8 @@ export function formatCommit(
   config: EngineConfig, 
   registry: ProtocolRegistry, 
   existingIds?: Record<string, AtomId>
-): { message: string; protocols: Record<string, any> } {
-  const protocols: Record<string, any> = {};
+): PreparedCommit {
+  const protocols = new ProtocolMap<ProtocolState>();
   const serializedTrailers: Record<string, string[]> = {};
   const displayOrder: string[] = [];
 
@@ -36,10 +36,8 @@ export function formatCommit(
     const lowerPName = ctx.name;
     const id = (existingIds && (existingIds[lowerPName] || existingIds[pName])) || generateId(ctx);
 
-    protocols[lowerPName] = {
-      id,
-      identity_key: def.identityKey,
-      version: def.version,
+    const trailers: Record<string, string[]> = {
+        [def.identityKey]: [id]
     };
 
     // Add identity trailer to the appropriate Git scope
@@ -58,6 +56,7 @@ export function formatCommit(
       if (key === def.identityKey) continue;
       
       if (values && values.length > 0) {
+        trailers[key] = [...values];
         if (ns) {
           const existing = serializedTrailers[ns] || [];
           for (const v of values) {
@@ -71,21 +70,22 @@ export function formatCommit(
         }
       }
     }
+
+    protocols.set(lowerPName, { trailers, unauthorized: {} });
   }
 
   // 2. Ensure all registered protocols have an identity, even if they had no input trailers
   for (const ctx of registry.getAll()) {
       const lowerPName = ctx.name;
-      if (protocols[lowerPName]) continue;
+      if (protocols.has(lowerPName)) continue;
 
       const id = (existingIds && (existingIds[lowerPName] || existingIds[ctx.def.name])) || generateId(ctx);
       const ns = ctx.storageNamespace;
 
-      protocols[lowerPName] = {
-          id,
-          identity_key: ctx.identityKey,
-          version: ctx.version,
-      };
+      protocols.set(lowerPName, { 
+          trailers: { [ctx.identityKey]: [id] }, 
+          unauthorized: {} 
+      });
 
       if (ns) {
           const existing = serializedTrailers[ns] || [];
@@ -100,13 +100,21 @@ export function formatCommit(
 
   const trailerBlock = serializeTrailers(serializedTrailers, displayOrder);
 
-  let message = input.subject;
-  if (input.body && input.body.trim()) {
-    message += `\n\n${input.body.trim()}`;
+  const subject = input.subject;
+  const body = input.body?.trim() || '';
+  
+  let message = subject;
+  if (body) {
+    message += `\n\n${body}`;
   }
   message += `\n\n${trailerBlock}`;
 
-  return { message, protocols };
+  return { 
+      message, 
+      subject,
+      body,
+      protocols 
+  };
 }
 
 /**
@@ -158,7 +166,7 @@ export async function validateFormatting(
     const protocolSlug = ctx.name.replace(/-/g, '');
     const identityRule = `${protocolSlug}-id-present`;
 
-    const filteredIssues = bucketIssues.filter((issue: any) => {
+    const filteredIssues = bucketIssues.filter((issue: ValidationIssue) => {
         if (issue.rule === identityRule || (issue.rule === 'required-trailer' && issue.field === ctx.identityKey)) {
             const def = ctx.trailers.get(ctx.identityKey);
             if (def?.generator && def.generator !== 'none') return false;
@@ -182,7 +190,7 @@ export async function validateFormatting(
       const protocolSlug = ctx.name.replace(/-/g, '');
       const identityRule = `${protocolSlug}-id-present`;
 
-      const filteredIssues = bucketIssues.filter((issue: any) => {
+      const filteredIssues = bucketIssues.filter((issue: ValidationIssue) => {
           if (issue.rule === identityRule || (issue.rule === 'required-trailer' && issue.field === ctx.identityKey)) {
               const def = ctx.trailers.get(ctx.identityKey);
               if (def?.generator && def.generator !== 'none') return false;

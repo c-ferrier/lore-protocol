@@ -5,9 +5,6 @@ import type { ProtocolContext } from '../types/protocol-definition.js';
  * Pure function: takes key and context, returns canonical key or null.
  */
 export function authorizeKey(key: string, ctx: ProtocolContext): string | null {
-  // Support method override via the definition object (used by mocks in tests)
-  if ((ctx.def as any).authorize) return (ctx.def as any).authorize(key);
-
   const lowerKey = key.toLowerCase();
   
   // 1. Exact match in caseMap (canonical trailers)
@@ -32,9 +29,6 @@ export function authorizeKey(key: string, ctx: ProtocolContext): string | null {
  * Pure logic: check if key is authorized by schema or matches namespace.
  */
 export function ownsKey(key: string, ctx: ProtocolContext): boolean {
-    // Support method override via the definition object (used by mocks in tests)
-    if ((ctx.def as any).owns) return (ctx.def as any).owns(key);
-
     // RULE: Namespaced protocols ONLY own their bucket name at the top level.
     if (!ctx.isRoot) {
         return ctx.storageNamespace !== '' && key.toLowerCase() === ctx.storageNamespace.toLowerCase();
@@ -51,9 +45,6 @@ export function ownsKey(key: string, ctx: ProtocolContext): boolean {
  * Used for namespaced storage routing.
  */
 export function isBucketOwner(key: string, ctx: ProtocolContext): boolean {
-    // Support method override via the definition object (used by mocks in tests)
-    if ((ctx.def as any).isBucketOwner) return (ctx.def as any).isBucketOwner(key);
-
     if (ctx.isRoot) return true;
     return key.toLowerCase() === ctx.storageNamespace.toLowerCase();
 }
@@ -62,9 +53,6 @@ export function isBucketOwner(key: string, ctx: ProtocolContext): boolean {
  * Resolves the physical storage key for a logical trailer key.
  */
 export function getQualifiedKey(key: string, ctx: ProtocolContext): string {
-  // Support method override via the definition object (used by mocks in tests)
-  if ((ctx.def as any).getQualifiedKey) return (ctx.def as any).getQualifiedKey(key);
-
   const canonical = authorizeKey(key, ctx);
   if (!canonical) return key;
 

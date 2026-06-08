@@ -104,7 +104,7 @@ describe('Protocols Logic (Pure Functions)', () => {
 
   it('getFormattableDefinitions should transform definitions for UI', () => {
       const formattable = getFormattableDefinitions(ctx);
-      expect(formattable['Scalar'].ui?.kind).toBe('text');
+      expect(formattable['Scalar'].ui?.kind).toBe('custom');
       expect(formattable['Scalar'].ui?.color).toBe('dim');
   });
 });
