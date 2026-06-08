@@ -251,7 +251,7 @@ export class LoreTextFormatter implements IOutputFormatter {
         }
 
         // 2. Shim descriptive engine messages back to legacy Lore 0.5.0 formats
-        const reqMatch = message.match(/^Required trailer "([^"]+)" is missing$/);
+        const reqMatch = message.match(/^Required trailer missing: "([^"]+)"$/);
         if (reqMatch) {
           message = `${reqMatch[1]} trailer is missing`;
         }
