@@ -43,7 +43,7 @@
   "license": "MIT",
   "dependencies": {
     "chalk": "^5.4.1",
-    "commander": "^13.1.0",
+    "commander": "^15.0.0",
     "simple-update-notifier": "^2.0.0",
     "smol-toml": "^1.6.1"
   },
@@ -54,7 +54,7 @@
     "eslint-plugin-unused-imports": "^4.4.1",
     "prettier": "^3.5.3",
     "tsdown": "^0.22.2",
-    "typescript": "^5.8.2",
+    "typescript": "^6.0.3",
     "typescript-eslint": "^8.60.1",
     "vitest": "^3.2.6"
   },
