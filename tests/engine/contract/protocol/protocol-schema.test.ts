@@ -80,7 +80,7 @@ describe('Protocol Schema Logic (via Context)', () => {
     const formattable = getFormattableDefinitions(schema);
     expect(formattable['Identity'].ui?.kind).toBe('identity');
     expect(formattable['Identity'].ui?.color).toBe('dim');
-    expect(formattable['Default'].ui?.kind).toBe('text'); // default
+    expect(formattable['Default'].ui?.kind).toBe('custom'); // default
     expect(formattable['Default'].ui?.color).toBe('dim'); // default
   });
 
