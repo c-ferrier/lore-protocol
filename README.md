@@ -49,7 +49,7 @@ This commit is now a queryable knowledge atom. Any developer or AI agent can ask
 npm install -g lore-protocol
 ```
 
-Requires Node.js >= 18.
+Requires Node.js >= 22.
 
 ## Quick Start
 

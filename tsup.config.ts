@@ -43,7 +43,7 @@ export default defineConfig({
     'src/engine/testing.ts'
   ],
   format: ['esm'],
-  target: 'node18',
+  target: 'node22',
   dts: true, // Generate .d.ts files for library consumers
   clean: true,
   splitting: false,

@@ -4,7 +4,7 @@ Lore CLI is a tool for the Lore protocol -- a convention for embedding structure
 
 ## Tech Stack
 
-TypeScript, Node.js 18+, ESM modules, Commander.js, vitest, chalk, smol-toml, tsup (bundler).
+TypeScript, Node.js 22+, ESM modules, Commander.js, vitest, chalk, smol-toml, tsup (bundler).
 
 ## Build & Test Commands
 
