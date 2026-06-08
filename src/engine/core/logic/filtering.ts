@@ -1,7 +1,7 @@
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import {matchesFilters } from '../../shell/git/protocol-query-adapter.js';
 import type { Atom } from '../types/domain.js';
-import type { FilterOperator,QualifiedFilter, QueryOptions } from '../types/query.js';
+import type { FilterOperator,QualifiedFilter, QueryOptions, RawFilterMap } from '../types/query.js';
 import { ownsKey } from './ownership.js';
 
 /**
@@ -28,7 +28,7 @@ export function resolveFilterStrings(filterStrings: string[], registry: Protocol
 /**
  * Resolves a flat map of filter criteria into a structured AST.
  */
-export function resolveFilters(raw: Record<string, any>, registry: ProtocolRegistry): QualifiedFilter[] {
+export function resolveFilters(raw: RawFilterMap, registry: ProtocolRegistry): QualifiedFilter[] {
   const filters: QualifiedFilter[] = [];
 
   for (const [rawKey, value] of Object.entries(raw)) {
@@ -142,7 +142,14 @@ function atomMatchesOptions(atom: Atom, options: QueryOptions, registry: Protoco
 
   // 6. Structured Semantic Filtering (Phase 2 AST)
   const rawFilters = options.filters || [];
-  const filters = Array.isArray(rawFilters) ? rawFilters : resolveFilters(rawFilters, registry);
+  let filters: readonly QualifiedFilter[];
+
+  if (Array.isArray(rawFilters)) {
+      // It's already an AST or a list of strings (which isn't supported here yet, but we'll handle the array)
+      filters = rawFilters as readonly QualifiedFilter[];
+  } else {
+      filters = resolveFilters(rawFilters as RawFilterMap, registry);
+  }
 
   if (filters.length > 0) {
     for (const filter of filters) {

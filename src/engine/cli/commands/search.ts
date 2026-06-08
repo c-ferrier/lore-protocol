@@ -28,28 +28,26 @@ export function registerSearchCommand(
   const { protocolRoot, cwd } = deps;
   const cmd = program
     .command('search')
-    .description('Search for decision atoms across history')
-    .option('--text <query>', 'Search commit subjects and bodies')
-    .option('--has <key>', 'Search for atoms containing a specific trailer key');
+    .description('Search for decision atoms across history');
 
   addPathQueryOptions(cmd);
 
-  cmd.action(async (options: PathQueryCommandOptions & { text?: string; has?: string }, command: Command) => {
+  cmd.action(async (_options: PathQueryCommandOptions, command: Command) => {
     const { atomRepository, getFormatter, logger } = deps;
-    const mergedOptions = mergeOptions<PathQueryCommandOptions & { text?: string; has?: string }>(command);
+    const options = mergeOptions<PathQueryCommandOptions>(command);
 
     const searchOptions: QueryOptions = {
-      filters: mergedOptions.filter && mergedOptions.filter.length > 0 ? mergedOptions.filter : [],
-      scope: mergedOptions.scope ?? null,
-      follow: mergedOptions.follow ?? false,
-      all: mergedOptions.all ?? false,
-      author: mergedOptions.author ?? null,
-      limit: mergedOptions.limit ?? null,
-      maxCommits: mergedOptions.maxCommits ?? null,
-      since: mergedOptions.since ?? null,
-      until: mergedOptions.until ?? null,
-      text: mergedOptions.text ?? null,
-      has: mergedOptions.has ?? null,
+      filters: options.filter && options.filter.length > 0 ? options.filter : [],
+      scope: options.scope ?? null,
+      follow: options.follow ?? false,
+      all: options.all ?? false,
+      author: options.author ?? null,
+      limit: options.limit ?? null,
+      maxCommits: options.maxCommits ?? null,
+      since: options.since ?? null,
+      until: options.until ?? null,
+      text: options.text ?? null,
+      has: options.has ?? null,
     };
 
     // Step 1: Resolve target using the pure logic
@@ -59,7 +57,7 @@ export function registerSearchCommand(
         isScoped: !!searchOptions.scope 
     });
 
-    const atoms = await atomRepository.find(target, { ...searchOptions, includeAllCommits: !!(mergedOptions as any).history });
+    const atoms = await atomRepository.find(target, { ...searchOptions, includeAllCommits: !!options.history });
     const totalAtoms = atoms.length;
 
     // Step 3: Filter superseded atoms unless --all (Active Truth)

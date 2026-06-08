@@ -47,9 +47,6 @@ export function evaluateProtocolSchema(
   state: ProtocolState,
   resolver?: IIdentityResolver,
 ): ValidationIssue[] {
-  // Restore hook check for test compatibility
-  if ((protocol as any).validateState) return (protocol as any).validateState(state, resolver);
-  
   return validateProtocolState(state, protocol.def, resolver);
 }
 

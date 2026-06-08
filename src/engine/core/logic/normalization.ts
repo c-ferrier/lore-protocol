@@ -11,9 +11,6 @@ export function normalizeTrailers(
     ctx: ProtocolContext, 
     claimedKeys?: Set<string>
 ): ProtocolState {
-    // Support method override via the definition object (used by mocks in tests)
-    if ((ctx.def as any).normalize) return (ctx.def as any).normalize(rawMap, claimedKeys);
-
     const normalized: Record<string, string[]> = {};
     const unauthorized: Record<string, string[]> = {};
     const lowerClaimed = new Set(Array.from(claimedKeys || []).map(k => k.toLowerCase()));

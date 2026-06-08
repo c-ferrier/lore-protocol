@@ -54,10 +54,10 @@ export function registerWhyCommand(
       totalAtoms,
       filteredAtoms: atoms.length,
       oldest: totalAtoms > 0
-        ? new Date(Math.min(...atoms.map((a: any) => a.date.getTime())))
+        ? new Date(Math.min(...atoms.map((a) => a.date.getTime())))
         : null,
       newest: totalAtoms > 0
-        ? new Date(Math.max(...atoms.map((a: any) => a.date.getTime())))
+        ? new Date(Math.max(...atoms.map((a) => a.date.getTime())))
         : null,
     };
 

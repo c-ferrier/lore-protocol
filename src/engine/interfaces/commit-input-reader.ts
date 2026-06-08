@@ -8,5 +8,5 @@ import type { CommitInput } from '../core/types/commit.js';
  * GoF: Strategy -- each implementation encapsulates a different input algorithm.
  */
 export interface ICommitInputReader {
-  read(options?: any): Promise<CommitInput>;
+  read(options?: Record<string, unknown>): Promise<CommitInput>;
 }

@@ -256,6 +256,8 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
           hideOpt(cmd, '--until');
           hideOpt(cmd, '--filter');
           hideOpt(cmd, '--history');
+          hideOpt(cmd, '--text');
+          hideOpt(cmd, '--has');
       }
       
       if (name === 'validate') {
@@ -275,6 +277,8 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
           hideOpt(cmd, '--since');
           hideOpt(cmd, '--until');
           hideOpt(cmd, '--filter');
+          hideOpt(cmd, '--text');
+          hideOpt(cmd, '--has');
       }
 
       if (name === 'trace') {
@@ -357,6 +361,8 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
           hideOpt(cmd, '--until');
           hideOpt(cmd, '--filter');
           hideOpt(cmd, '--history');
+          hideOpt(cmd, '--text');
+          hideOpt(cmd, '--has');
           const maxCommitsOpt = cmd.options.find(o => o.long === '--max-commits');
           if (maxCommitsOpt) (maxCommitsOpt as any).description = 'Maximum git commits to scan (supersession may be incomplete)';
           if (name === 'rejected') cmd.description('Previously rejected alternatives for a code region');

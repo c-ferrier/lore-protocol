@@ -34,7 +34,7 @@ export interface QueryTargetAST {
   readonly revisionRange?: string;
 }
 
-export type FilterValue = string | readonly string[] | null;
+export type FilterValue = string | readonly string[] | null | undefined;
 export type RawFilterMap = Record<string, FilterValue>;
 
 /**

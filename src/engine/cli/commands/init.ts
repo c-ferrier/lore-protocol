@@ -45,7 +45,7 @@ export async function executeEngineInit(deps: InitDeps, defaultConfig: EngineCon
     try {
         const content = await readFile(configPath, 'utf-8');
         const parsed = parseToml(content) as Record<string, unknown>;
-        const { missing } = analyzeConfigGaps(parsed, ENGINE_CONFIG_SCHEMA, defaultConfig);
+        const { missing } = analyzeConfigGaps(parsed, ENGINE_CONFIG_SCHEMA, defaultConfig as unknown as Record<string, Record<string, unknown>>);
 
         if (missing.length > 0) {
             deps.logger.info('\n' + formatter.formatSuccess('Your engine configuration is missing new options:'));

@@ -9,9 +9,6 @@ import type { ProtocolContext } from '../types/protocol-definition.js';
  * Pure logic: takes protocol context, returns new ID string.
  */
 export function generateId(ctx: ProtocolContext): AtomId {
-  // Support method override via the definition object (used by mocks in tests)
-  if ((ctx.def as any).generateId) return (ctx.def as any).generateId();
-
   const { def } = ctx;
   const tDef = def.trailers[def.identityKey];
   const strategy = tDef?.generator || 'hex8';

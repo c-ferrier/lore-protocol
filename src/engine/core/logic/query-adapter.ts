@@ -1,6 +1,6 @@
 import type { ProtocolState } from '../types/domain.js';
 import type { ProtocolContext } from '../types/protocol-definition.js';
-import type { FilterOperator,QualifiedFilter } from '../types/query.js';
+import type { FilterOperator,FilterValue, QualifiedFilter } from '../types/query.js';
 import { authorizeKey,ownsKey } from './ownership.js';
 import { escapeRegex } from './regex.js';
 
@@ -89,7 +89,7 @@ export function matchesFilters(state: ProtocolState, filters: readonly Qualified
     return true;
 }
 
-function evaluateFilter(actual: readonly string[], op: FilterOperator, expected: any): boolean {
+function evaluateFilter(actual: readonly string[], op: FilterOperator, expected: FilterValue): boolean {
     const expectedValues = Array.isArray(expected) ? expected : [expected];
     const lowerActual = actual.map(v => v.toLowerCase());
 

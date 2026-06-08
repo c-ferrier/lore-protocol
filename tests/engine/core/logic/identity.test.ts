@@ -57,12 +57,6 @@ describe('Identity Logic (Pure Functions)', () => {
         expect(id).toHaveLength(8);
         expect(id).toMatch(/^[0-9a-f]{8}$/);
     });
-
-    it('should allow overriding via mock hook', () => {
-        const mockProtocol = makeStubProtocolContext(rootProtocol.def);
-        (mockProtocol.def as any).generateId = () => 'FIXED-ID';
-        expect(generateId(mockProtocol)).toBe('FIXED-ID');
-    });
   });
 
   describe('getProtocolIdentity', () => {

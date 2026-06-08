@@ -21,7 +21,7 @@ export interface ConfigDiff {
 export function analyzeConfigGaps(
   parsedUserConfig: Record<string, unknown>,
   expectedSchema: Record<string, string[]>,
-  defaultValues: Record<string, any> = {}
+  defaultValues: Record<string, Record<string, unknown>> = {}
 ): ConfigDiff {
   const missing: string[] = [];
   const customized: string[] = [];

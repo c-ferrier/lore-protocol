@@ -1,4 +1,4 @@
-import type { Command } from 'commander';
+import { type Command } from 'commander';
 
 // Pure Logic Modules
 import { createQueryTarget } from '../../../core/logic/query-targets.js';
@@ -44,6 +44,8 @@ export interface PathQueryCommandOptions {
   readonly maxCommits?: number;
   readonly since?: string;
   readonly until?: string;
+  readonly text?: string;
+  readonly has?: string;
 }
 
 /**
@@ -74,6 +76,8 @@ export async function executePathQuery(
     maxCommits: options.maxCommits ?? null,
     since: options.since ?? null,
     until: options.until ?? null,
+    text: options.text ?? null,
+    has: options.has ?? null,
   };
 
   // Step 1: Resolve target using pure logic
@@ -140,6 +144,8 @@ export function addPathQueryOptions(cmd: Command): Command {
     .option('--all', 'Include superseded entries')
     .option('--history', 'Show full physical history including non-protocol commits')
     .option('--author <email>', 'Filter by commit author')
+    .option('--text <query>', 'Search commit subjects and bodies')
+    .option('--has <key>', 'Search for atoms containing a specific trailer key')
     .option('--limit <n>', 'Maximum number of results to display', parsePositiveInt)
     .option('--max-commits <n>', 'Maximum git commits to scan (supersession may be incomplete)', parsePositiveInt)
     .option('--since <ref>', 'Only consider commits since ref/date')

@@ -1,3 +1,6 @@
+import type { Command } from 'commander';
+
+import type { IOutputFormatter } from './interfaces/output-formatter.js';
 import { EngineBootstrapper, type EngineOptions } from './services/engine-bootstrapper.js';
 
 /**
@@ -11,7 +14,7 @@ export async function runCli(options: EngineOptions) {
 /**
  * Executes the configured commander program.
  */
-export async function execute(program: any, getFormatter: () => any) {
+export async function execute(program: Command, getFormatter: () => IOutputFormatter) {
   try {
     await program.parseAsync(process.argv);
   } catch (error: unknown) {

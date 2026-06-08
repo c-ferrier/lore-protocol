@@ -32,7 +32,7 @@ export function registerLogCommand(
 
   addPathQueryOptions(cmd);
 
-  cmd.action(async (paths: string[] | undefined, _options: any, command: Command) => {
+  cmd.action(async (paths: string[] | undefined, _options: PathQueryCommandOptions, command: Command) => {
     const options = mergeOptions<PathQueryCommandOptions>(command);
     const { atomRepository, getFormatter, logger } = deps;
     // // console.log('LOG OPTIONS:', JSON.stringify(options));

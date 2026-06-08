@@ -33,7 +33,7 @@ export function registerTraceCommand(
     .command('trace <id>')
     .description('Follow decision chain from a starting atom')
     .option('--max-depth <n>', 'Maximum BFS traversal depth', (v) => parseInt(v, 10), 10)
-    .action(async (id: string, _options: any, command: Command) => {
+    .action(async (id: string, _options: Record<string, unknown>, command: Command) => {
       const options = mergeOptions<{ maxDepth: number; cache: boolean }>(command);
       const { atomRepository, protocolRegistry, getFormatter, logger } = deps;
       
