@@ -1,4 +1,4 @@
-import { filterAtoms, resolveFilters } from '../core/logic/filtering.js';
+import { filterAtoms, resolveFilters,resolveFilterStrings } from '../core/logic/filtering.js';
 // Pure Logic Modules
 import { extractReferenceIds,hydrateAtoms } from '../core/logic/hydration.js';
 import { getProtocolIdentity } from '../core/logic/identity.js';
@@ -11,8 +11,8 @@ import {
 import { escapeRegex } from '../core/logic/regex.js';
 import { resolveSupersession } from '../core/logic/supersession.js';
 import { isValidProtocolIdentity } from '../core/logic/validation.js';
-import type { Atom } from '../core/types/domain.js';
-import type { QueryIdentity,QueryTargetAST, SearchOptions } from '../core/types/query.js';
+import { type Atom, type SupersessionStatus } from '../core/types/domain.js';
+import type { QualifiedFilter,QueryIdentity,QueryOptions,QueryTargetAST, RawFilterMap } from '../core/types/query.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import { getIdentityPattern } from '../shell/git/protocol-query-adapter.js';
@@ -40,7 +40,7 @@ export class AtomRepository {
    * HIGH-LEVEL: The primary entry point for chronological atom discovery.
    * Unifies path-scoped, multi-path, ID-based, and global history queries.
    */
-  async find(target?: QueryTargetAST, options: SearchOptions = {}): Promise<Atom[]> {
+  async find(target?: QueryTargetAST, options: QueryOptions = {}): Promise<Atom[]> {
       const activeTarget = target || this.baseTarget;
       const headHash = await this.getHeadHash();
       return this.internalQuery(activeTarget, options, headHash);
@@ -49,7 +49,7 @@ export class AtomRepository {
   /**
    * Find a single atom by its identity key.
    */
-  async findById(identity: QueryIdentity, options: SearchOptions = {}): Promise<Atom | null> {
+  async findById(identity: QueryIdentity, options: QueryOptions = {}): Promise<Atom | null> {
       const atoms = await this.findByIds([identity], options);
       return atoms[0] || null;
   }
@@ -57,7 +57,7 @@ export class AtomRepository {
   /**
    * Find multiple atoms by their identity keys.
    */
-  async findByIds(identities: readonly QueryIdentity[], options: SearchOptions = {}, headHash?: string): Promise<Atom[]> {
+  async findByIds(identities: readonly QueryIdentity[], options: QueryOptions = {}, headHash?: string): Promise<Atom[]> {
       if (identities.length === 0) return [];
       const hash = headHash || await this.getHeadHash();
       return this.internalQuery(createTargetFromIdentities(identities), options, hash);
@@ -68,7 +68,7 @@ export class AtomRepository {
    */
   private async internalQuery(
     target: QueryTargetAST,
-    options: SearchOptions,
+    options: QueryOptions,
     headHash?: string,
   ): Promise<Atom[]> {
     const resolvedOptions = await this.resolveOptions(options);
@@ -120,7 +120,7 @@ export class AtomRepository {
   /**
    * Coarse Discovery: Search by physical paths and regex patterns.
    */
-  private async discoveryByPaths(target: QueryTargetAST, options: SearchOptions): Promise<Atom[]> {
+  private async discoveryByPaths(target: QueryTargetAST, options: QueryOptions): Promise<Atom[]> {
     const paths = target.resolvedPaths;
     const regexPatterns: string[][] = [];
     
@@ -129,7 +129,15 @@ export class AtomRepository {
         if (discoveryPatterns.length > 0) regexPatterns.push(discoveryPatterns);
     }
     
-    const filterPatterns = this.protocolRegistry.getSearchPatterns(options.filters as any);
+    // Authoritative resolution of filters before generating patterns
+    const filtersInput = options.filters || [];
+    const resolvedFilters = Array.isArray(filtersInput) && filtersInput.length > 0 && typeof filtersInput[0] !== 'string'
+        ? (filtersInput as readonly QualifiedFilter[])
+        : Array.isArray(filtersInput)
+            ? resolveFilterStrings(filtersInput as string[], this.protocolRegistry)
+            : resolveFilters(filtersInput as RawFilterMap, this.protocolRegistry);
+
+    const filterPatterns = this.protocolRegistry.getSearchPatterns(resolvedFilters);
     regexPatterns.push(...filterPatterns);
 
     if (options.scope) {
@@ -170,7 +178,7 @@ export class AtomRepository {
   /**
    * Coarse Discovery: Search by logical identities.
    */
-  private async discoveryByIdentities(target: QueryTargetAST, headHash?: string, options: SearchOptions = {}): Promise<Atom[]> {
+  private async discoveryByIdentities(target: QueryTargetAST, headHash?: string, options: QueryOptions = {}): Promise<Atom[]> {
     const identities = target.identities || [];
     const results: Atom[] = [];
     const missing: QueryIdentity[] = [];
@@ -270,14 +278,14 @@ export class AtomRepository {
   /**
    * Initial Discovery: Search by specific line ranges using git blame.
    */
-  private async discoveryByBlame(target: QueryTargetAST, options: SearchOptions = {}): Promise<Atom[]> {
+  private async discoveryByBlame(target: QueryTargetAST, options: QueryOptions = {}): Promise<Atom[]> {
       const range = target.lineRange;
       if (!range) throw new ProtocolError(`Target "${target.raw}" is not a valid range`, 1);
 
       const blameLines = await this.gitClient.blame(range.file, range.start, range.end);
       if (blameLines.length === 0) return [];
 
-      const commitHashes = Array.from(new Set(blameLines.map((l: any) => (l as any).commitHash as string)));
+      const commitHashes = Array.from(new Set(blameLines.map(l => l.commitHash)));
       const rawCommits = await this.gitClient.getCommitsByHashes(commitHashes);
       return hydrateAtoms(rawCommits, this.protocolRegistry, { includeAllCommits: options.includeAllCommits });
   }
@@ -285,7 +293,7 @@ export class AtomRepository {
   /**
    * Post-Processor: Orchestrates supersession logic and attaches it to the atoms.
    */
-  private postProcessAtoms(atoms: Atom[], _options: SearchOptions): Atom[] {
+  private postProcessAtoms(atoms: Atom[], _options: QueryOptions): Atom[] {
     if (atoms.length === 0) return [];
 
     const statusMap = resolveSupersession(atoms, this.protocolRegistry);
@@ -296,7 +304,8 @@ export class AtomRepository {
             if (!ctx) continue;
             
             const id = getProtocolIdentity(state, ctx);
-            const status = statusMap.get(pName.toLowerCase())?.get(id || '') as any;
+            const protocolStatusMap = statusMap.get(pName.toLowerCase());
+            const status: SupersessionStatus | undefined = id ? protocolStatusMap?.get(id) : undefined;
             
             if (status) {
                 state.supersession = {
@@ -421,18 +430,26 @@ export class AtomRepository {
   /**
    * Resolves raw options into Engine-native objects (Dates, ASTs).
    */
-  private async resolveOptions(options: SearchOptions): Promise<SearchOptions> {
-    const resolved = { ...options };
-    (resolved as any).filters = Array.isArray(options.filters)
-      ? options.filters
-      : resolveFilters(options.filters || {}, this.protocolRegistry);
+  private async resolveOptions(options: QueryOptions): Promise<QueryOptions> {
+    const resolved: QueryOptions = { ...options };
+    const filters = options.filters || [];
+    
+    const resolvedFilters = Array.isArray(filters) && filters.length > 0 && typeof filters[0] !== 'string'
+        ? (filters as readonly QualifiedFilter[])
+        : Array.isArray(filters)
+            ? resolveFilterStrings(filters as string[], this.protocolRegistry)
+            : resolveFilters(filters as RawFilterMap, this.protocolRegistry);
 
-    if (options.since && !options.sinceDate) {
-      (resolved as any).sinceDate = await this.gitClient.resolveDate(options.since);
-    }
-    if (options.until && !options.untilDate) {
-      (resolved as any).untilDate = await this.gitClient.resolveDate(options.until);
-    }
-    return resolved;
+    // Replace the loose filter/date fields with resolved engine equivalents
+    const resolvedValues = {
+        filters: resolvedFilters,
+        sinceDate: (options.since && !options.sinceDate) ? (await this.gitClient.resolveDate(options.since)) : options.sinceDate,
+        untilDate: (options.until && !options.untilDate) ? (await this.gitClient.resolveDate(options.until)) : options.untilDate,
+    };
+
+    return {
+        ...resolved,
+        ...resolvedValues
+    };
   }
 }

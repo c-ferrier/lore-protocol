@@ -2,10 +2,11 @@ import type { Command } from 'commander';
 
 // Pure Logic Modules
 import { createQueryTarget } from '../../../core/logic/query-targets.js';
+import { resolveFilterStrings } from '../../../core/logic/filtering.js';
 import type { EngineConfig } from '../../../core/types/config.js';
 import type { Atom } from '../../../core/types/domain.js';
 import type { FormattableQueryResult } from '../../../core/types/output.js';
-import type { QueryResult } from '../../../core/types/query.js';
+import type { QueryOptions,QueryResult } from '../../../core/types/query.js';
 import type { ILogger } from '../../../interfaces/logger.js';
 import type { IOutputFormatter } from '../../../interfaces/output-formatter.js';
 import type { AtomRepository } from '../../../services/atom-repository.js';
@@ -62,8 +63,8 @@ export async function executePathQuery(
 ): Promise<void> {
   const { atomRepository, getFormatter, config, logger, protocolRoot, cwd } = deps;
 
-  const queryOptions = {
-    filters: options.filter && options.filter.length > 0 ? options.filter : undefined,
+  const queryOptions: QueryOptions = {
+    filters: options.filter || [],
     scope: options.scope ?? null,
     follow: options.follow ?? false,
     maxDepth: config.follow.maxDepth,

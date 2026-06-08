@@ -4,7 +4,7 @@ import type { Command } from 'commander';
 import { createQueryTarget } from '../../core/logic/query-targets.js';
 import type { EngineConfig } from '../../core/types/config.js';
 import type { FormattableStalenessResult } from '../../core/types/output.js';
-import type { PathQueryOptions } from '../../core/types/query.js';
+import type { QueryOptions } from '../../core/types/query.js';
 import type { ILogger } from '../../interfaces/logger.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { AtomRepository } from '../../services/atom-repository.js';
@@ -43,7 +43,7 @@ export function registerStaleCommand(
     .option('--older-than <duration>', 'Time-based staleness threshold (e.g., 6m, 1y)')
     .option('--drift <n>', 'File drift threshold (commits since atom)', parseInt)
     .action(async (rawTarget: string | undefined, _options: StaleCommandOptions, command: Command) => {
-      const options = mergeOptions<StaleCommandOptions & PathQueryOptions>(command);
+      const options = mergeOptions<StaleCommandOptions & QueryOptions>(command);
       const { atomRepository, protocolRegistry, config, getFormatter } = deps;
 
       // 1. Resolve target using the pure logic

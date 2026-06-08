@@ -4,7 +4,7 @@ import type { Command } from 'commander';
 import { createQueryTarget } from '../../core/logic/query-targets.js';
 import type { Atom } from '../../core/types/domain.js';
 import type { FormattableQueryResult } from '../../core/types/output.js';
-import type { QueryResult } from '../../core/types/query.js';
+import type { QueryOptions,QueryResult } from '../../core/types/query.js';
 import type { ILogger } from '../../interfaces/logger.js';
 import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { AtomRepository } from '../../services/atom-repository.js';
@@ -38,8 +38,8 @@ export function registerSearchCommand(
     const { atomRepository, getFormatter, logger } = deps;
     const mergedOptions = mergeOptions<PathQueryCommandOptions & { text?: string; has?: string }>(command);
 
-    const searchOptions = {
-      filters: mergedOptions.filter && mergedOptions.filter.length > 0 ? mergedOptions.filter : undefined,
+    const searchOptions: QueryOptions = {
+      filters: mergedOptions.filter && mergedOptions.filter.length > 0 ? mergedOptions.filter : [],
       scope: mergedOptions.scope ?? null,
       follow: mergedOptions.follow ?? false,
       all: mergedOptions.all ?? false,

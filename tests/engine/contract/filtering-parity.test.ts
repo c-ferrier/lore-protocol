@@ -1,7 +1,7 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
-import { type SearchOptions } from '../../../src/engine/core/types/query.js';
+import { type QueryOptions } from '../../../src/engine/core/types/query.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
@@ -64,7 +64,7 @@ describe('AtomRepository Filtering Parity', () => {
     });
 
     it('should generate correct StorageQuery for the "has" trailer filter', async () => {
-      const options: SearchOptions = {
+      const options: QueryOptions = {
         has: 'Constraint',
       };
       await repo.find(undefined, options);
@@ -76,7 +76,7 @@ describe('AtomRepository Filtering Parity', () => {
     });
 
     it('should generate correct StorageQuery for Enum filters (pushdown)', async () => {
-      const options: SearchOptions = {
+      const options: QueryOptions = {
         filters: {
           Confidence: 'high'
         }
@@ -89,7 +89,7 @@ describe('AtomRepository Filtering Parity', () => {
     });
 
     it('should generate correct StorageQuery for full-text search (pushdown)', async () => {
-      const options: SearchOptions = {
+      const options: QueryOptions = {
         text: 'bug fix'
       };
       await repo.find(undefined, options);
@@ -100,7 +100,7 @@ describe('AtomRepository Filtering Parity', () => {
     });
 
     it('should escape regex special characters in scope and id (Security)', async () => {
-      const options: SearchOptions = {
+      const options: QueryOptions = {
         scope: 'auth) | grep (',
       };
       await repo.find(undefined, options);

@@ -1,7 +1,7 @@
 import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import {matchesFilters } from '../../shell/git/protocol-query-adapter.js';
 import type { Atom } from '../types/domain.js';
-import type { FilterOperator,QualifiedFilter, SearchOptions } from '../types/query.js';
+import type { FilterOperator,QualifiedFilter, QueryOptions } from '../types/query.js';
 import { ownsKey } from './ownership.js';
 
 /**
@@ -89,11 +89,11 @@ function parseFilterKey(raw: string): { protocol: string | null, key: string, op
 /**
  * Applies authoritative application-level filtering to a collection of atoms.
  */
-export function filterAtoms(atoms: readonly Atom[], options: SearchOptions, registry: ProtocolRegistry): Atom[] {
+export function filterAtoms(atoms: readonly Atom[], options: QueryOptions, registry: ProtocolRegistry): Atom[] {
   return atoms.filter((atom) => atomMatchesOptions(atom, options, registry));
 }
 
-function atomMatchesOptions(atom: Atom, options: SearchOptions, registry: ProtocolRegistry): boolean {
+function atomMatchesOptions(atom: Atom, options: QueryOptions, registry: ProtocolRegistry): boolean {
   // 1. Trailer presence filter (--has)
   if (options.has) {
     // Check if any protocol in the atom contains this trailer key

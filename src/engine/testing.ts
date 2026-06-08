@@ -15,7 +15,7 @@ import type { CommitInput } from './core/types/commit.js';
 import type { EngineConfig, TrailerDefinition,TrailerUiColor, TrailerUiKind } from './core/types/config.js';
 import type { Atom, ProtocolState } from './core/types/domain.js';
 import type { ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
-import type { QueryTargetAST, SearchOptions } from './core/types/query.js';
+import type { QueryTargetAST, QueryOptions } from './core/types/query.js';
 import type { RawCommit as IGitRawCommit } from './interfaces/git-client.js';
 import { AtomRepository } from './services/atom-repository.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
@@ -246,8 +246,8 @@ export function makeStubQueryCache(overrides: any = {}) {
     };
 }
 
-/** Stub Search Options. */
-export function makeStubSearchOptions(overrides: Partial<SearchOptions> = {}): SearchOptions {
+/** Stub Query Options. */
+export function makeStubQueryOptions(overrides: Partial<QueryOptions> = {}): QueryOptions {
     return {
         filters: [],
         follow: false,

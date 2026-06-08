@@ -37,7 +37,7 @@ export type {
     QualifiedFilter, 
     QueryIdentity, 
     QueryTargetAST, 
-    SearchOptions} from './core/types/query.js';
+    QueryOptions} from './core/types/query.js';
 
 // --- Primary Public Interfaces ---
 export type { BlameLine,CommitResult, IGitClient, RawCommit } from './interfaces/git-client.js';

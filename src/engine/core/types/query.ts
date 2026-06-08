@@ -34,9 +34,16 @@ export interface QueryTargetAST {
   readonly revisionRange?: string;
 }
 
-export interface PathQueryOptions {
-  /** Structured trailer filters (AST) or legacy flat map (to be normalized). */
-  readonly filters?: readonly QualifiedFilter[] | Record<string, any>;
+export type FilterValue = string | readonly string[] | null;
+export type RawFilterMap = Record<string, FilterValue>;
+
+/**
+ * Unified options for all discovery queries (log, search, context, etc.).
+ * These options form the identity of a query for caching purposes.
+ */
+export interface QueryOptions {
+  /** Structured trailer filters (AST), legacy flat map, or raw string queries. */
+  readonly filters?: readonly QualifiedFilter[] | RawFilterMap | readonly string[];
   readonly scope?: string | null;
   readonly follow?: boolean;
   /** Maximum recursion depth for transitive link following. */
@@ -52,6 +59,17 @@ export interface PathQueryOptions {
   readonly until?: string | null;
   /** Whether to use the query cache. Defaults to true. */
   readonly cache?: boolean;
+  /** Trailer presence filter (any value) */
+  readonly has?: string | null;
+  /** Full-text search across intent, body, and trailers */
+  readonly text?: string | null;
+
+  /** Pre-resolved date for the authoritative application-level filter pass. */
+  readonly sinceDate?: Date | null;
+  /** Pre-resolved date for the authoritative application-level filter pass. */
+  readonly untilDate?: Date | null;
+  /** Whether to include every commit in the range, even if it has no protocol trailers. */
+  readonly includeAllCommits?: boolean;
 }
 
 /**
@@ -72,32 +90,8 @@ export interface QualifiedFilter {
   /** The logical operation to perform. */
   readonly op: FilterOperator;
   /** The comparison value (literal, array of values, or regex string). */
-  readonly value: any;
+  readonly value: FilterValue;
 }
-
-/**
- * Enhanced options for cross-cutting search queries.
- * Pushes coarse filtering down to the Git layer where possible.
- */
-export interface SearchOptions extends PathQueryOptions {
-  /** Trailer presence filter (any value) */
-  readonly has?: string | null;
-  /** Full-text search across intent, body, and trailers */
-  readonly text?: string | null;
-
-  /** Pre-resolved date for the authoritative application-level filter pass. */
-  readonly sinceDate?: Date | null;
-  /** Pre-resolved date for the authoritative application-level filter pass. */
-  readonly untilDate?: Date | null;
-  /** Whether to include every commit in the range, even if it has no protocol trailers. */
-  readonly includeAllCommits?: boolean;
-}
-
-/**
- * Unified options for all discovery queries (log, search, context, etc.).
- * These options form the identity of a query for caching purposes.
- */
-export type QueryOptions = SearchOptions;
 
 export interface QueryResult {
   readonly command: string;

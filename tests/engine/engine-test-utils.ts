@@ -17,7 +17,7 @@ import {
     makeStubProtocolContext,
     makeStubProtocolRegistry, 
     makeStubQueryCache,
-    makeStubSearchOptions,
+    makeStubQueryOptions,
     TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
 
 /**
@@ -169,9 +169,9 @@ export {
     type ProtocolContext,
     type ProtocolDefinition,    TEST_ENGINE_CONFIG};
 
-import { SearchOptions } from '../../src/engine/core/types/query.js';
+import { QueryOptions } from '../../src/engine/core/types/query.js';
 
 /** Helper to create query/search options for tests. */
-export function makeQueryOptions(overrides: Partial<SearchOptions> = {}): SearchOptions {
-    return makeStubSearchOptions(overrides);
+export function makeQueryOptions(overrides: Partial<QueryOptions> = {}): QueryOptions {
+    return makeStubQueryOptions(overrides);
 }

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import type { QueryOptions, SearchOptions } from '../../../../src/engine/core/types/query.js';
+import type { QueryOptions } from '../../../../src/engine/core/types/query.js';
 import { runCli } from '../../../../src/engine/index-impl.js';
 import { QueryCache } from '../../../../src/engine/shell/fs/query-cache.js';
 import {
@@ -42,7 +42,7 @@ describe('QueryCache Implementation', () => {
     has: null,
   });
 
-  const getBaseOptions = (): SearchOptions => ({
+  const getBaseOptions = (): QueryOptions => ({
     scope: null, author: null, since: null, until: null, text: null,
     all: false, limit: null, maxCommits: null, has: null, follow: false,
     filters: {},
