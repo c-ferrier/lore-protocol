@@ -44,7 +44,7 @@ export async function executeEngineInit(deps: InitDeps, defaultConfig: EngineCon
     // Perform Gap Analysis for the Engine Config
     try {
         const content = await readFile(configPath, 'utf-8');
-        const parsed = parseToml(content) as any;
+        const parsed = parseToml(content) as Record<string, unknown>;
         const { missing } = analyzeConfigGaps(parsed, ENGINE_CONFIG_SCHEMA, defaultConfig);
 
         if (missing.length > 0) {
@@ -107,10 +107,10 @@ async function ensureCacheIgnored(deps: InitDeps): Promise<void> {
 }
 
 function serializeToToml(config: EngineConfig): string {
-    const output: any = {};
+    const output: Record<string, Record<string, unknown>> = {};
     for (const [section, data] of Object.entries(config)) {
         output[section] = {};
-        for (const [key, value] of Object.entries(data as any)) {
+        for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
             const snakeKey = key.replace(/[A-Z]/g, l => `_${l.toLowerCase()}`);
             output[section][snakeKey] = value;
         }

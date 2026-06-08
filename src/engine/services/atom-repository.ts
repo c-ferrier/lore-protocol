@@ -87,7 +87,7 @@ export class AtomRepository {
     }
 
     // 2. Initial Discovery Pass
-    let initialAtoms: Atom[] = [];
+    let initialAtoms: Atom[];
 
     if (isBlameTarget(target)) {
         initialAtoms = await this.discoveryByBlame(target, resolvedOptions);
@@ -248,7 +248,6 @@ export class AtomRepository {
                 }
 
                 // Priority 2: If no protocol, check ALL registered protocols (Disambiguation)
-                const primaryProtocol = (this.protocolRegistry.getByNamespace(GLOBAL_NAMESPACE)?.def.name || '').toLowerCase();
                 for (const [name, state] of a.protocols) {
                     const ctx = this.protocolRegistry.get(name);
                     if (ctx) {
