@@ -9,7 +9,7 @@ import { AtomRepository } from '../../../src/engine/services/atom-repository.js'
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { GitClient } from '../../../src/engine/shell/git/git-client.js';
-import { makeStubProtocolContext, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS } from '../../../src/engine/testing.js';
+import { makeStubProtocolContext, MOCK_CORE_TRAILERS,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 
 describe('AtomRepository Git Integration', () => {
   let testDir: string;

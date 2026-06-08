@@ -1,4 +1,4 @@
-import { ProtocolMap, type HierarchicalTrailers, type ProtocolState } from './domain.js';
+import { type HierarchicalTrailers, ProtocolMap, type ProtocolState } from './domain.js';
 
 /**
  * The structured input for creating a atom.

@@ -4,7 +4,7 @@ import { normalizeTrailers } from '../../../../src/engine/core/logic/normalizati
 import { getAuthorizedKeys } from '../../../../src/engine/core/logic/protocols.js';
 import { serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
 import { TriggerParser } from '../../../../src/engine/core/logic/trigger-parser.js';
-import { makeStubProtocolContext, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext, MOCK_CORE_TRAILERS,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('Normalization Logic (Strict Segmented Waterfall)', () => {
   describe('Root Context (Global)', () => {

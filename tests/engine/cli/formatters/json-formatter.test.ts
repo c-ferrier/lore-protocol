@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { JsonFormatter } from '../../../../src/engine/cli/formatters/json-formatter.js';
-import type { ProtocolState, Trailers } from '../../../../src/engine/core/types/domain.js';
+import type { ProtocolState } from '../../../../src/engine/core/types/domain.js';
 import type { 
     FormattableDoctorResult, 
     FormattableQueryResult, 
@@ -14,10 +14,9 @@ import { ProtocolRegistry } from '../../../../src/engine/services/protocol-regis
 import { 
     makeAtom, 
     makeStubProtocolContext, 
+    MOCK_CORE_TRAILERS,
     TEST_ID_KEY, 
-    TEST_PROTOCOL_DEFINITION,
-    MOCK_CORE_TRAILERS
-} from '../../../../src/engine/testing.js';
+    TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
 
 describe('JsonFormatter', () => {
   let registry: ProtocolRegistry;

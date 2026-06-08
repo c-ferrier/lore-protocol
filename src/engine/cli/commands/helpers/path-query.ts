@@ -2,7 +2,6 @@ import type { Command } from 'commander';
 
 // Pure Logic Modules
 import { createQueryTarget } from '../../../core/logic/query-targets.js';
-import { resolveFilterStrings } from '../../../core/logic/filtering.js';
 import type { EngineConfig } from '../../../core/types/config.js';
 import type { Atom } from '../../../core/types/domain.js';
 import type { FormattableQueryResult } from '../../../core/types/output.js';

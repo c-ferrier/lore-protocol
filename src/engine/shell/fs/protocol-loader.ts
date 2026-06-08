@@ -3,7 +3,7 @@ import { basename, extname,join } from 'node:path';
 
 import { parse as parseToml } from 'smol-toml';
 
-import type { EngineConfig, TrailerDefinition } from '../../core/types/config.js';
+import type { EngineConfig } from '../../core/types/config.js';
 import type { ProtocolDefinition } from '../../core/types/protocol-definition.js';
 import { ConfigurationError } from '../../util/errors.js';
 import { ProtocolHydrator } from './protocol-hydrator.js';

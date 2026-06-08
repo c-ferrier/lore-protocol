@@ -2,7 +2,7 @@ import { describe, expect,it } from 'vitest';
 
 import { getAuthorizedKeys } from '../../../../src/engine/core/logic/protocols.js';
 import { parseTrailers, serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
-import { makeStubProtocolContext, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext, MOCK_CORE_TRAILERS,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('Trailer Logic (Pure Functions)', () => {
   describe('parseTrailers', () => {

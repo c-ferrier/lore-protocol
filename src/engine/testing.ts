@@ -15,7 +15,7 @@ import type { CommitInput } from './core/types/commit.js';
 import type { EngineConfig, TrailerDefinition,TrailerUiColor, TrailerUiKind } from './core/types/config.js';
 import type { Atom, ProtocolState } from './core/types/domain.js';
 import type { ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
-import type { QueryTargetAST, QueryOptions } from './core/types/query.js';
+import type { QueryOptions,QueryTargetAST } from './core/types/query.js';
 import type { RawCommit as IGitRawCommit } from './interfaces/git-client.js';
 import { AtomRepository } from './services/atom-repository.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
