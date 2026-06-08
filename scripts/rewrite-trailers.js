@@ -78,7 +78,7 @@ if (mode === 'sequence') {
         process.exit(1);
     }
 
-    const scriptPath = fileURLToPath(import.meta.url);
+    const scriptPath = import.meta.filename;
 
     console.log(`\nStarting automated rebase from \x1b[36m${baseCommit}\x1b[0m...`);
     console.log(`Search:  \x1b[33m/${searchRegex}/g\x1b[0m`);
