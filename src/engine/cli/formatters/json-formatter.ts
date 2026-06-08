@@ -208,18 +208,11 @@ export class JsonFormatter implements IOutputFormatter {
   /**
    * Serialize all protocols for an atom.
    */
-  serializeAtoms(atoms: readonly Atom[]): Record<string, any>[] {
-      return atoms.map(a => this.serializeProtocols(a, 'all'));
-  }
-
-  /**
-   * Serialize all protocols for an atom.
-   */
   serializeProtocols(
     atom: Atom, 
     visibleTrailers: readonly string[] | 'all' = 'all'
-  ): Record<string, any> {
-    const protocols: Record<string, any> = {};
+  ): Record<string, unknown> {
+    const protocols: Record<string, unknown> = {};
     for (const [name, state] of atom.protocols.entries()) {
       protocols[name] = this.serializeProtocolState(
         state, 
@@ -237,7 +230,7 @@ export class JsonFormatter implements IOutputFormatter {
     state: ProtocolState,
     protocolName: string,
     visibleTrailers: readonly string[] | 'all'
-  ): Record<string, any> {
+  ): Record<string, unknown> {
     const p = this.protocolRegistry.get(protocolName);
     const id = p ? getProtocolIdentity(state, p) : null;
 

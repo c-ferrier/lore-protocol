@@ -328,7 +328,7 @@ export class TextFormatter implements IOutputFormatter {
       magenta: 'magenta',
       white: 'white',
     };
-    const key = colors[name] || 'dim';
+    const key = (colors[name] || 'dim') as keyof ChalkInstance;
     return this.c[key] as ChalkInstance;
   }
 
