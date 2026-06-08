@@ -24,20 +24,23 @@ export class DynamicProtocolLoader {
   async loadFromFile(filePath: string): Promise<ProtocolDefinition> {
     try {
       const content = await readFile(filePath, 'utf-8');
-      const raw = parseToml(content) as any;
+      const raw = parseToml(content) as Record<string, unknown>;
       const slug = basename(filePath, '.toml').toLowerCase();
 
+      const name = (raw.name as string | undefined) || basename(filePath, '.toml');
+
       return {
-        name: raw.name || basename(filePath, '.toml'),
-        version: raw.version || '1.0',
-        namespace: raw.namespace !== undefined ? raw.namespace : slug,
-        identityKey: raw.identity_key || raw.identityKey || `${raw.name || slug}-id`,
-        strict: raw.strict !== undefined ? raw.strict : true, // Strict by default
-        permissive: raw.permissive !== undefined ? raw.permissive : false, // False by default
-        trailers: this.hydrateTrailers(raw.trailers || {}),
+        name,
+        version: (raw.version as string | undefined) || '1.0',
+        namespace: raw.namespace !== undefined ? (raw.namespace as string) : slug,
+        identityKey: (raw.identity_key as string | undefined) || (raw.identityKey as string | undefined) || `${name}-id`,
+        strict: typeof raw.strict === 'boolean' ? raw.strict : true, // Strict by default
+        permissive: typeof raw.permissive === 'boolean' ? raw.permissive : false, // False by default
+        trailers: ProtocolHydrator.hydrateAll((raw.trailers as Record<string, unknown>) || {}),
       };
-    } catch (err: any) {
-      throw new ConfigurationError(`Failed to load protocol from "${filePath}": ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new ConfigurationError(`Failed to load protocol from "${filePath}": ${message}`);
     }
   }
 
@@ -48,14 +51,6 @@ export class DynamicProtocolLoader {
       } catch {
           return false;
       }
-  }
-
-  private hydrateTrailers(rawData: Record<string, any>): Record<string, TrailerDefinition> {
-    const result: Record<string, TrailerDefinition> = {};
-    for (const [key, value] of Object.entries(rawData)) {
-      result[key] = ProtocolHydrator.hydrateTrailer(key, value);
-    }
-    return result;
   }
 }
 
@@ -88,7 +83,7 @@ export class ProtocolLoader {
         // Ensure hydration even for mocked dynamic loaders
         const hydratedD = {
             ...d,
-            trailers: this.hydrateTrailers(d.trailers || {})
+            trailers: ProtocolHydrator.hydrateAll(d.trailers || {})
         };
 
         const base = staticMap.get(dName);
@@ -115,7 +110,7 @@ export class ProtocolLoader {
             // Ensure hydration for static ones too (just in case)
             mergedMap.set(sName, {
                 ...s,
-                trailers: this.hydrateTrailers(s.trailers || {})
+                trailers: ProtocolHydrator.hydrateAll(s.trailers || {})
             });
         }
     }
@@ -154,13 +149,5 @@ export class ProtocolLoader {
         trailers: mergedTrailers,
       };
     });
-  }
-
-  private hydrateTrailers(rawData: Record<string, any>): Record<string, TrailerDefinition> {
-    const result: Record<string, TrailerDefinition> = {};
-    for (const [key, value] of Object.entries(rawData)) {
-      result[key] = ProtocolHydrator.hydrateTrailer(key, value);
-    }
-    return result;
   }
 }
