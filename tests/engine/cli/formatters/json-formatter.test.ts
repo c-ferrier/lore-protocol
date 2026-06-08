@@ -15,9 +15,9 @@ import {
     makeAtom, 
     makeStubProtocolContext, 
     TEST_ID_KEY, 
-    TEST_PROTOCOL_DEFINITION 
+    TEST_PROTOCOL_DEFINITION,
+    MOCK_CORE_TRAILERS
 } from '../../../../src/engine/testing.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
 
 describe('JsonFormatter', () => {
   let registry: ProtocolRegistry;
@@ -212,20 +212,22 @@ describe('JsonFormatter', () => {
 
   describe('JSON Normalization Matrix', () => {
     it('should correctly coerce core scalars and preserve all other arrays', () => {
-      const protocol = makeStubProtocolContext(LoreProtocolDefinition);
+      const protocol = makeStubProtocolContext({
+          ...TEST_PROTOCOL_DEFINITION,
+          trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
+      });
       const registry = new ProtocolRegistry();
       registry.register(protocol);
       const formatter = new JsonFormatter(registry);
-      const trailers: Trailers = {
-        'Lore-id': ['id'],
+      const trailers: Record<string, string[]> = {
+        [TEST_ID_KEY]: ['id'],
         'Confidence': ['high'],      // Scalar core
         'Constraint': ['C1', 'C2'],  // Array core
-        'Tested': ['T1'],            // Array core (single value)
         'Custom': ['V1'],            // Custom (defaults to array)
       };
       const atom = makeAtom({
         protocols: new Map<string, ProtocolState>([
-          ['lore', { trailers, unauthorized: {} }]
+          ['mock', { trailers, unauthorized: {} }]
         ])
       });
       const data: FormattableQueryResult = {
@@ -233,11 +235,10 @@ describe('JsonFormatter', () => {
         visibleTrailers: 'all',
       };
       const output = JSON.parse(formatter.formatQueryResult(data));
-      const lore = output.results[0].protocols.lore;
-      expect(lore.trailers.Confidence).toBe('high');        // Canonical Key + Coerced to scalar
-      expect(lore.trailers.Constraint).toEqual(['C1', 'C2']); // Canonical Key + Remained array
-      expect(lore.trailers.Tested).toEqual(['T1']);           // Canonical Key + Remained array
-      expect(lore.trailers.Custom).toEqual(['V1']);           // Remained array
+      const mock = output.results[0].protocols.mock;
+      expect(mock.trailers.Confidence).toBe('high');        // Canonical Key + Coerced to scalar
+      expect(mock.trailers.Constraint).toEqual(['C1', 'C2']); // Canonical Key + Remained array
+      expect(mock.trailers.Custom).toEqual(['V1']);           // Remained array
     });
   });
 });

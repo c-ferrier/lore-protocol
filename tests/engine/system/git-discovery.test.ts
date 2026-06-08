@@ -9,15 +9,7 @@ import { AtomRepository } from '../../../src/engine/services/atom-repository.js'
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { GitClient } from '../../../src/engine/shell/git/git-client.js';
-import { makeStubProtocolContext } from '../../../src/engine/testing.js';
-import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-;
-;
-;
-;
-;
-;
-;
+import { makeStubProtocolContext, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS } from '../../../src/engine/testing.js';
 
 describe('AtomRepository Git Integration', () => {
   let testDir: string;
@@ -38,7 +30,7 @@ describe('AtomRepository Git Integration', () => {
     // 1. Valid Lore Atom
     writeFileSync(join(testDir, 'file1.txt'), 'content1');
     run('git add .');
-    run('git commit -m "feat(auth): login feature\n\nLore-id: 00000001\nConfidence: high"');
+    run(`git commit -m "feat(auth): login feature\n\n${TEST_ID_KEY}: 00000001\nConfidence: high"`);
     
     // Add delay to ensure distinct timestamps for --since tests
     run('sleep 1.1');
@@ -47,7 +39,7 @@ describe('AtomRepository Git Integration', () => {
     run('git config user.name "Other User"');
     writeFileSync(join(testDir, 'file2.txt'), 'content2');
     run('git add .');
-    run('git commit -m "fix(ui): layout\n\nLore-id: 00000002\nConfidence: low"');
+    run(`git commit -m "fix(ui): layout\n\n${TEST_ID_KEY}: 00000002\nConfidence: low"`);
 
     // 3. Non-Lore Commit (Should be filtered by discovery mode)
     run('sleep 1.1');
@@ -59,13 +51,16 @@ describe('AtomRepository Git Integration', () => {
     run('sleep 1.1');
     writeFileSync(join(testDir, 'file4.txt'), 'content4');
     run('git add .');
-    run('git commit -m "feat: fake\n\nLore-id: NOT-A-HEX-ID"');
+    run(`git commit -m "feat: fake\n\n${TEST_ID_KEY}: NOT-A-HEX-ID"`);
   });
 
   beforeEach(() => {
     gitClient = new GitClient(testDir);
     const protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(makeStubProtocolContext(LoreProtocolDefinition));
+    protocolRegistry.register(makeStubProtocolContext({
+        ...TEST_PROTOCOL_DEFINITION,
+        trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
+    }));
     const queryCache = new NullQueryCache();
 
     const baseTarget = createQueryTarget(undefined, {
@@ -87,11 +82,11 @@ describe('AtomRepository Git Integration', () => {
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  it('Discovery Mode: should only return commits with valid Lore-id trailers', async () => {
+  it('Discovery Mode: should only return commits with valid Mock-id trailers', async () => {
     const result = await repo.find();
     // Should find #1 and #2, but not #3 (chore) or #4 (fake trailer)
     expect(result).toHaveLength(2);
-    const ids = result.map(a => a.protocols.get('lore')?.trailers['Lore-id']?.[0]);
+    const ids = result.map(a => a.protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]);
     expect(ids).toContain('00000001');
     expect(ids).toContain('00000002');
   });
@@ -133,7 +128,7 @@ describe('AtomRepository Git Integration', () => {
     // HEAD~3 is the first commit (#1). HEAD~2 is #2, HEAD~1 is #3.
     // until=HEAD~3 includes only #1.
     expect(result).toHaveLength(1);
-    expect(result[0].protocols.get('lore')?.trailers['Lore-id']?.[0]).toBe('00000001');
+    expect(result[0].protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe('00000001');
   });
 
   it('Coarse Filtering: should handle commit hashes', async () => {

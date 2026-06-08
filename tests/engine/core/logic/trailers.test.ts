@@ -2,10 +2,8 @@ import { describe, expect,it } from 'vitest';
 
 import { getAuthorizedKeys } from '../../../../src/engine/core/logic/protocols.js';
 import { parseTrailers, serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
-import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
+import { makeStubProtocolContext, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS } from '../../../../src/engine/testing.js';
 
-const LORE_ID_KEY = 'Lore-id';
 describe('Trailer Logic (Pure Functions)', () => {
   describe('parseTrailers', () => {
     it('should parse simple trailers', () => {
@@ -100,20 +98,23 @@ describe('Trailer Logic (Pure Functions)', () => {
 });
   describe('Canonical Ordering', () => {
     it('should always serialize in protocol-defined order regardless of insertion order', () => {
-      const protocol = makeStubProtocolContext(LoreProtocolDefinition);
+      const protocol = makeStubProtocolContext({
+          ...TEST_PROTOCOL_DEFINITION,
+          trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
+      });
       // Input in "wrong" order
       const trailers = {
         'Tested': ['T1'],
         'Confidence': ['high'],
-        [LORE_ID_KEY]: ['id123'],
+        [TEST_ID_KEY]: ['id123'],
         'Constraint': ['C1'],
         'My-Custom': ['Val']
       };
       const output = serializeTrailers(trailers, getAuthorizedKeys(protocol));
       const lines = output.split('\n');
-      // Canonical order from core-definitions.ts: 
-      // Lore-id (always first) -> Constraint -> Confidence -> Tested -> Custom
-      expect(lines[0]).toBe(`${LORE_ID_KEY}: id123`);
+      // Canonical order from stub context: 
+      // Identity -> Constraint -> Confidence -> Tested -> Custom
+      expect(lines[0]).toBe(`${TEST_ID_KEY}: id123`);
       expect(lines[1]).toBe('Constraint: C1');
       expect(lines[2]).toBe('Confidence: high');
       expect(lines[3]).toBe('Tested: T1');

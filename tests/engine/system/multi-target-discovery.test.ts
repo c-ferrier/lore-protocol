@@ -9,15 +9,7 @@ import { AtomRepository } from '../../../src/engine/services/atom-repository.js'
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { GitClient } from '../../../src/engine/shell/git/git-client.js';
-import { makeStubProtocolContext } from '../../../src/engine/testing.js';
-import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
-;
-;
-;
-;
-;
-;
-;
+import { makeStubProtocolContext, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 
 describe('Multi-Target Atom Discovery', () => {
   let testDir: string;
@@ -38,30 +30,30 @@ describe('Multi-Target Atom Discovery', () => {
     // 1. Atom touching fileA
     writeFileSync(join(testDir, 'fileA.ts'), 'A');
     run('git add fileA.ts');
-    run('git commit -m "feat(a): atom A\n\nLore-id: 0000000a"');
+    run(`git commit -m "feat(a): atom A\n\n${TEST_ID_KEY}: 0000000a"`);
 
     // 2. Atom touching file B
     writeFileSync(join(testDir, 'fileB.ts'), 'B');
     run('git add fileB.ts');
-    run('git commit -m "feat(b): atom B\n\nLore-id: 0000000b"');
+    run(`git commit -m "feat(b): atom B\n\n${TEST_ID_KEY}: 0000000b"`);
 
     // 3. Atom touching both A and B
     writeFileSync(join(testDir, 'fileA.ts'), 'A2');
     writeFileSync(join(testDir, 'fileB.ts'), 'B2');
     run('git add fileA.ts fileB.ts');
-    run('git commit -m "feat(ab): atom AB\n\nLore-id: 000000ab"');
+    run(`git commit -m "feat(ab): atom AB\n\n${TEST_ID_KEY}: 000000ab"`);
 
     // 4. Atom touching unrelated file
     writeFileSync(join(testDir, 'fileC.ts'), 'C');
     run('git add fileC.ts');
-    run('git commit -m "feat(c): atom C\n\nLore-id: 0000000c"');
+    run(`git commit -m "feat(c): atom C\n\n${TEST_ID_KEY}: 0000000c"`);
 
   });
 
   beforeEach(() => {
     gitClient = new GitClient(testDir);
     const registry = new ProtocolRegistry();
-    registry.register(makeStubProtocolContext(LoreProtocolDefinition));
+    registry.register(makeStubProtocolContext(TEST_PROTOCOL_DEFINITION));
     
     const context = {
         cwd: testDir,
@@ -87,7 +79,7 @@ describe('Multi-Target Atom Discovery', () => {
     
     // Should find A, B, and AB, but NOT C.
     expect(result).toHaveLength(3);
-    const ids = result.map(a => a.protocols.get('lore')?.trailers['Lore-id']?.[0]);
+    const ids = result.map(a => a.protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]);
     expect(ids).toContain('0000000a');
     expect(ids).toContain('0000000b');
     expect(ids).toContain('000000ab');

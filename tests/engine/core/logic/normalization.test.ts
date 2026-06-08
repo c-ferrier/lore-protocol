@@ -4,10 +4,8 @@ import { normalizeTrailers } from '../../../../src/engine/core/logic/normalizati
 import { getAuthorizedKeys } from '../../../../src/engine/core/logic/protocols.js';
 import { serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
 import { TriggerParser } from '../../../../src/engine/core/logic/trigger-parser.js';
-import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
+import { makeStubProtocolContext, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION, MOCK_CORE_TRAILERS } from '../../../../src/engine/testing.js';
 
-const LORE_ID_KEY = 'Lore-id';
 describe('Normalization Logic (Strict Segmented Waterfall)', () => {
   describe('Root Context (Global)', () => {
     const rootProtocol = makeStubProtocolContext({
@@ -151,14 +149,15 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
     });
   describe('Strict Mode Boundaries', () => {
     it('should strictly prune unauthorized custom trailers in non-permissive mode', () => {
-      const protocol = makeStubProtocolContext(LoreProtocolDefinition, {
+      const protocol = makeStubProtocolContext({
+        ...TEST_PROTOCOL_DEFINITION,
         strict: true,
         permissive: false,
         trailers: { 
-          'Authorized': { description: '', multivalue: true, validation: 'none' } 
+          'Authorized': { description: '', multivalue: true, validation: 'none' as const } 
         }
       });
-      const raw = `${LORE_ID_KEY}: abc\nAuthorized: yes\nUnauthorized: no`;
+      const raw = `${TEST_ID_KEY}: abc\nAuthorized: yes\nUnauthorized: no`;
       const result = normalizeTrailers(TriggerParser.parseTrailers(raw), protocol);
       const parsed = result.trailers;
       expect(parsed['Authorized']).toEqual(['yes']);
@@ -170,9 +169,12 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
 });
   describe('Key Case Resilience', () => {
     it('should treat trailers as case-insensitive for core mapping', () => {
-      const protocol = makeStubProtocolContext(LoreProtocolDefinition);
+      const protocol = makeStubProtocolContext({
+          ...TEST_PROTOCOL_DEFINITION,
+          trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
+      });
       // User provides lowercase 'confidence'
-      const raw = `${LORE_ID_KEY}: abc\nconfidence: low`;
+      const raw = `${TEST_ID_KEY}: abc\nconfidence: low`;
       const result = normalizeTrailers(TriggerParser.parseTrailers(raw), protocol);
       const parsed = result.trailers;
       // Should be mapped to the canonical PascalCase key
