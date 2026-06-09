@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerCommitCommand } from '../../../../src/engine/cli/commands/commit.js';
 import * as FormattingLogic from '../../../../src/engine/core/logic/commit-formatting.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import * as HeadIdReader from '../../../../src/engine/shell/git/head-id-reader.js';
 import { 
     makeCommitInput, 
@@ -15,15 +16,19 @@ import {
     makeMockFormatter, 
     makeMockGitClient, 
     makeMockInputResolver, 
-    makeMockPrompt 
+    makeMockPrompt, 
+    MockedGitClient,
+    MockedPrompt
 } from '../../engine-test-utils.js';
+import { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
+import { ILogger } from '../../../../src/engine/interfaces/logger.js';
 
 vi.mock('../../../../src/engine/shell/git/head-id-reader.js', () => ({
     readHeadIdentities: vi.fn().mockResolvedValue({})
 }));
 
 vi.mock('../../../../src/engine/core/logic/commit-formatting.js', async (importOriginal) => {
-    const actual = await importOriginal<any>();
+    const actual = await importOriginal<typeof FormattingLogic>();
     return {
         ...actual,
         formatCommit: vi.fn(actual.formatCommit),
@@ -31,15 +36,25 @@ vi.mock('../../../../src/engine/core/logic/commit-formatting.js', async (importO
     };
 });
 
-async function runCommitCommand(args: string[], deps: any): Promise<void> {
+interface Deps {
+    gitClient: MockedGitClient;
+    getFormatter: () => IOutputFormatter;
+    commitInputResolver: any;
+    prompt: MockedPrompt;
+    config: typeof TEST_ENGINE_CONFIG;
+    protocolRegistry: ProtocolRegistry;
+    logger: ILogger;
+}
+
+async function runCommitCommand(args: string[], deps: Deps): Promise<void> {
   const program = new Command();
   program.exitOverride();
   // registerCommitCommand(program, deps, prompt)
-  registerCommitCommand(program, deps, deps.prompt);
+  registerCommitCommand(program, deps as any, deps.prompt);
   await program.parseAsync(['node', 'atom', 'commit', ...args]);
 }
 
-function createDeps(overrides: any = {}) {
+function createDeps(overrides: Partial<Deps> = {}): Deps {
   const protocol = makeStubProtocolContext();
   const protocolRegistry = makeStubProtocolRegistry([protocol]);
   const formatter = makeMockFormatter();
@@ -51,11 +66,19 @@ function createDeps(overrides: any = {}) {
     commitInputResolver: makeMockInputResolver(),
     prompt,
     config: TEST_ENGINE_CONFIG,
-    protocol,
     protocolRegistry,
-    logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), result: vi.fn() },
+    logger: { 
+        warn: vi.fn(), 
+        info: vi.fn(), 
+        error: vi.fn(), 
+        result: vi.fn(),
+        trace: vi.fn(),
+        debug: vi.fn(),
+        child: vi.fn().mockReturnThis(),
+        level: 0
+    } as unknown as ILogger,
     ...overrides
-  };
+  } as Deps;
 }
 
 describe('atom commit --amend', () => {

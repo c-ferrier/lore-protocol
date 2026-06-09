@@ -5,17 +5,20 @@ import { registerDoctorCommand } from '../../../../src/engine/cli/commands/docto
 import { type Atom } from '../../../../src/engine/core/types/domain.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeStubProtocolContext, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
-import { makeMockAtomRepository, makeMockConfigLoader, makeMockFormatter, TestLogger } from '../../engine-test-utils.js';
+import { makeMockAtomRepository, makeMockConfigLoader, makeMockFormatter, makeMockGitClient, MockedConfigLoader, TestLogger } from '../../engine-test-utils.js';
+import { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
+import { IGitClient } from '../../../../src/engine/interfaces/git-client.js';
 
 describe('Doctor Command', () => {
   let atomRepository: any;
-  let configLoader: any;
+  let configLoader: MockedConfigLoader;
   let protocol: any;
 
   beforeEach(() => {
     atomRepository = makeMockAtomRepository();
     configLoader = makeMockConfigLoader({
-        resolveRoot: vi.fn().mockResolvedValue('/repo'),
+        loadForPath: vi.fn().mockResolvedValue({}),
+        loadFromFile: vi.fn().mockResolvedValue({}),
         findConfigPath: vi.fn().mockResolvedValue('/repo/.mock/config.toml'),
     });
     protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
@@ -26,19 +29,23 @@ describe('Doctor Command', () => {
     vi.restoreAllMocks();
   });
 
-  async function runDoctor(deps: any) {
+  async function runDoctor(deps: {
+      atomRepository?: any;
+      getFormatter?: () => IOutputFormatter;
+      protocolRegistry?: ProtocolRegistry;
+      logger?: TestLogger;
+      gitClient?: IGitClient;
+  }) {
     const program = new Command();
     program.exitOverride();
     
-    // Tiered signature: registerDoctorCommand(program, deps)
-    // where deps contains the full I/O bag
+    // registerDoctorCommand(program, deps)
     registerDoctorCommand(program, {
-        atomRepository: deps.atomRepository || atomRepository,
+        gitClient: deps.gitClient || makeMockGitClient(),
         getFormatter: deps.getFormatter || (() => makeMockFormatter()),
         protocolRegistry: deps.protocolRegistry || new ProtocolRegistry(),
         logger: deps.logger || new TestLogger(),
-        configLoader
-    } as any);
+    });
     
     try {
       await program.parseAsync(['node', 'atom', 'doctor']);
@@ -95,7 +102,7 @@ describe('Doctor Command', () => {
       atomRepository,
       logger,
       protocolRegistry: registry,
-      getFormatter: () => ({
+      getFormatter: () => makeMockFormatter({
           formatDoctorResult: vi.fn().mockReturnValue('Duplicate ID')
       })
     });

@@ -24,7 +24,7 @@ import { makeMockAtomRepository,TestLogger } from '../../engine-test-utils.js';
 
 interface Harness {
   program: Command;
-  capturedResult: { data: unknown };
+  capturedResult: { data: any };
   repo: any;
   logger: TestLogger;
 }
@@ -34,9 +34,9 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
       find: vi.fn().mockResolvedValue(filteredAtoms ?? atoms),
   });
 
-  const capturedResult: { data: unknown } = { data: undefined };
+  const capturedResult: { data: any } = { data: undefined };
   const formatter = {
-    formatQueryResult: vi.fn((data: unknown) => {
+    formatQueryResult: vi.fn((data: any) => {
         capturedResult.data = data;
         return '';
     }),
@@ -80,9 +80,9 @@ describe('registerLogCommand (agnostic path arguments)', () => {
     const [target] = h.repo.find.mock.calls[0];
     expect(target.resolvedPaths).toContain('src/main.ts');
 
-    const result = (h.capturedResult.data as { result: { atoms: any[] } }).result;
+    const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(1);
-    expect(result.atoms[0].protocols.get('mock').trailers[TEST_ID_KEY][0]).toBe('match0002');
+    expect(result.atoms[0].protocols.get('mock')!.trailers[TEST_ID_KEY][0]).toBe('match0002');
   });
 
   it('accepts the `--` pass-through and routes identically', async () => {
@@ -98,9 +98,9 @@ describe('registerLogCommand (agnostic path arguments)', () => {
     const [target] = h.repo.find.mock.calls[0];
     expect(target.resolvedPaths).toContain('src/main.ts');
 
-    const result = (h.capturedResult.data as { result: { atoms: any[] } }).result;
+    const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(1);
-    expect(result.atoms[0].protocols.get('mock').trailers[TEST_ID_KEY][0]).toBe('match0002');
+    expect(result.atoms[0].protocols.get('mock')!.trailers[TEST_ID_KEY][0]).toBe('match0002');
   });
 
   it('uses global find when no path argument is provided', async () => {

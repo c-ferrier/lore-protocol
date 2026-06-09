@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerTraceCommand } from '../../../../src/engine/cli/commands/trace.js';
 import { type IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { 
     makeAtom, 
     makeStubProtocolContext, 
@@ -14,13 +15,14 @@ import {
 import { 
     makeMockAtomRepository, 
     makeMockGitClient,
+    MockedGitClient,
     TestLogger 
 } from '../../engine-test-utils.js';
 
 describe('registerTraceCommand (Integrated Expansion)', () => {
   let atomRepository: any;
-  let protocolRegistry: any;
-  let gitClient: any;
+  let protocolRegistry: ProtocolRegistry;
+  let gitClient: MockedGitClient;
   let logger: TestLogger;
   let formatter: any;
   let program: Command;
@@ -33,7 +35,7 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
         ...TEST_PROTOCOL_DEFINITION,
         trailers: {
             ...TEST_PROTOCOL_DEFINITION.trailers,
-            'Related': { description: 'R', multivalue: true, validation: 'reference', isCore: true } as any
+            'Related': { description: 'R', multivalue: true, validation: 'reference', isCore: true }
         }
     })]);
     logger = new TestLogger();

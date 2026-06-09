@@ -3,41 +3,42 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerConfigCommand } from '../../../../src/engine/cli/commands/config.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext, TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
+import { MockedFormatter, TestLogger } from '../../engine-test-utils.js';
 
 describe('Config Command', () => {
   let program: Command;
   let registry: ProtocolRegistry;
-  let logger: any;
-  let formatter: any;
+  let logger: TestLogger;
+  let formatter: MockedFormatter;
 
   beforeEach(() => {
     program = new Command();
     registry = new ProtocolRegistry();
-    logger = { result: vi.fn() };
-    formatter = { formatConfig: vi.fn().mockReturnValue('formatted') };
+    logger = new TestLogger();
+    formatter = { formatConfig: vi.fn().mockReturnValue('formatted') } as unknown as MockedFormatter;
 
     const lore = makeStubProtocolContext({ 
         name: 'Lore', 
         namespace: '',
         trailers: { 
-            Confidence: { description: 'C', isCore: true },
-            Legacy: { description: 'L', isCore: false }
-        } as any
+            Confidence: { description: 'C', multivalue: false, validation: 'values', isCore: true },
+            Legacy: { description: 'L', multivalue: true, validation: 'none', isCore: false }
+        }
     });
     const sec = makeStubProtocolContext({ 
         name: 'Sec', 
         namespace: 'sec',
         trailers: { 
-            Level: { description: 'S', isCore: true } 
-        } as any
+            Level: { description: 'S', multivalue: false, validation: 'none', isCore: true } 
+        }
     });
     
     registry.register(lore);
     registry.register(sec);
 
     registerConfigCommand(program, {
-      config: {} as any,
+      config: TEST_ENGINE_CONFIG,
       getFormatter: () => formatter,
       protocolRegistry: registry,
       logger,

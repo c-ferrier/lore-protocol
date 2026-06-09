@@ -1,8 +1,12 @@
-import { vi } from 'vitest';
+import { type Mock, vi } from 'vitest';
 
 import type { ProtocolContext,ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
 import { type ILogger,LogLevel } from '../../src/engine/interfaces/logger.js';
 import type { IPrompt } from '../../src/engine/interfaces/prompt.js';
+import type { IGitClient } from '../../src/engine/interfaces/git-client.js';
+import type { IQueryCache } from '../../src/engine/interfaces/query-cache.js';
+import type { IOutputFormatter } from '../../src/engine/interfaces/output-formatter.js';
+import type { IConfigLoader } from '../../src/engine/interfaces/config-loader.js';
 import { 
     createProtocolContext,
     makeAtom,
@@ -21,6 +25,9 @@ import {
     ProtocolMap,
     type ProtocolState,
     TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
+import { AtomRepository } from '../../src/engine/services/atom-repository.js';
+import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
+import { QueryTargetAST } from '../../src/engine/core/types/query.js';
 
 /**
  * =============================================================================
@@ -30,7 +37,9 @@ import {
  * They delegate to the framework-agnostic stubs in src/engine/testing.ts.
  */
 
-export function makeMockGitClient(overrides: any = {}): any {
+export type MockedGitClient = IGitClient & { [K in keyof IGitClient]: Mock };
+
+export function makeMockGitClient(overrides: Partial<IGitClient> = {}): MockedGitClient {
     const stub = makeStubGitClient(overrides);
     return { 
         ...stub, 
@@ -47,34 +56,40 @@ export function makeMockGitClient(overrides: any = {}): any {
         getFilesChangedSince: vi.fn(stub.getFilesChangedSince),
         log: vi.fn(stub.log),
         commit: vi.fn(stub.commit)
-    };
+    } as unknown as MockedGitClient;
 }
 
-export function makeMockProtocolRegistry(protocols: any[] = []): any {
+export function makeMockProtocolRegistry(protocols: ProtocolContext[] = []): any {
     const registry = makeStubProtocolRegistry(protocols);
     return registry;
 }
 
-export function makeMockQueryCache(overrides: any = {}): any {
+export type MockedQueryCache = IQueryCache & { [K in keyof IQueryCache]: Mock };
+
+export function makeMockQueryCache(overrides: Partial<IQueryCache> = {}): MockedQueryCache {
     const stub = makeStubQueryCache(overrides);
     return {
         ...stub,
         get: vi.fn(stub.get),
         set: vi.fn(stub.set),
         prune: vi.fn(stub.prune)
-    };
+    } as unknown as MockedQueryCache;
 }
 
-export function makeMockConfigLoader(overrides: any = {}): any {
+export type MockedConfigLoader = IConfigLoader<any> & { [K in keyof IConfigLoader<any>]: Mock };
+
+export function makeMockConfigLoader(overrides: Partial<IConfigLoader<any>> = {}): MockedConfigLoader {
     const stub = makeStubConfigLoader(overrides);
     return { 
         ...stub, 
         loadForPath: vi.fn(stub.loadForPath),
         findConfigPath: vi.fn(async () => null),
-    };
+    } as unknown as MockedConfigLoader;
 }
 
-export function makeMockFormatter(overrides: any = {}): any {
+export type MockedFormatter = IOutputFormatter & { [K in keyof IOutputFormatter]: Mock };
+
+export function makeMockFormatter(overrides: Partial<IOutputFormatter> = {}): MockedFormatter {
     const stub = makeStubFormatter();
     return {
         ...stub,
@@ -87,10 +102,10 @@ export function makeMockFormatter(overrides: any = {}): any {
         formatSuccess: vi.fn(stub.formatSuccess),
         formatError: vi.fn(stub.formatError),
         ...overrides
-    };
+    } as unknown as MockedFormatter;
 }
 
-export function makeMockAtomRepository(overrides: any = {}): any {
+export function makeMockAtomRepository(overrides: Partial<AtomRepository> = {}): any {
     const stub = makeStubAtomRepository(overrides);
     const mock: any = { 
         ...stub, 
@@ -106,7 +121,9 @@ export function makeMockAtomRepository(overrides: any = {}): any {
     return mock;
 }
 
-export function makeMockPrompt(overrides: any = {}): IPrompt {
+export type MockedPrompt = IPrompt & { [K in keyof IPrompt]: Mock };
+
+export function makeMockPrompt(overrides: Partial<IPrompt> = {}): MockedPrompt {
     const stub = makeStubPrompt(overrides);
     return {
         ...stub,
@@ -115,7 +132,7 @@ export function makeMockPrompt(overrides: any = {}): IPrompt {
         askText: vi.fn(stub.askText || (async () => '')),
         askMultiline: vi.fn(stub.askMultiline || (async () => '')),
         close: vi.fn(stub.close || (() => {})),
-    } as unknown as IPrompt;
+    } as unknown as MockedPrompt;
 }
 
 export function makeMockInputResolver(overrides: any = {}): any {
@@ -126,12 +143,17 @@ export function makeMockInputResolver(overrides: any = {}): any {
     };
 }
 
-export function makeMockProtocolContext(overrides: any = {}): ProtocolContext {
+export function makeMockProtocolContext(overrides: Partial<ProtocolDefinition> = {}): ProtocolContext {
     return makeStubProtocolContext(overrides);
 }
 
 /** Helper to create a REAL AtomRepository instance with mocks/stubs injected. */
-export function createMockAtomRepository(deps: any = {}) {
+export function createMockAtomRepository(deps: {
+    gitClient?: IGitClient;
+    protocolRegistry?: ProtocolRegistry;
+    queryCache?: IQueryCache;
+    baseTarget?: QueryTargetAST;
+} = {}) {
     return makeAtomRepository(deps);
 }
 

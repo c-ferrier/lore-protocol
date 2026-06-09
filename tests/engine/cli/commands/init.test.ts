@@ -3,38 +3,49 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { registerInitCommand } from '../../../../src/engine/cli/commands/init.js';
 import { type IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
-import { TestLogger } from '../../engine-test-utils.js';
-;
+import { MockedFormatter, TestLogger } from '../../engine-test-utils.js';
+import { EngineConfig } from '../../../../src/engine/core/types/config.js';
 
 import * as fs from 'node:fs/promises';
-;
 
 vi.mock('node:fs/promises');
 
 describe('Engine registerInitCommand', () => {
-  const formatter: IOutputFormatter = {
+  const formatter: MockedFormatter = {
     formatSuccess: vi.fn((msg) => `SUCCESS: ${msg}`),
-    formatError: vi.fn((code, messages) => `ERROR: ${messages[0].message} (code ${code})`),
+    formatError: vi.fn((_code, messages) => `ERROR: ${messages[0].message}`),
     formatQueryResult: vi.fn(),
     formatValidationResult: vi.fn(),
     formatStalenessResult: vi.fn(),
     formatTraceResult: vi.fn(),
     formatDoctorResult: vi.fn(),
     formatConfig: vi.fn(),
-  } as any;
+  } as unknown as MockedFormatter;
 
   let logger: TestLogger;
 
-  const MOCK_CONFIG = {
-    cli: { updateCheck: true, cache: true },
-    validation: { subjectMaxLength: 72 }
-  } as any;
+  const MOCK_CONFIG: EngineConfig = {
+    cli: { 
+        updateCheck: true, 
+        cache: true,
+        queryCache: true,
+        queryCachePruneThreshold: 100
+    },
+    validation: { 
+        subjectMaxLength: 72,
+        maxMessageLines: 50
+    },
+    stale: { olderThan: '6m', driftThreshold: 20 },
+    output: { defaultFormat: 'text' },
+    follow: { maxDepth: 3 },
+    protocols: {}
+  };
 
   const MOCK_DEPS = {
     getFormatter: () => formatter,
     engineDirName: '.atom',
     configFileName: 'config.toml',
-    logger: null as any,
+    logger: null as unknown as TestLogger,
   };
 
   beforeEach(() => {
