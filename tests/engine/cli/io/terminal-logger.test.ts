@@ -6,8 +6,8 @@ import { LogLevel } from '../../../../src/engine/interfaces/logger.js';
 ;
 
 describe('TerminalLogger', () => {
-  let stdoutSpy: any;
-  let stderrSpy: any;
+  let stdoutSpy: ReturnType<typeof vi.spyOn>;
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);

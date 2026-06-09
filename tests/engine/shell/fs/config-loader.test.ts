@@ -53,7 +53,7 @@ foo = "bar"
     expect(config.validation.subjectMaxLength).toBe(80);
     expect(config.cli.updateCheck).toBe(true);
     // Section "some_plugin_section" should be ignored by the engine loader
-    expect((config as any).some_plugin_section).toBeUndefined();
+    expect((config as unknown as Record<string, unknown>).some_plugin_section).toBeUndefined();
   });
 
   it('should walk up the tree to find .atom/config.toml', async () => {

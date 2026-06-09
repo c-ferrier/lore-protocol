@@ -8,13 +8,16 @@ vi.mock('node:util', async () => {
   const actual = await vi.importActual('node:util');
   return {
     ...actual,
-    promisify: (fn: any) => fn, // Simplified mock
+    promisify: (fn: Function) => fn, // Simplified mock
   };
 });
 
 vi.mock('node:child_process', () => ({
   execFile: vi.fn(),
 }));
+
+// Typed alias for the mocked execFile callback
+type ExecFileCallback = (error: Error | null, stdout: string, stderr: string) => void;
 
 describe('GitClient Implementation', () => {
   const client = new GitClient('/test/cwd');
@@ -28,9 +31,9 @@ describe('GitClient Implementation', () => {
       const hashes = ['aaaa111122223333444455556666777788889999', 'bbbb111122223333444455556666777788889999'];
       const mockOutput = `${hashes[0]}\nfile1.ts\nfile2.ts\n${hashes[1]}\nfile3.ts\n`;
       
-      vi.mocked(execFileCb).mockImplementation(((cmd: string, args: any, opts: any, callback: any) => {
+      vi.mocked(execFileCb).mockImplementation(((cmd: string, args: string[], opts: Record<string, unknown>, callback: ExecFileCallback) => {
         callback(null, mockOutput, '');
-      }) as any);
+      }) as unknown as typeof execFileCb);
 
       const result = await client.getFilesChanged(hashes);
 
@@ -44,9 +47,9 @@ describe('GitClient Implementation', () => {
       const sneakyPath = '1234567890123456789012345678901234567890'; 
       const mockOutput = `${hashes[0]}\n${sneakyPath}\nfile.ts\n`;
 
-      vi.mocked(execFileCb).mockImplementation(((cmd: string, args: any, opts: any, callback: any) => {
+      vi.mocked(execFileCb).mockImplementation(((cmd: string, args: string[], opts: Record<string, unknown>, callback: ExecFileCallback) => {
         callback(null, mockOutput, '');
-      }) as any);
+      }) as unknown as typeof execFileCb);
 
       const result = await client.getFilesChanged(hashes);
 
@@ -63,9 +66,9 @@ describe('GitClient Implementation', () => {
 
   describe('query', () => {
       it('should construct correct git log flags for high-level filters', async () => {
-          vi.mocked(execFileCb).mockImplementation(((cmd: string, args: any, opts: any, callback: any) => {
+          vi.mocked(execFileCb).mockImplementation(((cmd: string, args: string[], opts: Record<string, unknown>, callback: ExecFileCallback) => {
               callback(null, '', ''); // No output
-          }) as any);
+          }) as unknown as typeof execFileCb);
 
           await client.query({
               author: 'Cole',
@@ -90,9 +93,9 @@ describe('GitClient Implementation', () => {
       });
 
       it('should translate nested patterns into multiple --grep flags (AND of ORs)', async () => {
-          vi.mocked(execFileCb).mockImplementation(((cmd: string, args: any, opts: any, callback: any) => {
+          vi.mocked(execFileCb).mockImplementation(((cmd: string, args: string[], opts: Record<string, unknown>, callback: ExecFileCallback) => {
               callback(null, '', '');
-          }) as any);
+          }) as unknown as typeof execFileCb);
 
           await client.query({
               regexPatterns: [
@@ -139,7 +142,8 @@ describe('GitClient Implementation', () => {
         '\nfile3.ts',
       ].join('');
   
-      const result = (client as any).parseLogOutput(rawOutput);
+      // Use unknown -> cast pattern to test internal private method
+      const result = (client as unknown as { parseLogOutput: (o: string) => any[] }).parseLogOutput(rawOutput);
   
       expect(result).toHaveLength(3);
       expect(result[0].hash).toBe('h1');

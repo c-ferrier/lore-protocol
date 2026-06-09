@@ -4,30 +4,28 @@ import type { ProtocolContext } from '../../../../src/engine/core/types/protocol
 import { type IGitClient } from '../../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { readHeadIdentities } from '../../../../src/engine/shell/git/head-id-reader.js';
-import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
+import { makeStubGitClient,makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
 const TEST_ID_KEY = "Mock-id";
 
 function createMockGitClient(headMessage: string): IGitClient {
-  return {
+  return makeStubGitClient({
     log: vi.fn(async (args) => {
        if (args.includes('-1')) {
-         return [{ hash: 'h1', trailers: headMessage.split('\n\n').pop() || headMessage } as any];
+         return [{ 
+             hash: 'h1', 
+             trailers: headMessage.split('\n\n').pop() || headMessage,
+             date: new Date().toISOString(),
+             author: 'author',
+             subject: 'subj',
+             body: '',
+             filesChanged: []
+         }];
        }
        return [];
     }),
-    blame: vi.fn(),
-    commit: vi.fn(),
-    hasStagedChanges: vi.fn(),
-    getRepoRoot: vi.fn(),
-    isInsideRepo: vi.fn(),
-    getFilesChanged: vi.fn().mockResolvedValue(new Map()),
-    getCommitsByHashes: vi.fn(),
-    countCommitsSince: vi.fn(),
-    resolveRef: vi.fn(),
-    resolveDate: vi.fn(),
     getHeadMessage: vi.fn().mockResolvedValue(headMessage),
-  } as any;
+  });
 }
 
 describe('readHeadIdentities', () => {

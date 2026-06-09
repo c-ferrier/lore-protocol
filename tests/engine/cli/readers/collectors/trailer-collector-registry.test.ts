@@ -1,14 +1,15 @@
 import { describe, expect,it } from 'vitest';
 
 import { TrailerCollectorRegistry } from '../../../../../src/engine/cli/readers/collectors/trailer-collector-registry.js';
+import type { TrailerDefinition } from '../../../../../src/engine/core/types/config.js';
 import { makeStubProtocolContext,MOCK_CORE_TRAILERS, TEST_PROTOCOL_DEFINITION } from '../../../../../src/engine/testing.js';
 
 describe('TrailerCollectorRegistry', () => {
-  const CORE_SCHEMA = {
+  const CORE_SCHEMA: Record<string, TrailerDefinition> = {
       ...TEST_PROTOCOL_DEFINITION.trailers,
       ...MOCK_CORE_TRAILERS,
-      'Ref': { description: 'R', multivalue: true } as any,
-      'Depends-on': { description: 'D', multivalue: true } as any
+      'Ref': { description: 'R', multivalue: true, validation: 'none' },
+      'Depends-on': { description: 'D', multivalue: true, validation: 'none' }
   };
 
   it('should create default collectors for core trailers', () => {

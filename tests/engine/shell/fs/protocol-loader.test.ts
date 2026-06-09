@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { type EngineConfig } from '../../../../src/engine/core/types/config.js';
+import { type EngineConfig, type TrailerDefinition } from '../../../../src/engine/core/types/config.js';
 import { type ProtocolDefinition } from '../../../../src/engine/core/types/protocol-definition.js';
-import { ProtocolLoader } from '../../../../src/engine/shell/fs/protocol-loader.js';
+import { DynamicProtocolLoader, ProtocolLoader } from '../../../../src/engine/shell/fs/protocol-loader.js';
 import { TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
 ;
 
@@ -12,7 +12,7 @@ import { TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
 describe('ProtocolLoader', () => {
   const createMockDynamicLoader = (protocols: ProtocolDefinition[]) => ({
     loadAll: vi.fn(async () => protocols),
-  } as any);
+  } as unknown as DynamicProtocolLoader);
 
   const staticLore: ProtocolDefinition = {
     name: 'Lore',
@@ -37,7 +37,7 @@ describe('ProtocolLoader', () => {
           strict: true,
           permissive: false,
           trailers: {
-            'Custom-Field': { description: 'Overridden', multivalue: true, validation: 'none' } as any
+            'Custom-Field': { description: 'Overridden', multivalue: true, validation: 'none' }
           }
         }
       }
@@ -53,15 +53,15 @@ describe('ProtocolLoader', () => {
   });
 
   it('should hydrate all trailer definitions after merging', async () => {
-    const dynamicProtocol: any = {
+    const dynamicProtocol: Partial<ProtocolDefinition> = {
       name: 'Test',
       trailers: {
-        'Raw': 'Simple String Definition'
+        'Raw': 'Simple String Definition' as unknown as TrailerDefinition
       }
     };
 
     const loader = new ProtocolLoader(
-        createMockDynamicLoader([dynamicProtocol]),
+        createMockDynamicLoader([dynamicProtocol as ProtocolDefinition]),
         []
     );
 

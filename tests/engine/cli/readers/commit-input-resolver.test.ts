@@ -12,10 +12,9 @@ function createMockPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
     askConfirm: vi.fn(),
     askChoice: vi.fn(),
     askMultiline: vi.fn(),
-    askInput: vi.fn(),
     close: vi.fn(),
     ...overrides,
-  } as any;
+  } as unknown as IPrompt;
 }
 
 describe('resolveCommitInput', () => {
