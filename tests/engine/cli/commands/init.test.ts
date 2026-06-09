@@ -1,12 +1,11 @@
+import * as fs from 'node:fs/promises';
+
 import { Command } from 'commander';
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { registerInitCommand } from '../../../../src/engine/cli/commands/init.js';
-import { type IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
-import { MockedFormatter, TestLogger } from '../../engine-test-utils.js';
 import { EngineConfig } from '../../../../src/engine/core/types/config.js';
-
-import * as fs from 'node:fs/promises';
+import { MockedFormatter, TestLogger } from '../../engine-test-utils.js';
 
 vi.mock('node:fs/promises');
 

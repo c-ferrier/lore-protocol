@@ -111,7 +111,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
             }
         }
 
-        (loreOverrides as any).permissive = !hasCustomTrailers;
+        (loreOverrides as unknown as { permissive: boolean }).permissive = !hasCustomTrailers;
         
         return {
             ...result,

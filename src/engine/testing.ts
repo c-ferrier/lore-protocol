@@ -16,6 +16,7 @@ import type { EngineConfig, TrailerDefinition,TrailerUiColor, TrailerUiKind } fr
 import type { Atom, ProtocolState } from './core/types/domain.js';
 import type { ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
 import type { QueryOptions,QueryTargetAST } from './core/types/query.js';
+import type { IConfigLoader } from './interfaces/config-loader.js';
 import type { IGitClient, RawCommit as IGitRawCommit } from './interfaces/git-client.js';
 import type { IOutputFormatter } from './interfaces/output-formatter.js';
 import type { IPrompt } from './interfaces/prompt.js';
@@ -245,11 +246,13 @@ export function makeStubFormatter(): IOutputFormatter {
 }
 
 /** Stub Config Loader. */
-export function makeStubConfigLoader(overrides: any = {}) {
+export function makeStubConfigLoader(overrides: Partial<IConfigLoader> = {}): IConfigLoader {
     return {
         loadForPath: async () => TEST_ENGINE_CONFIG,
+        loadFromFile: async () => TEST_ENGINE_CONFIG,
+        findConfigPath: async () => null,
         ...overrides
-    };
+    } as IConfigLoader;
 }
 
 /** Stub Query Cache. */

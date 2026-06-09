@@ -20,11 +20,11 @@ import {
 } from '../../engine-test-utils.js';
 
 describe('registerTraceCommand (Integrated Expansion)', () => {
-  let atomRepository: any;
+  let atomRepository: ReturnType<typeof makeMockAtomRepository>;
   let protocolRegistry: ProtocolRegistry;
   let gitClient: MockedGitClient;
   let logger: TestLogger;
-  let formatter: any;
+  let formatter: IOutputFormatter;
   let program: Command;
 
   beforeEach(() => {
@@ -41,7 +41,7 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
     logger = new TestLogger();
     formatter = {
         formatTraceResult: vi.fn(() => 'formatted trace'),
-    };
+    } as unknown as IOutputFormatter;
     program = new Command();
     program.exitOverride();
 
@@ -51,7 +51,7 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
       protocolRegistry,
       logger,
       config: TEST_ENGINE_CONFIG,
-      getFormatter: () => formatter as unknown as IOutputFormatter
+      getFormatter: () => formatter
     });
   });
 

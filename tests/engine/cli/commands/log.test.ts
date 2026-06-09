@@ -24,8 +24,8 @@ import { makeMockAtomRepository,TestLogger } from '../../engine-test-utils.js';
 
 interface Harness {
   program: Command;
-  capturedResult: { data: any };
-  repo: any;
+  capturedResult: { data: unknown };
+  repo: ReturnType<typeof makeMockAtomRepository>;
   logger: TestLogger;
 }
 
@@ -34,9 +34,9 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
       find: vi.fn().mockResolvedValue(filteredAtoms ?? atoms),
   });
 
-  const capturedResult: { data: any } = { data: undefined };
+  const capturedResult: { data: unknown } = { data: undefined };
   const formatter = {
-    formatQueryResult: vi.fn((data: any) => {
+    formatQueryResult: vi.fn((data: unknown) => {
         capturedResult.data = data;
         return '';
     }),

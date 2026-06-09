@@ -1,12 +1,15 @@
 import { type Mock, vi } from 'vitest';
 
 import type { ProtocolContext,ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
-import { type ILogger,LogLevel } from '../../src/engine/interfaces/logger.js';
-import type { IPrompt } from '../../src/engine/interfaces/prompt.js';
-import type { IGitClient } from '../../src/engine/interfaces/git-client.js';
-import type { IQueryCache } from '../../src/engine/interfaces/query-cache.js';
-import type { IOutputFormatter } from '../../src/engine/interfaces/output-formatter.js';
+import { QueryTargetAST } from '../../src/engine/core/types/query.js';
 import type { IConfigLoader } from '../../src/engine/interfaces/config-loader.js';
+import type { IGitClient } from '../../src/engine/interfaces/git-client.js';
+import { type ILogger,LogLevel } from '../../src/engine/interfaces/logger.js';
+import type { IOutputFormatter } from '../../src/engine/interfaces/output-formatter.js';
+import type { IPrompt } from '../../src/engine/interfaces/prompt.js';
+import type { IQueryCache } from '../../src/engine/interfaces/query-cache.js';
+import { AtomRepository } from '../../src/engine/services/atom-repository.js';
+import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
 import { 
     createProtocolContext,
     makeAtom,
@@ -25,9 +28,6 @@ import {
     ProtocolMap,
     type ProtocolState,
     TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
-import { AtomRepository } from '../../src/engine/services/atom-repository.js';
-import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
-import { QueryTargetAST } from '../../src/engine/core/types/query.js';
 
 /**
  * =============================================================================
@@ -135,12 +135,16 @@ export function makeMockPrompt(overrides: Partial<IPrompt> = {}): MockedPrompt {
     } as unknown as MockedPrompt;
 }
 
-export function makeMockInputResolver(overrides: any = {}): any {
+import type { ICommitInputReader } from '../../src/engine/interfaces/commit-input-reader.js';
+
+export type MockedInputResolver = ICommitInputReader & { resolve: Mock; read: Mock };
+
+export function makeMockInputResolver(overrides: Partial<ICommitInputReader> = {}): MockedInputResolver {
     return {
         resolve: vi.fn().mockResolvedValue({}),
         read: vi.fn().mockResolvedValue({ subject: 'test', trailers: new Map() }),
         ...overrides
-    };
+    } as unknown as MockedInputResolver;
 }
 
 export function makeMockProtocolContext(overrides: Partial<ProtocolDefinition> = {}): ProtocolContext {

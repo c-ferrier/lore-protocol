@@ -3,16 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerDoctorCommand } from '../../../../src/engine/cli/commands/doctor.js';
 import { type Atom } from '../../../../src/engine/core/types/domain.js';
+import { type ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
+import { IGitClient } from '../../../../src/engine/interfaces/git-client.js';
+import { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeStubProtocolContext, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { makeMockAtomRepository, makeMockConfigLoader, makeMockFormatter, makeMockGitClient, MockedConfigLoader, TestLogger } from '../../engine-test-utils.js';
-import { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
-import { IGitClient } from '../../../../src/engine/interfaces/git-client.js';
 
 describe('Doctor Command', () => {
-  let atomRepository: any;
+  let atomRepository: ReturnType<typeof makeMockAtomRepository>;
   let configLoader: MockedConfigLoader;
-  let protocol: any;
+  let protocol: ProtocolContext;
 
   beforeEach(() => {
     atomRepository = makeMockAtomRepository();
@@ -30,7 +31,7 @@ describe('Doctor Command', () => {
   });
 
   async function runDoctor(deps: {
-      atomRepository?: any;
+      atomRepository?: ReturnType<typeof makeMockAtomRepository>;
       getFormatter?: () => IOutputFormatter;
       protocolRegistry?: ProtocolRegistry;
       logger?: TestLogger;

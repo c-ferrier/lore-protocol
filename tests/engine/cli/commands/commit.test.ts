@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerCommitCommand } from '../../../../src/engine/cli/commands/commit.js';
 import * as FormattingLogic from '../../../../src/engine/core/logic/commit-formatting.js';
+import { ILogger } from '../../../../src/engine/interfaces/logger.js';
+import { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import * as HeadIdReader from '../../../../src/engine/shell/git/head-id-reader.js';
 import { 
@@ -18,10 +20,9 @@ import {
     makeMockInputResolver, 
     makeMockPrompt, 
     MockedGitClient,
+    MockedInputResolver,
     MockedPrompt
 } from '../../engine-test-utils.js';
-import { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
-import { ILogger } from '../../../../src/engine/interfaces/logger.js';
 
 vi.mock('../../../../src/engine/shell/git/head-id-reader.js', () => ({
     readHeadIdentities: vi.fn().mockResolvedValue({})
@@ -39,7 +40,7 @@ vi.mock('../../../../src/engine/core/logic/commit-formatting.js', async (importO
 interface Deps {
     gitClient: MockedGitClient;
     getFormatter: () => IOutputFormatter;
-    commitInputResolver: any;
+    commitInputResolver: MockedInputResolver;
     prompt: MockedPrompt;
     config: typeof TEST_ENGINE_CONFIG;
     protocolRegistry: ProtocolRegistry;
@@ -50,7 +51,7 @@ async function runCommitCommand(args: string[], deps: Deps): Promise<void> {
   const program = new Command();
   program.exitOverride();
   // registerCommitCommand(program, deps, prompt)
-  registerCommitCommand(program, deps as any, deps.prompt);
+  registerCommitCommand(program, deps, deps.prompt);
   await program.parseAsync(['node', 'atom', 'commit', ...args]);
 }
 

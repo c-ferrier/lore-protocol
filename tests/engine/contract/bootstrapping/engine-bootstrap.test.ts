@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { LogLevel } from '../../../../src/engine/interfaces/logger.js';
+import { type IPrompt } from '../../../../src/engine/interfaces/prompt.js';
 import { EngineBootstrapper } from '../../../../src/engine/services/engine-bootstrapper.js';
 import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
 
@@ -46,7 +47,7 @@ describe('EngineBootstrapper', () => {
     configFileName: 'config.toml',
     defaultConfig: TEST_ENGINE_CONFIG,
     staticProtocols: [],
-    prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn() } as any,
+    prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn(), askText: vi.fn(), askMultiline: vi.fn(), close: vi.fn() } as unknown as IPrompt,
     logLevel: LogLevel.SILENT
   };
 
@@ -84,7 +85,7 @@ describe('EngineBootstrapper', () => {
     const { config } = await bootstrapper.bootstrap('/mock', []);
     
     expect(onConfigLoaded).toHaveBeenCalled();
-    expect((config as any).custom).toBe('value');
+    expect((config as unknown as { custom: string }).custom).toBe('value');
   });
 
   it('should allow wrappers to mutate protocols via hooks', async () => {
