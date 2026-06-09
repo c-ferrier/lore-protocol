@@ -1,4 +1,4 @@
-import type { TrailerDefinition, TrailerUiColor,TrailerUiKind, ValueDefinition } from '../../core/types/config.js';
+import type { StaleIfCondition,TrailerDefinition, TrailerUiColor,TrailerUiKind, ValueDefinition } from '../../core/types/config.js';
 import { TRAILER_UI_COLORS,TRAILER_UI_KINDS } from '../../util/constants.js';
 
 /**
@@ -73,7 +73,7 @@ export class ProtocolHydrator {
       squash: ['union', 'rank-min', 'rank-max'].includes(def.squash as string) ? def.squash as 'union' | 'rank-min' | 'rank-max' : undefined,
       generator: ['hex8', 'uuid', 'none'].includes(def.generator as string) ? def.generator as 'hex8' | 'uuid' | 'none' : undefined,
       crossProtocol: typeof def.crossProtocol === 'boolean' ? def.crossProtocol : undefined,
-      stale_if: def.stale_if as any, // Legacy cast for complex trigger union
+      stale_if: def.stale_if as StaleIfCondition | readonly StaleIfCondition[],
     };
 
     // Rule: Only include isCore if explicitly provided. 

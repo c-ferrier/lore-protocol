@@ -149,23 +149,24 @@ export class QueryCache implements IQueryCache {
     // 1. Target identity is already normalized by the query target logic
     
     // 2. Deep normalize options (sort all keys recursively and lowercase them for stable hashing)
-    const normalize = (obj: any): any => {
+    const normalize = (obj: unknown): unknown => {
       if (Array.isArray(obj)) {
         // Sort arrays of primitives to ensure order-independence for multiple filter values
         const items = obj.map(normalize);
         if (items.every(item => typeof item === 'string' || typeof item === 'number')) {
-            return items.sort();
+            return (items as (string | number)[]).sort();
         }
         return items;
       }
       if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
-        return Object.keys(obj)
+        const record = obj as Record<string, unknown>;
+        return Object.keys(record)
           .sort()
-          .reduce((acc: any, key) => {
+          .reduce((acc: Record<string, unknown>, key) => {
             // limit and page are display concerns and should not invalidate the cache
             if (key === 'limit' || key === 'page') return acc;
             
-            const val = obj[key];
+            const val = record[key];
             if (val !== null && val !== undefined) {
               // Lowercase keys to match case-insensitive trailer search behavior
               acc[key.toLowerCase()] = normalize(val);

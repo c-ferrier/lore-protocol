@@ -5,11 +5,9 @@ import type { QualifiedFilter } from '../../core/types/query.js';
 
 /**
  * Generates regex patterns to find commits belonging to this protocol.
- * Public wrapper that respects mock hooks in tests.
+ * Public wrapper.
  */
 export function getDiscoveryPatterns(ctx: ProtocolContext): string[] {
-    // Support method override via the definition object (used by mocks in tests)
-    if ((ctx.def as any).getDiscoveryPatterns) return (ctx.def as any).getDiscoveryPatterns();
     return logic.getDiscoveryPatterns(ctx);
 }
 
@@ -22,11 +20,9 @@ export function getIdentityPattern(id: string, ctx: ProtocolContext): string {
 
 /**
  * Translates structured filters into git log grep patterns.
- * Public wrapper that respects mock hooks in tests.
+ * Public wrapper.
  */
 export function getSearchPatterns(filters: readonly QualifiedFilter[], ctx: ProtocolContext): string[][] {
-    // Support method override via the definition object (used by mocks in tests)
-    if ((ctx.def as any).getSearchPatterns) return (ctx.def as any).getSearchPatterns(filters);
     return logic.getSearchPatterns(filters, ctx);
 }
 
