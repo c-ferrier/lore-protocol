@@ -150,8 +150,8 @@ describe('ProtocolRegistry', () => {
           name: 'P2', 
           namespace: 'ns2'
       });
-      registry.register(p1 as any);
-      registry.register(p2 as any);
+      registry.register(p1);
+      registry.register(p2);
   
       expect(registry.resolveKey('Key1')).toBe(p1);
       expect(registry.resolveKey('ns2')).toBe(p2);
@@ -159,14 +159,14 @@ describe('ProtocolRegistry', () => {
   
     it('should return the root protocol as fallback for unknown keys', () => {
       const p1 = makeMockProtocolContext({ name: 'Root', namespace: '' });
-      registry.register(p1 as any);
+      registry.register(p1);
   
       expect(registry.resolveKey('Unknown')).toBe(p1);
     });
   
     it('should return undefined if no protocol owns the key and no root exists', () => {
         const p1 = makeMockProtocolContext({ name: 'NS', namespace: 'ns' });
-        registry.register(p1 as any);
+        registry.register(p1);
   
         expect(registry.resolveKey('Unknown')).toBeUndefined();
     });
@@ -177,7 +177,7 @@ describe('ProtocolRegistry', () => {
           namespace: '',
           trailers: { 'Status': { description: 'S', multivalue: false, validation: 'none' as const } }
       });
-      registry.register(p as any);
+      registry.register(p);
   
       expect(registry.resolveKey('status')).toBe(p);
       expect(registry.resolveKey('STATUS')).toBe(p);
