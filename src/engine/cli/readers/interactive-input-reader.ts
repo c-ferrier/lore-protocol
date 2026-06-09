@@ -26,7 +26,7 @@ export class InteractiveInputReader implements ICommitInputReader {
     private readonly collectors: readonly ITrailerCollector[],
   ) {}
 
-  async read(_options?: any): Promise<CommitInput> {
+  async read(_options?: Record<string, unknown>): Promise<CommitInput> {
     try {
       const subject = await this.collectSubject();
       const body = await this.collectBody();

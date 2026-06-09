@@ -14,6 +14,7 @@ import {
     getEnginePackageName, 
     getEnginePublishedVersion,
     getEngineVersion,
+    type ProtocolDefinition,
     ProtocolRegistry,
     runCli, TerminalPrompt, 
     type TrailerDefinition    } from '../engine/index.js';
@@ -72,7 +73,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
         if (!legacyData) return config;
 
         // 1. Translate global Engine settings using declarative rules
-        const result = mapConfig(legacyData, config, LORE_TO_ENGINE_RULES);
+        const result = mapConfig(legacyData, config, LORE_TO_ENGINE_RULES) as EngineConfig;
 
         // 2. Translate Legacy Lore Protocols to Engine protocols bucket
         const loreOverrides: any = {
@@ -83,11 +84,12 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
 
         const standardTrailers = new Set(Object.keys(LoreProtocolDefinition.trailers));
         let hasCustomTrailers = false;
+        const trailerMap = loreOverrides.trailers;
 
         // Translate legacy custom arrays
         for (const key of legacyData.trailers?.custom || []) {
             if (!standardTrailers.has(key)) hasCustomTrailers = true;
-            loreOverrides.trailers[key] = {
+            trailerMap[key] = {
                 description: `Custom project trailer: ${key}`,
                 multivalue: true,
                 validation: 'none'
@@ -97,11 +99,11 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
         // Translate legacy required arrays
         for (const key of legacyData.trailers?.required || []) {
             if (!standardTrailers.has(key)) hasCustomTrailers = true;
-            if (loreOverrides.trailers[key]) {
-                loreOverrides.trailers[key].required = true;
+            if (trailerMap[key]) {
+                trailerMap[key] = { ...trailerMap[key], required: true };
             } else {
-                loreOverrides.trailers[key] = {
-                    description: '',
+                trailerMap[key] = {
+                    description: `Custom project trailer: ${key}`,
                     multivalue: true,
                     validation: 'none',
                     required: true
@@ -111,12 +113,13 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
 
         loreOverrides.permissive = !hasCustomTrailers;
         
-        result.protocols = {
-            ...result.protocols,
-            lore: loreOverrides
-        };
-
-        return result as EngineConfig;
+        return {
+            ...result,
+            protocols: {
+                ...result.protocols,
+                lore: loreOverrides as Partial<ProtocolDefinition>
+            }
+        } as EngineConfig;
     },
     ...overrides
   };
@@ -157,16 +160,16 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
 
   // 0.5.0 Shims: Global Descriptions
   const jsonOpt = program.options.find(o => o.long === '--json');
-  if (jsonOpt) (jsonOpt as any).description = 'Shorthand for --format json';
+  if (jsonOpt) updateOpt(jsonOpt, { description: 'Shorthand for --format json' });
 
   const formatOpt = program.options.find(o => o.long === '--format');
-  if (formatOpt) (formatOpt as any).description = 'Output format: text or json (default: "text")';
+  if (formatOpt) updateOpt(formatOpt, { description: 'Output format: text or json (default: "text")' });
 
   const noColorOpt = program.options.find(o => o.long === '--no-color');
-  if (noColorOpt) (noColorOpt as any).description = 'Disable colored output';
+  if (noColorOpt) updateOpt(noColorOpt, { description: 'Disable colored output' });
 
   const versionOpt = program.options.find(o => o.long === '--version');
-  if (versionOpt) (versionOpt as any).description = 'output the version number';
+  if (versionOpt) updateOpt(versionOpt, { description: 'output the version number' });
 
   // --- REBRANDING & SHIMMING WRAPPER (Commander level) ---
   const loreProtocol = sharedDeps.protocolRegistry.get('lore');
@@ -188,10 +191,10 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
       // 2. Prefix Stripping
       for (const opt of cmd.options) {
           if (opt.description.startsWith('[Lore] ')) {
-              (opt as any).description = opt.description.slice(7);
+              updateOpt(opt, { description: opt.description.slice(7) });
           }
           if (opt.description.startsWith('[lore] ')) {
-              (opt as any).description = opt.description.slice(7);
+              updateOpt(opt, { description: opt.description.slice(7) });
           }
       }
 
@@ -199,7 +202,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
       if (name === 'commit') {
           const shim = (flag: string, desc: string) => {
               const opt = cmd.options.find(o => o.long === flag);
-              if (opt) (opt as any).description = desc;
+              if (opt) updateOpt(opt, { description: desc });
           };
           shim('--constraint', 'Constraint trailer value (repeatable)');
           shim('--rejected', 'Rejected trailer value (repeatable)');
@@ -347,7 +350,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
       if (name === 'squash') {
           cmd.description('Merge atoms for squash-merge preparation');
           const subjectOpt = cmd.options.find(o => o.long === '--subject');
-          if (subjectOpt) (subjectOpt as any).hidden = true;
+          if (subjectOpt) updateOpt(subjectOpt, { hidden: true });
           cmd.option('--intent <text>', 'Override the intent line of the merged message');
           hideOpt(cmd, '--until');
           cmd.hook('preAction', (thisCommand) => {
@@ -364,7 +367,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
           hideOpt(cmd, '--text');
           hideOpt(cmd, '--has');
           const maxCommitsOpt = cmd.options.find(o => o.long === '--max-commits');
-          if (maxCommitsOpt) (maxCommitsOpt as any).description = 'Maximum git commits to scan (supersession may be incomplete)';
+          if (maxCommitsOpt) updateOpt(maxCommitsOpt, { description: 'Maximum git commits to scan (supersession may be incomplete)' });
           if (name === 'rejected') cmd.description('Previously rejected alternatives for a code region');
           if (name === 'directives') cmd.description('Active forward-looking warnings for a code region');
       }
@@ -378,5 +381,13 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
  */
 function hideOpt(cmd: Command, flag: string) {
   const opt = cmd.options.find(o => o.long === flag || o.short === flag);
-  if (opt) (opt as any).hidden = true;
+  if (opt) updateOpt(opt, { hidden: true });
+}
+
+/**
+ * Helper to safely update commander options without generic 'any' casts.
+ */
+function updateOpt(opt: any, updates: { description?: string; hidden?: boolean }) {
+    if (updates.description !== undefined) opt.description = updates.description;
+    if (updates.hidden !== undefined) opt.hidden = updates.hidden;
 }
