@@ -22,7 +22,7 @@ const TEST_ID_KEY = "Mock-id";
 describe('Commit Formatting Logic (Pure Functions)', () => {
   let engineConfig: EngineConfig;
   let protocolRegistry: ProtocolRegistry;
-  let idSpy: any;
+  let idSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     engineConfig = { ...TEST_ENGINE_CONFIG };
@@ -164,7 +164,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
             name: 'Gen',
             identityKey: 'Gen-id',
             trailers: {
-                'Gen-id': { description: 'ID', generator: 'uuid' } as any
+                'Gen-id': { description: 'ID', multivalue: false, validation: 'none', generator: 'uuid' }
             }
         });
         const registry = new ProtocolRegistry();

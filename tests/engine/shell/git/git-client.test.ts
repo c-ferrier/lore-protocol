@@ -4,14 +4,6 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { GitClient } from '../../../../src/engine/shell/git/git-client.js';
 
-vi.mock('node:util', async () => {
-  const actual = await vi.importActual('node:util');
-  return {
-    ...actual,
-    promisify: (fn: Function) => fn, // Simplified mock
-  };
-});
-
 vi.mock('node:child_process', () => ({
   execFile: vi.fn(),
 }));
@@ -143,7 +135,7 @@ describe('GitClient Implementation', () => {
       ].join('');
   
       // Use unknown -> cast pattern to test internal private method
-      const result = (client as unknown as { parseLogOutput: (o: string) => any[] }).parseLogOutput(rawOutput);
+      const result = (client as unknown as { parseLogOutput: (o: string) => Array<{ hash: string; filesChanged: string[] }> }).parseLogOutput(rawOutput);
   
       expect(result).toHaveLength(3);
       expect(result[0].hash).toBe('h1');

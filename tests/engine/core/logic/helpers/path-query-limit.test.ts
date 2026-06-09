@@ -2,22 +2,22 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import {         executePathQuery,type PathQueryCommandOptions,
     type PathQueryDeps } from '../../../../../src/engine/cli/commands/helpers/path-query.js';
-import { type Atom } from '../../../../../src/engine/core/types/domain.js';
+import { type Atom, ProtocolMap, type ProtocolState } from '../../../../../src/engine/core/types/domain.js';
+import { IOutputFormatter } from '../../../../../src/engine/interfaces/output-formatter.js';
+import { AtomRepository } from '../../../../../src/engine/services/atom-repository.js';
 import { TEST_ENGINE_CONFIG } from '../../../../../src/engine/testing.js';
 import { TestLogger } from '../../../engine-test-utils.js';
 
 const TEST_ID_KEY = "Mock-id";
 
 function makeAtom(id: string, supersedes: string[] = []): Atom {
-  const protocols = new Map();
+  const protocols = new ProtocolMap<ProtocolState>();
   protocols.set('mock', {
-    name: 'Mock',
-    version: '1.0',
-    identityKey: TEST_ID_KEY,
     trailers: {
       [TEST_ID_KEY]: [id],
       Supersedes: supersedes,
     },
+    unauthorized: {}
   });
 
   return {
@@ -26,9 +26,10 @@ function makeAtom(id: string, supersedes: string[] = []): Atom {
     author: 'test@example.com',
     subject: `feat: ${id}`,
     body: '',
+    rawTrailers: `${TEST_ID_KEY}: ${id}`,
     protocols,
     filesChanged: ['src/test.ts'],
-  } as any;
+  };
 }
 
 describe('executePathQuery — --limit as post-supersession result cap', () => {
@@ -47,7 +48,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
         find: mockFind,
         findByScope: vi.fn(),
         resolveFollowLinks: vi.fn(),
-      } as any,
+      } as unknown as AtomRepository,
       getFormatter: () => ({
         formatQueryResult: vi.fn().mockImplementation((data) => {
           formattedOutput = JSON.stringify({
@@ -56,7 +57,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
           });
           return formattedOutput;
         }),
-      }) as any,
+      } as unknown as IOutputFormatter),
       config: TEST_ENGINE_CONFIG,
       logger,
       protocolRoot: '/mock',
@@ -72,12 +73,11 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     const a4 = makeAtom('dddd4444', ['bbbb2222']);
     const a5 = makeAtom('eeee5555');
 
-    // Manually project internalized truth for the test
-    (a1.protocols.get('mock') as any).supersession = { superseded: true, supersededBy: ['cccc3333'] };
-    (a2.protocols.get('mock') as any).supersession = { superseded: true, supersededBy: ['dddd4444'] };
-    (a3.protocols.get('mock') as any).supersession = { superseded: false, supersededBy: [] };
-    (a4.protocols.get('mock') as any).supersession = { superseded: false, supersededBy: [] };
-    (a5.protocols.get('mock') as any).supersession = { superseded: false, supersededBy: [] };
+    a1.protocols.get('mock')!.supersession = { superseded: true, supersededBy: ['cccc3333'] };
+    a2.protocols.get('mock')!.supersession = { superseded: true, supersededBy: ['dddd4444'] };
+    a3.protocols.get('mock')!.supersession = { superseded: false, supersededBy: [] };
+    a4.protocols.get('mock')!.supersession = { superseded: false, supersededBy: [] };
+    a5.protocols.get('mock')!.supersession = { superseded: false, supersededBy: [] };
 
     const atoms = [a1, a2, a3, a4, a5];
     mockFind.mockResolvedValue(atoms);
@@ -107,7 +107,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
 
   it('should return all atoms when limit is not specified', async () => {
     const atoms = [makeAtom('aaaa1111'), makeAtom('bbbb2222'), makeAtom('cccc3333')];
-    for (const a of atoms) (a.protocols.get('mock') as any).supersession = { superseded: false, supersededBy: [] };
+    for (const a of atoms) a.protocols.get('mock')!.supersession = { superseded: false, supersededBy: [] };
 
     mockFind.mockResolvedValue(atoms);
 
@@ -120,7 +120,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
 
   it('should treat limit 0 as no limit', async () => {
     const atoms = [makeAtom('aaaa1111'), makeAtom('bbbb2222')];
-    for (const a of atoms) (a.protocols.get('mock') as any).supersession = { superseded: false, supersededBy: [] };
+    for (const a of atoms) a.protocols.get('mock')!.supersession = { superseded: false, supersededBy: [] };
 
     mockFind.mockResolvedValue(atoms);
 

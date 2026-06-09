@@ -4,6 +4,7 @@ import { normalizeTrailers } from '../../../../src/engine/core/logic/normalizati
 import { getAuthorizedKeys } from '../../../../src/engine/core/logic/protocols.js';
 import { serializeTrailers } from '../../../../src/engine/core/logic/trailers.js';
 import { TriggerParser } from '../../../../src/engine/core/logic/trigger-parser.js';
+import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
 import { makeStubProtocolContext, MOCK_CORE_TRAILERS,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('Normalization Logic (Strict Segmented Waterfall)', () => {
@@ -33,14 +34,14 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         expect(state.trailers['Lore-id']).toEqual(['a1b2c3d4']);
     });
     it('should flag unauthorized trailers in strict mode', () => {
-        const strictRoot = { ...rootProtocol, permissive: false };
+        const strictRoot: ProtocolContext = { ...rootProtocol, permissive: false };
         const raw = { 'Unknown': ['value'] };
         const state = normalizeTrailers(raw, strictRoot);
         expect(state.trailers.Unknown).toBeUndefined();
         expect(state.unauthorized.Unknown).toEqual(['value']);
     });
     it('should capture orphans in permissive mode', () => {
-        const permissiveRoot = { ...rootProtocol, permissive: true };
+        const permissiveRoot: ProtocolContext = { ...rootProtocol, permissive: true };
         const raw = { 'Unknown': ['value'] };
         const state = normalizeTrailers(raw, permissiveRoot);
         expect(state.trailers.Unknown).toEqual(['value']);
@@ -93,13 +94,13 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
         expect(state.trailers.Team).toEqual(['backend']);
     });
     it('should flag unrecognized nested trailers as unauthorized when strict', () => {
-      const strictProject = { ...projectProtocol, permissive: false };
+      const strictProject: ProtocolContext = { ...projectProtocol, permissive: false };
       const raw = { 'Project': ['Tream: typo'] };
       const state = normalizeTrailers(raw, strictProject);
       expect(state.unauthorized.Tream).toEqual(['typo']);
     });
     it('should allow unrecognized nested trailers when permissive', () => {
-      const permissiveProject = { ...projectProtocol, permissive: true };
+      const permissiveProject: ProtocolContext = { ...projectProtocol, permissive: true };
       const raw = { 'Project': ['Custom: value'] };
       const state = normalizeTrailers(raw, permissiveProject);
       expect(state.trailers.Custom).toEqual(['value']);
@@ -123,7 +124,7 @@ describe('Normalization Logic (Strict Segmented Waterfall)', () => {
                 'Id': { description: 'ID', multivalue: false, validation: 'none' }, 
                 'Team': { description: 'T', multivalue: false, validation: 'none' } 
               }
-        }, { strict: true, permissive: false } as any);
+        }, { strict: true, permissive: false });
         const raw = { 'Project': ['Id: a1b2c3d4', 'Tream: typo'] };
         const state = normalizeTrailers(raw, nsProtocol);
         expect(state.unauthorized.Tream).toEqual(['typo']);

@@ -5,7 +5,7 @@ import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol
 import { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
-import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { makeStubProtocolContext, TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 import { makeMockAtomRepository } from '../engine-test-utils.js';
 
 describe('Cross-Protocol Reference Validation', () => {
@@ -17,11 +17,11 @@ describe('Cross-Protocol Reference Validation', () => {
     version: '1.0',
     strict: true,
     permissive: false,
-    identityKey: 'Alpha-id',
     namespace: 'alphaval',
+    identityKey: 'Alpha-id',
     trailers: {
-      'Alpha-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9]+$' },
-      'Depends-on': { description: 'Dep', multivalue: true, validation: 'reference' as const, crossProtocol: true }
+      'Alpha-id': { description: 'ID', multivalue: false, validation: 'none' },
+      'Depends-on': { description: 'Ref', multivalue: true, validation: 'reference', crossProtocol: true }
     }
   };
 
@@ -30,11 +30,11 @@ describe('Cross-Protocol Reference Validation', () => {
     version: '1.0',
     strict: true,
     permissive: false,
-    identityKey: 'Beta-id',
     namespace: 'betaval',
+    identityKey: 'Beta-id',
     trailers: {
-      'Beta-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[a-z]+$' },
-      'Internal-link': { description: 'Int', multivalue: true, validation: 'reference' as const, crossProtocol: false }
+      'Beta-id': { description: 'ID', multivalue: false, validation: 'pattern', pattern: '^[a-z]+$' },
+      'Internal-link': { description: 'Ref', multivalue: true, validation: 'reference', crossProtocol: false }
     }
   };
 
@@ -70,14 +70,15 @@ describe('Cross-Protocol Reference Validation', () => {
   });
 
   it('should flag unknown protocol prefixes', async () => {
-    const rawCommit = {
+    const rawCommit: RawCommit = {
       hash: 'h1',
       date: new Date().toISOString(),
       author: 'a',
       subject: 's',
       body: 'b',
-      trailers: 'alphaval: Alpha-id: 123\nalphaval: Depends-on: ghost/999'
-    } as any;
+      trailers: 'alphaval: Alpha-id: 123\nalphaval: Depends-on: ghost/999',
+      filesChanged: []
+    };
 
     const results = await validateCommits(hydrateAtoms([rawCommit], registry, { includeAllCommits: true }), getDeps());
     const issue = results[0].issues.find(i => i.rule === 'unknown-protocol-prefix');
@@ -86,14 +87,15 @@ describe('Cross-Protocol Reference Validation', () => {
   });
 
   it('should flag cross-protocol links when crossProtocol is false', async () => {
-    const rawCommit = {
+    const rawCommit: RawCommit = {
       hash: 'h1',
       date: new Date().toISOString(),
       author: 'a',
       subject: 's',
       body: 'b',
-      trailers: 'betaval: Beta-id: abc\nbetaval: Internal-link: alphaval/123'
-    } as any;
+      trailers: 'betaval: Beta-id: abc\nbetaval: Internal-link: alphaval/123',
+      filesChanged: []
+    };
 
     const results = await validateCommits(hydrateAtoms([rawCommit], registry, { includeAllCommits: true }), getDeps());
     const issue = results[0].issues.find(i => i.rule === 'cross-protocol-prohibited');

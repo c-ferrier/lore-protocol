@@ -112,9 +112,9 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
         }
       });
       
-      const atom = {
+      const atom = makeAtom({
         protocols: new ProtocolMap([['mock', { trailers: { Confidence: ['low'] }, unauthorized: {} }]])
-      } as any;
+      });
 
       const signals = getStaleSignals(protocol, atom, new Date(), new Map());
       expect(signals).toHaveLength(1);
@@ -135,9 +135,9 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
         }
       });
       
-      const atom = {
+      const atom = makeAtom({
         protocols: new ProtocolMap([['mock', { trailers: { Deadline: ['[until: 2024-01-01]'] }, unauthorized: {} }]])
-      } as any;
+      });
 
       const later = new Date('2024-02-01');
       const signals = getStaleSignals(protocol, atom, later, new Map());
@@ -158,9 +158,9 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
         }
       });
       
-      const atom = {
+      const atom = makeAtom({
         protocols: new ProtocolMap([['mock', { trailers: { 'Mock-id': ['a1b2c3d4'], Ref: ['old-id'] }, unauthorized: {} }]])
-      } as any;
+      });
 
       const globalMap = new Map([
         ['mock', new Map([['old-id', { superseded: true, supersededBy: ['new-id'] }]])]

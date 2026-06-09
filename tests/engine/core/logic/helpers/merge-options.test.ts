@@ -1,15 +1,15 @@
+import { Command } from 'commander';
 import { describe, expect, it, vi } from 'vitest';
 
 import { mergeOptions } from '../../../../../src/engine/cli/commands/helpers/merge-options.js';
-;
 
-function mockCommand(localOpts: Record<string, unknown>, parentOpts?: Record<string, unknown>) {
+function mockCommand(localOpts: Record<string, unknown>, parentOpts?: Record<string, unknown>): Command {
   return {
     opts: vi.fn().mockReturnValue(localOpts),
     parent: parentOpts !== undefined
       ? { opts: vi.fn().mockReturnValue(parentOpts) }
       : null,
-  } as any;
+  } as unknown as Command;
 }
 
 describe('mergeOptions', () => {

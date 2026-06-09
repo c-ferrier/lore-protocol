@@ -29,17 +29,17 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
                 { kind: 'value-equals', value: 'deprecated', signal: 'is-deprecated' },
                 { kind: 'date-expired', signal: 'past-deadline' }
             ]
-        } as any
+        }
       }
     });
 
     const now = new Date(2025, 0, 1);
-    const atom: any = {
+    const atom = makeAtom({
       protocols: new ProtocolMap([['mock', { 
           trailers: { Status: ['deprecated [until:2024-01-01]'] }, 
           unauthorized: {} 
       }]])
-    };
+    });
 
     const signals = getStaleSignals(protocol, atom, now, new Map());
     expect(signals).toHaveLength(2);
@@ -53,16 +53,16 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
         'Tags': {
             description: '', multivalue: true, validation: 'none',
             stale_if: { kind: 'value-equals', value: 'stale-tag' }
-        } as any
+        }
       }
     });
 
-    const atom: any = {
+    const atom = makeAtom({
       protocols: new ProtocolMap([['mock', { 
           trailers: { Tags: ['fresh', 'stale-tag', 'stale-tag'] }, 
           unauthorized: {} 
       }]])
-    };
+    });
 
     const signals = getStaleSignals(protocol, atom, new Date(), new Map());
     expect(signals).toHaveLength(2);
@@ -76,7 +76,7 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
         'Depends-on': {
             description: '', multivalue: true, validation: 'reference',
             stale_if: { kind: 'reference-superseded' }
-        } as any
+        }
       }
     });
 
@@ -85,12 +85,12 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
         ['sec', new Map([['cve-1234', { superseded: true, supersededBy: ['sec/cve-5678'] }]])]
     ]);
 
-    const atom: any = {
+    const atom = makeAtom({
       protocols: new ProtocolMap([['lore', { 
           trailers: { 'Lore-id': ['a1b2c3d4'], 'Depends-on': ['sec/cve-1234'] }, 
           unauthorized: {} 
       }]])
-    };
+    });
 
     const signals = getStaleSignals(protocol, atom, new Date(), globalMap);
     expect(signals).toHaveLength(1);
@@ -121,7 +121,7 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
       }]])
     });
 
-    const signals = getStaleSignals(protocol, atom, new Date(), globalMap as any);
+    const signals = getStaleSignals(protocol, atom, new Date(), globalMap);
     expect(signals).toHaveLength(0);
   });
 

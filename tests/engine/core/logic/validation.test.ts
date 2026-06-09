@@ -124,7 +124,7 @@ describe('Validation Logic (Pure Functions)', () => {
           identityKey: 'Other-id', 
           trailers: {} 
       });
-      const registry = makeStubProtocolRegistry([protocol as any, otherProtocol as any]);
+      const registry = makeStubProtocolRegistry([protocol, otherProtocol]);
 
       const result = validateProtocolTrailer('Related', 'other/abc', protocol.def, registry);
       expect(result.valid).toBe(true);

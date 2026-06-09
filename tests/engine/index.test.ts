@@ -8,10 +8,12 @@ import { JsonFormatter } from '../../src/engine/cli/formatters/json-formatter.js
 import { hydrateAtoms } from '../../src/engine/core/logic/hydration.js';
 import { type CommitCommandOptions,parseFlagsToInput } from '../../src/engine/core/logic/input-interpretation.js';
 import { ProtocolMap } from '../../src/engine/core/models/protocol-map.js';
+import { type EngineConfig } from '../../src/engine/core/types/config.js';
 import { type Atom, type ProtocolState, type Trailers } from '../../src/engine/core/types/domain.js';
 import { type FormattableQueryResult } from '../../src/engine/core/types/output.js';
 import { type ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
 import { runCli } from '../../src/engine/index-impl.js';
+import { type IGitClient } from '../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../src/engine/shell/fs/query-cache.js';
@@ -33,15 +35,14 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     permissive: false,
     trailers: {}
   };
-  const MOCK_BOOTSTRAP_CONFIG = {
-    protocol: { name: 'Atom', version: '1.0' },
-    strict: false, permissive: true, trailers: { definitions: {} },
-    validation: { strict: false, maxMessageLines: 50, subjectMaxLength: 72 },
+  const MOCK_BOOTSTRAP_CONFIG: EngineConfig = {
+    validation: { maxMessageLines: 50, subjectMaxLength: 72 },
     stale: { olderThan: '6m', driftThreshold: 20 },
     output: { defaultFormat: 'text' },
     follow: { maxDepth: 3 },
-    cli: { updateCheck: false, cache: true, queryCache: true }
-  } as any;
+    cli: { updateCheck: false, cache: true, queryCache: true, queryCachePruneThreshold: 100 },
+    protocols: {}
+  };
   beforeAll(() => {
     mkdirSync(join(testDir, 'engine-test-dir'), { recursive: true });
     mkdirSync(testDir, { recursive: true });
@@ -103,7 +104,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       staticProtocols: [],
     },);
     // VERIFICATION: baseTarget must be scoped to current directory ['.']
-    expect((sharedDeps.atomRepository as any).baseTarget.resolvedPaths).toEqual(['.']);
+    expect((sharedDeps.atomRepository as unknown as { baseTarget: { resolvedPaths: string[] } }).baseTarget.resolvedPaths).toEqual(['.']);
     spy.mockRestore();
   });
   it('should determine isScoped=false when protocol root is the git root', async () => {
@@ -121,7 +122,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       staticProtocols: [],
     },);
     // VERIFICATION: baseTarget must be global (empty resolvedPaths)
-    expect((sharedDeps.atomRepository as any).baseTarget.resolvedPaths).toEqual([]);
+    expect((sharedDeps.atomRepository as unknown as { baseTarget: { resolvedPaths: string[] } }).baseTarget.resolvedPaths).toEqual([]);
     spy.mockRestore();
   });
 
@@ -252,7 +253,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     vi.mocked(mockGit.getFilesChanged).mockResolvedValue(new Map([['abc12345', ['src/fred.ts']]]));
     // 3. Setup Repository
     const repo = new AtomRepository(
-      mockGit as any,
+      mockGit as IGitClient,
       registry,
       new NullQueryCache(),
       makeQueryTarget()

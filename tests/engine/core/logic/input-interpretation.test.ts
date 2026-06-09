@@ -51,7 +51,7 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
 
   describe('parseFlagsToInput', () => {
     it('should map all CLI options correctly', () => {
-        const options: any = {
+        const options = {
           subject: 'feat: add auth',
           body: 'Detailed description',
           constraint: ['must be fast', 'no breaking changes'],
@@ -116,9 +116,9 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
             namespace: 'p2', 
             trailers: { Status: { description: 'S', multivalue: false, validation: 'none' } } 
         });
-        const localRegistry = makeStubProtocolRegistry([p1 as any, p2 as any]);
+        const localRegistry = makeStubProtocolRegistry([p1, p2]);
         
-        const options: any = {
+        const options = {
             trailer: ['P1/Status=active', 'P2/Status=pending']
         };
     
@@ -139,9 +139,9 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
             namespace: 'ns', 
             trailers: { Other: { description: 'O', multivalue: false, validation: 'none' } } 
         });
-        const localRegistry = makeStubProtocolRegistry([p1 as any, p2 as any]);
+        const localRegistry = makeStubProtocolRegistry([p1, p2]);
         
-        const options: any = {
+        const options = {
             trailer: ['Status=active']
         };
     
@@ -152,7 +152,7 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
     it('should ignore unknown flags that do not match any protocol trailers (Current Behavior)', () => {
         // NOTE: Strictly speaking, this should warn or error (See Roadmap Phase 7.7)
         // But for now, we allow them to pass through to satisfy global CLI options.
-        const input = parseFlagsToInput({ unknown: 'val' } as any, registry);
+        const input = parseFlagsToInput({ unknown: 'val' }, registry);
         expect(input.trailers?.size).toBe(0);
     });
 
@@ -168,12 +168,12 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
               },
           },
         });
-        const options: any = {
+        const options = {
           subject: 't',
           dept: 'Eng',
         };
     
-        const result = parseFlagsToInput(options, makeStubProtocolRegistry([customProtocol as any]));
+        const result = parseFlagsToInput(options, makeStubProtocolRegistry([customProtocol]));
     
         const mockGroup = result.trailers?.get('mock') || {};
         expect(mockGroup.Department).toEqual(['Eng']);
@@ -196,14 +196,14 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
           regulatoryCompliance: ['GDPR', 'HIPAA'],
         };
     
-        const result = parseFlagsToInput(options as any, makeStubProtocolRegistry([customProtocol as any]));
+        const result = parseFlagsToInput(options, makeStubProtocolRegistry([customProtocol]));
     
         const mockGroup = result.trailers?.get('mock') || {};
         expect(mockGroup['Regulatory-Compliance']).toEqual(['GDPR', 'HIPAA']);
     });
 
     it('should preserve existing trailers when adding custom ones', () => {
-        const options: any = {
+        const options = {
           subject: 'feat',
           confidence: 'low',
           trailer: ['Confidence=high', 'Department=Eng'],
@@ -216,7 +216,7 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
                 ...MOCK_CORE_TRAILERS,
                 'Department': { description: 'D', multivalue: false, validation: 'none' } 
             }
-        }) as any]));
+        })]));
     
         const mockGroup = result.trailers?.get('mock') || {};
         expect(mockGroup.Confidence).toEqual(['low', 'high']);
@@ -224,7 +224,7 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
     });
 
     it('should default subject to empty string when undefined', () => {
-        const result = parseFlagsToInput({}, makeStubProtocolRegistry([mockProtocol as any]));
+        const result = parseFlagsToInput({}, makeStubProtocolRegistry([mockProtocol]));
         expect(result.subject).toBe('');
     });
 

@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { analyzeStaleness } from '../../../src/engine/shell/orchestrators/staleness.js';
 import { makeStubProtocolContext, makeStubProtocolRegistry } from '../../../src/engine/testing.js';
 import { 
@@ -12,10 +11,10 @@ import {
 } from '../engine-test-utils.js';
 
 describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
-  let registry: ProtocolRegistry;
+  let mockRepo: ReturnType<typeof makeMockAtomRepository>;
 
   beforeEach(() => {
-    registry = new ProtocolRegistry();
+    mockRepo = makeMockAtomRepository();
   });
 
   it('should aggregate staleness signals from multiple protocols for a single atom', async () => {

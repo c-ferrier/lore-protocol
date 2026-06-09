@@ -15,7 +15,7 @@ describe('Hydration Logic (Pure Functions)', () => {
     }
   });
 
-  const registry = makeStubProtocolRegistry([protocol as any]);
+  const registry = makeStubProtocolRegistry([protocol]);
 
   describe('hydrateAtoms (Trailer Stripping)', () => {
     const hydrate = (body: string, trailers: string) => {
@@ -55,7 +55,7 @@ describe('Hydration Logic (Pure Functions)', () => {
         }
       });
 
-      const localRegistry = makeStubProtocolRegistry([p1 as any, p2 as any]);
+      const localRegistry = makeStubProtocolRegistry([p1, p2]);
 
       const raw = makeRawCommit({
         trailers: 'p1: P1-id: 1\np1: Authorized: val\nOrphan: stray\nP2-id: 2'
@@ -96,7 +96,7 @@ describe('Hydration Logic (Pure Functions)', () => {
 
     it('should handle multiple protocols in trailer block', () => {
         const p2 = makeStubProtocolContext({ name: 'fred', namespace: 'fred', identityKey: 'Fred-id' });
-        const localRegistry = makeStubProtocolRegistry([protocol as any, p2 as any]);
+        const localRegistry = makeStubProtocolRegistry([protocol, p2]);
         const trailers = 'Id: 12345678\nfred: Fred-id: abcdefgh';
         const body = 'Message.\n\nId: 12345678\nfred: Fred-id: abcdefgh';
         const raw = makeRawCommit({ trailers, body });
@@ -113,7 +113,7 @@ describe('Hydration Logic (Pure Functions)', () => {
                   'Related': { description: 'R', multivalue: true, validation: 'reference' as const, isCore: true }
               }
           }); 
-          const localRegistry = makeStubProtocolRegistry([mockProtocol as any]);
+          const localRegistry = makeStubProtocolRegistry([mockProtocol]);
 
           const atom = makeAtom({
               protocols: new Map([['mock', { 
@@ -140,7 +140,7 @@ describe('Hydration Logic (Pure Functions)', () => {
               } 
           });
           const p2 = makeStubProtocolContext({ name: 'p2', namespace: 'p2', identityKey: 'id' });
-          const localRegistry = makeStubProtocolRegistry([p1 as any, p2 as any]);
+          const localRegistry = makeStubProtocolRegistry([p1, p2]);
 
           const atom = makeAtom({
               protocols: new Map([['p1', { trailers: { 'Ref': ['p2/target'] }, unauthorized: {} }]])
@@ -158,7 +158,7 @@ describe('Hydration Logic (Pure Functions)', () => {
                   'Ref': { description: 'R', multivalue: true, validation: 'reference' as const } 
               } 
           });
-          const localRegistry = makeStubProtocolRegistry([p1 as any]);
+          const localRegistry = makeStubProtocolRegistry([p1]);
 
           const a1 = makeAtom({ protocols: new Map([['p1', { trailers: { 'Ref': ['shared'] }, unauthorized: {} }]]) });
           const a2 = makeAtom({ protocols: new Map([['p1', { trailers: { 'Ref': ['shared'] }, unauthorized: {} }]]) });
