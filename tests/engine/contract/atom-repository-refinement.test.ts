@@ -40,7 +40,7 @@ describe('AtomRepository Refinement', () => {
 
     repo = makeAtomRepository({
         gitClient,
-        registry: protocolRegistry,
+        protocolRegistry,
     });
   });
 

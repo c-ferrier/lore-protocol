@@ -22,10 +22,10 @@ describe('AtomRepository False Positive Repro', () => {
 
   beforeEach(() => {
     gitClient = makeMockGitClient();
-    const registry = new ProtocolRegistry();
-    registry.register(protocol);
+    const protocolRegistry = new ProtocolRegistry();
+    protocolRegistry.register(protocol);
     
-    repository = makeAtomRepository({ gitClient, registry });
+    repository = makeAtomRepository({ gitClient, protocolRegistry });
   });
 
   it('findById should use an anchored grep (repro failure)', async () => {

@@ -128,7 +128,7 @@ export class EngineBootstrapper {
     if (this.options.hiddenGlobalOptions) {
         for (const flag of this.options.hiddenGlobalOptions) {
             const opt = program.options.find(o => o.long === flag || o.short === flag);
-            if (opt) (opt as any).hidden = true;
+            if (opt) opt.hideHelp();
         }
     }
 
@@ -184,7 +184,7 @@ export class EngineBootstrapper {
       atomRepository,
       gitClient,
       getFormatter,
-      config: config as any,
+      config: config,
       logger,
       protocolRegistry,
       protocolRoot: protocolRoot || activeRoot,
@@ -207,7 +207,7 @@ export class EngineBootstrapper {
     if (this.options.hiddenCommands) {
         for (const name of this.options.hiddenCommands) {
             const cmd = program.commands.find(c => c.name() === name);
-            if (cmd) (cmd as any)._hidden = true;
+            if (cmd) (cmd as unknown as { _hidden: boolean })._hidden = true;
         }
     }
 

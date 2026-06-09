@@ -46,7 +46,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
     it(`should build a minimal commit with subject and ${TEST_ID_KEY}`, () => {
       const input = makeCommitInput({
         subject: 'feat: add login',
-        trailers: { 'mock': { [TEST_ID_KEY]: ['a1b2c3d4'] } },
+        trailers: new Map([['mock', { [TEST_ID_KEY]: ['a1b2c3d4'] }]]),
       });
 
       const { message, protocols } = formatCommit(input, engineConfig, protocolRegistry);
@@ -60,7 +60,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
       const spy = vi.spyOn(TrailerLogic, 'serializeTrailers');
       const input = makeCommitInput({
         subject: 'test',
-        trailers: { 'mock': { Confidence: ['medium'] } },
+        trailers: new Map([['mock', { Confidence: ['medium'] }]]),
       });
 
       formatCommit(input, engineConfig, protocolRegistry);
@@ -75,7 +75,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
       const input = makeCommitInput({
         subject: 'feat: add login',
         body: 'Detailed description of changes.',
-        trailers: { 'mock': { [TEST_ID_KEY]: ['a1b2c3d4'] } },
+        trailers: new Map([['mock', { [TEST_ID_KEY]: ['a1b2c3d4'] }]]),
       });
 
       const { message } = formatCommit(input, engineConfig, protocolRegistry);
@@ -86,7 +86,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
     it('should format subject-only commit correctly', () => {
         const input = makeCommitInput({
           subject: 'feat: minimal',
-          trailers: { 'mock': { [TEST_ID_KEY]: ['a1b2c3d4'] } },
+          trailers: new Map([['mock', { [TEST_ID_KEY]: ['a1b2c3d4'] }]]),
         });
   
         const { message } = formatCommit(input, engineConfig, protocolRegistry);
@@ -98,7 +98,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
         const input = makeCommitInput({
           subject: 'feat: minimal',
           body: '',
-          trailers: { 'mock': { [TEST_ID_KEY]: ['a1b2c3d4'] } },
+          trailers: new Map([['mock', { [TEST_ID_KEY]: ['a1b2c3d4'] }]]),
         });
   
         const { message } = formatCommit(input, engineConfig, protocolRegistry);
@@ -109,13 +109,11 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
     it('should include all trailer types', () => {
       const input = makeCommitInput({
         subject: 'feat: full commit',
-        trailers: {
-          'mock': {
+        trailers: new Map([['mock', {
             Constraint: ['Must use HTTPS', 'No external deps'],
             Confidence: ['high'],
             Related: ['aabbccdd'],
-          }
-        },
+        }]])
       });
 
       const { message } = formatCommit(input, engineConfig, protocolRegistry);
@@ -140,7 +138,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
     it('should return empty issues for valid input', async () => {
       const input = makeCommitInput({
         subject: 'feat: valid',
-        trailers: { 'mock': { Confidence: ['high'] } }
+        trailers: new Map([['mock', { Confidence: ['high'] }]])
       });
 
       const issues = await validateFormatting(input, engineConfig, protocolRegistry);
@@ -172,7 +170,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
         const registry = new ProtocolRegistry();
         registry.register(genProtocol);
 
-        const input = makeCommitInput({ subject: 'test', trailers: {} });
+        const input = makeCommitInput({ subject: 'test', trailers: new Map() });
         const issues = await validateFormatting(input, engineConfig, registry);
         
         // gen-id-present should be filtered out
@@ -188,10 +186,10 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
 
         const input = makeCommitInput({
             subject: 'multi-protocol',
-            trailers: {
-                'alpha': { 'Status': ['active'] },
-                'beta': { 'Priority': ['high'] }
-            }
+            trailers: new Map<string, Record<string, string[]>>([
+                ['alpha', { 'Status': ['active'] }],
+                ['beta', { 'Priority': ['high'] }]
+            ])
         });
 
         idSpy.mockReturnValue('new-id');
@@ -205,7 +203,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
 
     it('should throw error for unknown protocol in input', () => {
         const input = makeCommitInput({
-            trailers: { 'unknown': { 'Key': ['val'] } }
+            trailers: new Map([['unknown', { 'Key': ['val'] }]])
         });
 
         expect(() => formatCommit(input, engineConfig, protocolRegistry)).toThrow(/Unknown protocol "unknown"/);

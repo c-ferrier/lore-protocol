@@ -18,6 +18,8 @@ import {
     makeStubProtocolRegistry, 
     makeStubQueryCache,
     makeStubQueryOptions,
+    ProtocolMap,
+    type ProtocolState,
     TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
 
 /**
@@ -80,7 +82,6 @@ export function makeMockFormatter(overrides: any = {}): any {
         formatValidationResult: vi.fn(stub.formatValidationResult),
         formatStalenessResult: vi.fn(stub.formatStalenessResult),
         formatTraceResult: vi.fn(stub.formatTraceResult),
-        formatConfigResult: vi.fn(stub.formatConfigResult),
         formatConfig: vi.fn(stub.formatConfig),
         formatDoctorResult: vi.fn(stub.formatDoctorResult),
         formatSuccess: vi.fn(stub.formatSuccess),
@@ -111,11 +112,10 @@ export function makeMockPrompt(overrides: any = {}): IPrompt {
         ...stub,
         askConfirm: vi.fn(stub.askConfirm),
         askChoice: vi.fn(stub.askChoice),
-        askInput: vi.fn(stub.askInput),
         askText: vi.fn(stub.askText || (async () => '')),
         askMultiline: vi.fn(stub.askMultiline || (async () => '')),
         close: vi.fn(stub.close || (() => {})),
-    };
+    } as unknown as IPrompt;
 }
 
 export function makeMockInputResolver(overrides: any = {}): any {
@@ -167,7 +167,9 @@ export {
     makeQueryTarget, 
     makeRawCommit, 
     type ProtocolContext,
-    type ProtocolDefinition,    TEST_ENGINE_CONFIG};
+    type ProtocolDefinition,        ProtocolMap,
+    type ProtocolState,
+TEST_ENGINE_CONFIG};
 
 import { QueryOptions } from '../../src/engine/core/types/query.js';
 

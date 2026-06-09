@@ -1,4 +1,5 @@
 import { TRAILER_UI_COLORS,TRAILER_UI_KINDS } from '../../util/constants.js';
+import type { ProtocolDefinition } from './protocol-definition.js';
 
 export type TrailerUiKind = (typeof TRAILER_UI_KINDS)[number];
 export type TrailerUiColor = (typeof TRAILER_UI_COLORS)[number];
@@ -101,7 +102,7 @@ export interface EngineConfig {
    * DESIGN: This is a pass-through bucket handled by the EngineConfigLoader 
    * and later interpreted by the ProtocolLoader.
    */
-  readonly protocols: Record<string, any>;
+  readonly protocols: Record<string, Partial<ProtocolDefinition>>;
 }
 
 /**
@@ -115,4 +116,3 @@ export const ENGINE_CONFIG_SCHEMA: Record<string, string[]> = {
   cli: ['updateCheck', 'cache', 'queryCache', 'queryCachePruneThreshold'],
   protocols: [], // Dynamic section
 };
-

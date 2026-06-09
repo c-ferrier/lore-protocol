@@ -6,6 +6,8 @@ import { makeStubProtocolContext, makeStubProtocolRegistry } from '../../../src/
 import { 
     makeAtom, 
     makeMockAtomRepository, 
+    ProtocolMap,
+    ProtocolState,
     TEST_ENGINE_CONFIG 
 } from '../engine-test-utils.js';
 
@@ -47,7 +49,7 @@ describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
 
     const reg = makeStubProtocolRegistry([p1, p2]);
     const atom = makeAtom({
-      protocols: new Map([
+      protocols: new ProtocolMap<ProtocolState>([
         ['p1', { trailers: { 'Status': ['stale'] }, unauthorized: {} }],
         ['p2', { trailers: { 'Level': ['high'] }, unauthorized: {} }]
       ])

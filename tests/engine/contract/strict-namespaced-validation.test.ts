@@ -19,12 +19,10 @@ describe('Strict Namespaced Validation', () => {
     // 2. Input with an orphan trailer in "fred" namespace
     const input = makeCommitInput({
       subject: 'feat: add feature',
-      trailers: {
-        'fred': { 
+      trailers: new Map([['fred', { 
             'Mock-id': ['12345678'],
             'Orphan': ['value'] // Not defined in Fred schema
-        }
-      },
+        }]]),
     });
 
     const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
@@ -42,11 +40,9 @@ describe('Strict Namespaced Validation', () => {
     
     const input = makeCommitInput({
       subject: 'feat: add feature',
-      trailers: {
-        'fred': { 
+      trailers: new Map([['fred', { 
             'Mock-id': ['12345678']
-        }
-      },
+        }]])
     });
 
     const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
@@ -72,12 +68,10 @@ describe('Strict Namespaced Validation', () => {
 
     const input = makeCommitInput({
       subject: 'feat: add feature',
-      trailers: {
-        'fred': { 
+      trailers: new Map([['fred', { 
             // Missing Mock-id
             'Other': ['val']
-        }
-      },
+        }]])
     });
 
     const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
@@ -93,12 +87,10 @@ describe('Strict Namespaced Validation', () => {
 
     const input = makeCommitInput({
       subject: 'feat: add feature',
-      trailers: {
-        'fred': { 
+      trailers: new Map([['fred', { 
             'Mock-id': ['12345678'],
             'Unknown-key': ['value'] // Truly unknown key
-        }
-      },
+        }]]),
     });
 
     const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);

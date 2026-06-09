@@ -12,12 +12,12 @@ import { makeMockGitClient } from '../engine-test-utils.js';
 describe('Git Security (Argument Escaping)', () => {
   let gitClient: any;
   let repository: AtomRepository;
-  let registry: ProtocolRegistry;
+  let protocolRegistry: ProtocolRegistry;
 
   beforeEach(() => {
     gitClient = makeMockGitClient();
-    registry = new ProtocolRegistry();
-    registry.register(makeStubProtocolContext({
+    protocolRegistry = new ProtocolRegistry();
+    protocolRegistry.register(makeStubProtocolContext({
         name: 'Mock',
         identityKey: 'Mock-id',
         permissive: true, // Need permissive mode or explicitly defined trailer
@@ -29,7 +29,7 @@ describe('Git Security (Argument Escaping)', () => {
     
     repository = makeAtomRepository({
         gitClient,
-        registry
+        protocolRegistry
     });
   });
 

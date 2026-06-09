@@ -12,7 +12,7 @@ import { makeMockGitClient } from '../engine-test-utils.js';
 describe('AtomRepository Batch Disambiguation', () => {
   let gitClient: any;
   let repo: any;
-  let registry: ProtocolRegistry;
+  let protocolRegistry: ProtocolRegistry;
 
   const ALPHA_DEF = { name: 'Alpha', namespace: 'alpha', identityKey: 'Alpha-id' };
   const BETA_DEF = { name: 'Beta', namespace: 'beta', identityKey: 'Beta-id' };
@@ -20,11 +20,11 @@ describe('AtomRepository Batch Disambiguation', () => {
   beforeEach(() => {
     gitClient = makeMockGitClient();
 
-    registry = new ProtocolRegistry();
-    registry.register(makeStubProtocolContext(ALPHA_DEF));
-    registry.register(makeStubProtocolContext(BETA_DEF));
+    protocolRegistry = new ProtocolRegistry();
+    protocolRegistry.register(makeStubProtocolContext(ALPHA_DEF));
+    protocolRegistry.register(makeStubProtocolContext(BETA_DEF));
 
-    repo = makeAtomRepository({ gitClient, registry });
+    repo = makeAtomRepository({ gitClient, protocolRegistry });
   });
 
   it('findByIds: should correctly hydrate a mixed batch of identities', async () => {

@@ -11,7 +11,7 @@ import { makeMockGitClient } from '../engine-test-utils.js';
 describe('Multi-Protocol Integration', () => {
   let gitClient: any;
   let repo: any;
-  let registry: ProtocolRegistry;
+  let protocolRegistry: ProtocolRegistry;
 
   const FRED_DEF = {
     name: 'Fred',
@@ -24,19 +24,19 @@ describe('Multi-Protocol Integration', () => {
   beforeEach(() => {
     gitClient = makeMockGitClient();
 
-    registry = new ProtocolRegistry();
+    protocolRegistry = new ProtocolRegistry();
     const mock = makeStubProtocolContext({
         name: 'Mock',
         identityKey: 'Mock-id',
         trailers: { 'Mock-id': { description: 'ID', multivalue: false, validation: 'none' as const } }
     });
     const fred = makeStubProtocolContext(FRED_DEF);
-    registry.register(mock);
-    registry.register(fred);
+    protocolRegistry.register(mock);
+    protocolRegistry.register(fred);
 
     repo = makeAtomRepository({
         gitClient,
-        registry,
+        protocolRegistry,
     });
   });
 

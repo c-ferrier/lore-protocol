@@ -24,7 +24,7 @@ describe('AtomRepository', () => {
             'Supersedes': { description: 'S', validation: 'reference' } as any
         }
     }));
-    repo = makeAtomRepository({ gitClient, registry: protocolRegistry });
+    repo = makeAtomRepository({ gitClient, protocolRegistry });
   });
   describe('find', () => {
     it('should return atoms for a file target', async () => {
@@ -161,7 +161,7 @@ describe('AtomRepository', () => {
         const multiRegistry = new ProtocolRegistry();
         multiRegistry.register(p1);
         multiRegistry.register(p2);
-        const multiRepo = makeAtomRepository({ gitClient, registry: multiRegistry });
+        const multiRepo = makeAtomRepository({ gitClient, protocolRegistry: multiRegistry });
         const commit1 = makeRawCommit({ trailers: 'ns1: P1-id: aaaa1111', subject: 't' });
         const commit2 = makeRawCommit({ trailers: 'ns2: P2-id: bbbb2222', subject: 't' });
         gitClient.query.mockResolvedValue([commit1, commit2]);
@@ -244,7 +244,7 @@ describe('AtomRepository', () => {
       const localRegistry = new ProtocolRegistry();
       localRegistry.register(p1);
       localRegistry.register(p2);
-      const multiRepo = makeAtomRepository({ gitClient, registry: localRegistry });
+      const multiRepo = makeAtomRepository({ gitClient, protocolRegistry: localRegistry });
       const commit = makeRawCommit({ trailers: 'ns1: P1-id: a1\nns2: P2-id: a2', subject: 't' });
       gitClient.query.mockResolvedValue([commit]);
       gitClient.getCommitsByHashes.mockResolvedValue([commit]);
@@ -344,7 +344,7 @@ describe('AtomRepository', () => {
     it('should use baseTarget when no target is provided', async () => {
       const scopedRepo = makeAtomRepository({ 
           gitClient, 
-          registry: protocolRegistry, 
+          protocolRegistry: protocolRegistry, 
           baseTarget: makeQueryTarget('.')
       });
       gitClient.query.mockResolvedValue([]);
@@ -355,7 +355,7 @@ describe('AtomRepository', () => {
     it('should override baseTarget when explicit target is provided', async () => {
       const scopedRepo = makeAtomRepository({ 
           gitClient, 
-          registry: protocolRegistry, 
+          protocolRegistry: protocolRegistry, 
           baseTarget: makeQueryTarget('.')
       });
       gitClient.query.mockResolvedValue([]);

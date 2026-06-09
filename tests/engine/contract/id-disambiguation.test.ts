@@ -40,7 +40,7 @@ describe('AtomRepository Identity Disambiguation', () => {
 
     repo = makeAtomRepository({
         gitClient,
-        registry: protocolRegistry,
+        protocolRegistry,
     });
   });
 

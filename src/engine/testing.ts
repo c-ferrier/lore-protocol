@@ -16,7 +16,10 @@ import type { EngineConfig, TrailerDefinition,TrailerUiColor, TrailerUiKind } fr
 import type { Atom, ProtocolState } from './core/types/domain.js';
 import type { ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
 import type { QueryOptions,QueryTargetAST } from './core/types/query.js';
-import type { RawCommit as IGitRawCommit } from './interfaces/git-client.js';
+import type { IGitClient, RawCommit as IGitRawCommit } from './interfaces/git-client.js';
+import type { IOutputFormatter } from './interfaces/output-formatter.js';
+import type { IPrompt } from './interfaces/prompt.js';
+import type { IQueryCache } from './interfaces/query-cache.js';
 import { AtomRepository } from './services/atom-repository.js';
 import { ProtocolRegistry } from './services/protocol-registry.js';
 import { ProtocolLoader } from './shell/fs/protocol-loader.js';
@@ -32,7 +35,10 @@ export {
     isBucketOwner,
     isCoreTrailer,
     normalizeTrailers,
-    ownsKey};
+    ownsKey,
+    ProtocolMap};
+
+export type { ProtocolState };
 
 /** Key for the standard baseline protocol ID. */
 export const TEST_ID_KEY = 'Mock-id';
@@ -141,20 +147,30 @@ export function makeStubProtocolRegistry(protocols: ProtocolContext[] = []): Pro
   return registry;
 }
 
-/** Helper to create a raw commit object. */
-export function makeRawCommit(overrides: any = {}): IGitRawCommit {
+/** 
+ * Helper to create a raw commit object for mocking history. 
+ * 
+ * @param overrides.id Optional shorthand to set the value for the primary 
+ * identity key (TEST_ID_KEY). Using a specific ID here allows tests to 
+ * remain deterministic when asserting against mocked git history.
+ */
+export function makeRawCommit(overrides: Partial<IGitRawCommit> & { id?: string; message?: string } = {}): IGitRawCommit {
     const hash = overrides.hash || 'h1';
     const id = overrides.id || 'a1b2c3d4';
     const trailers = overrides.trailers !== undefined ? overrides.trailers : `${TEST_ID_KEY}: ${id}`;
+    
+    // Support 'message' alias from existing tests
+    const subject = overrides.subject || (overrides.message ? overrides.message.split('\n')[0] : 'feat: test');
+    const body = overrides.body || (overrides.message ? overrides.message.split('\n').slice(2).join('\n') : 'body content');
   
     return {
       hash,
       author: overrides.author || 'alice',
       date: overrides.date || new Date().toISOString(),
-      subject: overrides.subject || 'feat: test',
-      body: overrides.body || 'body content',
+      subject,
+      body,
       trailers,
-      filesChanged: overrides.filesChanged || overrides.files || [],
+      filesChanged: overrides.filesChanged || [],
     };
 }
 
@@ -181,7 +197,7 @@ export function makeQueryTarget(val: string | string[] | Partial<QueryTargetAST>
 }
 
 /** Stub Git Client for I/O tests. Framework-agnostic. */
-export function makeStubGitClient(overrides: any = {}) {
+export function makeStubGitClient(overrides: Partial<IGitClient> = {}): IGitClient {
   return {
     getRepoRoot: async () => '/mock-repo',
     resolveRef: async () => 'head-hash',
@@ -197,11 +213,11 @@ export function makeStubGitClient(overrides: any = {}) {
     getHeadMessage: async () => 'feat: head',
     getFilesChanged: async () => new Map(),
     ...overrides,
-  };
+  } as IGitClient;
 }
 
 /** Stub Atom Repository. */
-export function makeStubAtomRepository(overrides: any = {}) {
+export function makeStubAtomRepository(overrides: Partial<AtomRepository> = {}): AtomRepository {
     return {
         find: async () => [],
         findByIds: async () => [],
@@ -210,11 +226,11 @@ export function makeStubAtomRepository(overrides: any = {}) {
         getAtomDrift: async () => ({}),
         getHeadHash: async () => 'head-hash',
         ...overrides
-    };
+    } as unknown as AtomRepository;
 }
 
 /** Stub Formatter for CLI tests. */
-export function makeStubFormatter() {
+export function makeStubFormatter(): IOutputFormatter {
     return {
         formatQueryResult: () => 'Mock Query Result',
         formatValidationResult: () => 'Mock Validation Result',
@@ -224,8 +240,8 @@ export function makeStubFormatter() {
         formatConfig: () => 'Mock Config Result',
         formatDoctorResult: () => 'Mock Doctor Result',
         formatSuccess: (msg: string) => `Success: ${msg}`,
-        formatError: (msg: string) => `Error: ${msg}`,
-    };
+        formatError: (_code: number, messages: readonly { message: string }[]) => `Error: ${messages[0]?.message}`,
+    } as unknown as IOutputFormatter;
 }
 
 /** Stub Config Loader. */
@@ -237,13 +253,13 @@ export function makeStubConfigLoader(overrides: any = {}) {
 }
 
 /** Stub Query Cache. */
-export function makeStubQueryCache(overrides: any = {}) {
+export function makeStubQueryCache(overrides: Partial<IQueryCache> = {}): IQueryCache {
     return {
         get: async () => null,
         set: async () => {},
         prune: async () => {},
         ...overrides
-    };
+    } as IQueryCache;
 }
 
 /** Stub Query Options. */
@@ -257,39 +273,42 @@ export function makeStubQueryOptions(overrides: Partial<QueryOptions> = {}): Que
 }
 
 /** Helper to create a REAL AtomRepository instance with stubs. */
-export function makeAtomRepository(deps: any = {}) {
+export function makeAtomRepository(deps: {
+    gitClient?: IGitClient;
+    protocolRegistry?: ProtocolRegistry;
+    queryCache?: IQueryCache;
+    baseTarget?: QueryTargetAST;
+} = {}) {
     return new AtomRepository(
         deps.gitClient || makeStubGitClient(),
-        deps.protocolRegistry || deps.registry || new ProtocolRegistry(),
-        deps.queryCache || deps.cache || { get: async () => null, set: async () => {} },
+        deps.protocolRegistry || new ProtocolRegistry(),
+        deps.queryCache || makeStubQueryCache(),
         deps.baseTarget || makeQueryTarget()
     );
 }
 
 /** Factory to create a stub for interactive prompts. */
-export function makeStubPrompt(overrides: any = {}) {
+export function makeStubPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
     return {
         askConfirm: async () => true,
-        askChoice: async () => '',
+        askChoice: async <T extends string>(_m: string, choices: readonly T[]) => choices[0],
         askInput: async () => '',
         ...overrides
-    };
+    } as IPrompt;
 }
 
 /** Atom Factory for high-level logic tests. */
-export function makeAtom(overrides: any = {}): Atom {
+export function makeAtom(overrides: Partial<Atom> & { id?: string; trailers?: Record<string, string[]> } = {}): Atom {
     const protocols = new ProtocolMap<ProtocolState>();
     
     if (overrides.protocols) {
-        const entries: [string, any][] = (overrides.protocols instanceof Map) 
+        const entries = (overrides.protocols instanceof Map) 
             ? Array.from(overrides.protocols.entries()) 
             : Object.entries(overrides.protocols);
             
         for (const [name, state] of entries) {
             protocols.set(name.toLowerCase(), {
-                trailers: {},
-                unauthorized: {},
-                ...state
+                ...state as ProtocolState
             } as ProtocolState);
         }
     } else {
@@ -314,24 +333,10 @@ export function makeAtom(overrides: any = {}): Atom {
 }
 
 /** Helper to create a CommitInput. */
-export function makeCommitInput(overrides: any = {}): CommitInput {
-    const { trailers: rawTrailers, ...rest } = overrides;
-    const trailers = new Map<string, Record<string, string[]>>();
-    
-    if (rawTrailers) {
-        const entries: [string, any][] = (rawTrailers instanceof Map) 
-            ? Array.from(rawTrailers.entries()) 
-            : Object.entries(rawTrailers);
-            
-        for (const [p, t] of entries) {
-            trailers.set(p.toLowerCase(), t as Record<string, string[]>);
-        }
-    }
-    
+export function makeCommitInput(overrides: Partial<CommitInput> = {}): CommitInput {
     return {
-        subject: rest.subject || 'feat: test',
-        body: rest.body || '',
-        ...rest,
-        trailers,
+        subject: overrides.subject || 'feat: test',
+        body: overrides.body || '',
+        trailers: overrides.trailers || new Map<string, Record<string, string[]>>(),
     };
 }

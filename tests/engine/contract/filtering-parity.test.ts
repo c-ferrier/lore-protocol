@@ -34,7 +34,7 @@ describe('AtomRepository Filtering Parity', () => {
 
     repo = makeAtomRepository({
         gitClient,
-        registry: protocolRegistry,
+        protocolRegistry,
     });
   });
 

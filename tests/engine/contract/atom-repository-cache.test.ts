@@ -29,7 +29,7 @@ describe('AtomRepository Cache Interaction', () => {
 
     repo = makeAtomRepository({
         gitClient,
-        registry: protocolRegistry,
+        protocolRegistry,
     });
   });
 
