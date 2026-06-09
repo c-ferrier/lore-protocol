@@ -1,17 +1,18 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeAtomRepository,makeStubProtocolContext } from '../../../src/engine/testing.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
+import { makeMockGitClient, MockedGitClient } from '../engine-test-utils.js';
 ;
 
 
 ;
 
 describe('AtomRepository False Positive Repro', () => {
-  let gitClient: any;
-  let repository: any;
+  let gitClient: MockedGitClient;
+  let repository: AtomRepository;
   const protocol = makeStubProtocolContext({
     name: 'Mock',
     identityKey: 'Mock-id',

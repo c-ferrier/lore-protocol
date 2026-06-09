@@ -4,10 +4,10 @@ import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeAtomRepository, makeStubProtocolContext } from '../../../src/engine/testing.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
+import { makeMockGitClient, MockedGitClient } from '../engine-test-utils.js';
 
 describe('AtomRepository Identity Disambiguation', () => {
-  let gitClient: any;
+  let gitClient: MockedGitClient;
   let repo: AtomRepository;
   let protocolRegistry: ProtocolRegistry;
 
@@ -62,7 +62,7 @@ describe('AtomRepository Identity Disambiguation', () => {
 
     expect(result).not.toBeNull();
     const state = result!.protocols.get('alpha')!;
-    expect((state as any).trailers['Alpha-id'][0]).toBe(targetId);
+    expect(state.trailers['Alpha-id'][0]).toBe(targetId);
     
     // Ensure we used a specific regex pattern
     const query = vi.mocked(gitClient.query).mock.calls[0][0];

@@ -1,16 +1,13 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
+import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeAtomRepository,makeStubProtocolContext } from '../../../src/engine/testing.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
-;
-;
-
-;
+import { makeMockGitClient, MockedGitClient } from '../engine-test-utils.js';
 
 describe('Multi-Protocol Integration', () => {
-  let gitClient: any;
-  let repo: any;
+  let gitClient: MockedGitClient;
+  let repo: AtomRepository;
   let protocolRegistry: ProtocolRegistry;
 
   const FRED_DEF = {

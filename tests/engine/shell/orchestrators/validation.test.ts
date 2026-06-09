@@ -22,8 +22,8 @@ describe('Commit Validation (Shell Orchestrator)', () => {
     }
   });
 
-  let registry: any;
-  let mockAtomRepo: any;
+  let registry: ReturnType<typeof makeStubProtocolRegistry>;
+  let mockAtomRepo: ReturnType<typeof makeMockAtomRepository>;
   
   beforeEach(() => {
     registry = makeStubProtocolRegistry([protocol]);

@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
 import { makeAtom, TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
-
+import { makeMockAtomRepository } from '../engine-test-utils.js';
 
 describe('Agnostic Validation (Zero Protocols)', () => {
   const deps = {
-    atomRepository: {} as any,
+    atomRepository: makeMockAtomRepository(),
     config: TEST_ENGINE_CONFIG,
     protocolRegistry: new ProtocolRegistry() // Empty
   };

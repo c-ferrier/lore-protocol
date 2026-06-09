@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { registerCacheCommand } from '../../../src/engine/cli/commands/cache.js';
+import type { IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
 import { TestLogger } from '../engine-test-utils.js';
 
 describe('Cache Command', () => {
@@ -22,7 +23,7 @@ describe('Cache Command', () => {
     registerCacheCommand(
       program, 
       {
-        getFormatter: () => mockFormatter as any,
+        getFormatter: () => mockFormatter as unknown as IOutputFormatter,
         logger,
       },
       join(process.cwd(), '.atom', 'cache')

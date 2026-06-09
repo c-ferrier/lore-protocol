@@ -3,14 +3,14 @@ import { beforeEach,describe, expect, it } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeAtomRepository,makeStubProtocolContext } from '../../../src/engine/testing.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
+import { makeMockGitClient, MockedGitClient } from '../engine-test-utils.js';
 ;
 ;
 
 ;
 
 describe('Git Security (Argument Escaping)', () => {
-  let gitClient: any;
+  let gitClient: MockedGitClient;
   let repository: AtomRepository;
   let protocolRegistry: ProtocolRegistry;
 

@@ -6,7 +6,7 @@ import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeAtomRepository,makeStubProtocolContext,MOCK_CORE_TRAILERS, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
+import { makeMockGitClient, MockedGitClient } from '../engine-test-utils.js';
 ;
 
 
@@ -17,7 +17,7 @@ import { makeMockGitClient } from '../engine-test-utils.js';
 ;
 
 describe('AtomRepository Filtering Parity', () => {
-  let gitClient: any;
+  let gitClient: MockedGitClient;
   let repo: AtomRepository;
   let protocol: ProtocolContext;
   let protocolRegistry: ProtocolRegistry;

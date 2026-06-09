@@ -1,14 +1,16 @@
-import { beforeEach,describe, expect, it, vi } from 'vitest';
+import { beforeEach,describe, expect, it } from 'vitest';
 
 import { hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
 import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol-definition.js';
+import { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
 import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { makeMockAtomRepository } from '../engine-test-utils.js';
 
 describe('Cross-Protocol Reference Validation', () => {
   let registry: ProtocolRegistry;
-  let mockRepo: any;
+  let mockRepo: ReturnType<typeof makeMockAtomRepository>;
 
   const ALPHA_DEF: ProtocolDefinition = {
     name: 'AlphaVal',
@@ -43,9 +45,7 @@ describe('Cross-Protocol Reference Validation', () => {
     registry.register(alpha);
     registry.register(beta);
 
-    mockRepo = {
-      findByIds: vi.fn(async () => []),
-    } as any;
+    mockRepo = makeMockAtomRepository();
   });
 
   const getDeps = () => ({
@@ -55,14 +55,15 @@ describe('Cross-Protocol Reference Validation', () => {
   });
 
   it('should allow valid cross-protocol references', async () => {
-    const rawCommit = {
+    const rawCommit: RawCommit = {
       hash: 'h1',
       date: new Date().toISOString(),
       author: 'a',
       subject: 's',
       body: 'b',
-      trailers: 'alphaval: Alpha-id: 123\nalphaval: Depends-on: betaval/abc'
-    } as any;
+      trailers: 'alphaval: Alpha-id: 123\nalphaval: Depends-on: betaval/abc',
+      filesChanged: []
+    };
 
     const results = await validateCommits(hydrateAtoms([rawCommit], registry, { includeAllCommits: true }), getDeps());
     expect(results[0].issues.filter(i => i.rule === 'invalid-reference-format')).toHaveLength(0);
@@ -101,14 +102,15 @@ describe('Cross-Protocol Reference Validation', () => {
   });
 
   it('should validate format against the TARGET protocol rules', async () => {
-    const rawCommit = {
+    const rawCommit: RawCommit = {
       hash: 'h1',
       date: new Date().toISOString(),
       author: 'a',
       subject: 's',
       body: 'b',
-      trailers: 'alphaval: Alpha-id: 123\nalphaval: Depends-on: betaval/123' // Beta IDs must be a-z
-    } as any;
+      trailers: 'alphaval: Alpha-id: 123\nalphaval: Depends-on: betaval/123', // Beta IDs must be a-z
+      filesChanged: []
+    };
 
     const results = await validateCommits(hydrateAtoms([rawCommit], registry, { includeAllCommits: true }), getDeps());
     const issue = results[0].issues.find(i => i.rule === 'invalid-reference-format');

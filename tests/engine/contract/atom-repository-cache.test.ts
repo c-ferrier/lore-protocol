@@ -4,7 +4,7 @@ import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeAtom, makeAtomRepository,makeStubProtocolContext,TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
+import { makeMockGitClient, MockedGitClient } from '../engine-test-utils.js';
 ;
 
 
@@ -16,7 +16,7 @@ import * as HydrationLogic from '../../../src/engine/core/logic/hydration.js';
 const TEST_ID_KEY = "Mock-id";
 
 describe('AtomRepository Cache Interaction', () => {
-  let gitClient: any;
+  let gitClient: MockedGitClient;
   let repo: AtomRepository;
   let protocolRegistry: ProtocolRegistry;
 

@@ -6,15 +6,20 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { EngineConfig } from '../../../src/engine/core/types/config.js';
+
 describe('Layered Configuration Integration', () => {
   let tempDir: string;
   const ENGINE_DIR = '.atom-test';
   
   const DEFAULT_CONFIG = {
-    protocol: { name: 'Atom', version: '1.0' },
-    permissive: true, trailers: { definitions: {} },
-    cli: { updateCheck: true, queryCache: true }
-  } as any;
+    protocols: {},
+    cli: { updateCheck: true, queryCache: true, cache: true, queryCachePruneThreshold: 100 },
+    validation: { subjectMaxLength: 72, maxMessageLines: 50 },
+    stale: { olderThan: '6m', driftThreshold: 20 },
+    output: { defaultFormat: 'text' },
+    follow: { maxDepth: 3 }
+  } as EngineConfig;
 
   beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'layered-config-test-'));

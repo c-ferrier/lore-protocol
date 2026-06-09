@@ -10,12 +10,12 @@ import { AtomRepository } from '../../../src/engine/services/atom-repository.js'
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { makeAtom, makeQueryTarget, makeRawCommit,makeStubProtocolContext } from '../../../src/engine/testing.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
+import { makeMockGitClient, MockedGitClient } from '../engine-test-utils.js';
 
 describe('Query Cache Combined Fidelity (Contract)', () => {
   const testDir = join(tmpdir(), `lore-test-cache-${Math.random().toString(36).slice(2)}`);
-  let gitClient: any;
-  let registry: any;
+  let gitClient: MockedGitClient;
+  let registry: ProtocolRegistry;
   let cache: QueryCache;
   let repo: AtomRepository;
 

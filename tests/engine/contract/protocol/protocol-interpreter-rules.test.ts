@@ -3,7 +3,7 @@ import { describe, expect,it } from 'vitest';
 import { getStaleSignals } from '../../../../src/engine/core/logic/staleness.js';
 import { ProtocolMap } from '../../../../src/engine/core/types/domain.js';
 import { type ProtocolDefinition } from '../../../../src/engine/core/types/protocol-definition.js';
-import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
 describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
   
@@ -114,12 +114,12 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
         ['mock', new Map([['deadbeef', { superseded: true, supersededBy: ['mock/a1b2c3d4'] }]])]
     ]);
 
-    const atom: any = {
+    const atom = makeAtom({
       protocols: new ProtocolMap([['mock', { 
           trailers: { 'Mock-id': ['a1b2c3d4'], 'Supersedes': ['deadbeef'] }, 
           unauthorized: {} 
       }]])
-    };
+    });
 
     const signals = getStaleSignals(protocol, atom, new Date(), globalMap as any);
     expect(signals).toHaveLength(0);
@@ -135,12 +135,12 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
       }
     });
 
-    const atom: any = {
+    const atom = makeAtom({
       protocols: new ProtocolMap([['mock', { 
           trailers: { Authorized: ['fresh'] }, 
           unauthorized: { Unauthorized: ['stale'] } 
       }]])
-    };
+    });
 
     const signals = getStaleSignals(protocol, atom, new Date(), new Map());
     expect(signals).toHaveLength(0);

@@ -3,7 +3,7 @@ import { describe, expect,it } from 'vitest';
 import { getProtocolIdentity } from '../../../../src/engine/core/logic/identity.js';
 import { getStaleSignals } from '../../../../src/engine/core/logic/staleness.js';
 import { ProtocolMap } from '../../../../src/engine/core/types/domain.js';
-import { makeStubProtocolContext, normalizeTrailers,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, normalizeTrailers,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('Protocol Interpreter Logic (via Pure Functions)', () => {
 
@@ -187,9 +187,9 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
           
           // Use a valid hex ID so isValidIdentity passes
           const validId = 'abcdef12';
-          const atom = {
+          const atom = makeAtom({
             protocols: new ProtocolMap([['mock', { trailers: { 'Mock-id': [validId], Ref: ['old-id'] }, unauthorized: {} }]])
-          } as any;
+          });
     
           const globalMap = new Map([
             ['mock', new Map([['old-id', { superseded: true, supersededBy: [validId] }]])]
