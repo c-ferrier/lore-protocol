@@ -73,10 +73,10 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
         if (!legacyData) return config;
 
         // 1. Translate global Engine settings using declarative rules
-        const result = mapConfig(legacyData, config, LORE_TO_ENGINE_RULES) as EngineConfig;
+        const result = mapConfig(legacyData as unknown as Record<string, unknown>, config as unknown as Record<string, unknown>, LORE_TO_ENGINE_RULES) as unknown as EngineConfig;
 
         // 2. Translate Legacy Lore Protocols to Engine protocols bucket
-        const loreOverrides: any = {
+        const loreOverrides: Partial<ProtocolDefinition> = {
             version: legacyData.protocol?.version || '1.0',
             strict: legacyData.validation?.strict !== undefined ? legacyData.validation.strict : false,
             trailers: {}
@@ -84,7 +84,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
 
         const standardTrailers = new Set(Object.keys(LoreProtocolDefinition.trailers));
         let hasCustomTrailers = false;
-        const trailerMap = loreOverrides.trailers;
+        const trailerMap = loreOverrides.trailers as Record<string, TrailerDefinition>;
 
         // Translate legacy custom arrays
         for (const key of legacyData.trailers?.custom || []) {
@@ -111,7 +111,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
             }
         }
 
-        loreOverrides.permissive = !hasCustomTrailers;
+        (loreOverrides as any).permissive = !hasCustomTrailers;
         
         return {
             ...result,
@@ -225,8 +225,10 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
 
           const subjectOpt = cmd.options.find(o => o.long === '--subject');
           if (subjectOpt) {
-              (subjectOpt as any).hidden = true;
-              (subjectOpt as any).description = 'Primary subject line (why the change was made)';
+              updateOpt(subjectOpt, { 
+                  hidden: true, 
+                  description: 'Primary subject line (why the change was made)' 
+              });
           }
           cmd.option('--intent <text>', 'Intent line (why the change was made)');
           cmd.hook('preAction', (thisCommand) => {
@@ -287,7 +289,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
       if (name === 'trace') {
           cmd.description('Follow decision chain from a starting atom');
           const maxDepthOpt = cmd.options.find(o => o.long === '--max-depth');
-          if (maxDepthOpt) (maxDepthOpt as any).description = 'Maximum BFS traversal depth (default: 10)';
+          if (maxDepthOpt) updateOpt(maxDepthOpt, { description: 'Maximum BFS traversal depth (default: 10)' });
           hideOpt(cmd, '--until');
       }
 
@@ -299,22 +301,22 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
       if (name === 'search') {
           cmd.description('Search across all lore with filters');
           const textOpt = cmd.options.find(o => o.long === '--text');
-          if (textOpt) (textOpt as any).description = 'Full-text search across intent, body, and trailer values';
+          if (textOpt) updateOpt(textOpt, { description: 'Full-text search across intent, body, and trailer values' });
           
           const hasOpt = cmd.options.find(o => o.long === '--has');
-          if (hasOpt) (hasOpt as any).description = 'Filter atoms that contain this trailer type';
+          if (hasOpt) updateOpt(hasOpt, { description: 'Filter atoms that contain this trailer type' });
 
           const scopeOpt = cmd.options.find(o => o.long === '--scope');
-          if (scopeOpt) (scopeOpt as any).description = 'Filter by conventional commit scope';
+          if (scopeOpt) updateOpt(scopeOpt, { description: 'Filter by conventional commit scope' });
 
           const maxCommitsOpt = cmd.options.find(o => o.long === '--max-commits');
-          if (maxCommitsOpt) (maxCommitsOpt as any).description = 'Maximum git commits to scan (supersession may be incomplete)';
+          if (maxCommitsOpt) updateOpt(maxCommitsOpt, { description: 'Maximum git commits to scan (supersession may be incomplete)' });
 
           const sinceOpt = cmd.options.find(o => o.long === '--since');
-          if (sinceOpt) (sinceOpt as any).description = 'Only consider commits since ref/date';
+          if (sinceOpt) updateOpt(sinceOpt, { description: 'Only consider commits since ref/date' });
 
           const untilOpt = cmd.options.find(o => o.long === '--until');
-          if (untilOpt) (untilOpt as any).description = 'Upper time/revision bound';
+          if (untilOpt) updateOpt(untilOpt, { description: 'Upper time/revision bound' });
 
           hideOpt(cmd, '--follow');
           hideOpt(cmd, '--filter');
@@ -387,7 +389,8 @@ function hideOpt(cmd: Command, flag: string) {
 /**
  * Helper to safely update commander options without generic 'any' casts.
  */
-function updateOpt(opt: any, updates: { description?: string; hidden?: boolean }) {
-    if (updates.description !== undefined) opt.description = updates.description;
-    if (updates.hidden !== undefined) opt.hidden = updates.hidden;
+function updateOpt(opt: unknown, updates: { description?: string; hidden?: boolean }) {
+    const o = opt as { description: string; hidden: boolean };
+    if (updates.description !== undefined) o.description = updates.description;
+    if (updates.hidden !== undefined) o.hidden = updates.hidden;
 }

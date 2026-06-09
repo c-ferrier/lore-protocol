@@ -11,6 +11,7 @@ import {
     InMemoryLogger,
     type IOutputFormatter,
     LogLevel,
+    type ProtocolDefinition,
     ProtocolError} from '../../engine/index.js';
 import { 
     LORE_CONFIG_DIR, 
@@ -67,7 +68,7 @@ export function registerInitCommand(
         logger.info(formatter.formatSuccess(`Config already exists at ${LORE_CONFIG_DIR}/${LORE_CONFIG_FILENAME}:`));
         
         try {
-          const parsed = parseToml(content) as any;
+          const parsed = parseToml(content) as Record<string, unknown>;
           const { missing, customized } = findConfigDiff(parsed);
 
           if (missing.length > 0) {
@@ -134,7 +135,7 @@ function findConfigDiff(parsed: Record<string, unknown>): { missing: string[]; c
   const customized: string[] = [];
 
   // Parse the template to get authoritative sections and default values
-  const templateDefaults = parseToml(LORE_CONFIG_TEMPLATE) as any;
+  const templateDefaults = parseToml(LORE_CONFIG_TEMPLATE) as Record<string, unknown>;
 
   for (const [section, defaultSection] of Object.entries(templateDefaults)) {
     const userSection = parsed[section] as Record<string, unknown> | undefined;
@@ -144,11 +145,11 @@ function findConfigDiff(parsed: Record<string, unknown>): { missing: string[]; c
       continue;
     }
 
-    const keys = Object.keys(defaultSection as object);
+    const keys = Object.keys(defaultSection as Record<string, unknown>);
 
     for (const key of keys) {
-      const userValue = (userSection as any)[key];
-      const defaultValue = (defaultSection as any)[key];
+      const userValue = userSection[key];
+      const defaultValue = (defaultSection as Record<string, unknown>)[key];
 
       if (userValue === undefined) {
         missing.push(`${section}.${key}`);
@@ -164,18 +165,18 @@ function findConfigDiff(parsed: Record<string, unknown>): { missing: string[]; c
 /**
  * Serialize a ProtocolDefinition to TOML for dynamic discovery.
  */
-function serializeProtocol(def: any): string {
+function serializeProtocol(def: ProtocolDefinition): string {
     const output = {
         name: def.name,
         version: def.version,
         namespace: def.namespace,
         identity_key: def.identityKey,
-        trailers: {} as any
+        trailers: {} as Record<string, unknown>
     };
     
     // Copy all trailers and their metadata
     for (const [key, t] of Object.entries(def.trailers)) {
-        output.trailers[key] = { ...(t as any) };
+        output.trailers[key] = { ...(t as object) };
     }
     
     return stringifyToml(output);

@@ -20,14 +20,14 @@ export interface MappingRule {
  * @returns A patched version of the target object.
  */
 export function mapConfig(
-    source: any,
-    target: any,
+    source: Record<string, unknown> | null | undefined,
+    target: Record<string, unknown>,
     rules: MappingRule[]
-): any {
+): Record<string, unknown> {
     if (!source) return target;
 
     // Deep clone target to avoid side effects on readonly properties
-    const result = JSON.parse(JSON.stringify(target));
+    const result = JSON.parse(JSON.stringify(target)) as Record<string, unknown>;
 
     for (const rule of rules) {
         const value = getValue(source, rule.from);
@@ -42,12 +42,12 @@ export function mapConfig(
 /**
  * Internal helper to resolve a dot-notated path in an object.
  */
-function getValue(obj: any, path: string): any {
+function getValue(obj: Record<string, unknown>, path: string): unknown {
     const parts = path.split('.');
-    let current = obj;
+    let current: unknown = obj;
     for (const part of parts) {
         if (current === null || typeof current !== 'object') return undefined;
-        current = current[part];
+        current = (current as Record<string, unknown>)[part];
     }
     return current;
 }
@@ -55,7 +55,7 @@ function getValue(obj: any, path: string): any {
 /**
  * Internal helper to set a dot-notated path in an object.
  */
-function setValue(obj: any, path: string, value: any): void {
+function setValue(obj: Record<string, unknown>, path: string, value: unknown): void {
     const parts = path.split('.');
     let current = obj;
     for (let i = 0; i < parts.length - 1; i++) {
@@ -63,7 +63,7 @@ function setValue(obj: any, path: string, value: any): void {
         if (!current[part] || typeof current[part] !== 'object') {
             current[part] = {};
         }
-        current = current[part];
+        current = current[part] as Record<string, unknown>;
     }
     current[parts[parts.length - 1]] = value;
 }
