@@ -16,11 +16,7 @@ import {
     TEST_ID_KEY 
 } from '../../../../src/engine/testing.js';
 import { type MockedGitClient, type MockedPrompt } from '../../../mock-types.js';
-import { 
-    makeMockFormatter, 
-    makeMockGitClient, 
-    makeMockPrompt 
-} from '../../engine-test-utils.js';
+import { makeMockFormatter, makeMockGitClient, makeMockPrompt, TestLogger } from '../../engine-test-utils.js';
 
 vi.mock('../../../../src/engine/shell/git/head-id-reader.js', () => ({
     readHeadIdentities: vi.fn().mockResolvedValue({})
@@ -68,16 +64,7 @@ function createDeps(overrides: Partial<Deps> = {}): Deps {
     prompt,
     config: TEST_ENGINE_CONFIG,
     protocolRegistry,
-    logger: { 
-        warn: vi.fn(), 
-        info: vi.fn(), 
-        error: vi.fn(), 
-        result: vi.fn(),
-        trace: vi.fn(),
-        debug: vi.fn(),
-        child: vi.fn().mockReturnThis(),
-        level: 0
-    } as unknown as ILogger,
+    logger: new TestLogger(),
     ...overrides
   } as Deps;
 }

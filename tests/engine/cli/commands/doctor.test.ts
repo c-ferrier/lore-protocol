@@ -2,12 +2,11 @@ import { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerDoctorCommand } from '../../../../src/engine/cli/commands/doctor.js';
-import { type Atom } from '../../../../src/engine/core/types/domain.js';
 import { type ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
 import { IGitClient } from '../../../../src/engine/interfaces/git-client.js';
 import { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeStubProtocolContext, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { type MockedAtomRepository } from '../../../mock-types.js';
 import { makeMockAtomRepository, makeMockFormatter, makeMockGitClient, TestLogger } from '../../engine-test-utils.js';
 
@@ -52,7 +51,7 @@ describe('Doctor Command', () => {
   }
 
   it('should report broken references for namespaced trailers', async () => {
-    const atom = {
+    const atom = makeAtom({
       commitHash: 'h1',
       protocols: new Map([
         ['mock', { 
@@ -61,7 +60,7 @@ describe('Doctor Command', () => {
         }]
       ]),
       filesChanged: []
-    } as unknown as Atom;
+    });
 
     atomRepository.find.mockResolvedValue([atom]);
     const logger = new TestLogger();
@@ -78,16 +77,16 @@ describe('Doctor Command', () => {
   });
 
   it('should identify duplicate IDs across the repository', async () => {
-    const atom1 = {
+    const atom1 = makeAtom({
       commitHash: 'h1',
       protocols: new Map([['mock', { trailers: { 'Mock-id': ['id1'] }, unauthorized: {} }]]),
       filesChanged: []
-    } as unknown as Atom;
-    const atom2 = {
+    });
+    const atom2 = makeAtom({
       commitHash: 'h2',
       protocols: new Map([['mock', { trailers: { 'Mock-id': ['id1'] }, unauthorized: {} }]]),
       filesChanged: []
-    } as unknown as Atom;
+    });
 
     atomRepository.find.mockResolvedValue([atom1, atom2]);
     const logger = new TestLogger();

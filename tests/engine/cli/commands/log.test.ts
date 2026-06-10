@@ -3,11 +3,10 @@ import { afterEach,describe, expect, it, vi } from 'vitest';
 
 import { registerLogCommand } from '../../../../src/engine/cli/commands/log.js';
 import { type Atom } from '../../../../src/engine/core/types/domain.js';
-import { type IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeAtom, makeStubProtocolContext,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { type MockedAtomRepository } from '../../../mock-types.js';
-import { makeMockAtomRepository,TestLogger } from '../../engine-test-utils.js';
+import { makeMockAtomRepository, makeMockFormatter, TestLogger } from '../../engine-test-utils.js';
 ;
 
 
@@ -25,8 +24,8 @@ import { makeMockAtomRepository,TestLogger } from '../../engine-test-utils.js';
 
 interface Harness {
   program: Command;
-  capturedResult: { data: unknown };
   repo: MockedAtomRepository;
+  capturedResult: { data: unknown };
   logger: TestLogger;
 }
 
@@ -36,12 +35,11 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
   });
 
   const capturedResult: { data: unknown } = { data: undefined };
-  const formatter = {
-    formatQueryResult: vi.fn((data: unknown) => {
-        capturedResult.data = data;
-        return '';
-    }),
-  } as unknown as IOutputFormatter;
+  const formatter = makeMockFormatter();
+  formatter.formatQueryResult.mockImplementation((data: unknown) => {
+      capturedResult.data = data;
+      return '';
+  });
 
   const logger = new TestLogger();
   const program = new Command();

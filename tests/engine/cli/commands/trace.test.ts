@@ -1,8 +1,7 @@
 import { Command } from 'commander';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { registerTraceCommand } from '../../../../src/engine/cli/commands/trace.js';
-import { type IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { 
     makeAtom, 
@@ -12,9 +11,10 @@ import {
     TEST_ID_KEY, 
     TEST_PROTOCOL_DEFINITION 
 } from '../../../../src/engine/testing.js';
-import { type MockedAtomRepository, type MockedGitClient } from '../../../mock-types.js';
+import { type MockedAtomRepository, type MockedGitClient, type MockedOutputFormatter } from '../../../mock-types.js';
 import { 
     makeMockAtomRepository, 
+    makeMockFormatter, 
     makeMockGitClient,
     TestLogger 
 } from '../../engine-test-utils.js';
@@ -24,7 +24,7 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
   let protocolRegistry: ProtocolRegistry;
   let gitClient: MockedGitClient;
   let logger: TestLogger;
-  let formatter: IOutputFormatter;
+  let formatter: MockedOutputFormatter;
   let program: Command;
 
   beforeEach(() => {
@@ -39,9 +39,8 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
         }
     })]);
     logger = new TestLogger();
-    formatter = {
-        formatTraceResult: vi.fn(() => 'formatted trace'),
-    } as unknown as IOutputFormatter;
+    formatter = makeMockFormatter();
+    formatter.formatTraceResult.mockReturnValue('formatted trace');
     program = new Command();
     program.exitOverride();
 
