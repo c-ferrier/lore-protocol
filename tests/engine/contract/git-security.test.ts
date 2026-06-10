@@ -3,7 +3,8 @@ import { beforeEach,describe, expect, it } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeAtomRepository,makeStubProtocolContext } from '../../../src/engine/testing.js';
-import { makeMockGitClient, MockedGitClient } from '../engine-test-utils.js';
+import { type MockedGitClient } from '../../mock-types.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
 ;
 ;
 
@@ -46,7 +47,7 @@ describe('Git Security (Argument Escaping)', () => {
     await repository.find(undefined, { scope: 'ui) | grep (secret' });
     
     const query = gitClient.query.mock.calls[0][0];
-    const found = query.regexPatterns.some((set: string[]) => 
+    const found = query.regexPatterns!.some((set: readonly string[]) => 
         set.some(p => p.includes('ui\\) \\| grep \\(secret'))
     );
     expect(found).toBe(true);
@@ -57,7 +58,7 @@ describe('Git Security (Argument Escaping)', () => {
     await repository.findById({ id: maliciousId });
     
     const query = gitClient.query.mock.calls[0][0];
-    const found = query.regexPatterns.some((set: string[]) => 
+    const found = query.regexPatterns!.some((set: readonly string[]) => 
         set.some(p => p.includes('dead\\) \\| beef'))
     );
     expect(found).toBe(true);
@@ -68,7 +69,7 @@ describe('Git Security (Argument Escaping)', () => {
     
     // The 'has' filter should result in an escaped regex pattern starting with ^
     const query = gitClient.query.mock.calls[0][0];
-    const found = query.regexPatterns.some((set: string[]) => 
+    const found = query.regexPatterns!.some((set: readonly string[]) => 
         set.some(p => p.includes('^Secret: \\) \\| grep: '))
     );
     expect(found).toBe(true);

@@ -7,7 +7,8 @@ import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry
 import { makeAtom, makeRawCommit,makeStubProtocolContext, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 import { makeQueryTarget } from '../../../src/engine/testing.js';
 import { makeAtomRepository } from '../../../src/engine/testing.js';
-import { makeMockGitClient, makeQueryOptions,type MockedGitClient } from '../engine-test-utils.js'; 
+import { type MockedGitClient } from '../../mock-types.js'; 
+import { makeMockGitClient, makeQueryOptions } from '../engine-test-utils.js'; 
 
 describe('AtomRepository', () => {
   let gitClient: MockedGitClient;
@@ -128,7 +129,7 @@ describe('AtomRepository', () => {
       expect(result).toBeDefined();
       expect(result?.commitHash).toBe(commit.hash);
       const query = gitClient.query.mock.calls[0][0];
-      expect(query.regexPatterns[0][0]).toBe('^Mock-id: a1b2c3d4$');
+      expect(query.regexPatterns![0][0]).toBe('^Mock-id: a1b2c3d4$');
     });
     it('should return null if no atom matches the Mock-id', async () => {
       gitClient.query.mockResolvedValue([]);

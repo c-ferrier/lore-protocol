@@ -2,6 +2,7 @@ import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerCommitCommand } from '../../../../src/engine/cli/commands/commit.js';
+import * as InputResolver from '../../../../src/engine/cli/readers/commit-input-resolver.js';
 import * as FormattingLogic from '../../../../src/engine/core/logic/commit-formatting.js';
 import { ILogger } from '../../../../src/engine/interfaces/logger.js';
 import { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
@@ -14,18 +15,19 @@ import {
     TEST_ENGINE_CONFIG, 
     TEST_ID_KEY 
 } from '../../../../src/engine/testing.js';
+import { type MockedGitClient, type MockedPrompt } from '../../../mock-types.js';
 import { 
     makeMockFormatter, 
     makeMockGitClient, 
-    makeMockInputResolver, 
-    makeMockPrompt, 
-    MockedGitClient,
-    MockedInputResolver,
-    MockedPrompt
+    makeMockPrompt 
 } from '../../engine-test-utils.js';
 
 vi.mock('../../../../src/engine/shell/git/head-id-reader.js', () => ({
     readHeadIdentities: vi.fn().mockResolvedValue({})
+}));
+
+vi.mock('../../../../src/engine/cli/readers/commit-input-resolver.js', () => ({
+    resolveCommitInput: vi.fn().mockResolvedValue({ subject: 'mocked subject', body: '', trailers: new Map() })
 }));
 
 vi.mock('../../../../src/engine/core/logic/commit-formatting.js', async (importOriginal) => {
@@ -40,7 +42,6 @@ vi.mock('../../../../src/engine/core/logic/commit-formatting.js', async (importO
 interface Deps {
     gitClient: MockedGitClient;
     getFormatter: () => IOutputFormatter;
-    commitInputResolver: MockedInputResolver;
     prompt: MockedPrompt;
     config: typeof TEST_ENGINE_CONFIG;
     protocolRegistry: ProtocolRegistry;
@@ -64,7 +65,6 @@ function createDeps(overrides: Partial<Deps> = {}): Deps {
   return {
     gitClient: makeMockGitClient(),
     getFormatter: () => formatter,
-    commitInputResolver: makeMockInputResolver(),
     prompt,
     config: TEST_ENGINE_CONFIG,
     protocolRegistry,
@@ -100,10 +100,8 @@ describe('atom commit --amend', () => {
 
   it(`should pass existing ${TEST_ID_KEY} to formatCommit when amending`, async () => {
     vi.mocked(HeadIdReader.readHeadIdentities).mockResolvedValue({ mock: 'cafebabe' });
-    const commitInputResolver = makeMockInputResolver({
-        read: vi.fn().mockResolvedValue(makeCommitInput({ subject: 'amend test' }))
-    });
-    const deps = createDeps({ commitInputResolver });
+    vi.mocked(InputResolver.resolveCommitInput).mockResolvedValue(makeCommitInput({ subject: 'amend test' }));
+    const deps = createDeps();
 
     await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
 
@@ -132,7 +130,7 @@ describe('atom commit --amend', () => {
 
     await runCommitCommand(['--amend', '--no-edit'], deps);
 
-    expect(deps.commitInputResolver.read).not.toHaveBeenCalled();
+    expect(InputResolver.resolveCommitInput).not.toHaveBeenCalled();
     expect(FormattingLogic.formatCommit).not.toHaveBeenCalled();
     expect(deps.gitClient.commit).toHaveBeenCalledWith(
       '',

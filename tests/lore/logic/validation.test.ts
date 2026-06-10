@@ -8,12 +8,13 @@ import { validateCommits } from '../../../src/engine/shell/orchestrators/validat
 import { makeRawCommit,makeStubProtocolContext, TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 import { makeMockAtomRepository } from '../../engine/engine-test-utils.js';
+import { type MockedAtomRepository } from '../../mock-types.js';
 
 
 describe('Lore Protocol Validation Contract', () => {
   let registry: ProtocolRegistry;
   let protocol: ProtocolContext;
-  let mockAtomRepo: ReturnType<typeof makeMockAtomRepository>;
+  let mockAtomRepo: MockedAtomRepository;
 
   beforeEach(() => {
     protocol = makeStubProtocolContext(LoreProtocolDefinition);

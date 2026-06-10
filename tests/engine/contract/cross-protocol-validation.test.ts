@@ -6,11 +6,12 @@ import { RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
 import { makeStubProtocolContext, TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { type MockedAtomRepository } from '../../mock-types.js';
 import { makeMockAtomRepository } from '../engine-test-utils.js';
 
 describe('Cross-Protocol Reference Validation', () => {
   let registry: ProtocolRegistry;
-  let mockRepo: ReturnType<typeof makeMockAtomRepository>;
+  let mockRepo: MockedAtomRepository;
 
   const ALPHA_DEF: ProtocolDefinition = {
     name: 'AlphaVal',

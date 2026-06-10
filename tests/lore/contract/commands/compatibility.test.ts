@@ -6,16 +6,17 @@ import { registerContextCommand } from '../../../../src/lore/commands/context.js
 ;
 ;
 ;
+import { type PathQueryDeps } from '../../../../src/engine/cli/commands/helpers/path-query.js';
 import * as engineExports from '../../../../src/engine/index.js';
 import { makeMockLoreContext } from '../../lore-test-utils.js';
 
 describe('Lore Compatibility Command Registration', () => {
   let program: Command;
-  let deps: ReturnType<typeof makeMockLoreContext>;
+  let deps: PathQueryDeps;
 
   beforeEach(() => {
     program = new Command();
-    deps = makeMockLoreContext();
+    deps = makeMockLoreContext() as unknown as PathQueryDeps;
     
     // Spy on the shared helper
     vi.spyOn(engineExports, 'executePathQuery').mockResolvedValue(undefined);

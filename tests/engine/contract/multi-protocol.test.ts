@@ -3,7 +3,8 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeAtomRepository,makeStubProtocolContext } from '../../../src/engine/testing.js';
-import { makeMockGitClient, MockedGitClient } from '../engine-test-utils.js';
+import { type MockedGitClient } from '../../mock-types.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
 
 describe('Multi-Protocol Integration', () => {
   let gitClient: MockedGitClient;
@@ -42,7 +43,7 @@ describe('Multi-Protocol Integration', () => {
     const query = vi.mocked(gitClient.query).mock.calls[0][0];
     
     // Top-level 0 is the discovery OR-set
-    const discoverySet = query.regexPatterns[0];
+    const discoverySet = query.regexPatterns![0];
     expect(discoverySet).toContain('^Mock-id: ');
     expect(discoverySet).toContain('^fred:');
   });

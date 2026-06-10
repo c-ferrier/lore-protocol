@@ -2,7 +2,7 @@ import { type Mock, vi } from 'vitest';
 
 import type { ProtocolContext,ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
 import { QueryTargetAST } from '../../src/engine/core/types/query.js';
-import type { IConfigLoader } from '../../src/engine/interfaces/config-loader.js';
+import type { ICommitInputReader } from '../../src/engine/interfaces/commit-input-reader.js';
 import type { IGitClient } from '../../src/engine/interfaces/git-client.js';
 import { type ILogger,LogLevel } from '../../src/engine/interfaces/logger.js';
 import type { IOutputFormatter } from '../../src/engine/interfaces/output-formatter.js';
@@ -28,6 +28,14 @@ import {
     ProtocolMap,
     type ProtocolState,
     TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
+import { 
+    MockedAtomRepository,
+    MockedConfigLoader,
+    MockedGitClient,
+    MockedInputResolver,
+    MockedOutputFormatter,
+    MockedPrompt,
+    MockedQueryCache} from '../mock-types.js';
 
 /**
  * =============================================================================
@@ -36,8 +44,6 @@ import {
  * Standard naming: makeMock[Type] always returns a Vitest spy-wrapped object.
  * They delegate to the framework-agnostic stubs in src/engine/testing.ts.
  */
-
-export type MockedGitClient = IGitClient & { [K in keyof IGitClient]: Mock };
 
 export function makeMockGitClient(overrides: Partial<IGitClient> = {}): MockedGitClient {
     const stub = makeStubGitClient(overrides);
@@ -64,8 +70,6 @@ export function makeMockProtocolRegistry(protocols: ProtocolContext[] = []): Pro
     return registry;
 }
 
-export type MockedQueryCache = IQueryCache & { [K in keyof IQueryCache]: Mock };
-
 export function makeMockQueryCache(overrides: Partial<IQueryCache> = {}): MockedQueryCache {
     const stub = makeStubQueryCache(overrides);
     return {
@@ -76,9 +80,7 @@ export function makeMockQueryCache(overrides: Partial<IQueryCache> = {}): Mocked
     } as unknown as MockedQueryCache;
 }
 
-export type MockedConfigLoader = IConfigLoader<unknown> & { [K in keyof IConfigLoader<unknown>]: Mock };
-
-export function makeMockConfigLoader(overrides: Partial<IConfigLoader<unknown>> = {}): MockedConfigLoader {
+export function makeMockConfigLoader(overrides: Partial<import('../../src/engine/interfaces/config-loader.js').IConfigLoader<unknown>> = {}): MockedConfigLoader {
     const stub = makeStubConfigLoader(overrides);
     return { 
         ...stub, 
@@ -88,9 +90,7 @@ export function makeMockConfigLoader(overrides: Partial<IConfigLoader<unknown>> 
     } as unknown as MockedConfigLoader;
 }
 
-export type MockedFormatter = IOutputFormatter & { [K in keyof IOutputFormatter]: Mock };
-
-export function makeMockFormatter(overrides: Partial<IOutputFormatter> = {}): MockedFormatter {
+export function makeMockFormatter(overrides: Partial<IOutputFormatter> = {}): MockedOutputFormatter {
     const stub = makeStubFormatter();
     return {
         ...stub,
@@ -103,10 +103,8 @@ export function makeMockFormatter(overrides: Partial<IOutputFormatter> = {}): Mo
         formatSuccess: vi.fn(stub.formatSuccess),
         formatError: vi.fn(stub.formatError),
         ...overrides
-    } as unknown as MockedFormatter;
+    } as unknown as MockedOutputFormatter;
 }
-
-export type MockedAtomRepository = ReturnType<typeof makeStubAtomRepository> & { [K in keyof ReturnType<typeof makeStubAtomRepository>]: Mock };
 
 export function makeMockAtomRepository(overrides: Partial<AtomRepository> = {}): MockedAtomRepository {
     const stub = makeStubAtomRepository(overrides);
@@ -125,8 +123,6 @@ export function makeMockAtomRepository(overrides: Partial<AtomRepository> = {}):
     return mock;
 }
 
-export type MockedPrompt = IPrompt & { [K in keyof IPrompt]: Mock };
-
 export function makeMockPrompt(overrides: Partial<IPrompt> = {}): MockedPrompt {
     const stub = makeStubPrompt(overrides);
     return {
@@ -139,14 +135,13 @@ export function makeMockPrompt(overrides: Partial<IPrompt> = {}): MockedPrompt {
     } as unknown as MockedPrompt;
 }
 
-import type { ICommitInputReader } from '../../src/engine/interfaces/commit-input-reader.js';
-
-export type MockedInputResolver = ICommitInputReader & { resolve: Mock; read: Mock };
-
 export function makeMockInputResolver(overrides: Partial<ICommitInputReader> = {}): MockedInputResolver {
+    const stub = { 
+        resolve: vi.fn().mockResolvedValue({}), 
+        read: vi.fn().mockResolvedValue({ subject: 'test', trailers: new Map() }) 
+    };
     return {
-        resolve: vi.fn().mockResolvedValue({}),
-        read: vi.fn().mockResolvedValue({ subject: 'test', trailers: new Map() }),
+        ...stub,
         ...overrides
     } as unknown as MockedInputResolver;
 }

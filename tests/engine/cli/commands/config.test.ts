@@ -4,19 +4,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerConfigCommand } from '../../../../src/engine/cli/commands/config.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeStubProtocolContext, TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
-import { MockedFormatter, TestLogger } from '../../engine-test-utils.js';
+import { type MockedOutputFormatter } from '../../../mock-types.js';
+import { TestLogger } from '../../engine-test-utils.js';
 
 describe('Config Command', () => {
   let program: Command;
   let registry: ProtocolRegistry;
   let logger: TestLogger;
-  let formatter: MockedFormatter;
+  let formatter: MockedOutputFormatter;
 
   beforeEach(() => {
     program = new Command();
     registry = new ProtocolRegistry();
     logger = new TestLogger();
-    formatter = { formatConfig: vi.fn().mockReturnValue('formatted') } as unknown as MockedFormatter;
+    formatter = { formatConfig: vi.fn().mockReturnValue('formatted') } as unknown as MockedOutputFormatter;
 
     const lore = makeStubProtocolContext({ 
         name: 'Lore', 

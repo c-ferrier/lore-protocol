@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { hydrateAtoms } from '../../../../src/engine/core/logic/hydration.js';
+import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { validateCommits } from '../../../../src/engine/shell/orchestrators/validation.js';
 import { 
+    makeAtom,
     makeRawCommit, 
     makeStubProtocolContext, 
     makeStubProtocolRegistry 
 } from '../../../../src/engine/testing.js';
+import { type MockedAtomRepository } from '../../../mock-types.js';
 import { 
     makeMockAtomRepository, 
     TEST_ENGINE_CONFIG} from '../../engine-test-utils.js';
@@ -22,8 +25,8 @@ describe('Commit Validation (Shell Orchestrator)', () => {
     }
   });
 
-  let registry: ReturnType<typeof makeStubProtocolRegistry>;
-  let mockAtomRepo: ReturnType<typeof makeMockAtomRepository>;
+  let registry: ProtocolRegistry;
+  let mockAtomRepo: MockedAtomRepository;
   
   beforeEach(() => {
     registry = makeStubProtocolRegistry([protocol]);
@@ -66,10 +69,10 @@ describe('Commit Validation (Shell Orchestrator)', () => {
   });
 
   it('should identify atoms when references exist', async () => {
-    mockAtomRepo.findByIds.mockResolvedValue([{
+    mockAtomRepo.findByIds.mockResolvedValue([makeAtom({
         commitHash: 'h1',
         protocols: new Map([['test', { trailers: { 'Test-id': ['T-456'] }, unauthorized: {} }]])
-    }]);
+    })]);
 
     const raw = makeRawCommit({
         hash: 'abc',

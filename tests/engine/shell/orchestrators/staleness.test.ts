@@ -5,6 +5,7 @@ import { ProtocolRegistry } from '../../../../src/engine/services/protocol-regis
 import { analyzeStaleness } from '../../../../src/engine/shell/orchestrators/staleness.js';
 import { makeStubProtocolContext, makeStubProtocolRegistry } from '../../../../src/engine/testing.js';
 import { STALE_SIGNAL } from '../../../../src/engine/util/constants.js';
+import { type MockedAtomRepository } from '../../../mock-types.js';
 import { 
     makeAtom, 
     makeMockAtomRepository, 
@@ -12,7 +13,7 @@ import {
 } from '../../engine-test-utils.js';
 
 describe('analyzeStaleness (Shell Orchestrator)', () => {
-  let mockRepo: ReturnType<typeof makeMockAtomRepository>;
+  let mockRepo: MockedAtomRepository;
 
   beforeEach(() => {
     mockRepo = makeMockAtomRepository();

@@ -5,12 +5,13 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { registerInitCommand } from '../../../../src/engine/cli/commands/init.js';
 import { EngineConfig } from '../../../../src/engine/core/types/config.js';
-import { MockedFormatter, TestLogger } from '../../engine-test-utils.js';
+import { type MockedOutputFormatter } from '../../../mock-types.js';
+import { TestLogger } from '../../engine-test-utils.js';
 
 vi.mock('node:fs/promises');
 
 describe('Engine registerInitCommand', () => {
-  const formatter: MockedFormatter = {
+  const formatter: MockedOutputFormatter = {
     formatSuccess: vi.fn((msg) => `SUCCESS: ${msg}`),
     formatError: vi.fn((_code, messages) => `ERROR: ${messages[0].message}`),
     formatQueryResult: vi.fn(),
@@ -19,7 +20,7 @@ describe('Engine registerInitCommand', () => {
     formatTraceResult: vi.fn(),
     formatDoctorResult: vi.fn(),
     formatConfig: vi.fn(),
-  } as unknown as MockedFormatter;
+  } as unknown as MockedOutputFormatter;
 
   let logger: TestLogger;
 

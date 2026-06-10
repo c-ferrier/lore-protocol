@@ -1,4 +1,4 @@
-import { afterEach,beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach,beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 import { formatCommit, validateFormatting } from '../../../../src/engine/core/logic/commit-formatting.js';
 import { type EngineConfig } from '../../../../src/engine/core/types/config.js';
@@ -22,7 +22,7 @@ const TEST_ID_KEY = "Mock-id";
 describe('Commit Formatting Logic (Pure Functions)', () => {
   let engineConfig: EngineConfig;
   let protocolRegistry: ProtocolRegistry;
-  let idSpy: ReturnType<typeof vi.spyOn>;
+  let idSpy: Mock;
 
   beforeEach(() => {
     engineConfig = { ...TEST_ENGINE_CONFIG };

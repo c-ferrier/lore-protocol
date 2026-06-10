@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { analyzeStaleness } from '../../../src/engine/shell/orchestrators/staleness.js';
 import { makeStubProtocolContext, makeStubProtocolRegistry } from '../../../src/engine/testing.js';
+import { type MockedAtomRepository } from '../../mock-types.js';
 import { 
     makeAtom, 
     makeMockAtomRepository, 
@@ -11,7 +12,7 @@ import {
 } from '../engine-test-utils.js';
 
 describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
-  let _mockRepo: ReturnType<typeof makeMockAtomRepository>;
+  let _mockRepo: MockedAtomRepository;
 
   beforeEach(() => {
     _mockRepo = makeMockAtomRepository();

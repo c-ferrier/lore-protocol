@@ -1,6 +1,8 @@
 import { Command } from 'commander';
 
+import { type PathQueryDeps } from '../../src/engine/cli/commands/helpers/path-query.js';
 import type { EngineOptions } from '../../src/engine/index.js';
+import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
 import { 
     makeAtomRepository, 
     makeStubFormatter, 
@@ -18,6 +20,10 @@ import { TestLogger } from '../engine/engine-test-utils.js';
  * =============================================================================
  */
 
+export interface LoreTestContext extends PathQueryDeps {
+    readonly protocolRegistry: ProtocolRegistry;
+}
+
 /** Creates a real Lore protocol context using the production definition. */
 export function makeLoreProtocol() {
     return makeStubProtocolContext(LoreProtocolDefinition);
@@ -29,7 +35,7 @@ export function makeLoreRegistry() {
 }
 
 /** Creates a full mock dependency bag for Lore-level command tests. */
-export function makeMockLoreContext(overrides: Record<string, unknown> = {}) {
+export function makeMockLoreContext(overrides: Record<string, unknown> = {}): LoreTestContext {
   return {
     atomRepository: makeAtomRepository(),
     protocolRegistry: makeLoreRegistry(),
@@ -39,11 +45,11 @@ export function makeMockLoreContext(overrides: Record<string, unknown> = {}) {
     protocolRoot: process.cwd(),
     cwd: process.cwd(),
     ...overrides
-  };
+  } as LoreTestContext;
 }
 
 /** Helper to create a Commander program for testing a specific command. */
-export function createLoreProgram(registerFn: (program: Command, deps: ReturnType<typeof makeMockLoreContext>) => void, deps: ReturnType<typeof makeMockLoreContext>) {
+export function createLoreProgram(registerFn: (program: Command, deps: LoreTestContext) => void, deps: LoreTestContext) {
     const program = new Command();
     program.exitOverride();
     registerFn(program, deps);

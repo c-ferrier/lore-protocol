@@ -6,6 +6,7 @@ import { type Atom } from '../../../../src/engine/core/types/domain.js';
 import { type IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeAtom, makeStubProtocolContext,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { type MockedAtomRepository } from '../../../mock-types.js';
 import { makeMockAtomRepository,TestLogger } from '../../engine-test-utils.js';
 ;
 
@@ -25,7 +26,7 @@ import { makeMockAtomRepository,TestLogger } from '../../engine-test-utils.js';
 interface Harness {
   program: Command;
   capturedResult: { data: unknown };
-  repo: ReturnType<typeof makeMockAtomRepository>;
+  repo: MockedAtomRepository;
   logger: TestLogger;
 }
 
@@ -78,7 +79,7 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     expect(h.repo.find).toHaveBeenCalledTimes(1);
     const [target] = h.repo.find.mock.calls[0];
-    expect(target.resolvedPaths).toContain('src/main.ts');
+    expect(target!.resolvedPaths).toContain('src/main.ts');
 
     const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(1);
@@ -96,7 +97,7 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     expect(h.repo.find).toHaveBeenCalledTimes(1);
     const [target] = h.repo.find.mock.calls[0];
-    expect(target.resolvedPaths).toContain('src/main.ts');
+    expect(target!.resolvedPaths).toContain('src/main.ts');
 
     const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(1);
@@ -112,7 +113,7 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     expect(h.repo.find).toHaveBeenCalledTimes(1);
     const [target] = h.repo.find.mock.calls[0];
-    expect(target.type).toBe('global');
+    expect(target!.type).toBe('global');
 
     const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(2);

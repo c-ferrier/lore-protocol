@@ -4,7 +4,8 @@ import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeAtomRepository, makeStubProtocolContext } from '../../../src/engine/testing.js';
-import { makeMockGitClient, MockedGitClient } from '../engine-test-utils.js';
+import { type MockedGitClient } from '../../mock-types.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
 
 describe('AtomRepository Identity Disambiguation', () => {
   let gitClient: MockedGitClient;
@@ -66,7 +67,7 @@ describe('AtomRepository Identity Disambiguation', () => {
     
     // Ensure we used a specific regex pattern
     const query = vi.mocked(gitClient.query).mock.calls[0][0];
-    const found = query.regexPatterns.some((set: string[]) => 
+    const found = query.regexPatterns!.some((set: readonly string[]) => 
         set.some(p => p.includes('alpha: Alpha-id: 12345678'))
     );
     expect(found).toBe(true);
@@ -127,7 +128,7 @@ describe('AtomRepository Identity Disambiguation', () => {
 
     // Verification: ensure the query included all possible patterns in an OR-set
     const query = vi.mocked(gitClient.query).mock.calls[0][0];
-    expect(query.regexPatterns[0]).toEqual(expect.arrayContaining([
+    expect(query.regexPatterns![0]).toEqual(expect.arrayContaining([
         '^Lore-id: 12345678$',
         '^alpha: Alpha-id: 12345678$',
         '^beta: Beta-id: 12345678$'

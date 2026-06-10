@@ -12,15 +12,15 @@ import {
     TEST_ID_KEY, 
     TEST_PROTOCOL_DEFINITION 
 } from '../../../../src/engine/testing.js';
+import { type MockedAtomRepository, type MockedGitClient } from '../../../mock-types.js';
 import { 
     makeMockAtomRepository, 
     makeMockGitClient,
-    MockedGitClient,
     TestLogger 
 } from '../../engine-test-utils.js';
 
 describe('registerTraceCommand (Integrated Expansion)', () => {
-  let atomRepository: ReturnType<typeof makeMockAtomRepository>;
+  let atomRepository: MockedAtomRepository;
   let protocolRegistry: ProtocolRegistry;
   let gitClient: MockedGitClient;
   let logger: TestLogger;

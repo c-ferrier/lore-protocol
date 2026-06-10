@@ -8,10 +8,11 @@ import { IGitClient } from '../../../../src/engine/interfaces/git-client.js';
 import { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeStubProtocolContext, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { type MockedAtomRepository } from '../../../mock-types.js';
 import { makeMockAtomRepository, makeMockFormatter, makeMockGitClient, TestLogger } from '../../engine-test-utils.js';
 
 describe('Doctor Command', () => {
-  let atomRepository: ReturnType<typeof makeMockAtomRepository>;
+  let atomRepository: MockedAtomRepository;
   let protocol: ProtocolContext;
 
   beforeEach(() => {
@@ -25,7 +26,7 @@ describe('Doctor Command', () => {
   });
 
   async function runDoctor(deps: {
-      atomRepository?: ReturnType<typeof makeMockAtomRepository>;
+      atomRepository?: MockedAtomRepository;
       getFormatter?: () => IOutputFormatter;
       protocolRegistry?: ProtocolRegistry;
       logger?: TestLogger;

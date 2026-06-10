@@ -4,7 +4,8 @@ import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeAtomRepository,makeQueryTarget,makeStubProtocolContext, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
-import { makeMockGitClient, MockedGitClient } from '../engine-test-utils.js';
+import { type MockedGitClient } from '../../mock-types.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
 ;
 ;
 

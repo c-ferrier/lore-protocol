@@ -6,7 +6,8 @@ import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeAtomRepository,makeStubProtocolContext,MOCK_CORE_TRAILERS, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
-import { makeMockGitClient, MockedGitClient } from '../engine-test-utils.js';
+import { type MockedGitClient } from '../../mock-types.js';
+import { makeMockGitClient } from '../engine-test-utils.js';
 ;
 
 
@@ -45,7 +46,7 @@ describe('AtomRepository Filtering Parity', () => {
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
 
       // Top level is list of lists
-      expect(query.regexPatterns[0].some((p: string) => p.includes(TEST_ID_KEY))).toBe(true);
+      expect(query.regexPatterns![0].some((p: string) => p.includes(TEST_ID_KEY))).toBe(true);
     });
 
     it('should generate correct StorageQuery for author and scope', async () => {
@@ -60,7 +61,7 @@ describe('AtomRepository Filtering Parity', () => {
 
       expect(query.author).toBe('alice');
       // Scope should be its own AND condition
-      expect(query.regexPatterns.some((set: string[]) => set.some(p => p.includes('^[a-zA-Z]+\\(auth\\):')))).toBe(true);
+      expect(query.regexPatterns!.some((set: readonly string[]) => set.some(p => p.includes('^[a-zA-Z]+\\(auth\\):')))).toBe(true);
     });
 
     it('should generate correct StorageQuery for the "has" trailer filter', async () => {
@@ -72,7 +73,7 @@ describe('AtomRepository Filtering Parity', () => {
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
 
       // should contain the discovery pattern for Constraint
-      expect(query.regexPatterns.some((set: string[]) => set.some(p => p.includes('Constraint: ')))).toBe(true);
+      expect(query.regexPatterns!.some((set: readonly string[]) => set.some(p => p.includes('Constraint: ')))).toBe(true);
     });
 
     it('should generate correct StorageQuery for Enum filters (pushdown)', async () => {
@@ -85,7 +86,7 @@ describe('AtomRepository Filtering Parity', () => {
       
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
 
-      expect(query.regexPatterns.some((set: string[]) => set.some(p => p.includes('Confidence: high')))).toBe(true);
+      expect(query.regexPatterns!.some((set: readonly string[]) => set.some(p => p.includes('Confidence: high')))).toBe(true);
     });
 
     it('should generate correct StorageQuery for full-text search (pushdown)', async () => {
@@ -96,7 +97,7 @@ describe('AtomRepository Filtering Parity', () => {
       
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
 
-      expect(query.regexPatterns.some((set: string[]) => set.includes('bug fix'))).toBe(true);
+      expect(query.regexPatterns!.some((set: readonly string[]) => set.includes('bug fix'))).toBe(true);
     });
 
     it('should escape regex special characters in scope and id (Security)', async () => {
@@ -109,7 +110,7 @@ describe('AtomRepository Filtering Parity', () => {
       const query = vi.mocked(gitClient.query).mock.calls[0][0];
 
       // Characters should be escaped
-      expect(query.regexPatterns.some((set: string[]) => set.some(p => p.includes('auth\\) \\| grep \\(')))).toBe(true);
+      expect(query.regexPatterns!.some((set: readonly string[]) => set.some(p => p.includes('auth\\) \\| grep \\(')))).toBe(true);
     });
   });
 

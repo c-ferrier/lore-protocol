@@ -1,4 +1,4 @@
-import { afterEach,beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach,beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 import { TerminalLogger } from '../../../../src/engine/cli/io/terminal-logger.js';
 import { LogLevel } from '../../../../src/engine/interfaces/logger.js';
@@ -6,8 +6,8 @@ import { LogLevel } from '../../../../src/engine/interfaces/logger.js';
 ;
 
 describe('TerminalLogger', () => {
-  let stdoutSpy: ReturnType<typeof vi.spyOn>;
-  let stderrSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutSpy: Mock;
+  let stderrSpy: Mock;
 
   beforeEach(() => {
     stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
