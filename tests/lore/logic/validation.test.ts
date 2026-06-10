@@ -13,7 +13,7 @@ import { makeMockAtomRepository } from '../../engine/engine-test-utils.js';
 describe('Lore Protocol Validation Contract', () => {
   let registry: ProtocolRegistry;
   let protocol: ProtocolContext;
-  let mockAtomRepo: any;
+  let mockAtomRepo: ReturnType<typeof makeMockAtomRepository>;
 
   beforeEach(() => {
     protocol = makeStubProtocolContext(LoreProtocolDefinition);

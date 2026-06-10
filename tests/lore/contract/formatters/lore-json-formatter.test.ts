@@ -19,11 +19,11 @@ function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
     Confidence: overrides.Confidence ?? ['high'],
     'Scope-risk': overrides['Scope-risk'] ?? ['narrow'],
     ...overrides,
-  } as any;
+  };
 }
 
-function makeAtom(overrides: Partial<Atom> = {}): Atom {
-  const trailers = (overrides as any).trailers ?? makeTrailers();
+function makeAtom(overrides: Partial<Atom> & { trailers?: Trailers } = {}): Atom {
+  const trailers = overrides.trailers ?? makeTrailers();
   return {
     commitHash: overrides.commitHash ?? 'h1',
     date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
@@ -35,7 +35,6 @@ function makeAtom(overrides: Partial<Atom> = {}): Atom {
       ['lore', { trailers, unauthorized: {} }]
     ]),
     filesChanged: ['src/f1.ts'],
-    ...overrides,
   };
 }
 

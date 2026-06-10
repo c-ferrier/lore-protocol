@@ -112,7 +112,7 @@ describe('LoreTextFormatter (0.5.0 Parity)', () => {
     it('should show subject only if no trailers are present', () => {
       const atom = makeAtom({ 
         subject: 'pure intent',
-        trailers: { [LORE_ID_KEY]: ['a1b2c3d4'] } as any 
+        trailers: { [LORE_ID_KEY]: ['a1b2c3d4'] }
       });
       const data: FormattableQueryResult = {
         result: {

@@ -3,6 +3,7 @@ import { afterAll,beforeAll, describe, expect, it, vi } from 'vitest';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { makeStubProtocolContext } from '../../../src/engine/testing.js';
 import { GLOBAL_NAMESPACE } from '../../../src/engine/util/constants.js';
+import type { LoreConfig } from '../../../src/lore/defaults.js';
 import { LoreConfigLoader } from '../../../src/lore/services/lore-config-loader.js';
 import { buildLoreCli } from '../lore-test-utils.js';
 ;
@@ -82,7 +83,7 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
         })
       };
 
-      vi.spyOn(LoreConfigLoader.prototype, 'load').mockImplementation(localLoader.load as any);
+      vi.spyOn(LoreConfigLoader.prototype, 'load').mockImplementation(localLoader.load as unknown as () => Promise<LoreConfig>);
 
       const { program } = await buildLoreCli();
       

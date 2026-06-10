@@ -26,7 +26,7 @@ describe('registerInitCommand', () => {
     engineDirName: '.atom',
     configFileName: 'config.toml',
     defaultConfig: DEFAULT_ENGINE_CONFIG,
-    logger: null as any,
+    logger: null as unknown as TestLogger,
   };
 
   beforeEach(() => {
@@ -40,7 +40,7 @@ describe('registerInitCommand', () => {
     registerInitCommand(program, MOCK_ENGINE_DEPS);
 
     vi.mocked(fs.access).mockRejectedValue(new Error('ENOENT'));
-    vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+    vi.mocked(fs.readFile).mockImplementation(async (path) => {
         if (path.toString().endsWith('.gitignore')) throw new Error('ENOENT');
         return '';
     });
@@ -91,7 +91,7 @@ max_depth = 3
 update_check = true
 `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
-    vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+    vi.mocked(fs.readFile).mockImplementation(async (path) => {
       if (path.toString().endsWith('.gitignore')) return '.atom/cache\n';
       return fullConfig;
     });
@@ -108,7 +108,7 @@ update_check = true
   it('should report missing sections based on the 0.5.0 spec', async () => {
     const minimalConfig = `[protocol]\nversion = "1.0"\n`;
     vi.mocked(fs.access).mockResolvedValue(undefined);
-    vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+    vi.mocked(fs.readFile).mockImplementation(async (path) => {
       if (path.toString().endsWith('.gitignore')) return '.atom/cache\n';
       return minimalConfig;
     });
@@ -133,7 +133,7 @@ strict = false
 # intent_max_length is missing
 `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
-    vi.mocked(fs.readFile).mockImplementation(async (path: any) => {
+    vi.mocked(fs.readFile).mockImplementation(async (path) => {
       if (path.toString().endsWith('.gitignore')) return '.atom/cache\n';
       return partialConfig;
     });

@@ -6,6 +6,16 @@ import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+interface Lore050Option {
+  flags: string;
+  description: string;
+}
+
+interface Lore050Command {
+  description: string;
+  options: Lore050Option[];
+}
+
 /**
  * LORE CLI CONTRACT TEST (Exhaustive)
  * 
@@ -17,7 +27,7 @@ import { join } from 'node:path';
  * 
  * SOURCE OF TRUTH: The LORE_050_STATE constant is a snapshot from the system binary.
  */
-const LORE_050_STATE: Record<string, any> = {
+const LORE_050_STATE: Record<string, Lore050Command> = {
   "init": {
     "description": "Initialize .lore/ config in repository",
     "options": []
@@ -215,7 +225,7 @@ describe('Lore CLI 0.5.0 Exhaustive Compatibility Contract', () => {
     const globalExpected = LORE_050_STATE['help'].options;
     
     for (const expected of globalExpected) {
-        const flag = expected.flags.split(', ').pop().split(' ')[0];
+        const flag = expected.flags.split(', ').pop()!.split(' ')[0];
         const opt = program.options.find(o => o.flags.includes(flag));
         expect(opt, `Global option ${flag} missing`).toBeDefined();
         expect(opt?.description.trim()).toBe(expected.description.trim());
@@ -234,11 +244,11 @@ describe('Lore CLI 0.5.0 Exhaustive Compatibility Contract', () => {
       expect(cmd?.description().trim(), `Description mismatch for ${cmdName}`).toBe(cmdContract.description);
 
       const contractOpts = cmdContract.options;
-      const visibleOpts = (cmd!.options.filter(o => !(o as any).hidden)) as any[];
+      const visibleOpts = cmd!.options.filter(o => !(o as unknown as { hidden: boolean }).hidden);
 
       // 1. Check all required options exist and match
       for (const expectedOpt of contractOpts) {
-        const flag = expectedOpt.flags.split(', ').pop().split(' ')[0];
+        const flag = expectedOpt.flags.split(', ').pop()!.split(' ')[0];
         const opt = visibleOpts.find(o => o.flags.includes(flag));
         
         expect(opt, `Option ${flag} missing or hidden in command ${cmdName}`).toBeDefined();
@@ -253,9 +263,9 @@ describe('Lore CLI 0.5.0 Exhaustive Compatibility Contract', () => {
       }
 
       // 2. STRICT: Check for unexpected visible options
-      const contractFlagNames = new Set(contractOpts.map((o: any) => o.flags.split(', ').pop().split(' ')[0]));
+      const contractFlagNames = new Set(contractOpts.map((o: Lore050Option) => o.flags.split(', ').pop()!.split(' ')[0]));
       for (const opt of visibleOpts) {
-          const flag = opt.flags.split(', ').pop().split(' ')[0];
+          const flag = opt.flags.split(', ').pop()!.split(' ')[0];
           if (flag === '--help') continue;
           expect(contractFlagNames.has(flag), `Unexpected visible option ${flag} found in command ${cmdName}`).toBe(true);
       }

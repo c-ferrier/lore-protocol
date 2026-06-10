@@ -26,8 +26,9 @@ describe('Lore CLI Output Parity (v0.5.0 vs Local)', () => {
         encoding: 'utf-8',
         env: { ...process.env, NO_COLOR: '1' }
       });
-    } catch (e: any) {
-      return e.stdout?.toString() || e.message;
+    } catch (e: unknown) {
+      const err = e as { stdout?: Buffer; message: string };
+      return err.stdout?.toString() || err.message;
     }
   }
 
@@ -38,8 +39,9 @@ describe('Lore CLI Output Parity (v0.5.0 vs Local)', () => {
         encoding: 'utf-8',
         env: { ...process.env, NO_COLOR: '1' }
       });
-    } catch (e: any) {
-      return e.stdout?.toString() || e.message;
+    } catch (e: unknown) {
+      const err = e as { stdout?: Buffer; message: string };
+      return err.stdout?.toString() || err.message;
     }
   }
 

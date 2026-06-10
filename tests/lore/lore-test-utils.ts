@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 
+import type { EngineOptions } from '../../src/engine/index.js';
 import { 
     makeAtomRepository, 
     makeStubFormatter, 
@@ -9,6 +10,7 @@ import {
 } from '../../src/engine/testing.js';
 import { buildLoreCli as realBuildLoreCli } from '../../src/lore/cli-wrapper.js';
 import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
+import { TestLogger } from '../engine/engine-test-utils.js';
 
 /**
  * =============================================================================
@@ -27,11 +29,12 @@ export function makeLoreRegistry() {
 }
 
 /** Creates a full mock dependency bag for Lore-level command tests. */
-export function makeMockLoreContext(overrides: any = {}) {
+export function makeMockLoreContext(overrides: Record<string, unknown> = {}) {
   return {
     atomRepository: makeAtomRepository(),
     protocolRegistry: makeLoreRegistry(),
     getFormatter: () => makeStubFormatter(),
+    logger: new TestLogger(),
     config: TEST_ENGINE_CONFIG,
     protocolRoot: process.cwd(),
     cwd: process.cwd(),
@@ -40,7 +43,7 @@ export function makeMockLoreContext(overrides: any = {}) {
 }
 
 /** Helper to create a Commander program for testing a specific command. */
-export function createLoreProgram(registerFn: (program: Command, deps: any) => void, deps: any) {
+export function createLoreProgram(registerFn: (program: Command, deps: ReturnType<typeof makeMockLoreContext>) => void, deps: ReturnType<typeof makeMockLoreContext>) {
     const program = new Command();
     program.exitOverride();
     registerFn(program, deps);
@@ -48,6 +51,6 @@ export function createLoreProgram(registerFn: (program: Command, deps: any) => v
 }
 
 /** Wrapper around the real buildLoreCli for E2E-style testing. */
-export async function buildLoreCli(overrides: any = {}) {
+export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
   return realBuildLoreCli(overrides);
 }

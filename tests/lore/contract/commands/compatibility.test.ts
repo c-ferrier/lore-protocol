@@ -7,21 +7,15 @@ import { registerContextCommand } from '../../../../src/lore/commands/context.js
 ;
 ;
 import * as engineExports from '../../../../src/engine/index.js';
+import { makeMockLoreContext } from '../../lore-test-utils.js';
 
 describe('Lore Compatibility Command Registration', () => {
   let program: Command;
-  let deps: any;
+  let deps: ReturnType<typeof makeMockLoreContext>;
 
   beforeEach(() => {
     program = new Command();
-    deps = {
-      atomRepository: {},
-      gitClient: {},
-      supersessionResolver: {},
-      getFormatter: vi.fn(),
-      config: {},
-      protocol: { name: 'Lore' }
-    };
+    deps = makeMockLoreContext();
     
     // Spy on the shared helper
     vi.spyOn(engineExports, 'executePathQuery').mockResolvedValue(undefined);

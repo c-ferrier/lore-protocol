@@ -36,9 +36,9 @@ describe('Lore CLI Rebranding (Wrapper Logic)', () => {
     const intentOpt = commitCmd.options.find(o => o.long === '--intent');
 
     expect(subjectOpt).toBeDefined();
-    expect((subjectOpt as any).hidden).toBe(true);
+    expect((subjectOpt as unknown as { hidden: boolean }).hidden).toBe(true);
     expect(intentOpt).toBeDefined();
-    expect((intentOpt as any).hidden).toBeFalsy();
+    expect((intentOpt as unknown as { hidden: boolean }).hidden).toBeFalsy();
 
     const helpText = commitCmd.helpInformation();
     expect(helpText).toContain('--intent');

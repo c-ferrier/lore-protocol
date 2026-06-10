@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol-definition.js';
+import { type IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
@@ -52,7 +53,7 @@ describe('Lore Wrapper Rebranding Flow', () => {
 
     // 3. Setup Repository
     const repo = new AtomRepository(
-      mockGit as any,
+      mockGit as IGitClient,
       registry,
       new NullQueryCache(),
       makeQueryTarget()

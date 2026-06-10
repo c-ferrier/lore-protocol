@@ -19,7 +19,7 @@ describe('LoreTextFormatter Author Parity', () => {
         author: 'Cole <cole@example.com>',
         date: new Date('2025-01-15T12:00:00Z')
     });
-    const header = (formatter as any).formatAtomHeader(atom, 'aaaa1111', false);
+    const header = (formatter as unknown as { formatAtomHeader: (a: import('../../../../src/engine/core/types/domain.js').Atom, id: string, color: boolean) => string }).formatAtomHeader(atom, 'aaaa1111', false);
     
     // Header format: ── ID (date, email) ──
     expect(header).toContain('(2025-01-15, cole@example.com)');
@@ -31,7 +31,7 @@ describe('LoreTextFormatter Author Parity', () => {
         author: 'cole@example.com',
         date: new Date('2025-01-15T12:00:00Z')
     });
-    const header = (formatter as any).formatAtomHeader(atom, 'aaaa1111', false);
+    const header = (formatter as unknown as { formatAtomHeader: (a: import('../../../../src/engine/core/types/domain.js').Atom, id: string, color: boolean) => string }).formatAtomHeader(atom, 'aaaa1111', false);
     
     expect(header).toContain('(2025-01-15, cole@example.com)');
   });
@@ -41,7 +41,7 @@ describe('LoreTextFormatter Author Parity', () => {
         author: 'Cole <malformed',
         date: new Date('2025-01-15T12:00:00Z')
     });
-    const header = (formatter as any).formatAtomHeader(atom, 'aaaa1111', false);
+    const header = (formatter as unknown as { formatAtomHeader: (a: import('../../../../src/engine/core/types/domain.js').Atom, id: string, color: boolean) => string }).formatAtomHeader(atom, 'aaaa1111', false);
     
     // Should fallback to showing the whole string if no closing bracket
     expect(header).toContain('(2025-01-15, Cole <malformed)');

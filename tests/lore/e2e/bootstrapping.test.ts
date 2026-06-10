@@ -2,6 +2,7 @@ import { afterEach,beforeEach, describe, expect, it } from 'vitest';
 
 import { getAuthorizedKeys } from '../../../src/engine/core/logic/protocols.js';
 import { DEFAULT_ENGINE_CONFIG } from '../../../src/engine/defaults.js';
+import { type IPrompt } from '../../../src/engine/interfaces/prompt.js';
 import { EngineBootstrapper } from '../../../src/engine/services/engine-bootstrapper.js';
 ;
 import { execSync } from 'node:child_process';
@@ -51,7 +52,7 @@ pattern = "^[0-9]+$"
         configFileName: configFile,
         defaultConfig: DEFAULT_ENGINE_CONFIG,
         staticProtocols: [],
-          prompt: { askConfirm: async () => true, askChoice: async () => '', askInput: async () => '' } as any
+          prompt: { askConfirm: async () => true, askChoice: async () => '', askInput: async () => '', askText: async () => '', askMultiline: async () => '', close: () => {} } as unknown as IPrompt
     });
 
     const { sharedDeps } = await bootstrapper.bootstrap(testDir, []);
@@ -88,7 +89,7 @@ description = "new"
         configFileName: configFile,
         defaultConfig: DEFAULT_ENGINE_CONFIG,
         staticProtocols: [],
-          prompt: { askConfirm: async () => true, askChoice: async () => '', askInput: async () => '' } as any
+          prompt: { askConfirm: async () => true, askChoice: async () => '', askInput: async () => '', askText: async () => '', askMultiline: async () => '', close: () => {} } as unknown as IPrompt
     });
 
     const { sharedDeps } = await bootstrapper.bootstrap(testDir, []);
@@ -110,7 +111,7 @@ description = "new"
           configFileName: configFile,
           defaultConfig: DEFAULT_ENGINE_CONFIG,
           staticProtocols: [],
-          prompt: { askConfirm: async () => true, askChoice: async () => '', askInput: async () => '' } as any
+          prompt: { askConfirm: async () => true, askChoice: async () => '', askInput: async () => '', askText: async () => '', askMultiline: async () => '', close: () => {} } as unknown as IPrompt
       });
 
       // Expect it to throw (smol-toml error)
@@ -131,7 +132,7 @@ description = "new"
           configFileName: configFile,
           defaultConfig: DEFAULT_ENGINE_CONFIG,
           staticProtocols: [],
-          prompt: { askConfirm: async () => true, askChoice: async () => '', askInput: async () => '' } as any
+          prompt: { askConfirm: async () => true, askChoice: async () => '', askInput: async () => '', askText: async () => '', askMultiline: async () => '', close: () => {} } as unknown as IPrompt
       });
 
       await expect(bootstrapper.bootstrap(testDir, [])).rejects.toThrow(/Duplicate protocol definition/);
