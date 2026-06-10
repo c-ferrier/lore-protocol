@@ -8,20 +8,14 @@ import { IGitClient } from '../../../../src/engine/interfaces/git-client.js';
 import { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeStubProtocolContext, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
-import { makeMockAtomRepository, makeMockConfigLoader, makeMockFormatter, makeMockGitClient, MockedConfigLoader, TestLogger } from '../../engine-test-utils.js';
+import { makeMockAtomRepository, makeMockFormatter, makeMockGitClient, TestLogger } from '../../engine-test-utils.js';
 
 describe('Doctor Command', () => {
   let atomRepository: ReturnType<typeof makeMockAtomRepository>;
-  let configLoader: MockedConfigLoader;
   let protocol: ProtocolContext;
 
   beforeEach(() => {
     atomRepository = makeMockAtomRepository();
-    configLoader = makeMockConfigLoader({
-        loadForPath: vi.fn().mockResolvedValue({}),
-        loadFromFile: vi.fn().mockResolvedValue({}),
-        findConfigPath: vi.fn().mockResolvedValue('/repo/.mock/config.toml'),
-    });
     protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
     vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit'); });
   });

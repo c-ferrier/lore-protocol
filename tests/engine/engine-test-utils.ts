@@ -59,7 +59,7 @@ export function makeMockGitClient(overrides: Partial<IGitClient> = {}): MockedGi
     } as unknown as MockedGitClient;
 }
 
-export function makeMockProtocolRegistry(protocols: ProtocolContext[] = []): any {
+export function makeMockProtocolRegistry(protocols: ProtocolContext[] = []): ProtocolRegistry {
     const registry = makeStubProtocolRegistry(protocols);
     return registry;
 }
@@ -76,13 +76,14 @@ export function makeMockQueryCache(overrides: Partial<IQueryCache> = {}): Mocked
     } as unknown as MockedQueryCache;
 }
 
-export type MockedConfigLoader = IConfigLoader<any> & { [K in keyof IConfigLoader<any>]: Mock };
+export type MockedConfigLoader = IConfigLoader<unknown> & { [K in keyof IConfigLoader<unknown>]: Mock };
 
-export function makeMockConfigLoader(overrides: Partial<IConfigLoader<any>> = {}): MockedConfigLoader {
+export function makeMockConfigLoader(overrides: Partial<IConfigLoader<unknown>> = {}): MockedConfigLoader {
     const stub = makeStubConfigLoader(overrides);
     return { 
         ...stub, 
         loadForPath: vi.fn(stub.loadForPath),
+        loadFromFile: vi.fn(stub.loadFromFile),
         findConfigPath: vi.fn(async () => null),
     } as unknown as MockedConfigLoader;
 }
@@ -105,19 +106,22 @@ export function makeMockFormatter(overrides: Partial<IOutputFormatter> = {}): Mo
     } as unknown as MockedFormatter;
 }
 
-export function makeMockAtomRepository(overrides: Partial<AtomRepository> = {}): any {
+export type MockedAtomRepository = ReturnType<typeof makeStubAtomRepository> & { [K in keyof ReturnType<typeof makeStubAtomRepository>]: Mock };
+
+export function makeMockAtomRepository(overrides: Partial<AtomRepository> = {}): MockedAtomRepository {
     const stub = makeStubAtomRepository(overrides);
-    const mock: any = { 
+    const mock = { 
         ...stub, 
         find: vi.fn(stub.find), 
         findByIds: vi.fn(stub.findByIds),
-        findById: vi.fn(async (id: any, opts: any) => {
-            const results = await mock.findByIds([id], opts);
-            return results[0] || null;
+        findById: vi.fn(async (id: string | { id: string; protocol?: string }, opts: unknown) => {
+            const identity = typeof id === 'string' ? { id } : id;
+            const results = await (mock.findByIds as unknown as Mock)([identity], opts);
+            return results?.[0] || null;
         }),
         getAtomDrift: vi.fn(stub.getAtomDrift),
         getHeadHash: vi.fn(stub.getHeadHash)
-    };
+    } as unknown as MockedAtomRepository;
     return mock;
 }
 

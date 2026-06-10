@@ -1,7 +1,7 @@
 import { afterEach,beforeEach, describe, expect, it } from 'vitest';
 
 import { resolveProtocolRoot } from '../../../../src/engine/shell/fs/root-resolver.js';
-import { makeMockConfigLoader, makeMockGitClient } from '../../engine-test-utils.js';
+import { makeMockConfigLoader, makeMockGitClient, MockedConfigLoader, MockedGitClient } from '../../engine-test-utils.js';
 ;
 
 
@@ -12,8 +12,8 @@ import { join } from 'node:path';
 
 describe('resolveProtocolRoot', () => {
   let tempDir: string;
-  let mockConfigLoader: any;
-  let mockGitClient: any;
+  let mockConfigLoader: MockedConfigLoader;
+  let mockGitClient: MockedGitClient;
 
   beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'root-resolver-test-'));

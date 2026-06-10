@@ -40,7 +40,7 @@ export async function analyzeStaleness(
         const driftMap = await atomRepository.getAtomDrift(atom);
         const driftSignals = evaluateDriftSignal(driftMap, config.stale.driftThreshold);
         reasons.push(...driftSignals);
-      } catch (err) {
+      } catch (_err) {
         // Log or skip drift on error (best effort)
       }
 

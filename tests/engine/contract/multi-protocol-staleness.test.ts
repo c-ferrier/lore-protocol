@@ -11,10 +11,10 @@ import {
 } from '../engine-test-utils.js';
 
 describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
-  let mockRepo: ReturnType<typeof makeMockAtomRepository>;
+  let _mockRepo: ReturnType<typeof makeMockAtomRepository>;
 
   beforeEach(() => {
-    mockRepo = makeMockAtomRepository();
+    _mockRepo = makeMockAtomRepository();
   });
 
   it('should aggregate staleness signals from multiple protocols for a single atom', async () => {

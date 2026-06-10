@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { AtomRepository } from '../../../../src/engine/services/atom-repository.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { analyzeStaleness } from '../../../../src/engine/shell/orchestrators/staleness.js';
 import { makeStubProtocolContext, makeStubProtocolRegistry } from '../../../../src/engine/testing.js';
@@ -11,14 +12,14 @@ import {
 } from '../../engine-test-utils.js';
 
 describe('analyzeStaleness (Shell Orchestrator)', () => {
-  let mockRepo: any;
+  let mockRepo: ReturnType<typeof makeMockAtomRepository>;
 
   beforeEach(() => {
     mockRepo = makeMockAtomRepository();
   });
 
-  const getDeps = (registry?: any) => ({
-    atomRepository: mockRepo,
+  const getDeps = (registry?: ProtocolRegistry) => ({
+    atomRepository: mockRepo as unknown as AtomRepository,
     config: TEST_ENGINE_CONFIG,
     protocolRegistry: registry || new ProtocolRegistry()
   });
