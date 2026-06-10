@@ -1,7 +1,7 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
-import { findAtomById, findAtoms, findAtomsByIds, resolveFollowLinks } from '../../../../src/engine/shell/orchestrators/discovery.js';
+import { calculateDriftBatch, findAtomById, findAtoms, findAtomsByIds, resolveFollowLinks } from '../../../../src/engine/shell/orchestrators/discovery.js';
 import { makeAtom, makeRawCommit,makeStubProtocolContext, type ProtocolContext,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { makeQueryTarget } from '../../../../src/engine/testing.js';
 import { type MockedGitClient } from '../../../mock-types.js'; 
@@ -259,6 +259,48 @@ describe('Discovery Orchestrator', () => {
         const infra = getInfra();
         const resolved = await resolveFollowLinks(infra, [], 5);
         expect(resolved).toEqual([]);
+    });
+  });
+
+  describe('calculateDriftBatch', () => {
+    it('should calculate accurate drift for multiple atoms in a single pass', async () => {
+      const atomA = makeAtom({ commitHash: 'hashA', date: new Date('2023-01-01'), filesChanged: ['src/a.ts'] });
+      const atomB = makeAtom({ commitHash: 'hashB', date: new Date('2023-01-05'), filesChanged: ['src/a.ts', 'src/b.ts'] });
+
+      git.getLogStream.mockImplementation(async function* () {
+          yield { hash: 'c5', lines: ['src/a.ts'] }; // Drift for A and B
+          yield { hash: 'c4', lines: ['src/b.ts'] }; // Drift for A and B
+          yield { hash: 'hashB', lines: ['src/b.ts'] }; // Atom B (Start snapshot)
+          yield { hash: 'c3', lines: ['src/a.ts'] }; // Drift for A only
+          yield { hash: 'c2', lines: ['src/c.ts'] }; // Irrelevant
+          yield { hash: 'hashA', lines: ['src/a.ts'] }; // Atom A (Start snapshot)
+      });
+
+      const results = await calculateDriftBatch({ git }, [atomA, atomB]);
+
+      const driftA = results.get('hashA');
+      const driftB = results.get('hashB');
+
+      expect(driftA?.['src/a.ts']).toBe(2); // c3 and c5
+      expect(driftB?.['src/a.ts']).toBe(1); // c5 only
+      expect(driftB?.['src/b.ts']).toBe(1); // c4 only
+    });
+
+    it('should return an empty map when given an empty atom list', async () => {
+      const results = await calculateDriftBatch({ git }, []);
+      expect(results.size).toBe(0);
+      expect(git.getLogStream).not.toHaveBeenCalled();
+    });
+
+    it('should propagate Git errors from the stream', async () => {
+      const atom = makeAtom({ commitHash: 'unreachable', date: new Date() });
+      git.getLogStream.mockImplementation(async function* () {
+          // Satisfy require-yield lint rule
+          yield* [];
+          throw new Error('fatal: reference is not a tree: unreachable');
+      });
+
+      await expect(calculateDriftBatch({ git }, [atom])).rejects.toThrow('fatal: reference is not a tree');
     });
   });
 

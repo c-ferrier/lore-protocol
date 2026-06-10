@@ -51,15 +51,18 @@ export interface IGitClient {
   isInsideRepo(): Promise<boolean>;
   getFilesChanged(commitHashes: readonly string[]): Promise<ReadonlyMap<string, readonly string[]>>;
   /**
-   * Retrieve all files changed in every commit since the specified hash.
-   * Used for bulk drift calculation without N+1 subprocesses.
-   */
-  getFilesChangedSince(commitHash: string): Promise<readonly string[]>;
-  /**
    * Retrieve multiple commit records by their hashes in a single operation.
    * Useful for hydrating results from the query cache.
    */
   getCommitsByHashes(hashes: readonly string[]): Promise<readonly RawCommit[]>;
+  /**
+   * Universal streaming log. Yields structured records (hash + lines) 
+   * for any revision range and format.
+   */
+  getLogStream(
+    revisionRange: string, 
+    options?: { format?: string; nameOnly?: boolean; additionalArgs?: string[] }
+  ): AsyncIterable<{ hash: string; lines: string[] }>;
   resolveRef(ref: string): Promise<string>;
   resolveDate(dateStr: string): Promise<Date | null>;
   getHeadMessage(): Promise<string>;

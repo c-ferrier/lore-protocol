@@ -28,7 +28,7 @@ export function registerValidateCommand(
     .option('--last <n>', 'Validate the last N commits', parseInt)
     .option('--strict', 'Treat warnings as errors')
     .action(async (range: string | undefined, options: ValidateCommandOptions) => {
-      const { getFormatter } = infra;
+      const { getFormatter, logger } = infra;
 
       const target = createQueryTarget(range, { cwd, protocolRoot, isScoped: false });
 

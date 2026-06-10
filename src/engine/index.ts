@@ -87,7 +87,7 @@ export {
     matchesFilters} from './shell/git/protocol-query-adapter.js';
 
 // --- Shell Orchestrators ---
-export { findAtomById, findAtoms, findAtomsByIds, getAtomDrift, resolveFollowLinks } from './shell/orchestrators/discovery.js';
+export { findAtomById, findAtoms, findAtomsByIds, resolveFollowLinks } from './shell/orchestrators/discovery.js';
 export { analyzeStaleness } from './shell/orchestrators/staleness.js';
 export { validateCommits } from './shell/orchestrators/validation.js';
 

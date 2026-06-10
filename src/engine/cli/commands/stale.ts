@@ -35,6 +35,7 @@ export function registerStaleCommand(
       const options = mergeOptions<StaleCommandOptions & QueryOptions>(command);
       const { git, config, protocols, getFormatter, logger } = infra;
 
+
       // 1. Resolve target using the pure logic
       const target = createQueryTarget(rawTarget, { cwd, protocolRoot, isScoped: false });
       

@@ -32,6 +32,11 @@ const LOG_FORMAT = '%x1E%H%x1F%aI%x1F%an <%ae>%x1F%s%x1F%b%x1F%(trailers:only,un
 const BLAME_HASH_PATTERN = /^([0-9a-f]{40})\s/;
 
 /**
+ * ASCII Record Separator for streaming Git output.
+ */
+export const GIT_RECORD_SEP = '\x1E';
+
+/**
  * Real git interaction layer using child_process.execFile.
  *
  * GoF: Adapter -- adapts the volatile git CLI to a stable domain interface.
@@ -237,30 +242,58 @@ export class GitClient implements IGitClient {
     return this.parseLogOutput(stdout);
   }
 
-  async getFilesChangedSince(commitHash: string): Promise<readonly string[]> {
+  async *getLogStream(
+    revisionRange: string, 
+    options: { format?: string; nameOnly?: boolean; additionalArgs?: string[] } = {}
+  ): AsyncIterable<{ hash: string; lines: string[] }> {
+    const { spawn } = await import('node:child_process');
     const RECORD_SEP = '\x1E';
-    const stdout = await this.exec([
-      'log',
-      '--name-only',
-      '--format=%x1E',
-      `${commitHash}..HEAD`,
-    ]);
+    
+    const format = options.format || '%H';
+    const args = [
+        'log',
+        `--format=${RECORD_SEP}${format}`,
+        revisionRange,
+        '--relative'
+    ];
 
-    if (!stdout.trim()) return [];
+    if (options.nameOnly) args.push('--name-only');
+    if (options.additionalArgs) args.push(...options.additionalArgs);
 
-    const files: string[] = [];
-    const chunks = stdout.split(RECORD_SEP);
-    for (const chunk of chunks) {
-        const trimmedChunk = chunk.trim();
-        if (!trimmedChunk) continue;
+    const child = spawn('git', args, { cwd: this.cwd });
+
+    if (!child.stdout) return;
+
+    let buffer = '';
+    for await (const chunk of child.stdout) {
+        buffer += chunk.toString();
+        const records = buffer.split(RECORD_SEP);
         
-        const lines = trimmedChunk.split('\n');
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (trimmedLine) files.push(trimmedLine);
+        // Keep the last partial record in the buffer
+        buffer = records.pop() || '';
+
+        for (const record of records) {
+            const trimmedRecord = record.trim();
+            if (!trimmedRecord) continue;
+            
+            const lines = trimmedRecord.split('\n');
+            if (lines.length > 0) {
+                yield {
+                    hash: lines[0],
+                    lines: lines.slice(1).filter(l => l.trim().length > 0)
+                };
+            }
         }
     }
-    return files;
+
+    // Final flush
+    if (buffer.trim()) {
+        const lines = buffer.trim().split('\n');
+        yield {
+            hash: lines[0],
+            lines: lines.slice(1).filter(l => l.trim().length > 0)
+        };
+    }
   }
 
   async resolveRef(ref: string): Promise<string> {

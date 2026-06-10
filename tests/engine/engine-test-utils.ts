@@ -54,7 +54,7 @@ export function makeMockGitClient(overrides: Partial<IGitClient> = {}): MockedGi
         hasStagedChanges: vi.fn(stub.hasStagedChanges),
         isInsideRepo: vi.fn(stub.isInsideRepo),
         getHeadMessage: vi.fn(stub.getHeadMessage),
-        getFilesChangedSince: vi.fn(stub.getFilesChangedSince),
+        getLogStream: vi.fn(stub.getLogStream),
         log: vi.fn(stub.log),
         commit: vi.fn(stub.commit)
     } as unknown as MockedGitClient;

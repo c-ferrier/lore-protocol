@@ -26,7 +26,7 @@ export function registerWhyCommand(
   addPathQueryOptions(cmd);
 
   cmd.action(async (rawTarget: string, _options: PathQueryCommandOptions, command: Command) => {
-    const { getFormatter, protocols: protocolMap } = infra;
+    const { getFormatter, protocols: protocolMap, logger } = infra;
     
     if (protocolMap.size === 0) {
         throw new ProtocolError('At least one protocol must be registered to run this command.', 1);

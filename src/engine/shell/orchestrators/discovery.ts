@@ -419,20 +419,60 @@ export async function resolveFollowLinks(
 /**
  * Calculates the drift metric for an atom (commits since creation per file).
  */
-export async function getAtomDrift(infra: { git: IGitClient }, atom: Atom): Promise<Record<string, number>> {
-  const driftMap: Record<string, number> = {};
-  for (const file of atom.filesChanged) {
-      driftMap[file] = 0;
-  }
+/**
+ * Calculates drift for a batch of atoms in a single chronological pass.
+ * High-performance: $O(History)$ instead of $O(Atoms * History)$.
+ * Memory-safe: Streams history line-by-line using the Universal Log Stream.
+ */
+export async function calculateDriftBatch(
+    infra: { git: IGitClient }, 
+    atoms: readonly Atom[]
+): Promise<Map<string, Record<string, number>>> {
+  if (atoms.length === 0) return new Map();
 
-  const changedFiles = await infra.git.getFilesChangedSince(atom.commitHash);
-  for (const file of changedFiles) {
-      if (driftMap[file] !== undefined) {
-          driftMap[file]++;
+  // 1. Find the oldest atom (the "Horizon")
+  const oldestAtom = atoms.reduce((min, a) => 
+    (new Date(a.date) < new Date(min.date) ? a : min), 
+    atoms[0]
+  );
+
+  // 2. Prepare result maps and indexing
+  const results = new Map<string, Record<string, number>>();
+  const atomMap = new Map<string, Atom>();
+  const globalCounter = new Map<string, number>();
+
+  for (const atom of atoms) {
+      results.set(atom.commitHash, {});
+      atomMap.set(atom.commitHash, atom);
+      for (const file of atom.filesChanged) {
+          globalCounter.set(file, 0);
       }
   }
 
-  return driftMap;
+  // 3. Reverse Sweep (Newest -> Oldest)
+  const stream = infra.git.getLogStream(`${oldestAtom.commitHash}..HEAD`, { nameOnly: true });
+
+  for await (const record of stream) {
+      // Snapshot BEFORE incrementing (drift is commits AFTER the atom)
+      const matchingAtom = atomMap.get(record.hash);
+      if (matchingAtom) {
+          const atomDrift: Record<string, number> = {};
+          for (const file of matchingAtom.filesChanged) {
+              atomDrift[file] = globalCounter.get(file) || 0;
+          }
+          results.set(record.hash, atomDrift);
+      }
+
+      // Update the running drift counters for all tracked files
+      for (const file of record.lines) {
+          const current = globalCounter.get(file);
+          if (current !== undefined) {
+              globalCounter.set(file, current + 1);
+          }
+      }
+  }
+
+  return results;
 }
 
 async function getHeadHash(git: IGitClient): Promise<string | undefined> {

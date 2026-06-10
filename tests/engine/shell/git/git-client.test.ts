@@ -1,11 +1,12 @@
-import { execFile as execFileCb } from 'node:child_process';
+import { execFile as execFileCb, spawn as spawnCb } from 'node:child_process';
 
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
-import { GitClient } from '../../../../src/engine/shell/git/git-client.js';
+import { GIT_RECORD_SEP,GitClient } from '../../../../src/engine/shell/git/git-client.js';
 
 vi.mock('node:child_process', () => ({
   execFile: vi.fn(),
+  spawn: vi.fn(),
 }));
 
 // Typed alias for the mocked execFile callback
@@ -112,6 +113,34 @@ describe('GitClient Implementation', () => {
           expect(args).toContain('--extended-regexp');
           expect(args).toContain('--all-match');
       });
+  });
+
+  describe('getLogStream', () => {
+    it('should correctly parse streamed records across chunk boundaries', async () => {
+        const mockStdout = (async function* () {
+            yield Buffer.from(`${GIT_RECORD_SEP}h1\nfile1.ts\n`);
+            yield Buffer.from(`file2.ts\n${GIT_RECORD_SEP}h2\n`);
+            yield Buffer.from(`file3.ts\n`);
+        })();
+
+        // Cast to unknown then to ReturnType to provide a type-safe mock of ChildProcess
+        // without using 'any', satisfying strict project lint rules.
+        vi.mocked(spawnCb).mockReturnValue({
+            stdout: mockStdout,
+            on: vi.fn(),
+            stderr: { on: vi.fn() },
+            stdin: { write: vi.fn(), end: vi.fn() }
+        } as unknown as ReturnType<typeof spawnCb>);
+
+        const results = [];
+        for await (const record of client.getLogStream('HEAD~2..HEAD')) {
+            results.push(record);
+        }
+
+        expect(results).toHaveLength(2);
+        expect(results[0]).toEqual({ hash: 'h1', lines: ['file1.ts', 'file2.ts'] });
+        expect(results[1]).toEqual({ hash: 'h2', lines: ['file3.ts'] });
+    });
   });
 
   describe('Git Log Combined Stream Parser', () => {

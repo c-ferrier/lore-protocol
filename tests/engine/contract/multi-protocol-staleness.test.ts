@@ -58,8 +58,9 @@ describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
       ])
     });
 
-    git.getFilesChangedSince.mockResolvedValue([]);
-
+    git.getLogStream.mockImplementation(async function* () {
+        yield { hash: atom.commitHash, lines: [] };
+    });
     const deps = {
         gitClient: git,
         config: TEST_ENGINE_CONFIG,

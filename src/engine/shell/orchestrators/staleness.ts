@@ -10,7 +10,7 @@ import type { Atom, StaleReason,SupersessionStatus } from '../../core/types/doma
 import type { StaleAtomReport } from '../../core/types/output.js';
 import type { ProtocolContext } from '../../core/types/protocol-definition.js';
 import type { IGitClient } from '../../interfaces/git-client.js';
-import { getAtomDrift } from './discovery.js';
+import { calculateDriftBatch } from './discovery.js';
 
 /**
  * Orchestrates the analysis of Atoms to detect "staleness" signals.
@@ -31,20 +31,24 @@ export async function analyzeStaleness(
     const now = new Date();
     const protocolList = Array.from(protocols.values());
 
-    const results = await Promise.all(atoms.map(async (atom) => {
+    // 1. Pre-calculate Drift for the entire batch in ONE Git pass
+    let driftResults = new Map<string, Record<string, number>>();
+    try {
+      driftResults = await calculateDriftBatch({ git: gitClient }, atoms);
+    } catch (_err) {
+      // Best effort: if batch drift fails, continue without drift signals
+    }
+
+    const results = atoms.map((atom) => {
       const reasons: StaleReason[] = [];
 
       // 1. Structural Signals (Generic Engine Level)
       const ageSignal = evaluateAgeSignal(atom.date, now, config.stale.olderThan);
       if (ageSignal) reasons.push(ageSignal);
 
-      try {
-        const driftMap = await getAtomDrift({ git: gitClient }, atom);
-        const driftSignals = evaluateDriftSignal(driftMap, config.stale.driftThreshold);
-        reasons.push(...driftSignals);
-      } catch (_err) {
-        // Log or skip drift on error (best effort)
-      }
+      const driftMap = driftResults.get(atom.commitHash) || {};
+      const driftSignals = evaluateDriftSignal(driftMap, config.stale.driftThreshold);
+      reasons.push(...driftSignals);
 
       // 2. Protocol-Specific Signals
       for (const p of protocolList) {
@@ -56,7 +60,7 @@ export async function analyzeStaleness(
         return { atom, reasons } as StaleAtomReport;
       }
       return null;
-    }));
+    });
 
     return results.filter((r): r is StaleAtomReport => r !== null);
   }

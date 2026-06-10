@@ -27,6 +27,7 @@ export function registerSearchCommand(
 
   cmd.action(async (_options: PathQueryCommandOptions, command: Command) => {
     const { getFormatter, logger } = infra;
+
     const options = mergeOptions<PathQueryCommandOptions>(command);
 
     const searchOptions: QueryOptions = {

@@ -205,7 +205,7 @@ export function makeStubGitClient(overrides: Partial<IGitClient> = {}): IGitClie
     query: async () => [],
     blame: async () => [],
     getCommitsByHashes: async () => [],
-    getFilesChangedSince: async () => [],
+    getLogStream: async function* () {},
     commit: async () => ({ hash: 'new-hash', message: 'commit msg', success: true }),
     hasStagedChanges: async () => true,
     isInsideRepo: async () => true,

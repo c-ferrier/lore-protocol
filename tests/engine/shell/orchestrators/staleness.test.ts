@@ -31,8 +31,12 @@ describe('analyzeStaleness (Shell Orchestrator)', () => {
     });
 
     // Mock Git: 25 commits since atom for this file (threshold is 20)
-    // getAtomDrift uses git.getFilesChangedSince
-    git.getFilesChangedSince.mockResolvedValue(new Array(25).fill('src/logic.ts'));
+    git.getLogStream.mockImplementation(async function* () {
+        for (let i = 0; i < 25; i++) {
+            yield { hash: `c${i}`, lines: ['src/logic.ts'] };
+        }
+        yield { hash: atom.commitHash, lines: ['src/logic.ts'] };
+    });
 
     const reports = await analyzeStaleness([atom], new Map(), getDeps());
 
@@ -46,7 +50,7 @@ describe('analyzeStaleness (Shell Orchestrator)', () => {
     expect(reasons.some(r => r.signal === STALE_SIGNAL.DRIFT)).toBe(true);
     expect(reasons.find(r => r.signal === STALE_SIGNAL.DRIFT)?.description)
         .toBe('src/logic.ts has 25 commits since this atom (threshold: 20)');
-    expect(git.getFilesChangedSince).toHaveBeenCalledWith(atom.commitHash);
+    expect(git.getLogStream).toHaveBeenCalled();
   });
 
   it('should delegate to protocols for domain-specific signals', async () => {
@@ -65,7 +69,9 @@ describe('analyzeStaleness (Shell Orchestrator)', () => {
     const protocols = new ProtocolMap<ProtocolContext>();
     protocols.set(protocol.name, protocol);
     const atom = makeAtom({ date: new Date(), trailers: { Confidence: ['low'] } });
-    git.getFilesChangedSince.mockResolvedValue([]);
+    git.getLogStream.mockImplementation(async function* () {
+        yield { hash: atom.commitHash, lines: [] };
+    });
 
     const reports = await analyzeStaleness([atom], new Map(), getDeps(protocols));
 
@@ -75,11 +81,36 @@ describe('analyzeStaleness (Shell Orchestrator)', () => {
 
   it('should handle Git errors gracefully during drift check', async () => {
     const atom = makeAtom({ date: new Date(), filesChanged: ['deleted.ts'] });
-    git.getFilesChangedSince.mockRejectedValue(new Error('Git error'));
+    git.getLogStream.mockImplementation(async function* () {
+        // Satisfy require-yield lint rule by delegating to an empty iterable
+        yield* [];
+        throw new Error('Git error');
+    });
 
     const reports = await analyzeStaleness([atom], new Map(), getDeps());
 
-    // Should still return, just without the drift signal
+    // Should still return, just without the drift signal (unless other signals triggered)
+    // In this case, no signals triggered for a new atom
     expect(reports).toHaveLength(0);
-  });
-});
+    });
+
+    it('should continue gracefully when batch drift calculation fails', async () => {
+      const atom = makeAtom({ 
+          date: new Date(Date.now() - 1000 * 60 * 60 * 24 * 365), // 1 year old (Triggers Age signal)
+          filesChanged: ['src/logic.ts'] 
+      });
+
+      // Simulate a Git crash or unreachable hash during batch stream
+      git.getLogStream.mockImplementation(async function* () {
+          yield* [];
+          throw new Error('fatal: reference is not a tree');
+      });
+
+      const reports = await analyzeStaleness([atom], new Map(), getDeps());
+
+      // Should still return Age report, even if Drift calculation crashed
+      expect(reports).toHaveLength(1);
+      expect(reports[0].reasons.some(r => r.signal === STALE_SIGNAL.AGE)).toBe(true);
+      expect(reports[0].reasons.some(r => r.signal === STALE_SIGNAL.DRIFT)).toBe(false);
+    });
+    });
