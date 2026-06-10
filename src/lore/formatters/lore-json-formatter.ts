@@ -9,7 +9,8 @@ import {
     type FormattableTraceResult, 
     type FormattableValidationResult, 
     type IOutputFormatter,
-    type ProtocolRegistry,
+    type ProtocolContext,
+    ProtocolMap,
     snakeCase
  } from '../../engine/index.js';
 
@@ -25,12 +26,12 @@ import {
 export class LoreJsonFormatter implements IOutputFormatter {
   private readonly inner: IOutputFormatter;
 
-  constructor(private readonly protocolRegistry: ProtocolRegistry) {
-      this.inner = createBaseFormatter('json', protocolRegistry);
+  constructor(private readonly protocols: ProtocolMap<ProtocolContext>) {
+      this.inner = createBaseFormatter('json', protocols);
   }
 
   formatQueryResult(data: FormattableQueryResult): string {
-    const loreProtocol = this.protocolRegistry.get('lore');
+    const loreProtocol = this.protocols.get('lore');
     const version = loreProtocol?.def.version ?? '1.0';
 
     const results = data.result.atoms.map((atom) => {
@@ -85,7 +86,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
   }
 
   formatStalenessResult(data: FormattableStalenessResult): string {
-    const loreProtocol = this.protocolRegistry.get('lore');
+    const loreProtocol = this.protocols.get('lore');
     
     return JSON.stringify({
       lore_version: loreProtocol?.def.version ?? '1.0',
@@ -147,7 +148,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
 
     return JSON.stringify(
       {
-        lore_version: this.protocolRegistry.get('lore')?.def.version ?? '1.0',
+        lore_version: this.protocols.get('lore')?.def.version ?? '1.0',
         checks,
         summary: {
           errors,
@@ -163,7 +164,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
   formatSuccess(_message: string, data?: Record<string, unknown>): string {
     const hash = (data?.hash as string) ?? '';
     return JSON.stringify({
-      lore_version: this.protocolRegistry.get('lore')?.def.version ?? '1.0',
+      lore_version: this.protocols.get('lore')?.def.version ?? '1.0',
       success: true,
       message: `Commit created: ${hash}`,
       hash: hash
@@ -172,7 +173,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
 
   formatError(code: number, messages: readonly ErrorMessage[]): string {
     return JSON.stringify({
-      lore_version: this.protocolRegistry.get('lore')?.def.version ?? '1.0',
+      lore_version: this.protocols.get('lore')?.def.version ?? '1.0',
       error: true,
       code,
       messages: messages.map(m => ({

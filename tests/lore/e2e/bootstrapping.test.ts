@@ -1,14 +1,14 @@
+import { execSync } from 'node:child_process';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterEach,beforeEach, describe, expect, it } from 'vitest';
 
 import { getAuthorizedKeys } from '../../../src/engine/core/logic/protocols.js';
 import { DEFAULT_ENGINE_CONFIG } from '../../../src/engine/defaults.js';
 import { EngineBootstrapper } from '../../../src/engine/services/engine-bootstrapper.js';
 import { makeMockPrompt } from '../../engine/engine-test-utils.js';
-;
-import { execSync } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 
 describe('Engine Bootstrapping Integration', () => {
   let testDir: string;
@@ -55,8 +55,8 @@ pattern = "^[0-9]+$"
           prompt: makeMockPrompt({ askConfirm: async () => true })
     });
 
-    const { sharedDeps } = await bootstrapper.bootstrap(testDir, []);
-    const custom = sharedDeps.protocolRegistry.get('Custom');
+    const { infra } = await bootstrapper.bootstrap(testDir, []);
+    const custom = infra.protocols.get('Custom');
 
     expect(custom).toBeDefined();
     expect(custom?.version).toBe('2.0');
@@ -92,8 +92,8 @@ description = "new"
           prompt: makeMockPrompt({ askConfirm: async () => true })
     });
 
-    const { sharedDeps } = await bootstrapper.bootstrap(testDir, []);
-    const protocol = sharedDeps.protocolRegistry.get('Overridden')!;
+    const { infra } = await bootstrapper.bootstrap(testDir, []);
+    const protocol = infra.protocols.get('Overridden')!;
 
     expect(protocol.permissive).toBe(false);
     expect(protocol.trailers.get('ID')?.description).toBe('new');

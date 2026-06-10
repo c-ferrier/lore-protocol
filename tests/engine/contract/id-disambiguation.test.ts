@@ -1,16 +1,15 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtomRepository, makeStubProtocolContext } from '../../../src/engine/testing.js';
+import { findAtomById } from '../../../src/engine/shell/orchestrators/discovery.js';
+import { makeStubProtocolContext, type ProtocolContext } from '../../../src/engine/testing.js';
 import { type MockedGitClient } from '../../mock-types.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
+import { makeMockGitClient, makeMockInfra } from '../engine-test-utils.js';
 
-describe('AtomRepository Identity Disambiguation', () => {
-  let gitClient: MockedGitClient;
-  let repo: AtomRepository;
-  let protocolRegistry: ProtocolRegistry;
+describe('Discovery Identity Disambiguation', () => {
+  let git: MockedGitClient;
+  let protocols: ProtocolMap<ProtocolContext>;
 
   const ALPHA_DEF = {
     name: 'Alpha',
@@ -33,16 +32,16 @@ describe('AtomRepository Identity Disambiguation', () => {
   };
 
   beforeEach(() => {
-    gitClient = makeMockGitClient();
+    git = makeMockGitClient();
 
-    protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(makeStubProtocolContext(ALPHA_DEF));
-    protocolRegistry.register(makeStubProtocolContext(BETA_DEF));
+    protocols = new ProtocolMap();
+    protocols.set('alpha', makeStubProtocolContext(ALPHA_DEF));
+    protocols.set('beta', makeStubProtocolContext(BETA_DEF));
+  });
 
-    repo = makeAtomRepository({
-        gitClient,
-        protocolRegistry,
-    });
+  const getInfra = () => makeMockInfra({
+      git,
+      protocols
   });
 
   it('should find an atom using a qualified ID (alpha/12345678)', async () => {
@@ -57,16 +56,17 @@ describe('AtomRepository Identity Disambiguation', () => {
       filesChanged: [],
     };
 
-    vi.mocked(gitClient.query).mockResolvedValue([commit]);
+    vi.mocked(git.query).mockResolvedValue([commit]);
 
-    const result = await repo.findById({ id: targetId, protocol: 'alpha' });
+    const infra = getInfra();
+    const result = await findAtomById(infra, { id: targetId, protocol: 'alpha' });
 
     expect(result).not.toBeNull();
     const state = result!.protocols.get('alpha')!;
     expect(state.trailers['Alpha-id'][0]).toBe(targetId);
     
     // Ensure we used a specific regex pattern
-    const query = vi.mocked(gitClient.query).mock.calls[0][0];
+    const query = vi.mocked(git.query).mock.calls[0][0];
     const found = query.regexPatterns!.some((set: readonly string[]) => 
         set.some(p => p.includes('alpha: Alpha-id: 12345678'))
     );
@@ -85,9 +85,10 @@ describe('AtomRepository Identity Disambiguation', () => {
       filesChanged: [],
     };
 
-    vi.mocked(gitClient.query).mockResolvedValue([commit]);
+    vi.mocked(git.query).mockResolvedValue([commit]);
 
-    const result = await repo.findById({ id: targetId, protocol: 'beta' });
+    const infra = getInfra();
+    const result = await findAtomById(infra, { id: targetId, protocol: 'beta' });
 
     expect(result).not.toBeNull();
     expect(result!.protocols.has('beta')).toBe(true);
@@ -104,7 +105,7 @@ describe('AtomRepository Identity Disambiguation', () => {
           'Lore-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' },
         }
     };
-    protocolRegistry.register(makeStubProtocolContext(LORE_DEF));
+    protocols.set('lore', makeStubProtocolContext(LORE_DEF));
 
     const targetId = '12345678';
     // Commit only has Beta ID
@@ -118,16 +119,17 @@ describe('AtomRepository Identity Disambiguation', () => {
       filesChanged: [],
     };
 
-    vi.mocked(gitClient.query).mockResolvedValue([commit]);
+    vi.mocked(git.query).mockResolvedValue([commit]);
 
+    const infra = getInfra();
     // Query without protocol prefix
-    const result = await repo.findById({ id: targetId });
+    const result = await findAtomById(infra, { id: targetId });
 
     expect(result).not.toBeNull();
     expect(result!.protocols.has('beta')).toBe(true);
 
     // Verification: ensure the query included all possible patterns in an OR-set
-    const query = vi.mocked(gitClient.query).mock.calls[0][0];
+    const query = vi.mocked(git.query).mock.calls[0][0];
     expect(query.regexPatterns![0]).toEqual(expect.arrayContaining([
         '^Lore-id: 12345678$',
         '^alpha: Alpha-id: 12345678$',
@@ -137,7 +139,8 @@ describe('AtomRepository Identity Disambiguation', () => {
 
   it('should throw an error for unqualified queries when no global protocol is registered', async () => {
     const targetId = '12345678';
-    await expect(repo.findById({ id: targetId }))
+    const infra = getInfra();
+    await expect(findAtomById(infra, { id: targetId }))
       .rejects.toThrow(/No global protocol is registered/);
   });
 });

@@ -1,13 +1,9 @@
-import { JsonInputReader } from '../../../../src/engine/cli/readers/json-input-reader.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
-
-;
 import {describe, expect, it } from 'vitest';
-;
-;
-;
 
+import { JsonInputReader } from '../../../../src/engine/cli/readers/json-input-reader.js';
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
+import { type ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
+import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
 describe('JsonInputReader', () => {
   describe('valid JSON', () => {
@@ -30,7 +26,7 @@ describe('JsonInputReader', () => {
         },
       };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.subject).toBe('fix bug in parser');
@@ -49,14 +45,15 @@ describe('JsonInputReader', () => {
     });
 
     it('should handle hierarchical JSON by Protocol Name', async () => {
-        const localRegistry = new ProtocolRegistry();
-        localRegistry.register(makeStubProtocolContext({ 
+        const protocols = new ProtocolMap<ProtocolContext>();
+        const protocol = makeStubProtocolContext({ 
             name: 'Project', 
             namespace: 'p1', 
             trailers: { 
                 Team: { description: 'T', multivalue: false, validation: 'none' } 
             } 
-        }));
+        });
+        protocols.set(protocol.name, protocol);
         
         const input = {
             subject: 'test',
@@ -65,11 +62,12 @@ describe('JsonInputReader', () => {
             }
         };
 
-        const reader = new JsonInputReader(JSON.stringify(input), localRegistry);
+        const reader = new JsonInputReader(JSON.stringify(input), protocols);
         const result = await reader.read();
 
         expect(result.trailers.get('project')!.Team).toEqual(['Backend']);
         });
+
     it('should throw ProtocolError for unknown protocol in hierarchical JSON', async () => {
         const input = {
             subject: 'test',
@@ -77,14 +75,14 @@ describe('JsonInputReader', () => {
                 'Ghost': { 'Key': 'value' }
             }
         };
-        const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+        const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
         await expect(reader.read()).rejects.toThrow(/Unknown protocol "Ghost"/);
     });
 
     it('should parse minimal JSON with only subject', async () => {
       const input = { subject: 'minimal commit' };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.subject).toBe('minimal commit');
@@ -95,7 +93,7 @@ describe('JsonInputReader', () => {
     it('should parse JSON with subject and body but no trailers', async () => {
       const input = { subject: 'with body', body: 'Some body text' };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.subject).toBe('with body');
@@ -106,7 +104,7 @@ describe('JsonInputReader', () => {
     it('should parse JSON with empty trailers object', async () => {
       const input = { subject: 'with empty trailers', trailers: {} };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.subject).toBe('with empty trailers');
@@ -116,19 +114,16 @@ describe('JsonInputReader', () => {
     it('should default subject to empty string when not a string', async () => {
       const input = { subject: 123 };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.trailers.size).toBe(0);
-      });
-
-
-
+    });
 
     it('should ignore body when not a string', async () => {
       const input = { subject: 'test', body: 42 };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.body).toBeUndefined();
@@ -144,7 +139,7 @@ describe('JsonInputReader', () => {
         },
       };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.trailers.get('')!.Constraint).toEqual(['valid', 'also valid']);
@@ -159,7 +154,7 @@ describe('JsonInputReader', () => {
         },
       };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.trailers.get('')!.Constraint).toEqual(['single constraint']);
@@ -174,7 +169,7 @@ describe('JsonInputReader', () => {
         },
       };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.trailers.get('')?.Constraint).toBeUndefined();
@@ -192,7 +187,7 @@ describe('JsonInputReader', () => {
         },
       };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.trailers.get('')!['Assisted-by']).toEqual(['Gemini:CLI']);
@@ -209,7 +204,7 @@ describe('JsonInputReader', () => {
         },
       };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.trailers.get('')!['Assisted-by']).toEqual(['Gemini:CLI']);
@@ -226,7 +221,7 @@ describe('JsonInputReader', () => {
         },
       };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.trailers.get('')!['Valid-custom']).toEqual(['value']);
@@ -245,7 +240,7 @@ describe('JsonInputReader', () => {
         },
       };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.trailers.get('')!.Confidence).toEqual(['high']);
@@ -263,7 +258,7 @@ describe('JsonInputReader', () => {
         },
       };
 
-      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolRegistry());
+      const reader = new JsonInputReader(JSON.stringify(input), new ProtocolMap());
       const result = await reader.read();
 
       expect(result.trailers.get('')?.Confidence).toBeUndefined();
@@ -274,13 +269,13 @@ describe('JsonInputReader', () => {
 
   describe('invalid JSON', () => {
     it('should throw on malformed JSON', async () => {
-      const reader = new JsonInputReader('not valid json {{{', new ProtocolRegistry());
+      const reader = new JsonInputReader('not valid json {{{', new ProtocolMap());
 
       await expect(reader.read()).rejects.toThrow();
     });
 
     it('should throw on empty string', async () => {
-      const reader = new JsonInputReader('', new ProtocolRegistry());
+      const reader = new JsonInputReader('', new ProtocolMap());
 
       await expect(reader.read()).rejects.toThrow();
     });

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
 import { type IGitClient } from '../../../../src/engine/interfaces/git-client.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { readHeadIdentities } from '../../../../src/engine/shell/git/head-id-reader.js';
 import { makeStubGitClient,makeStubProtocolContext } from '../../../../src/engine/testing.js';
 
@@ -29,13 +29,13 @@ function createMockGitClient(headMessage: string): IGitClient {
 }
 
 describe('readHeadIdentities', () => {
-  let protocolRegistry: ProtocolRegistry;
+  let protocols: ProtocolMap<ProtocolContext>;
   let protocol: ProtocolContext;
 
   beforeEach(() => {
-    protocolRegistry = new ProtocolRegistry();
+    protocols = new ProtocolMap();
     protocol = makeStubProtocolContext();
-    protocolRegistry.register(protocol);
+    protocols.set(protocol.name, protocol);
   });
 
   it(`should return ${TEST_ID_KEY} when HEAD has Mock trailers`, async () => {
@@ -47,7 +47,7 @@ describe('readHeadIdentities', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const result = await readHeadIdentities(gitClient, protocolRegistry);
+    const result = await readHeadIdentities(gitClient, protocols);
 
     expect(result.mock).toBe('a1b2c3d4');
   });
@@ -56,7 +56,7 @@ describe('readHeadIdentities', () => {
     const message = 'feat: simple commit with no trailers';
 
     const gitClient = createMockGitClient(message);
-    const result = await readHeadIdentities(gitClient, protocolRegistry);
+    const result = await readHeadIdentities(gitClient, protocols);
 
     expect(result).toEqual({});
   });
@@ -69,14 +69,14 @@ describe('readHeadIdentities', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const result = await readHeadIdentities(gitClient, protocolRegistry);
+    const result = await readHeadIdentities(gitClient, protocols);
 
     expect(result.mock).toBeUndefined();
   });
 
   it('should handle empty commit message', async () => {
     const gitClient = createMockGitClient('');
-    const result = await readHeadIdentities(gitClient, protocolRegistry);
+    const result = await readHeadIdentities(gitClient, protocols);
 
     expect(result).toEqual({});
   });
@@ -92,7 +92,7 @@ describe('readHeadIdentities', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const result = await readHeadIdentities(gitClient, protocolRegistry);
+    const result = await readHeadIdentities(gitClient, protocols);
 
     expect(result.mock).toBe('deadbeef');
   });
@@ -105,7 +105,7 @@ describe('readHeadIdentities', () => {
     ].join('\n');
 
     const gitClient = createMockGitClient(message);
-    const result = await readHeadIdentities(gitClient, protocolRegistry);
+    const result = await readHeadIdentities(gitClient, protocols);
 
     expect(result.mock).toBeUndefined();
   });

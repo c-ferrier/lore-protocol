@@ -5,7 +5,7 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { registerCacheCommand } from '../../../src/engine/cli/commands/cache.js';
 import { type MockedOutputFormatter } from '../../mock-types.js';
-import { makeMockFormatter,TestLogger } from '../engine-test-utils.js';
+import { makeMockFormatter,makeMockInfra,TestLogger } from '../engine-test-utils.js';
 
 describe('Cache Command', () => {
   let mockFormatter: MockedOutputFormatter;
@@ -18,12 +18,13 @@ describe('Cache Command', () => {
   it('should register the cache command with clean option', () => {
     const program = new Command();
     const logger = new TestLogger();
-    registerCacheCommand(
-      program, 
-      {
+    const infra = makeMockInfra({
         getFormatter: () => mockFormatter,
         logger,
-      },
+    });
+    registerCacheCommand(
+      program, 
+      infra,
       join(process.cwd(), '.atom', 'cache')
     );
 

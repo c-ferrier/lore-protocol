@@ -2,7 +2,7 @@ import { mkdirSync, rmSync,writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { JsonFormatter } from '../../src/engine/cli/formatters/json-formatter.js';
 import { hydrateAtoms } from '../../src/engine/core/logic/hydration.js';
@@ -11,17 +11,14 @@ import { ProtocolMap } from '../../src/engine/core/models/protocol-map.js';
 import { type EngineConfig } from '../../src/engine/core/types/config.js';
 import { type Atom, type ProtocolState, type Trailers } from '../../src/engine/core/types/domain.js';
 import { type FormattableQueryResult } from '../../src/engine/core/types/output.js';
-import { type ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
+import { type ProtocolContext, type ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
 import { runCli } from '../../src/engine/index-impl.js';
-import { type IGitClient } from '../../src/engine/interfaces/git-client.js';
-import { AtomRepository } from '../../src/engine/services/atom-repository.js';
-import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
-import { NullQueryCache } from '../../src/engine/shell/fs/query-cache.js';
 import * as rootResolver from '../../src/engine/shell/fs/root-resolver.js';
+import { findAtoms } from '../../src/engine/shell/orchestrators/discovery.js';
 import { validateCommits } from '../../src/engine/shell/orchestrators/validation.js';
 import { makeQueryTarget, makeStubProtocolContext, TEST_ENGINE_CONFIG, TEST_ID_KEY,TEST_PROTOCOL_DEFINITION } from '../../src/engine/testing.js';
 import { ENGINE_CONFIG_FILENAME } from '../../src/engine/util/constants.js';
-import { makeMockGitClient, makeMockPrompt } from './engine-test-utils.js';
+import { makeMockGitClient, makeMockInfra,makeMockPrompt } from './engine-test-utils.js';
 
 describe('Engine Assembly (Agnostic Bootstrap)', () => {
   const testDir = join(tmpdir(), `engine-bootstrap-${Date.now()}`);
@@ -52,7 +49,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     rmSync(testDir, { recursive: true, force: true });
   });
   it('should bootstrap the engine with a custom protocol and no Lore mentions', async () => {
-    const { program, sharedDeps } = await runCli({
+    const { program, infra } = await runCli({
       prompt: makeMockPrompt(),
       binaryName: 'test-atom',
       version: '0.0.0-test',
@@ -63,13 +60,13 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       staticProtocols: [CUSTOM_PROTOCOL],
     },);
     expect(program.name()).toBe('test-atom');
-    const customProtocol = sharedDeps.protocolRegistry.get('custom');
+    const customProtocol = infra.protocols.get('custom');
     expect(customProtocol).toBeDefined();
     expect(customProtocol?.name).toBe('custom');
     expect(customProtocol?.storageNamespace).toBe('custom');
-    // Verify services are wired correctly
-    expect(sharedDeps.atomRepository).toBeDefined();
-    expect(sharedDeps.gitClient).toBeDefined();
+    // Verify infra are wired correctly
+    expect(infra.git).toBeDefined();
+    expect(infra.cache).toBeDefined();
     // Check for "Lore" leakage in help text
     const helpText = program.helpInformation();
     expect(helpText).not.toContain('Lore');
@@ -94,7 +91,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       protocolRoot: '/repo/sub',
       isScoped: true
     });
-    const { sharedDeps } = await runCli({
+    const { infra } = await runCli({
       prompt: makeMockPrompt(),
       binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
@@ -104,7 +101,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       staticProtocols: [],
     },);
     // VERIFICATION: baseTarget must be scoped to current directory ['.']
-    expect((sharedDeps.atomRepository as unknown as { baseTarget: { resolvedPaths: string[] } }).baseTarget.resolvedPaths).toEqual(['.']);
+    expect(infra.baseTarget.resolvedPaths).toEqual(['.']);
     spy.mockRestore();
   });
   it('should determine isScoped=false when protocol root is the git root', async () => {
@@ -112,7 +109,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       protocolRoot: '/repo',
       isScoped: false
     });
-    const { sharedDeps } = await runCli({
+    const { infra } = await runCli({
       prompt: makeMockPrompt(),
       binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
@@ -122,11 +119,17 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       staticProtocols: [],
     },);
     // VERIFICATION: baseTarget must be global (empty resolvedPaths)
-    expect((sharedDeps.atomRepository as unknown as { baseTarget: { resolvedPaths: string[] } }).baseTarget.resolvedPaths).toEqual([]);
+    expect(infra.baseTarget.resolvedPaths).toEqual([]);
     spy.mockRestore();
   });
 
   describe('Protocol Architectural Integrity', () => {
+  let protocols: ProtocolMap<ProtocolContext>;
+
+  beforeEach(() => {
+    protocols = new ProtocolMap<ProtocolContext>();
+  });
+
   it('should flow custom trailers from CLI flags to JSON output via metadata', async () => {
     // 1. Setup metadata in config
     const configOverrides: Partial<ProtocolDefinition> = {
@@ -143,14 +146,13 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     
     // Create protocol context with the overrides from "config"
     const protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION, configOverrides);
-    const registry = new ProtocolRegistry();
-    registry.register(protocol);
+    protocols.set(protocol.name, protocol);
 
     const options: CommitCommandOptions = {
       subject: 'feat: add stuff',
       'ticket-id': ['PROJ-123', 'PROJ-456'],
     };
-    const input = parseFlagsToInput(options, registry);
+    const input = parseFlagsToInput(options, protocols);
 
     // 2. Verify Reader mapped it correctly using the merged metadata
     const mockInput = input.trailers?.get('mock') || {};
@@ -184,7 +186,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       visibleTrailers: 'all',
     };
     // 4. Verify Formatter serializes it correctly
-    const formatter = new JsonFormatter(registry);
+    const formatter = new JsonFormatter(protocols);
     const output = JSON.parse(formatter.formatQueryResult(data));
     // Key should be CANONICAL in JSON inside the protocol's trailers object
     expect(output.results[0].protocols.mock.trailers['Ticket-ID']).toEqual(['PROJ-123', 'PROJ-456']);
@@ -197,20 +199,19 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
         strict: false
     });
 
-    const registry = new ProtocolRegistry();
-    registry.register(protocol);
+    protocols.set(protocol.name, protocol);
     const options: CommitCommandOptions = {
       subject: 'feat',
       trailer: [`${TEST_ID_KEY}=abc12345`, 'Project-Code=LORE-001'],
     };
-    const input = parseFlagsToInput(options, registry);
+    const input = parseFlagsToInput(options, protocols);
     // Verify both are captured correctly
     const mockInput = input.trailers?.get('mock') || {};
     expect(mockInput[TEST_ID_KEY]).toEqual(['abc12345']);
     expect(mockInput['Project-Code']).toEqual(['LORE-001']);
   });
 });
-});
+
   describe('Engine Protocol Rebranding Flow', () => {
   it('should flow a custom protocol from raw trailers to namespaced JSON output', async () => {
     // 1. Define a custom protocol "Fred"
@@ -236,8 +237,9 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       }
     };
     const fredProtocol = makeStubProtocolContext(fredDef);
-    const registry = new ProtocolRegistry();
-    registry.register(fredProtocol);
+    const protocols = new ProtocolMap<ProtocolContext>();
+    protocols.set(fredProtocol.name, fredProtocol);
+
     // 2. Mock Storage to return a Fred commit
     const mockGit = makeMockGitClient();
     const rawFredCommit = {
@@ -251,14 +253,14 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     };
     vi.mocked(mockGit.query).mockResolvedValue([rawFredCommit]);
     vi.mocked(mockGit.getFilesChanged).mockResolvedValue(new Map([['abc12345', ['src/fred.ts']]]));
-    // 3. Setup Repository
-    const repo = new AtomRepository(
-      mockGit as IGitClient,
-      registry,
-      new NullQueryCache(),
-      makeQueryTarget()
-    );
-    const atoms = await repo.find(makeQueryTarget());
+    
+    // 3. Setup Infra
+    const infra = makeMockInfra({
+      git: mockGit,
+      protocols,
+    });
+
+    const atoms = await findAtoms(infra, makeQueryTarget());
     expect(atoms).toHaveLength(1);
     const atom = atoms[0];
     // 4. Verify interpretation (Protocol data must be namespaced by name)
@@ -266,7 +268,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     const fredState = atom.protocols.get('fred')!;
     expect(fredState.trailers['Fred-id']).toEqual(['aabbccdd']);
     // 5. Format to JSON using the Engine's generic formatter
-    const formatter = new JsonFormatter(registry);
+    const formatter = new JsonFormatter(protocols);
     const json = JSON.parse(formatter.formatQueryResult({
       result: {
         atoms,
@@ -282,21 +284,20 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     expect(json.results[0].protocols.fred.id).toBe('aabbccdd');
     expect(json.results[0].protocols.fred.trailers.Status).toBe('active');
     // 7. Validation Integration (Ensures Validator respects custom definition)
-    const results = await validateCommits(hydrateAtoms([rawFredCommit], registry, { includeAllCommits: true }), { 
-      atomRepository: repo, 
+    const results = await validateCommits(hydrateAtoms([rawFredCommit], protocols, { includeAllCommits: true }), { 
+      ...infra,
       config: TEST_ENGINE_CONFIG, 
-      protocolRegistry: registry 
     });
     expect(results[0].issues).toHaveLength(0);
     // Negative case: invalid ID based on Fred's custom pattern
     // 5. Verify validation of bad commit
     const badRawCommit = { ...rawFredCommit, trailers: 'fred: Fred-id: not-hex' };
-    const results2 = await validateCommits(hydrateAtoms([badRawCommit], registry, { includeAllCommits: true }), { 
-      atomRepository: repo, 
+    const results2 = await validateCommits(hydrateAtoms([badRawCommit], protocols, { includeAllCommits: true }), { 
+      ...infra,
       config: TEST_ENGINE_CONFIG, 
-      protocolRegistry: registry 
     });
     const formatIssue = results2[0].issues.find(i => i.rule === 'fred-id-format');
     expect(formatIssue).toBeDefined();
   });
-})
+});
+});

@@ -4,13 +4,9 @@ import { Command } from 'commander';
 import { formatCommit, validateFormatting } from '../../core/logic/commit-formatting.js';
 import { getAuthorizedKeys } from '../../core/logic/protocols.js';
 import { slugify } from '../../core/logic/string.js';
-import type { EngineConfig } from '../../core/types/config.js';
 import type { AtomId } from '../../core/types/domain.js';
-import type { IGitClient } from '../../interfaces/git-client.js';
-import type { ILogger } from '../../interfaces/logger.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
 import type { IPrompt } from '../../interfaces/prompt.js';
-import { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { EngineInfra } from '../../services/engine-bootstrapper.js';
 import { readHeadIdentities } from '../../shell/git/head-id-reader.js';
 import { ProtocolError } from '../../util/errors.js';
 import { resolveCommitInput } from '../readers/commit-input-resolver.js';
@@ -38,16 +34,10 @@ interface CommitCommandOptions {
  */
 export function registerCommitCommand(
   program: Command,
-  deps: {
-    gitClient: IGitClient;
-    getFormatter: () => IOutputFormatter;
-    protocolRegistry: ProtocolRegistry;
-    config: EngineConfig;
-    logger: ILogger;
-  },
+  infra: EngineInfra,
   prompt: IPrompt
 ): void {
-  const { protocolRegistry, logger, config } = deps;
+  const { protocols: protocolMap, logger, config } = infra;
   const cmd = program
     .command('commit')
     .description('Create a decision-enriched commit')
@@ -63,7 +53,7 @@ export function registerCommitCommand(
     }, []);
 
   cmd.action(async (_options: CommitCommandOptions, command: Command) => {
-    const { gitClient, getFormatter } = deps;
+    const { git, getFormatter } = infra;
     const options = mergeOptions<CommitCommandOptions>(command);
     
     const isNoEdit = options.edit === false;
@@ -81,7 +71,7 @@ export function registerCommitCommand(
 
       // Identify any dynamic protocol-specific flags passed
       const protocolFlags = new Set<string>();
-      for (const p of protocolRegistry.getAll()) {
+      for (const p of protocolMap.values()) {
           const authorizedKeys = getAuthorizedKeys(p);
           for (const key of authorizedKeys) {
               const def = p.trailers.get(key);
@@ -100,28 +90,28 @@ export function registerCommitCommand(
         throw new ProtocolError('--no-edit keeps the existing message unchanged; it cannot be combined with other input flags', 1);
       }
 
-      const hasStaged = await gitClient.hasStagedChanges();
+      const hasStaged = await git.hasStagedChanges();
       if (!hasStaged) {
         throw new ProtocolError('No staged changes to commit. Use `git add` to stage files.', 3);
       }
 
-      const result = await gitClient.commit('', { amend: true, noEdit: true });
+      const result = await git.commit('', { amend: true, noEdit: true });
       console.log(formatter.formatSuccess(result.message, { hash: result.hash }));
       return;
     }
 
     // Normal path
     if (!options.amend) {
-      const hasStaged = await gitClient.hasStagedChanges();
+      const hasStaged = await git.hasStagedChanges();
       if (!hasStaged) {
         throw new ProtocolError('No staged changes to commit. Use `git add` to stage files.', 3);
       }
     }
 
-    const input = await resolveCommitInput(options, { prompt, protocolRegistry, config });
+    const input = await resolveCommitInput(options, { prompt, protocols: protocolMap, config });
 
     // Validate input before building
-    const validationIssues = await validateFormatting(input, config, protocolRegistry);
+    const validationIssues = await validateFormatting(input, config, protocolMap);
     const errors = validationIssues.filter(i => i.severity === 'error');
     if (errors.length > 0) {
         throw new ProtocolError(`Validation failed:\n${errors.map(e => `  - ${e.message}`).join('\n')}`, 1);
@@ -129,11 +119,11 @@ export function registerCommitCommand(
 
     let existingIds: Record<string, AtomId> | undefined;
     if (options.amend) {
-      existingIds = await readHeadIdentities(gitClient, protocolRegistry);
+      existingIds = await readHeadIdentities(git, protocolMap);
     }
 
-    const { message, protocols } = formatCommit(input, config, protocolRegistry, existingIds);
-    const result = await gitClient.commit(message, { amend: options.amend });
+    const { message, protocols } = formatCommit(input, config, protocolMap, existingIds);
+    const result = await git.commit(message, { amend: options.amend });
 
     // Log warnings if any (non-fatal)
     const warnings = validationIssues.filter(i => i.severity === 'warning');
@@ -141,7 +131,7 @@ export function registerCommitCommand(
         for (const w of warnings) logger.warn(w.message);
     }
 
-    console.log(formatter.formatSuccess(result.message, { 
+    logger.result(formatter.formatSuccess(result.message, { 
       hash: result.hash,
       protocols 
     }));

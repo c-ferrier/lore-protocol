@@ -1,15 +1,16 @@
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import {matchesFilters } from '../../shell/git/protocol-query-adapter.js';
-import type { Atom } from '../types/domain.js';
-import type { FilterOperator,QualifiedFilter, QueryOptions, RawFilterMap } from '../types/query.js';
+import { matchesFilters } from '../../shell/git/protocol-query-adapter.js';
+import { type Atom,ProtocolMap } from '../types/domain.js';
+import type { ProtocolContext } from '../types/protocol-definition.js';
+import type { FilterOperator, QualifiedFilter, QueryOptions, RawFilterMap } from '../types/query.js';
 import { ownsKey } from './ownership.js';
+import { getRootProtocol, resolveProtocolKey } from './protocols.js';
 
 /**
  * Normalizes raw filter inputs into a structured QualifiedFilter AST.
  * 
  * Format: "protocol/key:op=value" or "key=value"
  */
-export function resolveFilterStrings(filterStrings: string[], registry: ProtocolRegistry): QualifiedFilter[] {
+export function resolveFilterStrings(filterStrings: string[], protocols: ProtocolMap<ProtocolContext>): QualifiedFilter[] {
   const rawMap: Record<string, string> = {};
   for (const f of filterStrings) {
     const idx = f.indexOf('=');
@@ -22,13 +23,13 @@ export function resolveFilterStrings(filterStrings: string[], registry: Protocol
       rawMap[rawKey] = value;
     }
   }
-  return resolveFilters(rawMap, registry);
+  return resolveFilters(rawMap, protocols);
 }
 
 /**
  * Resolves a flat map of filter criteria into a structured AST.
  */
-export function resolveFilters(raw: RawFilterMap, registry: ProtocolRegistry): QualifiedFilter[] {
+export function resolveFilters(raw: RawFilterMap, protocols: ProtocolMap<ProtocolContext>): QualifiedFilter[] {
   const filters: QualifiedFilter[] = [];
 
   for (const [rawKey, value] of Object.entries(raw)) {
@@ -38,11 +39,17 @@ export function resolveFilters(raw: RawFilterMap, registry: ProtocolRegistry): Q
     let protocol = parsed.protocol;
     const { key, op } = parsed;
 
-    // Deterministic Routing: If unqualified, resolve the owner from the registry
+    // Deterministic Routing: If unqualified, resolve the owner from the map
     if (!protocol) {
-        const owner = registry.resolveKey(key);
+        const owner = resolveProtocolKey(protocols, key);
         if (owner) {
             protocol = owner.def.name.toLowerCase();
+        } else {
+            // Fallback to Root Name if root is permissive
+            const root = getRootProtocol(protocols);
+            if (root?.def.permissive) {
+                protocol = root.name;
+            }
         }
     }
     
@@ -89,11 +96,11 @@ function parseFilterKey(raw: string): { protocol: string | null, key: string, op
 /**
  * Applies authoritative application-level filtering to a collection of atoms.
  */
-export function filterAtoms(atoms: readonly Atom[], options: QueryOptions, registry: ProtocolRegistry): Atom[] {
-  return atoms.filter((atom) => atomMatchesOptions(atom, options, registry));
+export function filterAtoms(atoms: readonly Atom[], options: QueryOptions, protocols: ProtocolMap<ProtocolContext>): Atom[] {
+  return atoms.filter((atom) => atomMatchesOptions(atom, options, protocols));
 }
 
-function atomMatchesOptions(atom: Atom, options: QueryOptions, registry: ProtocolRegistry): boolean {
+function atomMatchesOptions(atom: Atom, options: QueryOptions, protocols: ProtocolMap<ProtocolContext>): boolean {
   // 1. Trailer presence filter (--has)
   if (options.has) {
     // Check if any protocol in the atom contains this trailer key
@@ -145,10 +152,9 @@ function atomMatchesOptions(atom: Atom, options: QueryOptions, registry: Protoco
   let filters: readonly QualifiedFilter[];
 
   if (Array.isArray(rawFilters)) {
-      // It's already an AST or a list of strings (which isn't supported here yet, but we'll handle the array)
       filters = rawFilters as readonly QualifiedFilter[];
   } else {
-      filters = resolveFilters(rawFilters as RawFilterMap, registry);
+      filters = resolveFilters(rawFilters as RawFilterMap, protocols);
   }
 
   if (filters.length > 0) {
@@ -159,7 +165,7 @@ function atomMatchesOptions(atom: Atom, options: QueryOptions, registry: Protoco
       if (filter.protocol) {
         const protocolName = filter.protocol;
         const state = atom.protocols.get(protocolName);
-        const ctx = registry.get(protocolName);
+        const ctx = protocols.get(protocolName);
         
         if (ctx && state && matchesFilters(state, [filter], ctx)) {
           filterMatched = true;
@@ -169,7 +175,7 @@ function atomMatchesOptions(atom: Atom, options: QueryOptions, registry: Protoco
       else {
         // Try all protocols that claimed this atom, but only those that own the key
         for (const [name, state] of atom.protocols) {
-          const ctx = registry.get(name);
+          const ctx = protocols.get(name);
           if (ctx && ownsKey(filter.key, ctx)) {
             if (matchesFilters(state, [filter], ctx)) {
               filterMatched = true;

@@ -1,7 +1,11 @@
 import { ProtocolHydrator } from '../../shell/fs/protocol-hydrator.js';
+import { ProtocolError } from '../../util/errors.js';
+import { ProtocolMap } from '../models/protocol-map.js';
 import type { TrailerDefinition } from '../types/config.js';
 import type { FormattableTrailerDefinition } from '../types/output.js';
 import type {ProtocolContext, ProtocolDefinition } from '../types/protocol-definition.js';
+import { authorizeKey } from './ownership.js';
+import { isValidProtocolIdentity } from './validation.js';
 
 /**
  * Transforms a serializable ProtocolDefinition into an operationally optimized ProtocolContext.
@@ -70,6 +74,87 @@ export function getProtocolAuthorizedKeys(ctx: ProtocolContext): string[] {
  */
 export function getAuthorizedKeys(ctx: ProtocolContext): string[] {
     return getProtocolAuthorizedKeys(ctx);
+}
+
+/**
+ * Returns a set of all primary keys reserved by any registered protocol.
+ */
+export function getClaimedProtocolKeys(protocols: ProtocolMap<ProtocolContext>): Set<string> {
+    const claimed = new Set<string>();
+    for (const ctx of protocols.values()) {
+      const ns = ctx.storageNamespace;
+      if (ns !== '') {
+        claimed.add(ns.toLowerCase());
+      } else {
+        // Map all authorized keys from the context
+        for (const k of getAuthorizedKeys(ctx)) {
+          claimed.add(k.toLowerCase());
+        }
+      }
+    }
+    return claimed;
+}
+
+/**
+ * Returns the protocol context that owns the root (unprefixed) namespace.
+ */
+export function getRootProtocol(protocols: ProtocolMap<ProtocolContext>): ProtocolContext | undefined {
+    return Array.from(protocols.values()).find(p => p.isRoot);
+}
+
+/**
+ * Resolves a trailer key to its owning protocol context.
+ */
+export function resolveProtocolKey(protocols: ProtocolMap<ProtocolContext>, key: string): ProtocolContext | undefined {
+    // 1. Check all protocol schemas
+    for (const ctx of protocols.values()) {
+        if (authorizeKey(key, ctx)) return ctx;
+    }
+
+    // 2. Check namespace keys (using lowercase for normalization)
+    const nsKey = key.toLowerCase();
+    for (const ctx of protocols.values()) {
+        if (ctx.storageNamespace.toLowerCase() === nsKey) return ctx;
+    }
+
+    // 3. Fallback to Root
+    return getRootProtocol(protocols);
+}
+
+/**
+ * Resolves a raw trailer value into a qualified QueryIdentity.
+ */
+export function resolveProtocolIdentity(
+    protocols: ProtocolMap<ProtocolContext>, 
+    id: string, 
+    contextProtocol?: string
+): { id: string; protocol: string } {
+    if (id.includes('/')) {
+      const [prefix, suffix] = id.split('/', 2);
+      // Prefix can be name OR namespace
+      const ctx = protocols.get(prefix) || Array.from(protocols.values()).find(c => c.storageNamespace.toLowerCase() === prefix.toLowerCase());
+      if (!ctx) {
+        throw new ProtocolError(`Unknown protocol prefix: "${prefix}" in identity "${id}"`, 1);
+      }
+      return { id: suffix, protocol: ctx.name };
+    }
+
+    if (contextProtocol) {
+      const ctx = protocols.get(contextProtocol);
+      if (ctx && isValidProtocolIdentity(id, ctx.def)) {
+        return { id, protocol: ctx.name };
+      }
+    }
+
+    // Deterministic lookup: who owns this ID format?
+    for (const ctx of protocols.values()) {
+        if (isValidProtocolIdentity(id, ctx.def)) return { id, protocol: ctx.name };
+    }
+
+    const root = getRootProtocol(protocols);
+    if (!root) throw new ProtocolError(`Cannot resolve reference "${id}": no global protocol defined`, 1);
+    
+    return { id, protocol: root.name };
 }
 
 /**

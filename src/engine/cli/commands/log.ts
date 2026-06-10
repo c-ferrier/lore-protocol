@@ -4,9 +4,8 @@ import type { Command } from 'commander';
 import { createQueryTarget } from '../../core/logic/query-targets.js';
 import type { FormattableQueryResult } from '../../core/types/output.js';
 import type { QueryResult } from '../../core/types/query.js';
-import type { ILogger } from '../../interfaces/logger.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { AtomRepository } from '../../services/atom-repository.js';
+import type { EngineInfra } from '../../services/engine-bootstrapper.js';
+import { findAtoms } from '../../shell/orchestrators/discovery.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/path-query.js';
@@ -17,15 +16,9 @@ import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/pat
  */
 export function registerLogCommand(
   program: Command,
-  deps: {
-    atomRepository: AtomRepository;
-    getFormatter: () => IOutputFormatter;
-    logger: ILogger;
-    protocolRoot: string;
-    cwd: string;
-  },
+  infra: EngineInfra,
 ): void {
-  const { protocolRoot, cwd } = deps;
+  const { protocolRoot, cwd } = infra;
   const cmd = program
     .command('log [paths...]')
     .description('Chronological decision surveyors for specific paths');
@@ -34,8 +27,7 @@ export function registerLogCommand(
 
   cmd.action(async (paths: string[] | undefined, _options: PathQueryCommandOptions, command: Command) => {
     const options = mergeOptions<PathQueryCommandOptions>(command);
-    const { atomRepository, getFormatter, logger } = deps;
-    // // console.log('LOG OPTIONS:', JSON.stringify(options));
+    const { getFormatter, logger } = infra;
 
     // Step 1: Resolve target using the pure logic
     const target = createQueryTarget(options.scope ? undefined : paths, { 
@@ -44,7 +36,7 @@ export function registerLogCommand(
         isScoped: !!options.scope 
     });
 
-    const atoms = await atomRepository.find(target, { ...options, includeAllCommits: options.history });
+    const atoms = await findAtoms(infra, target, { ...options, includeAllCommits: options.history });
     const totalAtoms = atoms.length;
 
     // Step 2: Apply the display-level limit

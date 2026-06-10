@@ -1,27 +1,29 @@
 import type { RawCommit } from '../../interfaces/git-client.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { claimsTrailers } from '../../shell/git/protocol-query-adapter.js';
 import { type Atom, ProtocolMap, type ProtocolState } from '../types/domain.js';
+import type { ProtocolContext } from '../types/protocol-definition.js';
 import type { QueryIdentity } from '../types/query.js';
 import { normalizeTrailers } from './normalization.js';
+import { getClaimedProtocolKeys, resolveProtocolIdentity } from './protocols.js';
 import { escapeRegex } from './regex.js';
 import { parseTrailers } from './trailers.js';
 
 /**
  * Hydrates raw Git commit data into domain-rich Atoms.
- * Pure function: takes data and registry, returns interpreted atoms.
+ * Pure function: takes data and protocol map, returns interpreted atoms.
  */
 export function hydrateAtoms(
   rawCommits: readonly RawCommit[],
-  registry: ProtocolRegistry,
+  protocols: ProtocolMap<ProtocolContext>,
   options: { includeAllCommits?: boolean } = {},
 ): Atom[] {
   const results: Atom[] = [];
-  const allProtocols = registry.getAll();
+  const allProtocols = Array.from(protocols.values());
   const hasProtocols = allProtocols.length > 0;
-  const claimedKeys = registry.getClaimedKeys();
+  const claimedKeys = getClaimedProtocolKeys(protocols);
 
   for (const raw of rawCommits) {
-    const activeProtocols = registry.detect(raw.trailers);
+    const activeProtocols = allProtocols.filter(p => claimsTrailers(raw.trailers, p));
 
     // If we are NOT in history mode, skip commits that match zero protocols
     if (!options.includeAllCommits && hasProtocols && activeProtocols.length === 0) continue;
@@ -54,13 +56,13 @@ export function hydrateAtoms(
  * Extract reference identities from a set of Atoms.
  * Useful for BFS traversal and relationship mapping.
  */
-export function extractReferenceIds(atoms: readonly Atom[], registry: ProtocolRegistry): QueryIdentity[] {
+export function extractReferenceIds(atoms: readonly Atom[], protocols: ProtocolMap<ProtocolContext>): QueryIdentity[] {
   const identities: QueryIdentity[] = [];
   const seen = new Set<string>();
 
   for (const atom of atoms) {
     for (const [pName, state] of atom.protocols) {
-      const p = registry.get(pName);
+      const p = protocols.get(pName);
       if (!p) continue;
 
       const refKeys = Object.keys(p.def.trailers).filter(k => p.def.trailers[k].validation === 'reference');
@@ -68,7 +70,7 @@ export function extractReferenceIds(atoms: readonly Atom[], registry: ProtocolRe
         const values = state.trailers[key] || [];
         for (const val of values) {
           try {
-            const identity = registry.resolveIdentity(val, pName);
+            const identity = resolveProtocolIdentity(protocols, val, pName);
             const pNameFinal = (identity.protocol || pName).toLowerCase();
             const idKey = `${pNameFinal}/${identity.id}`;
             if (!seen.has(idKey)) {

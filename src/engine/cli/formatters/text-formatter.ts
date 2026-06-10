@@ -1,6 +1,7 @@
 import chalk, { Chalk, type ChalkInstance } from 'chalk';
 
 import { getAuthorizedKeys } from '../../core/logic/protocols.js';
+import { ProtocolMap } from '../../core/models/protocol-map.js';
 import type { Atom } from '../../core/types/domain.js';
 import type {
   FormattableConfigResult,
@@ -10,8 +11,8 @@ import type {
   FormattableTraceResult,
   FormattableValidationResult,
 } from '../../core/types/output.js';
+import type { ProtocolContext } from '../../core/types/protocol-definition.js';
 import type { ErrorMessage,IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import { GLOBAL_NAMESPACE } from '../../util/constants.js';
 
 /**
@@ -24,15 +25,13 @@ export class TextFormatter implements IOutputFormatter {
   protected readonly c: ChalkInstance;
 
   constructor(
-    protected readonly protocolRegistry: ProtocolRegistry,
+    protected readonly protocols: ProtocolMap<ProtocolContext>,
     options: { color: boolean }
   ) {
     // Force color level 1 if requested, otherwise respect global chalk level or default to 0
     const level = options.color ? (chalk.level > 0 ? chalk.level : 1) : 0;
     this.c = new Chalk({ level });
   }
-
-
 
   formatQueryResult(data: FormattableQueryResult): string {
     const { result, visibleTrailers } = data;
@@ -253,7 +252,7 @@ export class TextFormatter implements IOutputFormatter {
     };
 
     for (const [pName, state] of atom.protocols) {
-      const p = this.protocolRegistry.get(pName);
+      const p = this.protocols.get(pName);
       if (!p) continue;
 
       const authorizedKeys = getAuthorizedKeys(p);

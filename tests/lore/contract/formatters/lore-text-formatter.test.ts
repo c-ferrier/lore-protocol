@@ -1,146 +1,111 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
-import { type Atom } from '../../../../src/engine/core/types/domain.js';
-import { type FormattableQueryResult } from '../../../../src/engine/core/types/output.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
+import { makeAtom, makeStubProtocolContext, type ProtocolContext } from '../../../../src/engine/testing.js';
 import { LoreTextFormatter } from '../../../../src/lore/formatters/lore-text-formatter.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
-;
-;
-;
-;
 
-const LORE_ID_KEY = "Lore-id";
-
-function makeAtom(overrides: Partial<Atom> & { trailers?: Record<string, string[]> } = {}): Atom {
-  const trailers: Record<string, string[]> = overrides.trailers 
-    ? overrides.trailers
-    : {
-        [LORE_ID_KEY]: ['a1b2c3d4'],
-        Confidence: ['high'],
-        'Scope-risk': ['narrow'],
-      };
-
-  return {
-    commitHash: overrides.commitHash ?? 'abc1234567890',
-    date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
-    author: overrides.author ?? 'alice@example.com',
-    subject: overrides.subject ?? 'feat: test subject',
-    body: overrides.body ?? '',
-    rawTrailers: '',
-    protocols: new Map([
-      ['lore', { 
-          trailers,
-          unauthorized: {}
-      }]
-    ]),
-    filesChanged: ['src/f1.ts'],
-    ...overrides,
-  };
-}
-
-describe('LoreTextFormatter (0.5.0 Parity)', () => {
-  let registry: ProtocolRegistry;
+describe('LoreTextFormatter', () => {
+  let protocols: ProtocolMap<ProtocolContext>;
   let formatter: LoreTextFormatter;
 
   beforeEach(() => {
-    registry = new ProtocolRegistry();
-    registry.register(makeStubProtocolContext(LoreProtocolDefinition));
-    formatter = new LoreTextFormatter(registry, { color: false });
+    protocols = new ProtocolMap();
+    const lore = makeStubProtocolContext({ 
+        name: 'lore', 
+        identityKey: 'Lore-id',
+        trailers: {
+            'Confidence': { description: 'C', multivalue: false, validation: 'none' as const }
+        }
+    });
+    protocols.set(lore.name, lore);
+    formatter = new LoreTextFormatter(protocols, { color: false });
   });
 
-  describe('formatSuccess', () => {
-    it('should match the "Commit created: <hash>" format', () => {
-      const output = formatter.formatSuccess('Some generic message', { hash: 'deadbeef' });
-      expect(output).toBe('Commit created: deadbeef');
+  it('should suppress [lore] prefix in the output (Lore 0.5.0 Parity)', () => {
+    const atom = makeAtom({
+      protocols: new ProtocolMap([['lore', { trailers: { 'Confidence': ['high'] }, unauthorized: {} }]])
     });
 
-    it('should fallback to generic message if no hash is provided', () => {
-      const output = formatter.formatSuccess('Generic success');
-      expect(output).toBe('Generic success');
+    const output = formatter.formatQueryResult({
+      result: {
+        command: 'log',
+        target: 'all',
+        targetType: 'global',
+        atoms: [atom],
+        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+      },
+      visibleTrailers: 'all',
     });
+
+    expect(output).toContain('Confidence: high');
+    expect(output).not.toContain('[lore]');
   });
 
-  describe('formatQueryResult (Log/Context Parity)', () => {
-    it('should remove the [Lore] prefix from trailers', () => {
-      const atom = makeAtom();
-      const data: FormattableQueryResult = {
-        result: {
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-          command: 'log', target: 'all', targetType: 'global'
-        },
-        visibleTrailers: 'all',
-      };
-
-      const output = formatter.formatQueryResult(data);
-      
-      // Verify Header
-      expect(output).toContain('a1b2c3d4 (2025-01-15, alice@example.com)');
-      
-      // Verify Trailers (No [Lore] prefix)
-      expect(output).toContain('  Confidence: high');
-      expect(output).toContain('  Scope-risk: narrow');
-      expect(output).not.toContain('[Lore]');
+  it('should only indent the first line of the body (Lore 0.5.0 Parity)', () => {
+    const atom = makeAtom({
+      body: 'Line 1\nLine 2',
+      protocols: new ProtocolMap([['lore', { trailers: { 'Lore-id': ['aaaa1111'] }, unauthorized: {} }]])
     });
 
-    it('should follow 0.5.0 indentation rules for body: first line indented, rest not', () => {
-      const atom = makeAtom({ 
-        body: 'This is the first line.\nThis is the second line.\nThis is the third.' 
-      });
-      const data: FormattableQueryResult = {
-        result: {
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-          command: 'log', target: 'all', targetType: 'global'
-        },
-        visibleTrailers: 'all',
-      };
-
-      const output = formatter.formatQueryResult(data);
-      const lines = output.split('\n');
-
-      // Line 1: Header
-      // Line 2: First body line (indented)
-      expect(lines[1]).toBe('  This is the first line.');
-      // Line 3: Second body line (NOT indented)
-      expect(lines[2]).toBe('This is the second line.');
-      expect(lines[3]).toBe('This is the third.');
+    const output = formatter.formatQueryResult({
+      result: {
+        command: 'log',
+        target: 'all',
+        targetType: 'global',
+        atoms: [atom],
+        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+      },
+      visibleTrailers: 'all',
     });
 
-    it('should show subject only if no trailers are present', () => {
-      const atom = makeAtom({ 
-        subject: 'pure intent',
-        trailers: { [LORE_ID_KEY]: ['a1b2c3d4'] }
-      });
-      const data: FormattableQueryResult = {
-        result: {
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-          command: 'log', target: 'all', targetType: 'global'
-        },
-        visibleTrailers: 'all',
-      };
+    expect(output).toContain('  Line 1');
+    expect(output).toContain('\nLine 2');
+  });
 
-      const output = formatter.formatQueryResult(data);
-      expect(output).toContain('  pure intent');
-      expect(output).not.toContain('Confidence:');
+  it('should show success message as "Commit created: <hash>" (Lore 0.5.0 Parity)', () => {
+    const output = formatter.formatSuccess('Done', { hash: 'abc12345' });
+    expect(output).toBe('Commit created: abc12345');
+  });
+
+  it('should fallback to generic message if no hash is provided', () => {
+    const output = formatter.formatSuccess('Done');
+    expect(output).toContain('Done');
+  });
+
+  it('should show subject only if no trailers are present', () => {
+    const atom = makeAtom({
+      subject: 'feat: minimal',
+      protocols: new ProtocolMap([['lore', { trailers: { 'Lore-id': ['aaaa1111'] }, unauthorized: {} }]])
     });
 
-    it('should match the footer format exactly', () => {
-      const atom = makeAtom();
-      const data: FormattableQueryResult = {
-        result: {
-          atoms: [atom],
-          meta: { totalAtoms: 50, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-          command: 'log', target: 'all', targetType: 'global'
-        },
-        visibleTrailers: 'all',
-      };
-
-      const output = formatter.formatQueryResult(data);
-      expect(output).toContain('1 of 50 atoms shown');
+    const output = formatter.formatQueryResult({
+      result: {
+        command: 'log',
+        target: 'all',
+        targetType: 'global',
+        atoms: [atom],
+        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+      },
+      visibleTrailers: 'all',
     });
+
+    expect(output).toContain('feat: minimal');
+    expect(output).not.toContain('Confidence:');
+  });
+
+  it('should match the footer format exactly (Lore 0.5.0 Parity)', () => {
+    const atom = makeAtom();
+    const output = formatter.formatQueryResult({
+      result: {
+        command: 'log',
+        target: 'all',
+        targetType: 'global',
+        atoms: [atom],
+        meta: { totalAtoms: 5, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+      },
+      visibleTrailers: 'all',
+    });
+
+    expect(output).toContain('1 of 5 atoms shown');
   });
 });

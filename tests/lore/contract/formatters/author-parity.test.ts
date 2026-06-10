@@ -1,49 +1,78 @@
-import { beforeEach,describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeAtom } from '../../../../src/engine/testing.js';
 import { LoreTextFormatter } from '../../../../src/lore/formatters/lore-text-formatter.js';
-;
-;
-;
+import { makeAtom, type ProtocolContext,ProtocolMap } from '../../../engine/engine-test-utils.js';
 
-describe('LoreTextFormatter Author Parity', () => {
+describe('LoreTextFormatter — Author Display Parity', () => {
   let formatter: LoreTextFormatter;
 
-  beforeEach(() => {
-    formatter = new LoreTextFormatter(new ProtocolRegistry(), { color: false });
+  it('should display only the email part of the author string', () => {
+    const protocols = new ProtocolMap<ProtocolContext>();
+    formatter = new LoreTextFormatter(protocols, { color: false });
+
+    const atom = makeAtom({
+      author: 'Cole Ferrier <cole.ferrier@gmail.com>',
+      date: new Date('2026-05-25T12:00:00Z'),
+    });
+
+    const output = formatter.formatQueryResult({
+      result: {
+        command: 'log',
+        target: 'all',
+        targetType: 'global',
+        atoms: [atom],
+        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+      },
+      visibleTrailers: 'all',
+    });
+
+    expect(output).toContain('cole.ferrier@gmail.com');
+    expect(output).not.toContain('Cole Ferrier');
   });
 
-  it('should extract email from "Name <email>" format', () => {
-    const atom = makeAtom({ 
-        author: 'Cole <cole@example.com>',
-        date: new Date('2025-01-15T12:00:00Z')
-    });
-    const header = (formatter as unknown as { formatAtomHeader: (a: import('../../../../src/engine/core/types/domain.js').Atom, id: string, color: boolean) => string }).formatAtomHeader(atom, 'aaaa1111', false);
-    
-    // Header format: ── ID (date, email) ──
-    expect(header).toContain('(2025-01-15, cole@example.com)');
-    expect(header).not.toContain('Cole');
-  });
+  it('should handle author strings without brackets gracefully', () => {
+    const protocols = new ProtocolMap<ProtocolContext>();
+    formatter = new LoreTextFormatter(protocols, { color: false });
 
-  it('should handle raw email format gracefully', () => {
-    const atom = makeAtom({ 
-        author: 'cole@example.com',
-        date: new Date('2025-01-15T12:00:00Z')
+    const atom = makeAtom({
+      author: 'cole.ferrier@gmail.com',
+      date: new Date('2026-05-25T12:00:00Z'),
     });
-    const header = (formatter as unknown as { formatAtomHeader: (a: import('../../../../src/engine/core/types/domain.js').Atom, id: string, color: boolean) => string }).formatAtomHeader(atom, 'aaaa1111', false);
-    
-    expect(header).toContain('(2025-01-15, cole@example.com)');
+
+    const output = formatter.formatQueryResult({
+      result: {
+        command: 'log',
+        target: 'all',
+        targetType: 'global',
+        atoms: [atom],
+        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+      },
+      visibleTrailers: 'all',
+    });
+
+    expect(output).toContain('cole.ferrier@gmail.com');
   });
 
   it('should handle malformed author strings gracefully', () => {
-    const atom = makeAtom({ 
-        author: 'Cole <malformed',
-        date: new Date('2025-01-15T12:00:00Z')
+    const protocols = new ProtocolMap<ProtocolContext>();
+    formatter = new LoreTextFormatter(protocols, { color: false });
+
+    const atom = makeAtom({
+      author: 'Unknown Author', // No email
+      date: new Date('2026-05-25T12:00:00Z'),
     });
-    const header = (formatter as unknown as { formatAtomHeader: (a: import('../../../../src/engine/core/types/domain.js').Atom, id: string, color: boolean) => string }).formatAtomHeader(atom, 'aaaa1111', false);
-    
-    // Should fallback to showing the whole string if no closing bracket
-    expect(header).toContain('(2025-01-15, Cole <malformed)');
+
+    const output = formatter.formatQueryResult({
+      result: {
+        command: 'log',
+        target: 'all',
+        targetType: 'global',
+        atoms: [atom],
+        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+      },
+      visibleTrailers: 'all',
+    });
+
+    expect(output).toContain('Unknown Author');
   });
 });

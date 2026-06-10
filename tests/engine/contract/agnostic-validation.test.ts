@@ -1,23 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
-import { makeAtom, TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
-import { makeMockAtomRepository } from '../engine-test-utils.js';
+import { makeAtom, type ProtocolContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { makeMockGitClient, makeMockQueryCache } from '../engine-test-utils.js';
 
 describe('Agnostic Validation (Zero Protocols)', () => {
-  const deps = {
-    atomRepository: makeMockAtomRepository(),
+  const infra = {
+    git: makeMockGitClient(),
+    cache: makeMockQueryCache(),
+    protocols: new ProtocolMap<ProtocolContext>(), // Empty
     config: TEST_ENGINE_CONFIG,
-    protocolRegistry: new ProtocolRegistry() // Empty
   };
 
   it('should still perform structural hygiene checks without protocols', async () => {
     const atom = makeAtom({
-        subject: 'a'.repeat(100), // Exceeds 72
+        subject: 'a'.repeat(100), // Exceeds default limit (50 in TEST_ENGINE_CONFIG)
         protocols: new Map() // No protocols
     });
-    const results = await validateCommits([atom], deps);
+    const results = await validateCommits([atom], infra);
 
     expect(results).toHaveLength(1);
     expect(results[0].valid).toBe(true); // Warnings don't invalidate
@@ -29,7 +30,7 @@ describe('Agnostic Validation (Zero Protocols)', () => {
         subject: 'feat: valid subject',
         protocols: new Map()
     });
-    const results = await validateCommits([perfectAtom], deps);
+    const results = await validateCommits([perfectAtom], infra);
 
     expect(results[0].valid).toBe(true);
     expect(results[0].issues).toHaveLength(0);

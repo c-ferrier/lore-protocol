@@ -1,8 +1,9 @@
 import { authorizeKey } from '../../core/logic/ownership.js';
+import { resolveProtocolKey } from '../../core/logic/protocols.js';
 import type { CommitInput } from '../../core/types/commit.js';
 import { ProtocolMap } from '../../core/types/domain.js';
+import type { ProtocolContext } from '../../core/types/protocol-definition.js';
 import type { ICommitInputReader } from '../../interfaces/commit-input-reader.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import { ProtocolError } from '../../util/errors.js';
 
 /**
@@ -11,7 +12,7 @@ import { ProtocolError } from '../../util/errors.js';
 export class JsonInputReader implements ICommitInputReader {
   constructor(
     private readonly json: string,
-    private readonly registry: ProtocolRegistry
+    private readonly protocols: ProtocolMap<ProtocolContext>
   ) {}
 
   async read(_options?: Record<string, unknown>): Promise<CommitInput> {
@@ -35,7 +36,7 @@ export class JsonInputReader implements ICommitInputReader {
           // 1. Detect hierarchical JSON: { "project": { "Status": "active" } }
           // The top-level key is treated as the Protocol Name.
           if (val && typeof val === 'object' && !Array.isArray(val)) {
-              const ctx = this.registry.get(key);
+              const ctx = this.protocols.get(key);
               if (!ctx) {
                   throw new ProtocolError(`Unknown protocol "${key}" in hierarchical JSON input`, 1);
               }
@@ -59,14 +60,14 @@ export class JsonInputReader implements ICommitInputReader {
                   trailersMap.set(pName, pMap);
               }
           } 
-          // 2. Flat JSON: { "Status": "..." } -> route via registry.resolveKey
+          // 2. Flat JSON: { "Status": "..." } -> route via resolveProtocolKey
           else {
               const values = Array.isArray(val) 
                 ? val.filter((v) => typeof v === 'string') as string[]
                 : (typeof val === 'string' ? [val.trim()] : []);
               
               if (values.length > 0) {
-                  const ctx = this.registry.resolveKey(key);
+                  const ctx = resolveProtocolKey(this.protocols, key);
                   const pName = ctx ? ctx.def.name.toLowerCase() : ''; // '' for unknown/root orphans
                   
                   const pMap = trailersMap.get(pName) ?? {};

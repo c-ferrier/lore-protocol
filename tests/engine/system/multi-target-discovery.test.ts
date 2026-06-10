@@ -5,16 +5,18 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach,describe, expect, it } from 'vitest';
 
 import { createQueryTarget } from '../../../src/engine/core/logic/query-targets.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
+import { EngineInfra } from '../../../src/engine/services/engine-bootstrapper.js';
 import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { GitClient } from '../../../src/engine/shell/git/git-client.js';
-import { makeStubProtocolContext, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
+import { findAtoms } from '../../../src/engine/shell/orchestrators/discovery.js';
+import { makeStubProtocolContext, type ProtocolContext,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
+import { makeMockInfra } from '../engine-test-utils.js';
 
 describe('Multi-Target Atom Discovery', () => {
   let testDir: string;
-  let gitClient: GitClient;
-  let repo: AtomRepository;
+  let git: GitClient;
+  let infra: EngineInfra;
 
   beforeAll(() => {
     testDir = join(process.cwd(), 'temp-multi-target-test');
@@ -51,22 +53,17 @@ describe('Multi-Target Atom Discovery', () => {
   });
 
   beforeEach(() => {
-    gitClient = new GitClient(testDir);
-    const registry = new ProtocolRegistry();
-    registry.register(makeStubProtocolContext(TEST_PROTOCOL_DEFINITION));
+    git = new GitClient(testDir);
+    const protocols = new ProtocolMap<ProtocolContext>();
+    protocols.set('mock', makeStubProtocolContext(TEST_PROTOCOL_DEFINITION));
     
-    const context = {
-        cwd: testDir,
-        protocolRoot: testDir,
-        isScoped: false
-    };
-
-    repo = new AtomRepository(
-      gitClient,
-      registry,
-      new NullQueryCache(),
-      createQueryTarget(undefined, context),
-    );
+    infra = makeMockInfra({
+      git,
+      protocols,
+      cache: new NullQueryCache(),
+      protocolRoot: testDir,
+      cwd: testDir,
+    });
   });
 
   afterAll(() => {
@@ -75,7 +72,7 @@ describe('Multi-Target Atom Discovery', () => {
 
   it('should find atoms touching any of the provided targets', async () => {
     const context = { cwd: testDir, protocolRoot: testDir, isScoped: false };
-    const result = await repo.find(createQueryTarget(['fileA.ts', 'fileB.ts'], context));
+    const result = await findAtoms(infra, createQueryTarget(['fileA.ts', 'fileB.ts'], context));
     
     // Should find A, B, and AB, but NOT C.
     expect(result).toHaveLength(3);
@@ -88,7 +85,7 @@ describe('Multi-Target Atom Discovery', () => {
 
   it('should return empty array if none of the targets have protocol atoms', async () => {
     const context = { cwd: testDir, protocolRoot: testDir, isScoped: false };
-    const result = await repo.find(createQueryTarget(['non-existent.ts'], context));
+    const result = await findAtoms(infra, createQueryTarget(['non-existent.ts'], context));
 
     expect(result).toHaveLength(0);
   });

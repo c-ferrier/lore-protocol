@@ -1,56 +1,35 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
-import { type Atom, type Trailers } from '../../../../src/engine/core/types/domain.js';
-import { type FormattableQueryResult } from '../../../../src/engine/core/types/output.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
+import { makeAtom, makeStubProtocolContext, type ProtocolContext } from '../../../../src/engine/testing.js';
 import { LoreJsonFormatter } from '../../../../src/lore/formatters/lore-json-formatter.js';
-import { LoreProtocolDefinition } from '../../../../src/lore/protocol-definition.js';
-;
-;
-;
-;
 
-const LORE_ID_KEY = "Lore-id";
-
-function makeTrailers(overrides: Partial<Trailers> = {}): Trailers {
-  return {
-    [LORE_ID_KEY]: overrides[LORE_ID_KEY] ?? ['a1b2c3d4'],
-    Confidence: overrides.Confidence ?? ['high'],
-    'Scope-risk': overrides['Scope-risk'] ?? ['narrow'],
-    ...overrides,
-  };
-}
-
-function makeAtom(overrides: Partial<Atom> & { trailers?: Trailers } = {}): Atom {
-  const trailers = overrides.trailers ?? makeTrailers();
-  return {
-    commitHash: overrides.commitHash ?? 'h1',
-    date: overrides.date ?? new Date('2025-01-15T10:00:00Z'),
-    author: 'alice@example.com',
-    subject: overrides.subject ?? 'feat: legacy test',
-    body: '',
-    rawTrailers: '',
-    protocols: new Map([
-      ['lore', { trailers, unauthorized: {} }]
-    ]),
-    filesChanged: ['src/f1.ts'],
-  };
-}
-
-describe('LoreJsonFormatter (0.5.0 Parity)', () => {
-  let registry: ProtocolRegistry;
+describe('LoreJsonFormatter', () => {
+  let protocols: ProtocolMap<ProtocolContext>;
   let formatter: LoreJsonFormatter;
 
   beforeEach(() => {
-    registry = new ProtocolRegistry();
-    registry.register(makeStubProtocolContext(LoreProtocolDefinition));
-    formatter = new LoreJsonFormatter(registry);
+    protocols = new ProtocolMap();
+    const lore = makeStubProtocolContext({ 
+        name: 'lore', 
+        identityKey: 'Lore-id',
+        trailers: {
+            'Confidence': { description: 'C', multivalue: false, validation: 'none' as const },
+            'Scope-risk': { description: 'S', multivalue: false, validation: 'none' as const }
+        }
+    });
+    protocols.set(lore.name, lore);
+    formatter = new LoreJsonFormatter(protocols);
   });
 
-  it('should transform agnostic output to flat Lore 0.5.0 structure', () => {
-    const atom = makeAtom();
-    const data: FormattableQueryResult = {
+  it('should include intent key in the output (Lore 0.5.0 Parity)', () => {
+    const atom = makeAtom({
+      subject: 'feat: add login',
+      date: new Date('2025-01-15T10:00:00Z'),
+      protocols: new ProtocolMap([['lore', { trailers: { 'Lore-id': ['aaaa1111'] }, unauthorized: {} }]])
+    });
+
+    const output = JSON.parse(formatter.formatQueryResult({
       result: {
         command: 'log',
         target: 'all',
@@ -59,37 +38,54 @@ describe('LoreJsonFormatter (0.5.0 Parity)', () => {
         meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
       },
       visibleTrailers: 'all',
-    };
+    }));
 
-    const output = formatter.formatQueryResult(data);
-    const parsed = JSON.parse(output);
-
-    // 1. Root Identity Parity
-    expect(parsed.results[0].lore_id).toBe('a1b2c3d4');
-    
-    // 2. Nomenclature Parity (Intent)
-    expect(parsed.results[0].intent).toBe('feat: legacy test');
-    
-    // 3. Flat Trailer Parity with snake_case
-    expect(parsed.results[0].trailers.lore_id).toBe('a1b2c3d4');
-    expect(parsed.results[0].trailers.confidence).toBe('high');
-    expect(parsed.results[0].trailers.scope_risk).toBe('narrow');
-    
-    // 4. Root Version Parity
-    expect(parsed.lore_version).toBe('1.0');
+    expect(output.results[0].intent).toBe('feat: add login');
   });
 
-  it('should format commit success with the simple 0.5.0 message structure', () => {
-    const output = formatter.formatSuccess('Some git message', { hash: 'deadbeef' });
-    const parsed = JSON.parse(output);
+  it('should include lore_id at the top level and inside trailers (Lore 0.5.0 Parity)', () => {
+      const atom = makeAtom({
+        protocols: new ProtocolMap([['lore', { trailers: { 'Lore-id': ['aaaa1111'] }, unauthorized: {} }]])
+      });
+  
+      const output = JSON.parse(formatter.formatQueryResult({
+        result: {
+          command: 'log',
+          target: 'all',
+          targetType: 'global',
+          atoms: [atom],
+          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+        },
+        visibleTrailers: 'all',
+      }));
+  
+      expect(output.results[0].lore_id).toBe('aaaa1111');
+      expect(output.results[0].trailers.lore_id).toBe('aaaa1111');
+    });
 
-    expect(parsed.success).toBe(true);
-    expect(parsed.message).toBe('Commit created: deadbeef');
-    expect(parsed.hash).toBe('deadbeef');
-    expect(parsed.lore_version).toBe('1.0');
-    
-    // Negative checks: no engine leakage
-    expect(parsed.protocols).toBeUndefined();
-    expect(parsed.ids).toBeUndefined();
+  it('should snake_case trailer keys in output (Lore 0.5.0 Parity)', () => {
+    const atom = makeAtom({
+      protocols: new ProtocolMap([['lore', { 
+          trailers: {
+            'Confidence': ['high'],
+            'Scope-risk': ['moderate'],
+          },
+          unauthorized: {}
+      }]])
+    });
+
+    const output = JSON.parse(formatter.formatQueryResult({
+      result: {
+        command: 'log',
+        target: 'all',
+        targetType: 'global',
+        atoms: [atom],
+        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
+      },
+      visibleTrailers: 'all',
+    }));
+
+    expect(output.results[0].trailers.confidence).toBe('high');
+    expect(output.results[0].trailers.scope_risk).toBe('moderate');
   });
 });

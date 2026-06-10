@@ -8,6 +8,7 @@ import {
     getFormattableDefinitions,
     getListKeys,
     getReferenceKeys,
+    getRootProtocol,
     getScalarKeys,
     isCoreTrailer} from './core/logic/protocols.js';
 import { ProtocolMap } from './core/models/protocol-map.js';
@@ -15,14 +16,15 @@ import type { CommitInput } from './core/types/commit.js';
 import type { EngineConfig, TrailerDefinition,TrailerUiColor, TrailerUiKind } from './core/types/config.js';
 import type { Atom, ProtocolState } from './core/types/domain.js';
 import type { ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
+export type { ProtocolContext,ProtocolDefinition };
 import type { QueryOptions,QueryTargetAST } from './core/types/query.js';
 import type { IConfigLoader } from './interfaces/config-loader.js';
 import type { IGitClient, RawCommit as IGitRawCommit } from './interfaces/git-client.js';
+import type { ILogger } from './interfaces/logger.js';
 import type { IOutputFormatter } from './interfaces/output-formatter.js';
 import type { IPrompt } from './interfaces/prompt.js';
 import type { IQueryCache } from './interfaces/query-cache.js';
-import { AtomRepository } from './services/atom-repository.js';
-import { ProtocolRegistry } from './services/protocol-registry.js';
+import type { EngineInfra } from './services/engine-bootstrapper.js';
 import { ProtocolLoader } from './shell/fs/protocol-loader.js';
 
 export { 
@@ -32,6 +34,7 @@ export {
     getFormattableDefinitions,
     getListKeys,
     getReferenceKeys,
+    getRootProtocol,
     getScalarKeys,
     isBucketOwner,
     isCoreTrailer,
@@ -139,28 +142,23 @@ export function makeStubProtocolContext(
     return createProtocolContext(finalized);
 }
 
-/** Standard ProtocolRegistry factory for tests. */
-export function makeStubProtocolRegistry(protocols: ProtocolContext[] = []): ProtocolRegistry {
-  const registry = new ProtocolRegistry();
+/** Standard ProtocolMap factory for tests. */
+export function makeStubProtocolMap(protocols: ProtocolContext[] = []): ProtocolMap<ProtocolContext> {
+  const map = new ProtocolMap<ProtocolContext>();
   for (const p of protocols) {
-    registry.register(p);
+    map.set(p.name, p);
   }
-  return registry;
+  return map;
 }
 
 /** 
  * Helper to create a raw commit object for mocking history. 
- * 
- * @param overrides.id Optional shorthand to set the value for the primary 
- * identity key (TEST_ID_KEY). Using a specific ID here allows tests to 
- * remain deterministic when asserting against mocked git history.
  */
 export function makeRawCommit(overrides: Partial<IGitRawCommit> & { id?: string; message?: string } = {}): IGitRawCommit {
     const hash = overrides.hash || 'h1';
     const id = overrides.id || 'a1b2c3d4';
     const trailers = overrides.trailers !== undefined ? overrides.trailers : `${TEST_ID_KEY}: ${id}`;
     
-    // Support 'message' alias from existing tests
     const subject = overrides.subject || (overrides.message ? overrides.message.split('\n')[0] : 'feat: test');
     const body = overrides.body || (overrides.message ? overrides.message.split('\n').slice(2).join('\n') : 'body content');
   
@@ -217,19 +215,6 @@ export function makeStubGitClient(overrides: Partial<IGitClient> = {}): IGitClie
   } as IGitClient;
 }
 
-/** Stub Atom Repository. */
-export function makeStubAtomRepository(overrides: Partial<AtomRepository> = {}): AtomRepository {
-    return {
-        find: async () => [],
-        findByIds: async () => [],
-        findById: async () => null,
-        findByCommitHash: async () => null,
-        getAtomDrift: async () => ({}),
-        getHeadHash: async () => 'head-hash',
-        ...overrides
-    } as unknown as AtomRepository;
-}
-
 /** Stub Formatter for CLI tests. */
 export function makeStubFormatter(): IOutputFormatter {
     return {
@@ -275,21 +260,6 @@ export function makeStubQueryOptions(overrides: Partial<QueryOptions> = {}): Que
     };
 }
 
-/** Helper to create a REAL AtomRepository instance with stubs. */
-export function makeAtomRepository(deps: {
-    gitClient?: IGitClient;
-    protocolRegistry?: ProtocolRegistry;
-    queryCache?: IQueryCache;
-    baseTarget?: QueryTargetAST;
-} = {}) {
-    return new AtomRepository(
-        deps.gitClient || makeStubGitClient(),
-        deps.protocolRegistry || new ProtocolRegistry(),
-        deps.queryCache || makeStubQueryCache(),
-        deps.baseTarget || makeQueryTarget()
-    );
-}
-
 /** Factory to create a stub for interactive prompts. */
 export function makeStubPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
     return {
@@ -298,6 +268,34 @@ export function makeStubPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
         askInput: async () => '',
         ...overrides
     } as IPrompt;
+}
+
+/** Stub Logger. */
+export function makeStubLogger(): ILogger {
+    return {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+        debug: () => {},
+        result: () => {},
+    } as unknown as ILogger;
+}
+
+/** Helper to create a stub Infrastructure Bag. */
+export function makeStubInfra(overrides: Partial<EngineInfra> = {}): EngineInfra {
+    return {
+        git: makeStubGitClient(),
+        cache: makeStubQueryCache(),
+        protocols: makeStubProtocolMap(),
+        config: TEST_ENGINE_CONFIG,
+        logger: makeStubLogger(),
+        prompt: makeStubPrompt(),
+        getFormatter: () => makeStubFormatter(),
+        protocolRoot: '/mock-repo',
+        cwd: '/mock-repo',
+        baseTarget: makeQueryTarget(),
+        ...overrides
+    } as EngineInfra;
 }
 
 /** Atom Factory for high-level logic tests. */
@@ -340,6 +338,6 @@ export function makeCommitInput(overrides: Partial<CommitInput> = {}): CommitInp
     return {
         subject: overrides.subject || 'feat: test',
         body: overrides.body || '',
-        trailers: overrides.trailers || new Map<string, Record<string, string[]>>(),
+        trailers: overrides.trailers || new ProtocolMap<Record<string, string[]>>(),
     };
 }

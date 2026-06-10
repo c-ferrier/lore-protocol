@@ -6,40 +6,39 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as HydrationLogic from '../../../src/engine/core/logic/hydration.js';
 import { createTargetFromIdentities } from '../../../src/engine/core/logic/query-targets.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
-import { makeAtom, makeQueryTarget, makeRawCommit,makeStubProtocolContext } from '../../../src/engine/testing.js';
+import { findAtoms } from '../../../src/engine/shell/orchestrators/discovery.js';
+import { makeAtom, makeQueryTarget, makeRawCommit,makeStubProtocolContext, type ProtocolContext } from '../../../src/engine/testing.js';
 import { type MockedGitClient } from '../../mock-types.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
+import { makeMockGitClient, makeMockInfra } from '../engine-test-utils.js';
 
-describe('Query Cache Combined Fidelity (Contract)', () => {
+describe('Discovery Cache Combined Fidelity (Contract)', () => {
   const testDir = join(tmpdir(), `lore-test-cache-${Math.random().toString(36).slice(2)}`);
-  let gitClient: MockedGitClient;
-  let registry: ProtocolRegistry;
+  let git: MockedGitClient;
+  let protocols: ProtocolMap<ProtocolContext>;
   let cache: QueryCache;
-  let repo: AtomRepository;
 
   beforeEach(() => {
     rmSync(testDir, { recursive: true, force: true });
     mkdirSync(testDir, { recursive: true });
 
-    gitClient = makeMockGitClient();
-    registry = new ProtocolRegistry();
-    registry.register(makeStubProtocolContext());
+    git = makeMockGitClient();
+    protocols = new ProtocolMap();
+    const protocol = makeStubProtocolContext();
+    protocols.set(protocol.name, protocol);
     
     cache = new QueryCache(testDir, 100, 'test-fingerprint');
-
-    repo = new AtomRepository(
-      gitClient,
-      registry,
-      cache,
-      makeQueryTarget(),
-    );
   });
 
   afterAll(() => {
     rmSync(testDir, { recursive: true, force: true });
+  });
+
+  const getInfra = () => makeMockInfra({
+      git,
+      protocols,
+      cache
   });
 
   it('should skip DISCOVERY (query) but perform FETCH (getCommitsByHashes) on cache hit', async () => {
@@ -50,7 +49,7 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
       filesChanged: ['src/logic.ts'] 
     });
 
-    vi.mocked(gitClient.resolveRef).mockResolvedValue(headHash);
+    vi.mocked(git.resolveRef).mockResolvedValue(headHash);
     
     const mockAtomState = makeAtom({ 
         commitHash: 'abc', 
@@ -59,27 +58,28 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
     });
 
     // 1. First run: Perform full Discovery + Fetch
-    vi.mocked(gitClient.query).mockResolvedValue([commit]);
+    vi.mocked(git.query).mockResolvedValue([commit]);
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
     vi.spyOn(cache, 'get').mockResolvedValue(null);
     
     const target = makeQueryTarget('src/logic.ts');
-    await repo.find(target, { cache: true });
-    expect(gitClient.query).toHaveBeenCalledTimes(1);
+    const infra = getInfra();
+    await findAtoms(infra, target, { cache: true });
+    expect(git.query).toHaveBeenCalledTimes(1);
 
     // 2. Second run: Cache should hit (skipping query)
-    vi.mocked(gitClient.query).mockClear();
+    vi.mocked(git.query).mockClear();
     vi.spyOn(cache, 'get').mockResolvedValue(['abc']);
-    vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit]);
+    vi.mocked(git.getCommitsByHashes).mockResolvedValue([commit]);
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
     
-    const result = await repo.find(target, { cache: true });
+    const result = await findAtoms(infra, target, { cache: true });
     
     // VERIFICATION A: Physical Integrity
     // Discovery is skipped, but FETCH still gets full records (including files)
     expect(result).toHaveLength(1);
-    expect(gitClient.query).not.toHaveBeenCalled();
-    expect(gitClient.getCommitsByHashes).toHaveBeenCalledWith(['abc']);
+    expect(git.query).not.toHaveBeenCalled();
+    expect(git.getCommitsByHashes).toHaveBeenCalledWith(['abc']);
     expect(result[0].filesChanged).toEqual(['src/logic.ts']);
     
     // VERIFICATION B: Logical Truth
@@ -98,26 +98,27 @@ describe('Query Cache Combined Fidelity (Contract)', () => {
         protocols: new Map([['mock', { trailers: { 'Mock-id': [id] }, unauthorized: {} }]])
     });
 
-    vi.mocked(gitClient.resolveRef).mockResolvedValue(headHash);
-    vi.mocked(gitClient.getCommitsByHashes).mockResolvedValue([commit]);
+    vi.mocked(git.resolveRef).mockResolvedValue(headHash);
+    vi.mocked(git.getCommitsByHashes).mockResolvedValue([commit]);
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
 
     // 1. Initial run: Fill cache
     vi.spyOn(cache, 'get').mockResolvedValue(null);
     const target = createTargetFromIdentities([{ id }]);
 
-    await repo.find(target, { cache: true });
-    expect(gitClient.query).toHaveBeenCalledTimes(1);
+    const infra = getInfra();
+    await findAtoms(infra, target, { cache: true });
+    expect(git.query).toHaveBeenCalledTimes(1);
 
     // 2. Second run: Cache hit
-    vi.mocked(gitClient.query).mockClear();
+    vi.mocked(git.query).mockClear();
     vi.spyOn(cache, 'get').mockResolvedValue(['hash123']);
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
 
-    const result = await repo.find(target, { cache: true });
+    const result = await findAtoms(infra, target, { cache: true });
 
     // VERIFICATION: Discovery is skipped, but truth projection still happens
-    expect(gitClient.query).not.toHaveBeenCalled();
+    expect(git.query).not.toHaveBeenCalled();
     expect(result).toHaveLength(1);
     expect(result[0].protocols.get('mock')?.supersession).toBeDefined();
   });

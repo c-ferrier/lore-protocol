@@ -2,20 +2,21 @@ import { Command } from 'commander';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { registerConfigCommand } from '../../../../src/engine/cli/commands/config.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeStubProtocolContext, TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
+import { type ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
+import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
 import { type MockedOutputFormatter } from '../../../mock-types.js';
-import { makeMockFormatter, TestLogger } from '../../engine-test-utils.js';
+import { makeMockFormatter, makeMockInfra, TestLogger } from '../../engine-test-utils.js';
 
 describe('Config Command', () => {
   let program: Command;
-  let registry: ProtocolRegistry;
+  let protocols: ProtocolMap<ProtocolContext>;
   let logger: TestLogger;
   let formatter: MockedOutputFormatter;
 
   beforeEach(() => {
     program = new Command();
-    registry = new ProtocolRegistry();
+    protocols = new ProtocolMap<ProtocolContext>();
     logger = new TestLogger();
     formatter = makeMockFormatter();
     formatter.formatConfig.mockReturnValue('formatted');
@@ -36,15 +37,14 @@ describe('Config Command', () => {
         }
     });
     
-    registry.register(lore);
-    registry.register(sec);
+    protocols.set(lore.name, lore);
+    protocols.set(sec.name, sec);
 
-    registerConfigCommand(program, {
-      config: TEST_ENGINE_CONFIG,
+    registerConfigCommand(program, makeMockInfra({
       getFormatter: () => formatter,
-      protocolRegistry: registry,
+      protocols,
       logger,
-    });
+    }));
   });
 
   it('should pass all protocols to the formatter by default', async () => {

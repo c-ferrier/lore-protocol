@@ -1,38 +1,34 @@
 import { afterEach,beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 import { formatCommit, validateFormatting } from '../../../../src/engine/core/logic/commit-formatting.js';
+import * as IdentityLogic from '../../../../src/engine/core/logic/identity.js';
+import * as TrailerLogic from '../../../../src/engine/core/logic/trailers.js';
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import { type EngineConfig } from '../../../../src/engine/core/types/config.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { 
   makeCommitInput, 
   makeStubProtocolContext, 
   MOCK_CORE_TRAILERS,
-  TEST_ENGINE_CONFIG, 
+  type ProtocolContext,  TEST_ENGINE_CONFIG, 
   TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
-;
-;
-
-;
-
-import * as IdentityLogic from '../../../../src/engine/core/logic/identity.js';
-import * as TrailerLogic from '../../../../src/engine/core/logic/trailers.js';
 
 const TEST_ID_KEY = "Mock-id";
 
 describe('Commit Formatting Logic (Pure Functions)', () => {
   let engineConfig: EngineConfig;
-  let protocolRegistry: ProtocolRegistry;
+  let protocols: ProtocolMap<ProtocolContext>;
   let idSpy: Mock;
 
   beforeEach(() => {
     engineConfig = { ...TEST_ENGINE_CONFIG };
 
-    protocolRegistry = new ProtocolRegistry();
+    protocols = new ProtocolMap<ProtocolContext>();
     // Register protocol with core trailers to satisfy tests expecting Confidence/Constraint
-    protocolRegistry.register(makeStubProtocolContext({
+    const protocol = makeStubProtocolContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
-    }));
+    });
+    protocols.set(protocol.name, protocol);
     
     // Default deterministic ID for tests
     idSpy = vi.spyOn(IdentityLogic, 'generateId').mockReturnValue('a1b2c3d4');
@@ -46,24 +42,24 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
     it(`should build a minimal commit with subject and ${TEST_ID_KEY}`, () => {
       const input = makeCommitInput({
         subject: 'feat: add login',
-        trailers: new Map([['mock', { [TEST_ID_KEY]: ['a1b2c3d4'] }]]),
+        trailers: new ProtocolMap<Record<string, string[]>>([['mock', { [TEST_ID_KEY]: ['a1b2c3d4'] }]]),
       });
 
-      const { message, protocols } = formatCommit(input, engineConfig, protocolRegistry);
+      const { message, protocols: resultProtocols } = formatCommit(input, engineConfig, protocols);
 
       expect(message).toContain('feat: add login');
       expect(message).toContain(`${TEST_ID_KEY}: a1b2c3d4`);
-      expect(protocols.get('mock')!.trailers[TEST_ID_KEY][0]).toBe('a1b2c3d4');
+      expect(resultProtocols.get('mock')!.trailers[TEST_ID_KEY][0]).toBe('a1b2c3d4');
     });
 
     it('should pass correct trailers to serialize', () => {
       const spy = vi.spyOn(TrailerLogic, 'serializeTrailers');
       const input = makeCommitInput({
         subject: 'test',
-        trailers: new Map([['mock', { Confidence: ['medium'] }]]),
+        trailers: new ProtocolMap<Record<string, string[]>>([['mock', { Confidence: ['medium'] }]]),
       });
 
-      formatCommit(input, engineConfig, protocolRegistry);
+      formatCommit(input, engineConfig, protocols);
 
       const passedTrailers = spy.mock.calls[0][0] as Record<string, string[]>;
       expect(passedTrailers[TEST_ID_KEY]).toEqual(['a1b2c3d4']);
@@ -75,10 +71,10 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
       const input = makeCommitInput({
         subject: 'feat: add login',
         body: 'Detailed description of changes.',
-        trailers: new Map([['mock', { [TEST_ID_KEY]: ['a1b2c3d4'] }]]),
+        trailers: new ProtocolMap<Record<string, string[]>>([['mock', { [TEST_ID_KEY]: ['a1b2c3d4'] }]]),
       });
 
-      const { message } = formatCommit(input, engineConfig, protocolRegistry);
+      const { message } = formatCommit(input, engineConfig, protocols);
 
       expect(message).toBe(`feat: add login\n\nDetailed description of changes.\n\n${TEST_ID_KEY}: a1b2c3d4`);
     });
@@ -86,10 +82,10 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
     it('should format subject-only commit correctly', () => {
         const input = makeCommitInput({
           subject: 'feat: minimal',
-          trailers: new Map([['mock', { [TEST_ID_KEY]: ['a1b2c3d4'] }]]),
+          trailers: new ProtocolMap<Record<string, string[]>>([['mock', { [TEST_ID_KEY]: ['a1b2c3d4'] }]]),
         });
   
-        const { message } = formatCommit(input, engineConfig, protocolRegistry);
+        const { message } = formatCommit(input, engineConfig, protocols);
   
         expect(message).toBe(`feat: minimal\n\n${TEST_ID_KEY}: a1b2c3d4`);
     });
@@ -98,10 +94,10 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
         const input = makeCommitInput({
           subject: 'feat: minimal',
           body: '',
-          trailers: new Map([['mock', { [TEST_ID_KEY]: ['a1b2c3d4'] }]]),
+          trailers: new ProtocolMap<Record<string, string[]>>([['mock', { [TEST_ID_KEY]: ['a1b2c3d4'] }]]),
         });
   
-        const { message } = formatCommit(input, engineConfig, protocolRegistry);
+        const { message } = formatCommit(input, engineConfig, protocols);
   
         expect(message).toBe(`feat: minimal\n\n${TEST_ID_KEY}: a1b2c3d4`);
     });
@@ -109,14 +105,14 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
     it('should include all trailer types', () => {
       const input = makeCommitInput({
         subject: 'feat: full commit',
-        trailers: new Map([['mock', {
+        trailers: new ProtocolMap<Record<string, string[]>>([['mock', {
             Constraint: ['Must use HTTPS', 'No external deps'],
             Confidence: ['high'],
             Related: ['aabbccdd'],
         }]])
       });
 
-      const { message } = formatCommit(input, engineConfig, protocolRegistry);
+      const { message } = formatCommit(input, engineConfig, protocols);
 
       expect(message).toContain('Constraint: Must use HTTPS');
       expect(message).toContain('Constraint: No external deps');
@@ -128,8 +124,8 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
         const input = makeCommitInput({ subject: 'amend' });
         const existingIds = { 'mock': 'old-id-123' };
         
-        const { protocols } = formatCommit(input, engineConfig, protocolRegistry, existingIds);
-        expect(protocols.get('mock')!.trailers[TEST_ID_KEY][0]).toBe('old-id-123');
+        const { protocols: resultProtocols } = formatCommit(input, engineConfig, protocols, existingIds);
+        expect(resultProtocols.get('mock')!.trailers[TEST_ID_KEY][0]).toBe('old-id-123');
         expect(idSpy).not.toHaveBeenCalled();
     });
   });
@@ -138,10 +134,10 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
     it('should return empty issues for valid input', async () => {
       const input = makeCommitInput({
         subject: 'feat: valid',
-        trailers: new Map([['mock', { Confidence: ['high'] }]])
+        trailers: new ProtocolMap<Record<string, string[]>>([['mock', { Confidence: ['high'] }]])
       });
 
-      const issues = await validateFormatting(input, engineConfig, protocolRegistry);
+      const issues = await validateFormatting(input, engineConfig, protocols);
       expect(issues).toHaveLength(0);
     });
 
@@ -155,7 +151,7 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
             body: 'Line 1\nLine 2\nLine 3'
         });
 
-        const issues = await validateFormatting(input, config, protocolRegistry);
+        const issues = await validateFormatting(input, config, protocols);
         expect(issues.some(i => i.rule === 'message-length')).toBe(true);
     });
 
@@ -167,11 +163,11 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
                 'Gen-id': { description: 'ID', multivalue: false, validation: 'none', generator: 'uuid' }
             }
         });
-        const registry = new ProtocolRegistry();
-        registry.register(genProtocol);
+        const localProtocols = new ProtocolMap<ProtocolContext>();
+        localProtocols.set(genProtocol.name, genProtocol);
 
-        const input = makeCommitInput({ subject: 'test', trailers: new Map() });
-        const issues = await validateFormatting(input, engineConfig, registry);
+        const input = makeCommitInput({ subject: 'test', trailers: new ProtocolMap<Record<string, string[]>>() });
+        const issues = await validateFormatting(input, engineConfig, localProtocols);
         
         // gen-id-present should be filtered out
         expect(issues.some(i => i.rule === 'gen-id-present')).toBe(false);
@@ -180,20 +176,20 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
 
   describe('Namespacing & Multiple Protocols', () => {
     it('should correctly namespace trailers for multiple protocols', () => {
-        const registry = new ProtocolRegistry();
-        registry.register(makeStubProtocolContext({ name: 'Alpha', namespace: 'alpha', identityKey: 'Alpha-id' }));
-        registry.register(makeStubProtocolContext({ name: 'Beta', namespace: 'beta', identityKey: 'Beta-id' }));
+        const localProtocols = new ProtocolMap<ProtocolContext>();
+        localProtocols.set('alpha', makeStubProtocolContext({ name: 'Alpha', namespace: 'alpha', identityKey: 'Alpha-id' }));
+        localProtocols.set('beta', makeStubProtocolContext({ name: 'Beta', namespace: 'beta', identityKey: 'Beta-id' }));
 
         const input = makeCommitInput({
             subject: 'multi-protocol',
-            trailers: new Map<string, Record<string, string[]>>([
+            trailers: new ProtocolMap<Record<string, string[]>>([
                 ['alpha', { 'Status': ['active'] }],
                 ['beta', { 'Priority': ['high'] }]
             ])
         });
 
         idSpy.mockReturnValue('new-id');
-        const { message } = formatCommit(input, engineConfig, registry);
+        const { message } = formatCommit(input, engineConfig, localProtocols);
 
         expect(message).toContain('alpha: Alpha-id: new-id');
         expect(message).toContain('alpha: Status: active');
@@ -203,10 +199,32 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
 
     it('should throw error for unknown protocol in input', () => {
         const input = makeCommitInput({
-            trailers: new Map([['unknown', { 'Key': ['val'] }]])
+            trailers: new ProtocolMap<Record<string, string[]>>([['unknown', { 'Key': ['val'] }]])
         });
 
-        expect(() => formatCommit(input, engineConfig, protocolRegistry)).toThrow(/Unknown protocol "unknown"/);
+        expect(() => formatCommit(input, engineConfig, protocols)).toThrow(/Unknown protocol "unknown"/);
+    });
+
+    it('should format a commit message with multiple protocols and correct namespaces', () => {
+      const p1 = makeStubProtocolContext({ name: 'P1', namespace: 'ns1', identityKey: 'P1-id' });
+      const p2 = makeStubProtocolContext({ name: 'P2', namespace: 'ns2', identityKey: 'P2-id' });
+      
+      const localProtocols = new ProtocolMap<ProtocolContext>();
+      localProtocols.set(p1.name, p1);
+      localProtocols.set(p2.name, p2);
+  
+      const input = makeCommitInput({
+        subject: 'feat: multi-proto',
+        trailers: new ProtocolMap<Record<string, string[]>>([
+          ['p1', { 'P1-id': ['id1'] }],
+          ['p2', { 'P2-id': ['id2'] }]
+        ])
+      });
+  
+      const { message } = formatCommit(input, engineConfig, localProtocols, { p1: 'id1', p2: 'id2' });
+      
+      expect(message).toContain('ns1: P1-id: id1');
+      expect(message).toContain('ns2: P2-id: id2');
     });
   });
 });

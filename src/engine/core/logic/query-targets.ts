@@ -1,4 +1,7 @@
-import type { QueryIdentity, QueryTargetAST, QueryTargetType } from '../types/query.js';
+import { ProtocolMap } from '../models/protocol-map.js';
+import type { ProtocolContext } from '../types/protocol-definition.js';
+import type { QualifiedFilter, QueryIdentity, QueryOptions, QueryTargetAST, QueryTargetType, RawFilterMap } from '../types/query.js';
+import { resolveFilters, resolveFilterStrings } from './filtering.js';
 import { normalizePathToRoot } from './path-resolution.js';
 
 export interface TargetContext {
@@ -193,4 +196,35 @@ export function getCacheFingerprint(target: QueryTargetAST): string {
  */
 export function isBlameTarget(target: QueryTargetAST): boolean {
   return target.type === 'line-range';
+}
+
+/**
+ * Resolves raw options into Engine-native objects (Dates, ASTs).
+ */
+export async function resolveQueryOptions(
+    options: QueryOptions, 
+    protocols: ProtocolMap<ProtocolContext>,
+    resolveDate: (ref: string) => Promise<Date | null>
+): Promise<QueryOptions> {
+    const resolved: QueryOptions = { ...options };
+    const filters = options.filters || [];
+    
+    // Authorization of filters
+    const resolvedFilters = Array.isArray(filters) && filters.length > 0 && typeof filters[0] !== 'string'
+        ? (filters as readonly QualifiedFilter[])
+        : Array.isArray(filters)
+            ? resolveFilterStrings(filters as string[], protocols)
+            : resolveFilters(filters as RawFilterMap, protocols);
+
+    // Replace the loose filter/date fields with resolved engine equivalents
+    const resolvedValues = {
+        filters: resolvedFilters,
+        sinceDate: (options.since && !options.sinceDate) ? (await resolveDate(options.since)) : options.sinceDate,
+        untilDate: (options.until && !options.untilDate) ? (await resolveDate(options.until)) : options.untilDate,
+    };
+
+    return {
+        ...resolved,
+        ...resolvedValues
+    };
 }

@@ -22,8 +22,10 @@ import { TerminalLogger } from '../cli/io/terminal-logger.js';
 import { createProtocolContext } from '../core/logic/protocols.js';
 import { createQueryTarget } from '../core/logic/query-targets.js';
 import { getEngineVersion } from '../core/logic/version.js';
+import { ProtocolMap } from '../core/models/protocol-map.js';
 import type { EngineConfig } from '../core/types/config.js';
-import type { ProtocolDefinition } from '../core/types/protocol-definition.js';
+import type { ProtocolContext, ProtocolDefinition } from '../core/types/protocol-definition.js';
+import type { QueryTargetAST } from '../core/types/query.js';
 import type { IGitClient } from '../interfaces/git-client.js';
 import type { ILogger } from '../interfaces/logger.js';
 import { LogLevel } from '../interfaces/logger.js';
@@ -35,9 +37,23 @@ import { DynamicProtocolLoader, ProtocolLoader } from '../shell/fs/protocol-load
 import { QueryCache } from '../shell/fs/query-cache.js';
 import { resolveProtocolRoot } from '../shell/fs/root-resolver.js';
 import { GitClient } from '../shell/git/git-client.js';
-import { CACHE_DIR, DEFAULT_CACHE_PRUNE_THRESHOLD, PROTOCOLS_DIR_NAME,QUERY_CACHE_DIR } from '../util/constants.js';
-import { AtomRepository } from './atom-repository.js';
-import {  ProtocolRegistry  } from './protocol-registry.js';
+import { CACHE_DIR, DEFAULT_CACHE_PRUNE_THRESHOLD, PROTOCOLS_DIR_NAME, QUERY_CACHE_DIR } from '../util/constants.js';
+
+/**
+ * Shared Infrastructure Bag for functional orchestration.
+ */
+export interface EngineInfra {
+  readonly git: IGitClient;
+  readonly cache: IQueryCache;
+  readonly protocols: ProtocolMap<ProtocolContext>;
+  readonly config: EngineConfig;
+  readonly logger: ILogger;
+  readonly prompt: IPrompt;
+  readonly getFormatter: () => IOutputFormatter;
+  readonly protocolRoot: string;
+  readonly cwd: string;
+  readonly baseTarget: QueryTargetAST;
+}
 
 export interface EngineOptions {
   binaryName: string;
@@ -48,8 +64,8 @@ export interface EngineOptions {
   defaultConfig: EngineConfig;
   staticProtocols: ProtocolDefinition[];
   prompt: IPrompt;
-  jsonFormatterFactory?: (registry: ProtocolRegistry) => IOutputFormatter;
-  textFormatterFactory?: (registry: ProtocolRegistry, options: { color: boolean }) => IOutputFormatter;
+  jsonFormatterFactory?: (protocols: ProtocolMap<ProtocolContext>) => IOutputFormatter;
+  textFormatterFactory?: (protocols: ProtocolMap<ProtocolContext>, options: { color: boolean }) => IOutputFormatter;
 
   onConfigLoaded?: (config: EngineConfig) => Promise<EngineConfig>;
   onProtocolsLoaded?: (protocols: ProtocolDefinition[]) => Promise<ProtocolDefinition[]>;
@@ -63,8 +79,7 @@ export interface EngineOptions {
 
 /**
  * Orchestrates the initialization of the Decision Engine.
- * Responsible for root resolution, configuration loading, service wiring, 
- * and command registration.
+ * Responsible for root resolution, configuration loading, and shell orchestration wiring.
  */
 export class EngineBootstrapper {
   constructor(private readonly options: EngineOptions) {}
@@ -90,7 +105,7 @@ export class EngineBootstrapper {
     const { protocolRoot, isScoped } = await resolveProtocolRoot(cwd, engineConfigLoader, tempGitClient);
     const activeRoot = protocolRoot || cwd;
 
-    // 2. Load Engine Configuration - ensure defaults are used if file is missing
+    // 2. Load Engine Configuration
     let config = await engineConfigLoader.loadForPath(activeRoot);
     if (!config || Object.keys(config).length === 0) {
         config = { ...this.options.defaultConfig };
@@ -100,7 +115,7 @@ export class EngineBootstrapper {
       config = await this.options.onConfigLoaded(config);
     }
 
-    // 3. Load & Merge Protocols using the new ProtocolLoader
+    // 3. Load & Merge Protocols
     const protocolsDir = join(activeRoot, engineDir, PROTOCOLS_DIR_NAME);
     const protocolLoader = new ProtocolLoader(
         new DynamicProtocolLoader(protocolsDir),
@@ -124,7 +139,6 @@ export class EngineBootstrapper {
       .option('--context <path>', 'Run in the context of a specific directory')
       .option('--format <type>', 'Output format (text, json)', 'text');
 
-    // 4b. Handle Hidden Global Options
     if (this.options.hiddenGlobalOptions) {
         for (const flag of this.options.hiddenGlobalOptions) {
             const opt = program.options.find(o => o.long === flag || o.short === flag);
@@ -132,18 +146,23 @@ export class EngineBootstrapper {
         }
     }
 
-    // 5. Create primary services
+    // 5. Initialize Infrastructure Map
     const gitClient: IGitClient = new GitClient(activeRoot);
-    const protocolRegistry = new ProtocolRegistry();
+    const protocolMap = new ProtocolMap<ProtocolContext>();
     
     for (const def of allProtocols) {
-      protocolRegistry.register(createProtocolContext(def));
+      protocolMap.set(def.name, createProtocolContext(def));
     }
     
+    const fingerprint = Array.from(protocolMap.values())
+        .map(ctx => `${ctx.name}@${ctx.version}`)
+        .sort()
+        .join(';');
+
     const queryCache: IQueryCache = new QueryCache(
       join(activeRoot, this.options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
       config.cli.queryCachePruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
-      `engine@${getEngineVersion()};${protocolRegistry.getFingerprint()}`,
+      `engine@${getEngineVersion()};${fingerprint}`,
     );
 
     const baseTarget = createQueryTarget(undefined, {
@@ -151,14 +170,6 @@ export class EngineBootstrapper {
       protocolRoot: activeRoot,
       isScoped
     });
-
-    const atomRepository = new AtomRepository(
-      gitClient,
-      protocolRegistry,
-      queryCache,
-      baseTarget,
-    );
-
 
     // 6. Formatter factory
     let cachedFormatter: IOutputFormatter | null = null;
@@ -169,41 +180,43 @@ export class EngineBootstrapper {
 
       if (isJson) {
         cachedFormatter = this.options.jsonFormatterFactory
-          ? this.options.jsonFormatterFactory(protocolRegistry)
-          : new JsonFormatter(protocolRegistry);
+          ? this.options.jsonFormatterFactory(protocolMap)
+          : new JsonFormatter(protocolMap);
       } else {
         cachedFormatter = this.options.textFormatterFactory
-          ? this.options.textFormatterFactory(protocolRegistry, { color: opts.color })
-          : new TextFormatter(protocolRegistry, { color: opts.color });
+          ? this.options.textFormatterFactory(protocolMap, { color: opts.color })
+          : new TextFormatter(protocolMap, { color: opts.color });
       }
       return cachedFormatter;
     };
 
-    // 8. Register Commands
-        const sharedDeps = {
-      atomRepository,
-      gitClient,
-      getFormatter,
-      config: config,
+    // 7. Consolidate into Infrastructure Bag
+    const infra: EngineInfra = {
+      git: gitClient,
+      cache: queryCache,
+      protocols: protocolMap,
+      config,
       logger,
-      protocolRegistry,
-      protocolRoot: protocolRoot || activeRoot,
+      prompt: this.options.prompt,
+      getFormatter,
+      protocolRoot: activeRoot,
       cwd,
+      baseTarget,
     };
 
-    registerWhyCommand(program, sharedDeps);
-    registerSearchCommand(program, sharedDeps);
-    registerLogCommand(program, sharedDeps);
-    registerStaleCommand(program, sharedDeps);
-    registerTraceCommand(program, sharedDeps);
-    registerCommitCommand(program, sharedDeps, this.options.prompt);
-    registerValidateCommand(program, sharedDeps);
-    registerSquashCommand(program, sharedDeps);
-    registerCacheCommand(program, sharedDeps, join(activeRoot, this.options.engineDirName, CACHE_DIR));
-    registerConfigCommand(program, sharedDeps);
-    registerDoctorCommand(program, sharedDeps);
+    // 8. Register Commands
+    registerWhyCommand(program, infra);
+    registerSearchCommand(program, infra);
+    registerLogCommand(program, infra);
+    registerStaleCommand(program, infra);
+    registerTraceCommand(program, infra);
+    registerCommitCommand(program, infra, this.options.prompt);
+    registerValidateCommand(program, infra);
+    registerSquashCommand(program, infra);
+    registerCacheCommand(program, infra, join(activeRoot, this.options.engineDirName, CACHE_DIR));
+    registerConfigCommand(program, infra);
+    registerDoctorCommand(program, infra);
 
-    // 8b. Handle Hidden Commands
     if (this.options.hiddenCommands) {
         for (const name of this.options.hiddenCommands) {
             const cmd = program.commands.find(c => c.name() === name);
@@ -211,6 +224,6 @@ export class EngineBootstrapper {
         }
     }
 
-    return { program, getFormatter, sharedDeps, config };
+    return { program, getFormatter, infra, config };
   }
 }

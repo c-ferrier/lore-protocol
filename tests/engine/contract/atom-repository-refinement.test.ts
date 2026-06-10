@@ -1,28 +1,21 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtomRepository,makeQueryTarget,makeStubProtocolContext, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
+import { findAtomById,findAtoms } from '../../../src/engine/shell/orchestrators/discovery.js';
+import { makeQueryTarget,makeStubProtocolContext, type ProtocolContext,TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 import { type MockedGitClient } from '../../mock-types.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
-;
-;
-
-
-
-;
+import { makeMockGitClient, makeMockInfra } from '../engine-test-utils.js';
 
 const TEST_ID_KEY = "Mock-id";
 
-describe('AtomRepository Refinement', () => {
-  let gitClient: MockedGitClient;
-  let repo: AtomRepository;
-  let protocolRegistry: ProtocolRegistry;
+describe('Discovery Refinement', () => {
+  let git: MockedGitClient;
+  let protocols: ProtocolMap<ProtocolContext>;
 
   beforeEach(() => {
-    gitClient = makeMockGitClient();
-    protocolRegistry = new ProtocolRegistry();
+    git = makeMockGitClient();
+    protocols = new ProtocolMap();
     
     // Register protocol with 'Related' trailer
     const protocolDef = {
@@ -37,12 +30,8 @@ describe('AtomRepository Refinement', () => {
             }
         }
     };
-    protocolRegistry.register(makeStubProtocolContext(protocolDef));
-
-    repo = makeAtomRepository({
-        gitClient,
-        protocolRegistry,
-    });
+    const protocol = makeStubProtocolContext(protocolDef);
+    protocols.set(protocol.name, protocol);
   });
 
   describe('stripTrailersFromBody (Internal Refinement)', () => {
@@ -57,9 +46,10 @@ describe('AtomRepository Refinement', () => {
         trailers: trailers,
         filesChanged: [],
       };
-      vi.mocked(gitClient.query).mockResolvedValue([raw]);
+      vi.mocked(git.query).mockResolvedValue([raw]);
 
-      const [atom] = await repo.find();
+      const infra = makeMockInfra({ git, protocols });
+      const [atom] = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });
       expect(atom.body).toBe('Main body text.');
     });
 
@@ -74,9 +64,10 @@ describe('AtomRepository Refinement', () => {
         trailers: trailers,
         filesChanged: [],
       };
-      vi.mocked(gitClient.query).mockResolvedValue([raw]);
+      vi.mocked(git.query).mockResolvedValue([raw]);
 
-      const [atom] = await repo.find();
+      const infra = makeMockInfra({ git, protocols });
+      const [atom] = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });
       expect(atom.body).toContain('Constraint: must be fast');
       expect(atom.body).not.toContain(`${TEST_ID_KEY}: 12345678`);
     });
@@ -92,15 +83,16 @@ describe('AtomRepository Refinement', () => {
         trailers: trailers,
         filesChanged: [],
       };
-      vi.mocked(gitClient.query).mockResolvedValue([raw]);
+      vi.mocked(git.query).mockResolvedValue([raw]);
 
-      const [atom] = await repo.find();
+      const infra = makeMockInfra({ git, protocols });
+      const [atom] = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });
       expect(atom.body).toBe('');
     });
   });
 
   describe('followLinks Integration (The Integrated Pipeline)', () => {
-    it('should transitively resolve links when follow: true is passed to find()', async () => {
+    it('should transitively resolve links when follow: true is passed to findAtoms()', async () => {
       const trailersA = `${TEST_ID_KEY}: aaaaaaaa\nRelated: bbbbbbbb`;
       const trailersB = `${TEST_ID_KEY}: bbbbbbbb`;
 
@@ -123,12 +115,13 @@ describe('AtomRepository Refinement', () => {
         filesChanged: [],
       };
 
-      vi.mocked(gitClient.query)
+      vi.mocked(git.query)
         .mockResolvedValueOnce([commitA])
         .mockResolvedValueOnce([commitB]);
 
+      const infra = makeMockInfra({ git, protocols });
       // Execution: ONE repository call handles everything
-      const atoms = await repo.find(makeQueryTarget('file.ts'), { follow: true, maxDepth: 1 });
+      const atoms = await findAtoms(infra, makeQueryTarget('file.ts'), { follow: true, maxDepth: 1 });
 
       expect(atoms).toHaveLength(2);
       const ids = atoms.map(a => a.protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]);
@@ -136,12 +129,12 @@ describe('AtomRepository Refinement', () => {
       expect(ids).toContain('bbbbbbbb');
       
       // Verification: Second call to Git was for the linked ID
-      const secondCallQuery = vi.mocked(gitClient.query).mock.calls[1][0];
+      const secondCallQuery = vi.mocked(git.query).mock.calls[1][0];
       expect(secondCallQuery.regexPatterns).toContainEqual(['^Mock-id: bbbbbbbb$']);
     });
   });
 
-  describe('findById Robustness (The "Three Pass" System)', () => {
+  describe('findAtomById Robustness (The "Three Pass" System)', () => {
     it('should correctly discard atoms where the target ID is in the body but trailers have a different ID', async () => {
       const targetId = '11111111';
       const actualId = '22222222';
@@ -156,9 +149,10 @@ describe('AtomRepository Refinement', () => {
         filesChanged: [],
       };
 
-      vi.mocked(gitClient.query).mockResolvedValue([commit]);
+      vi.mocked(git.query).mockResolvedValue([commit]);
 
-      const result = await repo.findById({ id: targetId });
+      const infra = makeMockInfra({ git, protocols });
+      const result = await findAtomById(infra, { id: targetId });
 
       expect(result).toBeNull();
     });
@@ -175,9 +169,10 @@ describe('AtomRepository Refinement', () => {
         filesChanged: [],
       };
 
-      vi.mocked(gitClient.query).mockResolvedValue([commit]);
+      vi.mocked(git.query).mockResolvedValue([commit]);
 
-      const result = await repo.findById({ id: targetId });
+      const infra = makeMockInfra({ git, protocols });
+      const result = await findAtomById(infra, { id: targetId });
 
       expect(result).not.toBeNull();
       expect(result!.protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe(targetId);

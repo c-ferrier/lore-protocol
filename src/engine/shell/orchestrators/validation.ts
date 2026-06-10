@@ -1,6 +1,6 @@
 import { getProtocolIdentity } from '../../core/logic/identity.js';
 import { normalizeTrailers } from '../../core/logic/normalization.js';
-import { getReferenceKeys } from '../../core/logic/protocols.js';
+import { getClaimedProtocolKeys, getReferenceKeys, resolveProtocolIdentity } from '../../core/logic/protocols.js';
 import { parseTrailers } from '../../core/logic/trailers.js';
 import { 
     evaluateHygiene, 
@@ -13,8 +13,7 @@ import { type Atom, type Trailers } from '../../core/types/domain.js';
 import type { CommitValidationResult, ValidationIssue } from '../../core/types/output.js';
 import type { ProtocolContext } from '../../core/types/protocol-definition.js';
 import type { QueryIdentity } from '../../core/types/query.js';
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import { type DiscoveryInfra,findAtomsByIds } from './discovery.js';
 
 /**
  * Orchestrates the validation of commits across all registered protocols.
@@ -22,15 +21,11 @@ import type { ProtocolRegistry } from '../../services/protocol-registry.js';
  */
 export async function validateCommits(
   atoms: readonly Atom[],
-  deps: {
-    atomRepository: AtomRepository;
-    config: EngineConfig;
-    protocolRegistry: ProtocolRegistry;
-  },
+  infra: DiscoveryInfra & { config: EngineConfig }
 ): Promise<readonly CommitValidationResult[]> {
-  const { protocolRegistry, atomRepository, config } = deps;
-  const allProtocols = protocolRegistry.getAll();
-  const claimedKeys = protocolRegistry.getClaimedKeys();
+  const { protocols, config } = infra;
+  const allProtocols = Array.from(protocols.values());
+  const claimedKeys = getClaimedProtocolKeys(protocols);
 
   return Promise.all(atoms.map(async (atom) => {
     const issues: ValidationIssue[] = [];
@@ -60,10 +55,10 @@ export async function validateCommits(
       if (id) identities[ctx.name.toLowerCase()] = id;
 
       // Validate logical state (required fields, enum values, etc.)
-      issues.push(...validateProtocolState(state, ctx.def, protocolRegistry));
+      issues.push(...validateProtocolState(state, ctx.def, protocols));
       
       // Validate physical references
-      await validateReferenceExistence(ctx, state.trailers, issues, { atomRepository, protocolRegistry });
+      await validateReferenceExistence(ctx, state.trailers, issues, infra);
     }
 
     // 3. Global Physical Audit (Catch Orphans/Typoes)
@@ -80,18 +75,15 @@ export async function validateCommits(
 
 /**
  * Checks if referenced IDs actually exist in the repository history.
- * This is the only part of validation that requires I/O (AtomRepository).
+ * This is the only part of validation that requires I/O.
  */
 async function validateReferenceExistence(
   ctx: ProtocolContext,
   trailers: Trailers,
   issues: ValidationIssue[],
-  deps: {
-    atomRepository: AtomRepository;
-    protocolRegistry: ProtocolRegistry;
-  }
+  infra: DiscoveryInfra
 ): Promise<void> {
-  const { atomRepository, protocolRegistry } = deps;
+  const { protocols } = infra;
   const refKeys = getReferenceKeys(ctx);
   const identitiesToCheck: Array<{ key: string; identity: QueryIdentity }> = [];
   const protocolName = ctx.def.name;
@@ -102,11 +94,11 @@ async function validateReferenceExistence(
     for (const val of values) {
       try {
         // Check if format is valid before checking existence
-        const validResult = validateProtocolTrailer(key, val, ctx.def, protocolRegistry);
+        const validResult = validateProtocolTrailer(key, val, ctx.def, protocols);
         if (!validResult.valid) continue;
 
-        // resolveIdentity is safe here because validateTrailer already passed
-        const identity = protocolRegistry.resolveIdentity(val, protocolName);
+        // resolveProtocolIdentity is safe here because validateTrailer already passed
+        const identity = resolveProtocolIdentity(protocols, val, protocolName);
         identitiesToCheck.push({ key, identity });
       } catch {
         // Skip if resolution fails (already handled by first pass)
@@ -117,13 +109,13 @@ async function validateReferenceExistence(
   if (identitiesToCheck.length === 0) return;
 
   // Batch lookup all referenced identities
-  const foundAtoms = await atomRepository.findByIds(identitiesToCheck.map(x => x.identity));
+  const foundAtoms = await findAtomsByIds(infra, identitiesToCheck.map(x => x.identity));
   
   // Efficiently track which IDs were found (fully qualified)
   const foundKeys = new Set<string>();
   for (const atom of foundAtoms) {
     for (const [pName, state] of atom.protocols) {
-      const targetCtx = protocolRegistry.get(pName);
+      const targetCtx = protocols.get(pName);
       if (!targetCtx) continue;
 
       const atomId = getProtocolIdentity(state, targetCtx);

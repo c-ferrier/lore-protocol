@@ -15,7 +15,6 @@ import {
     getEnginePublishedVersion,
     getEngineVersion,
     type ProtocolDefinition,
-    ProtocolRegistry,
     runCli, TerminalPrompt, 
     type TrailerDefinition    } from '../engine/index.js';
 import { registerConstraintsCommand } from './commands/constraints.js';
@@ -61,8 +60,8 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
     prompt: new TerminalPrompt(),
     
     // Inject Legacy Parity Formatters
-    jsonFormatterFactory: (registry: ProtocolRegistry) => new LoreJsonFormatter(registry),
-    textFormatterFactory: (registry: ProtocolRegistry, opts: { color: boolean }) => new LoreTextFormatter(registry, opts),
+    jsonFormatterFactory: (protocols) => new LoreJsonFormatter(protocols),
+    textFormatterFactory: (protocols, opts: { color: boolean }) => new LoreTextFormatter(protocols, opts),
 
     // Rebranding Surface: Hide internal engine parts not in 0.5.0
     hiddenCommands: ['cache', 'config'],
@@ -124,8 +123,8 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
     ...overrides
   };
 
-  const { program, getFormatter, sharedDeps, config } = await runCli(options);
-  const { logger } = sharedDeps;
+  const { program, getFormatter, infra, config } = await runCli(options);
+  const { logger } = infra;
 
   // Non-blocking update checks for both the wrapper and the library
   if (config.cli.updateCheck) {
@@ -152,11 +151,11 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
     defaultConfig: options.defaultConfig,
     logger
   });
-  registerContextCommand(program, sharedDeps);
-  registerConstraintsCommand(program, sharedDeps);
-  registerDirectivesCommand(program, sharedDeps);
-  registerTestedCommand(program, sharedDeps);
-  registerRejectedCommand(program, sharedDeps);
+  registerContextCommand(program, infra);
+  registerConstraintsCommand(program, infra);
+  registerDirectivesCommand(program, infra);
+  registerTestedCommand(program, infra);
+  registerRejectedCommand(program, infra);
 
   // 0.5.0 Shims: Global Descriptions
   const jsonOpt = program.options.find(o => o.long === '--json');
@@ -172,7 +171,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
   if (versionOpt) updateOpt(versionOpt, { description: 'output the version number' });
 
   // --- REBRANDING & SHIMMING WRAPPER (Commander level) ---
-  const loreProtocol = sharedDeps.protocolRegistry.get('lore');
+  const loreProtocol = infra.protocols.get('lore');
 
   for (const cmd of program.commands) {
       const name = cmd.name();
@@ -375,7 +374,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
       }
   }
 
-  return { program, getFormatter, sharedDeps, config };
+  return { program, getFormatter, infra, config };
 }
 
 /**

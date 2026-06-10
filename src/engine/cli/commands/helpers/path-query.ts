@@ -2,13 +2,11 @@ import { type Command } from 'commander';
 
 // Pure Logic Modules
 import { createQueryTarget } from '../../../core/logic/query-targets.js';
-import type { EngineConfig } from '../../../core/types/config.js';
 import type { Atom } from '../../../core/types/domain.js';
 import type { FormattableQueryResult } from '../../../core/types/output.js';
 import type { QueryOptions,QueryResult } from '../../../core/types/query.js';
-import type { ILogger } from '../../../interfaces/logger.js';
-import type { IOutputFormatter } from '../../../interfaces/output-formatter.js';
-import type { AtomRepository } from '../../../services/atom-repository.js';
+import type { EngineInfra } from '../../../services/engine-bootstrapper.js';
+import { findAtoms } from '../../../shell/orchestrators/discovery.js';
 import { ProtocolError } from '../../../util/errors.js';
 import { buildQueryMeta } from './build-query-meta.js';
 
@@ -24,14 +22,7 @@ export function parsePositiveInt(value: string): number {
   return n;
 }
 
-export interface PathQueryDeps {
-  readonly atomRepository: AtomRepository;
-  readonly getFormatter: () => IOutputFormatter;
-  readonly config: EngineConfig;
-  readonly logger: ILogger;
-  readonly protocolRoot: string;
-  readonly cwd: string;
-}
+export type PathQueryDeps = EngineInfra;
 
 export interface PathQueryCommandOptions {
   readonly filter?: string[];
@@ -58,11 +49,11 @@ export interface PathQueryCommandOptions {
 export async function executePathQuery(
   rawTarget: string,
   options: PathQueryCommandOptions,
-  deps: PathQueryDeps,
+  infra: PathQueryDeps,
   commandName: string,
   visibleTrailers: readonly string[] | 'all',
 ): Promise<void> {
-  const { atomRepository, getFormatter, config, logger, protocolRoot, cwd } = deps;
+  const { config, logger, getFormatter, protocolRoot, cwd } = infra;
 
   const queryOptions: QueryOptions = {
     filters: options.filter || [],
@@ -87,7 +78,7 @@ export async function executePathQuery(
     isScoped: !!queryOptions.scope 
   });
 
-  const atoms = await atomRepository.find(target, { ...queryOptions, limit: null });
+  const atoms = await findAtoms(infra, target, { ...queryOptions, limit: null });
 
   const totalAtoms = atoms.length;
 

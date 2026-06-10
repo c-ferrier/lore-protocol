@@ -5,9 +5,8 @@ import { createQueryTarget } from '../../core/logic/query-targets.js';
 import type { Atom } from '../../core/types/domain.js';
 import type { FormattableQueryResult } from '../../core/types/output.js';
 import type { QueryOptions,QueryResult } from '../../core/types/query.js';
-import type { ILogger } from '../../interfaces/logger.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { AtomRepository } from '../../services/atom-repository.js';
+import type { EngineInfra } from '../../services/engine-bootstrapper.js';
+import { findAtoms } from '../../shell/orchestrators/discovery.js';
 import { buildQueryMeta } from './helpers/build-query-meta.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/path-query.js';
@@ -17,15 +16,9 @@ import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/pat
  */
 export function registerSearchCommand(
   program: Command,
-  deps: {
-    atomRepository: AtomRepository;
-    getFormatter: () => IOutputFormatter;
-    logger: ILogger;
-    protocolRoot: string;
-    cwd: string;
-  },
+  infra: EngineInfra,
 ): void {
-  const { protocolRoot, cwd } = deps;
+  const { protocolRoot, cwd } = infra;
   const cmd = program
     .command('search')
     .description('Search for decision atoms across history');
@@ -33,7 +26,7 @@ export function registerSearchCommand(
   addPathQueryOptions(cmd);
 
   cmd.action(async (_options: PathQueryCommandOptions, command: Command) => {
-    const { atomRepository, getFormatter, logger } = deps;
+    const { getFormatter, logger } = infra;
     const options = mergeOptions<PathQueryCommandOptions>(command);
 
     const searchOptions: QueryOptions = {
@@ -57,7 +50,7 @@ export function registerSearchCommand(
         isScoped: !!searchOptions.scope 
     });
 
-    const atoms = await atomRepository.find(target, { ...searchOptions, includeAllCommits: !!options.history });
+    const atoms = await findAtoms(infra, target, { ...searchOptions, includeAllCommits: !!options.history });
     const totalAtoms = atoms.length;
 
     // Step 3: Filter superseded atoms unless --all (Active Truth)

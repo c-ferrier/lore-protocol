@@ -2,11 +2,8 @@ import type { Command } from 'commander';
 
 import { getFormattableDefinitions } from '../../core/logic/protocols.js';
 import { getEngineVersion } from '../../core/logic/version.js';
-import type { EngineConfig } from '../../core/types/config.js';
 import type { FormattableConfigResult, FormattableProtocolConfig, FormattableTrailerDefinition } from '../../core/types/output.js';
-import type { ILogger } from '../../interfaces/logger.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { EngineInfra } from '../../services/engine-bootstrapper.js';
 
 /**
  * Register the config command.
@@ -14,12 +11,7 @@ import type { ProtocolRegistry } from '../../services/protocol-registry.js';
  */
 export function registerConfigCommand(
   program: Command,
-  deps: {
-    config: EngineConfig;
-    getFormatter: () => IOutputFormatter;
-    protocolRegistry: ProtocolRegistry;
-    logger: ILogger;
-  },
+  infra: EngineInfra,
 ): void {
   program
     .command('config')
@@ -28,13 +20,13 @@ export function registerConfigCommand(
     .option('--trailer-name <name>', 'Filter trailers by name (case-insensitive contains)')
     .option('--protocol <name>', 'Filter configuration by protocol name (case-insensitive contains)')
     .action(async (options: { trailerType: string; trailerName?: string; protocol?: string }) => {
-      const { getFormatter, protocolRegistry, logger } = deps;
+      const { getFormatter, protocols: protocolMap, logger } = infra;
       
       const trailerType = options.trailerType.toLowerCase();
       const trailerFilter = options.trailerName?.toLowerCase();
       const protocolFilter = options.protocol?.toLowerCase();
 
-      const allProtocols = protocolRegistry.getAll();
+      const allProtocols = Array.from(protocolMap.values());
       const formattableProtocols: FormattableProtocolConfig[] = [];
 
       for (const p of allProtocols) {

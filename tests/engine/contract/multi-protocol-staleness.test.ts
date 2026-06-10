@@ -1,21 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { analyzeStaleness } from '../../../src/engine/shell/orchestrators/staleness.js';
-import { makeStubProtocolContext, makeStubProtocolRegistry } from '../../../src/engine/testing.js';
-import { type MockedAtomRepository } from '../../mock-types.js';
+import { makeStubProtocolContext, type ProtocolContext } from '../../../src/engine/testing.js';
+import { type MockedGitClient } from '../../mock-types.js';
 import { 
     makeAtom, 
-    makeMockAtomRepository, 
-    ProtocolMap,
+    makeMockGitClient,
     ProtocolState,
     TEST_ENGINE_CONFIG 
 } from '../engine-test-utils.js';
 
 describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
-  let _mockRepo: MockedAtomRepository;
+  let git: MockedGitClient;
 
   beforeEach(() => {
-    _mockRepo = makeMockAtomRepository();
+    git = makeMockGitClient();
   });
 
   it('should aggregate staleness signals from multiple protocols for a single atom', async () => {
@@ -47,7 +47,10 @@ describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
       }
     });
 
-    const reg = makeStubProtocolRegistry([p1, p2]);
+    const protocols = new ProtocolMap<ProtocolContext>();
+    protocols.set('p1', p1);
+    protocols.set('p2', p2);
+
     const atom = makeAtom({
       protocols: new ProtocolMap<ProtocolState>([
         ['p1', { trailers: { 'Status': ['stale'] }, unauthorized: {} }],
@@ -55,16 +58,19 @@ describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
       ])
     });
 
-    const mockRepo = makeMockAtomRepository();
-    mockRepo.getAtomDrift.mockResolvedValue({});
+    git.getFilesChangedSince.mockResolvedValue([]);
 
     const deps = {
-        atomRepository: mockRepo,
+        gitClient: git,
         config: TEST_ENGINE_CONFIG,
-        protocolRegistry: reg
+        protocols
     };
 
-    const reports = await analyzeStaleness([atom], new Map(), deps);
+    const reports = await analyzeStaleness(
+        [atom], 
+        new ProtocolMap<Map<string, { superseded: boolean; supersededBy: string[] }>>(), 
+        deps
+    );
 
     expect(reports).toHaveLength(1);
     const signals = reports[0].reasons.map(r => r.signal);

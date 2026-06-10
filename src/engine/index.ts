@@ -43,6 +43,7 @@ export type { BlameLine,CommitResult, IGitClient, RawCommit } from './interfaces
 export type { ILogger } from './interfaces/logger.js';
 export { LogLevel } from './interfaces/logger.js';
 export type { ErrorMessage,IOutputFormatter } from './interfaces/output-formatter.js';
+export type { IPrompt } from './interfaces/prompt.js';
 
 // --- Pure Logic Modules (@experimental) ---
 // Explicitly export key functions to provide a stable surface and avoid cycle noise
@@ -56,36 +57,43 @@ export { normalizePathToRoot as resolvePath } from './core/logic/path-resolution
 export { 
     createProtocolContext,
     getAuthorizedKeys,
-    getFormattableDefinitions,
+    getClaimedProtocolKeys,    getFormattableDefinitions,
     getListKeys,
     getReferenceKeys,
     getScalarKeys,
-    isCoreTrailer} from './core/logic/protocols.js';
+    isCoreTrailer,
+    resolveProtocolIdentity,
+    resolveProtocolKey} from './core/logic/protocols.js';
 export { 
     createQueryTarget, 
     createTargetFromIdentities, 
     getCacheFingerprint, 
     getGitBlameArgs, 
     getGitLogArgs, 
-    isBlameTarget} from './core/logic/query-targets.js';
+    isBlameTarget,
+    resolveQueryOptions} from './core/logic/query-targets.js';
 export { squashAtoms } from './core/logic/squashing.js';
 export { evaluateAgeSignal, evaluateDriftSignal } from './core/logic/staleness.js';
-export { filterActiveAtoms,resolveSupersession } from './core/logic/supersession.js';
+export { attachSupersessionToAtoms, filterActiveAtoms,resolveSupersession } from './core/logic/supersession.js';
 export { parseTrailers, serializeTrailers } from './core/logic/trailers.js';
 export { resolveProtocolRoot as resolveGitRoot } from './shell/fs/root-resolver.js';
 
 // --- Orchestrating Services (Runtime) ---
 export { InMemoryLogger } from './services/in-memory-logger.js';
-export { ProtocolRegistry } from './services/protocol-registry.js';
 export { 
     claimsTrailers, 
     getDiscoveryPatterns, 
     getSearchPatterns, 
     matchesFilters} from './shell/git/protocol-query-adapter.js';
 
+// --- Shell Orchestrators ---
+export { findAtomById, findAtoms, findAtomsByIds, getAtomDrift, resolveFollowLinks } from './shell/orchestrators/discovery.js';
+export { analyzeStaleness } from './shell/orchestrators/staleness.js';
+export { validateCommits } from './shell/orchestrators/validation.js';
+
 // --- CLI Commands & Adapters ---
 export { execute,runCli } from './index-impl.js';
-export { EngineBootstrapper, type EngineOptions } from './services/engine-bootstrapper.js';
+export { EngineBootstrapper, type EngineInfra,type EngineOptions } from './services/engine-bootstrapper.js';
 
 // --- Command Toolkit (For Wrappers/CLI) ---
 export { mergeOptions } from './cli/commands/helpers/merge-options.js';

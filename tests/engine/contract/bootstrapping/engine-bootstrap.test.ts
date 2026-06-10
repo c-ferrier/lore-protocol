@@ -94,13 +94,13 @@ describe('EngineBootstrapper', () => {
         namespace: '', 
         identityKey: 'id', 
         trailers: { 'id': { description: 'ID', multivalue: false, validation: 'none' } } 
-    })]);
+    }).def]);
     const bootstrapper = new EngineBootstrapper({ ...options, onProtocolsLoaded });
 
-    const { sharedDeps } = await bootstrapper.bootstrap('/mock', []);
+    const { infra } = await bootstrapper.bootstrap('/mock', []);
 
     expect(onProtocolsLoaded).toHaveBeenCalled();
-    expect(sharedDeps.protocolRegistry.get('hooked')).toBeDefined();
+    expect(infra.protocols.get('hooked')).toBeDefined();
   });
 
   it('should configure the formatter based on CLI options', async () => {

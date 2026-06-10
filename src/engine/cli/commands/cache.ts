@@ -2,8 +2,7 @@ import { rm } from 'node:fs/promises';
 
 import type { Command } from 'commander';
 
-import type { ILogger } from '../../interfaces/logger.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
+import type { EngineInfra } from '../../services/engine-bootstrapper.js';
 
 /**
  * Register the ` cache` command.
@@ -11,10 +10,7 @@ import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
  */
 export function registerCacheCommand(
   program: Command,
-  deps: {
-    getFormatter: () => IOutputFormatter;
-    logger: ILogger;
-  },
+  infra: EngineInfra,
   cacheDir: string
 ): void {
   program
@@ -22,15 +18,16 @@ export function registerCacheCommand(
     .description('Manage the local protocol cache')
     .option('--clean', 'Clear all cached atom and query data')
     .action(async (options) => {
-      const formatter = deps.getFormatter();
+      const { getFormatter, logger } = infra;
+      const formatter = getFormatter();
 
       if (options.clean) {
         try {
           await rm(cacheDir, { recursive: true, force: true });
-          deps.logger.info(formatter.formatSuccess('Successfully cleared local atom and query caches.'));
+          logger.info(formatter.formatSuccess('Successfully cleared local atom and query caches.'));
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : String(error);
-          deps.logger.error(formatter.formatError(1, [{ severity: 'error', message: `Failed to clear cache: ${message}` }]));
+          logger.error(formatter.formatError(1, [{ severity: 'error', message: `Failed to clear cache: ${message}` }]));
           process.exitCode = 1;
           return;
         }

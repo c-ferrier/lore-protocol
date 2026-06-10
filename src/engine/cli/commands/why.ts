@@ -4,9 +4,8 @@ import type { Command } from 'commander';
 import { createQueryTarget } from '../../core/logic/query-targets.js';
 import type { FormattableQueryResult } from '../../core/types/output.js';
 import type { QueryMeta,QueryResult } from '../../core/types/query.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { EngineInfra } from '../../services/engine-bootstrapper.js';
+import { findAtoms } from '../../shell/orchestrators/discovery.js';
 import { ProtocolError } from '../../util/errors.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/path-query.js';
@@ -17,15 +16,9 @@ import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/pat
  */
 export function registerWhyCommand(
   program: Command,
-  deps: {
-    atomRepository: AtomRepository;
-    getFormatter: () => IOutputFormatter;
-    protocolRegistry: ProtocolRegistry;
-    protocolRoot: string;
-    cwd: string;
-  },
+  infra: EngineInfra,
 ): void {
-  const { protocolRoot, cwd } = deps;
+  const { protocolRoot, cwd } = infra;
   const cmd = program
     .command('why <target>')
     .description('Decision context for a specific line or line range');
@@ -33,9 +26,9 @@ export function registerWhyCommand(
   addPathQueryOptions(cmd);
 
   cmd.action(async (rawTarget: string, _options: PathQueryCommandOptions, command: Command) => {
-    const { atomRepository, getFormatter, protocolRegistry } = deps;
+    const { getFormatter, protocols: protocolMap } = infra;
     
-    if (protocolRegistry.getAll().length === 0) {
+    if (protocolMap.size === 0) {
         throw new ProtocolError('At least one protocol must be registered to run this command.', 1);
     }
 
@@ -44,8 +37,8 @@ export function registerWhyCommand(
     // Step 1: Resolve target using the pure logic
     const target = createQueryTarget(rawTarget, { cwd, protocolRoot, isScoped: false });
 
-    // Step 2: Resolve atoms using high-level Repository API
-    const atoms = await atomRepository.find(target, options);
+    // Step 2: Resolve atoms using orchestrator
+    const atoms = await findAtoms(infra, target, options);
 
     const totalAtoms = atoms.length;
     
@@ -75,6 +68,6 @@ export function registerWhyCommand(
     };
 
     const formatter = getFormatter();
-    console.log(formatter.formatQueryResult(formattable));
+    logger.result(formatter.formatQueryResult(formattable));
   });
 }

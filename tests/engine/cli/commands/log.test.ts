@@ -2,21 +2,15 @@ import { Command } from 'commander';
 import { afterEach,describe, expect, it, vi } from 'vitest';
 
 import { registerLogCommand } from '../../../../src/engine/cli/commands/log.js';
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import { type Atom } from '../../../../src/engine/core/types/domain.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
-import { makeAtom, makeStubProtocolContext,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
-import { type MockedAtomRepository } from '../../../mock-types.js';
-import { makeMockAtomRepository, makeMockFormatter, TestLogger } from '../../engine-test-utils.js';
-;
+import * as Discovery from '../../../../src/engine/shell/orchestrators/discovery.js';
+import { makeAtom, makeStubProtocolContext,type ProtocolContext,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeMockFormatter, makeMockInfra, TestLogger } from '../../engine-test-utils.js';
 
-
-
-
-;
-
-;
-;
-;
+vi.mock('../../../../src/engine/shell/orchestrators/discovery.js', () => ({
+    findAtoms: vi.fn()
+}));
 
 /**
  * Regression tests for positional path arguments in log command.
@@ -24,15 +18,12 @@ import { makeMockAtomRepository, makeMockFormatter, TestLogger } from '../../eng
 
 interface Harness {
   program: Command;
-  repo: MockedAtomRepository;
   capturedResult: { data: unknown };
   logger: TestLogger;
 }
 
 function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
-  const repo = makeMockAtomRepository({
-      find: vi.fn().mockResolvedValue(filteredAtoms ?? atoms),
-  });
+  vi.mocked(Discovery.findAtoms).mockResolvedValue(filteredAtoms ?? atoms);
 
   const capturedResult: { data: unknown } = { data: undefined };
   const formatter = makeMockFormatter();
@@ -46,26 +37,28 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
   program.exitOverride();
 
   const protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
-  const protocolRegistry = new ProtocolRegistry();
-  protocolRegistry.register(protocol);
+  const protocols = new ProtocolMap<ProtocolContext>();
+  protocols.set(protocol.name, protocol);
 
-  registerLogCommand(program, {
-    atomRepository: repo,
+  const infra = makeMockInfra({
     getFormatter: () => formatter,
     logger,
+    protocols,
     protocolRoot: '/mock',
     cwd: '/mock',
   });
 
-  return { program, capturedResult, repo, logger };
+  registerLogCommand(program, infra);
+
+  return { program, capturedResult, logger };
 }
 
 describe('registerLogCommand (agnostic path arguments)', () => {
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
-  it('accepts a positional path and routes through find()', async () => {
+  it('accepts a positional path and routes through findAtoms()', async () => {
     const matching = makeAtom({ 
         protocols: new Map([['mock', { trailers: { [TEST_ID_KEY]: ['match0002'] }, unauthorized: {} }]]),
         filesChanged: ['src/main.ts'],
@@ -75,9 +68,9 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     await h.program.parseAsync(['node', 'atom', 'log', 'src/main.ts']);
 
-    expect(h.repo.find).toHaveBeenCalledTimes(1);
-    const [target] = h.repo.find.mock.calls[0];
-    expect(target!.resolvedPaths).toContain('src/main.ts');
+    expect(Discovery.findAtoms).toHaveBeenCalledTimes(1);
+    const target = vi.mocked(Discovery.findAtoms).mock.calls[0][1];
+    expect(target.resolvedPaths).toContain('src/main.ts');
 
     const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(1);
@@ -93,9 +86,9 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     await h.program.parseAsync(['node', 'atom', 'log', '--', 'src/main.ts']);
 
-    expect(h.repo.find).toHaveBeenCalledTimes(1);
-    const [target] = h.repo.find.mock.calls[0];
-    expect(target!.resolvedPaths).toContain('src/main.ts');
+    expect(Discovery.findAtoms).toHaveBeenCalledTimes(1);
+    const target = vi.mocked(Discovery.findAtoms).mock.calls[0][1];
+    expect(target.resolvedPaths).toContain('src/main.ts');
 
     const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(1);
@@ -109,9 +102,9 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     await h.program.parseAsync(['node', 'atom', 'log']);
 
-    expect(h.repo.find).toHaveBeenCalledTimes(1);
-    const [target] = h.repo.find.mock.calls[0];
-    expect(target!.type).toBe('global');
+    expect(Discovery.findAtoms).toHaveBeenCalledTimes(1);
+    const target = vi.mocked(Discovery.findAtoms).mock.calls[0][1];
+    expect(target.type).toBe('global');
 
     const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
     expect(result.atoms).toHaveLength(2);

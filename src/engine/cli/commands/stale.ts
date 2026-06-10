@@ -2,13 +2,10 @@ import type { Command } from 'commander';
 
 // Pure Logic Modules
 import { createQueryTarget } from '../../core/logic/query-targets.js';
-import type { EngineConfig } from '../../core/types/config.js';
 import type { FormattableStalenessResult } from '../../core/types/output.js';
 import type { QueryOptions } from '../../core/types/query.js';
-import type { ILogger } from '../../interfaces/logger.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { EngineInfra } from '../../services/engine-bootstrapper.js';
+import { findAtoms } from '../../shell/orchestrators/discovery.js';
 import { analyzeStaleness } from '../../shell/orchestrators/staleness.js';
 import { STALE_SIGNAL } from '../../util/constants.js';
 import { mergeOptions } from './helpers/merge-options.js';
@@ -26,17 +23,9 @@ interface StaleCommandOptions {
  */
 export function registerStaleCommand(
   program: Command,
-  deps: {
-    atomRepository: AtomRepository;
-    protocolRegistry: ProtocolRegistry;
-    config: EngineConfig;
-    getFormatter: () => IOutputFormatter;
-    logger: ILogger;
-    protocolRoot: string;
-    cwd: string;
-  },
+  infra: EngineInfra,
 ): void {
-  const { protocolRoot, cwd } = deps;
+  const { protocolRoot, cwd } = infra;
   program
     .command('stale [target]')
     .description('Flag potentially outdated atoms')
@@ -44,12 +33,12 @@ export function registerStaleCommand(
     .option('--drift <n>', 'File drift threshold (commits since atom)', parseInt)
     .action(async (rawTarget: string | undefined, _options: StaleCommandOptions, command: Command) => {
       const options = mergeOptions<StaleCommandOptions & QueryOptions>(command);
-      const { atomRepository, protocolRegistry, config, getFormatter } = deps;
+      const { git, config, protocols, getFormatter, logger } = infra;
 
       // 1. Resolve target using the pure logic
       const target = createQueryTarget(rawTarget, { cwd, protocolRoot, isScoped: false });
       
-      const atoms = await atomRepository.find(target);
+      const atoms = await findAtoms(infra, target);
 
       // 2. Filter to active atoms only (stale check on superseded atoms is not useful)
       const activeAtoms = atoms.filter(atom => {
@@ -64,7 +53,9 @@ export function registerStaleCommand(
         activeAtoms,
         new Map(),
         {
-            atomRepository, config, protocolRegistry
+            gitClient: git, 
+            config, 
+            protocols
         }
       );
 
@@ -81,6 +72,6 @@ export function registerStaleCommand(
       };
 
       const formatter = getFormatter();
-      deps.logger.result(formatter.formatStalenessResult(stalenessResult));
+      logger.result(formatter.formatStalenessResult(stalenessResult));
     });
 }

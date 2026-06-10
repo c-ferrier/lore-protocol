@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { JsonFormatter } from '../../../../src/engine/cli/formatters/json-formatter.js';
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import type { ProtocolState } from '../../../../src/engine/core/types/domain.js';
 import type { 
     FormattableDoctorResult, 
@@ -10,7 +11,6 @@ import type {
     FormattableValidationResult 
 } from '../../../../src/engine/core/types/output.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { 
     makeAtom, 
     makeStubProtocolContext, 
@@ -19,15 +19,15 @@ import {
     TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
 
 describe('JsonFormatter', () => {
-  let registry: ProtocolRegistry;
+  let protocols: ProtocolMap<ProtocolContext>;
   let protocol: ProtocolContext;
   let formatter: JsonFormatter;
 
   beforeEach(() => {
-    registry = new ProtocolRegistry();
+    protocols = new ProtocolMap<ProtocolContext>();
     protocol = makeStubProtocolContext();
-    registry.register(protocol);
-    formatter = new JsonFormatter(registry);
+    protocols.set(protocol.name, protocol);
+    formatter = new JsonFormatter(protocols);
   });
 
   describe('formatQueryResult', () => {
@@ -79,7 +79,7 @@ describe('JsonFormatter', () => {
     });
 
     it('should use canonical trailer keys inside protocol object (symmetry)', () => {
-      const registry = new ProtocolRegistry();
+      const protocols = new ProtocolMap<ProtocolContext>();
       const protocol = makeStubProtocolContext({
           ...TEST_PROTOCOL_DEFINITION,
           trailers: {
@@ -87,8 +87,8 @@ describe('JsonFormatter', () => {
               'Confidence': { description: 'c', multivalue: false, validation: 'none' as const }
           }
       });
-      registry.register(protocol);
-      const dataFormatter = new JsonFormatter(registry);
+      protocols.set(protocol.name, protocol);
+      const dataFormatter = new JsonFormatter(protocols);
       const atom = makeAtom({
         trailers: {
           [TEST_ID_KEY]: ['abcd1234'],
@@ -215,9 +215,9 @@ describe('JsonFormatter', () => {
           ...TEST_PROTOCOL_DEFINITION,
           trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
       });
-      const registry = new ProtocolRegistry();
-      registry.register(protocol);
-      const formatter = new JsonFormatter(registry);
+      const protocols = new ProtocolMap<ProtocolContext>();
+      protocols.set(protocol.name, protocol);
+      const formatter = new JsonFormatter(protocols);
       const trailers: Record<string, string[]> = {
         [TEST_ID_KEY]: ['id'],
         'Confidence': ['high'],      // Scalar core

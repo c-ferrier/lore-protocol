@@ -2,17 +2,12 @@ import { beforeEach,describe, expect, it } from 'vitest';
 
 import { JsonFormatter } from '../../../src/engine/cli/formatters/json-formatter.js';
 import { TextFormatter } from '../../../src/engine/cli/formatters/text-formatter.js';
-import { type Atom } from '../../../src/engine/core/types/domain.js';
+import { type Atom,ProtocolMap } from '../../../src/engine/core/types/domain.js';
 import { type FormattableQueryResult } from '../../../src/engine/core/types/output.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-;
-;
-;
-
-
+import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
 
 describe('Agnostic Output (Zero Protocols)', () => {
-  let registry: ProtocolRegistry;
+  let protocols: ProtocolMap<ProtocolContext>;
   
   const mockAtom: Atom = {
     commitHash: 'abc1234567890',
@@ -21,7 +16,7 @@ describe('Agnostic Output (Zero Protocols)', () => {
     subject: 'feat: agnostic commit',
     body: 'Some body text',
     rawTrailers: '',
-    protocols: new Map(), // No protocol interpretations
+    protocols: new ProtocolMap(), // No protocol interpretations
     filesChanged: ['src/main.ts'],
   };
 
@@ -42,12 +37,12 @@ describe('Agnostic Output (Zero Protocols)', () => {
   };
 
   beforeEach(() => {
-    registry = new ProtocolRegistry();
+    protocols = new ProtocolMap();
   });
 
   describe('JsonFormatter', () => {
     it('should use "subject" key by default and return empty protocols map', () => {
-      const formatter = new JsonFormatter(registry);
+      const formatter = new JsonFormatter(protocols);
       const output = JSON.parse(formatter.formatQueryResult(mockData));
 
       const firstResult = output.results[0];
@@ -62,7 +57,7 @@ describe('Agnostic Output (Zero Protocols)', () => {
               return 'decision_intent';
           }
       }
-      const formatter = new CustomJsonFormatter(registry);
+      const formatter = new CustomJsonFormatter(protocols);
       const output = JSON.parse(formatter.formatQueryResult(mockData));
 
       const firstResult = output.results[0];
@@ -73,22 +68,22 @@ describe('Agnostic Output (Zero Protocols)', () => {
 
   describe('TextFormatter', () => {
     it('should fallback to shortened commit hash when no protocols are registered', () => {
-      const formatter = new TextFormatter(registry, { color: false });
+      const formatter = new TextFormatter(protocols, { color: false });
       const output = formatter.formatQueryResult(mockData);
 
-      // Header should show first 8 chars of hash
+      // Header should show first 7 chars of hash
       expect(output).toContain('abc1234');
       expect(output).toContain('feat: agnostic commit');
     });
 
     it('should use generic nomenclature in footer', () => {
-        const formatter = new TextFormatter(registry, { color: false });
+        const formatter = new TextFormatter(protocols, { color: false });
         const output = formatter.formatQueryResult(mockData);
         expect(output).toContain('1 of 1 atoms shown');
     });
 
     it('should show "No decision atoms found." when empty', () => {
-        const formatter = new TextFormatter(registry, { color: false });
+        const formatter = new TextFormatter(protocols, { color: false });
         const emptyData = { ...mockData, result: { ...mockData.result, atoms: [] } };
         const output = formatter.formatQueryResult(emptyData);
         expect(output).toContain('No decision atoms found.');

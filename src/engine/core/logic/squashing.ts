@@ -1,8 +1,8 @@
-import {  ProtocolRegistry  } from '../../services/protocol-registry.js';
 import { ProtocolError } from '../../util/errors.js';
 import { ProtocolMap } from '../models/protocol-map.js';
 import type { CommitInput } from '../types/commit.js';
 import type { Atom, AtomId } from '../types/domain.js';
+import type { ProtocolContext } from '../types/protocol-definition.js';
 
 /**
  * Merge a collection of atoms into a single enriched commit input (used for squashing).
@@ -12,13 +12,12 @@ import type { Atom, AtomId } from '../types/domain.js';
 export function squashAtoms(
   atoms: readonly Atom[],
   options: { subject?: string; body?: string },
-  registry: ProtocolRegistry
+  protocols: ProtocolMap<ProtocolContext>
 ): CommitInput {
   if (atoms.length === 0) {
     throw new ProtocolError('Cannot merge zero atoms', 1);
   }
 
-  const registeredProtocols = registry.getAll();
   const trailers = new ProtocolMap<Record<string, string[]>>();
 
   // Sort atoms by date ascending so the newest is last
@@ -34,7 +33,7 @@ export function squashAtoms(
   const body = options.body ?? mergeBodySummaries(sorted);
 
   // Process each protocol for trailers
-  for (const ctx of registeredProtocols) {
+  for (const ctx of protocols.values()) {
     const pName = ctx.def.name.toLowerCase();
     
     const internalIds = new Set(atoms

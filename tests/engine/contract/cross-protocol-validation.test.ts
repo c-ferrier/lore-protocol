@@ -1,17 +1,15 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { hydrateAtoms } from '../../../src/engine/core/logic/hydration.js';
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol-definition.js';
-import { RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
+import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
-import { makeStubProtocolContext, TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
-import { type MockedAtomRepository } from '../../mock-types.js';
-import { makeMockAtomRepository } from '../engine-test-utils.js';
+import { makeStubProtocolContext, type ProtocolContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { makeMockInfra } from '../engine-test-utils.js';
 
 describe('Cross-Protocol Reference Validation', () => {
-  let registry: ProtocolRegistry;
-  let mockRepo: MockedAtomRepository;
+  let protocols: ProtocolMap<ProtocolContext>;
 
   const ALPHA_DEF: ProtocolDefinition = {
     name: 'AlphaVal',
@@ -40,19 +38,16 @@ describe('Cross-Protocol Reference Validation', () => {
   };
 
   beforeEach(() => {
-    registry = new ProtocolRegistry();
+    protocols = new ProtocolMap();
     const alpha = makeStubProtocolContext(ALPHA_DEF, { permissive: false });
     const beta = makeStubProtocolContext(BETA_DEF, { permissive: false });
-    registry.register(alpha);
-    registry.register(beta);
-
-    mockRepo = makeMockAtomRepository();
+    protocols.set(alpha.name, alpha);
+    protocols.set(beta.name, beta);
   });
 
-  const getDeps = () => ({
-    atomRepository: mockRepo,
-    config: TEST_ENGINE_CONFIG,
-    protocolRegistry: registry
+  const getInfra = () => makeMockInfra({
+    protocols,
+    config: TEST_ENGINE_CONFIG
   });
 
   it('should allow valid cross-protocol references', async () => {
@@ -66,7 +61,8 @@ describe('Cross-Protocol Reference Validation', () => {
       filesChanged: []
     };
 
-    const results = await validateCommits(hydrateAtoms([rawCommit], registry, { includeAllCommits: true }), getDeps());
+    const infra = getInfra();
+    const results = await validateCommits(hydrateAtoms([rawCommit], protocols, { includeAllCommits: true }), infra);
     expect(results[0].issues.filter(i => i.rule === 'invalid-reference-format')).toHaveLength(0);
   });
 
@@ -81,7 +77,8 @@ describe('Cross-Protocol Reference Validation', () => {
       filesChanged: []
     };
 
-    const results = await validateCommits(hydrateAtoms([rawCommit], registry, { includeAllCommits: true }), getDeps());
+    const infra = getInfra();
+    const results = await validateCommits(hydrateAtoms([rawCommit], protocols, { includeAllCommits: true }), infra);
     const issue = results[0].issues.find(i => i.rule === 'unknown-protocol-prefix');
     expect(issue).toBeDefined();
     expect(issue?.message).toContain('Unknown protocol prefix: "ghost"');
@@ -98,7 +95,8 @@ describe('Cross-Protocol Reference Validation', () => {
       filesChanged: []
     };
 
-    const results = await validateCommits(hydrateAtoms([rawCommit], registry, { includeAllCommits: true }), getDeps());
+    const infra = getInfra();
+    const results = await validateCommits(hydrateAtoms([rawCommit], protocols, { includeAllCommits: true }), infra);
     const issue = results[0].issues.find(i => i.rule === 'cross-protocol-prohibited');
     expect(issue).toBeDefined();
     expect(issue?.message).toContain('does not allow cross-protocol references');
@@ -115,7 +113,8 @@ describe('Cross-Protocol Reference Validation', () => {
       filesChanged: []
     };
 
-    const results = await validateCommits(hydrateAtoms([rawCommit], registry, { includeAllCommits: true }), getDeps());
+    const infra = getInfra();
+    const results = await validateCommits(hydrateAtoms([rawCommit], protocols, { includeAllCommits: true }), infra);
     const issue = results[0].issues.find(i => i.rule === 'invalid-reference-format');
     expect(issue).toBeDefined();
     expect(issue?.message).toContain('not a valid identifier for protocol "betaval"');

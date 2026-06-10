@@ -2,15 +2,11 @@ import { Command } from 'commander';
 
 // Pure Logic Modules
 import { getProtocolIdentity } from '../../core/logic/identity.js';
-import { getReferenceKeys } from '../../core/logic/protocols.js';
-import type { EngineConfig } from '../../core/types/config.js';
+import { getReferenceKeys, resolveProtocolIdentity } from '../../core/logic/protocols.js';
 import type { Atom } from '../../core/types/domain.js';
 import type { FormattableTraceResult, TraceEdge } from '../../core/types/output.js';
-import type { IGitClient } from '../../interfaces/git-client.js';
-import type { ILogger } from '../../interfaces/logger.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { EngineInfra } from '../../services/engine-bootstrapper.js';
+import { findAtomsByIds } from '../../shell/orchestrators/discovery.js';
 import { ProtocolError } from '../../util/errors.js';
 import { mergeOptions } from './helpers/merge-options.js';
 
@@ -20,14 +16,7 @@ import { mergeOptions } from './helpers/merge-options.js';
  */
 export function registerTraceCommand(
   program: Command,
-  deps: {
-    gitClient: IGitClient;
-    atomRepository: AtomRepository;
-    protocolRegistry: ProtocolRegistry;
-    getFormatter: () => IOutputFormatter;
-    config: EngineConfig;
-    logger: ILogger;
-  },
+  infra: EngineInfra,
 ): void {
   program
     .command('trace <id>')
@@ -35,12 +24,12 @@ export function registerTraceCommand(
     .option('--max-depth <n>', 'Maximum BFS traversal depth', (v) => parseInt(v, 10), 10)
     .action(async (id: string, _options: Record<string, unknown>, command: Command) => {
       const options = mergeOptions<{ maxDepth: number; cache: boolean }>(command);
-      const { atomRepository, protocolRegistry, getFormatter, logger } = deps;
+      const { protocols: protocolMap, getFormatter, logger } = infra;
       
-      const identity = protocolRegistry.resolveIdentity(id);
+      const identity = resolveProtocolIdentity(protocolMap, id);
       
       // ONE repository call handles the entire BFS walk up to maxDepth.
-      const atoms = await atomRepository.findByIds([identity], { 
+      const atoms = await findAtomsByIds(infra, [identity], { 
           follow: true, 
           maxDepth: options.maxDepth,
           cache: options.cache 
@@ -48,9 +37,9 @@ export function registerTraceCommand(
 
       const rootAtom = atoms.find(a => {
           const pName = identity.protocol?.toLowerCase() || '';
-          const state = a.protocols.get(pName) || a.protocols.get(identity.protocol || '');
+          const state = a.protocols.get(pName);
           if (!state) return false;
-          const p = protocolRegistry.get(pName);
+          const p = protocolMap.get(pName);
           const atomId = p ? getProtocolIdentity(state, p) : null;
           return atomId === identity.id;
       }) || atoms[0];
@@ -71,7 +60,7 @@ export function registerTraceCommand(
         if (depth >= options.maxDepth) continue;
 
         for (const [pName, state] of atom.protocols.entries()) {
-          const p = protocolRegistry.get(pName);
+          const p = protocolMap.get(pName);
           if (!p) continue;
 
           const currentId = getProtocolIdentity(state, p);

@@ -1,32 +1,29 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { type Atom } from '../../../src/engine/core/types/domain.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtomRepository,makeStubProtocolContext } from '../../../src/engine/testing.js';
+import { findAtomsByIds } from '../../../src/engine/shell/orchestrators/discovery.js';
+import { makeStubProtocolContext, type ProtocolContext } from '../../../src/engine/testing.js';
 import { type MockedGitClient } from '../../mock-types.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
+import { makeMockGitClient, makeMockInfra } from '../engine-test-utils.js';
 
-describe('AtomRepository Batch Disambiguation', () => {
-  let gitClient: MockedGitClient;
-  let repo: AtomRepository;
-  let protocolRegistry: ProtocolRegistry;
+describe('Discovery Batch Disambiguation', () => {
+  let git: MockedGitClient;
+  let protocols: ProtocolMap<ProtocolContext>;
 
   const ALPHA_DEF = { name: 'Alpha', namespace: 'alpha', identityKey: 'Alpha-id' };
   const BETA_DEF = { name: 'Beta', namespace: 'beta', identityKey: 'Beta-id' };
 
   beforeEach(() => {
-    gitClient = makeMockGitClient();
+    git = makeMockGitClient();
 
-    protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(makeStubProtocolContext(ALPHA_DEF));
-    protocolRegistry.register(makeStubProtocolContext(BETA_DEF));
-
-    repo = makeAtomRepository({ gitClient, protocolRegistry });
+    protocols = new ProtocolMap();
+    protocols.set('alpha', makeStubProtocolContext(ALPHA_DEF));
+    protocols.set('beta', makeStubProtocolContext(BETA_DEF));
   });
 
-  it('findByIds: should correctly hydrate a mixed batch of identities', async () => {
+  it('findAtomsByIds: should correctly hydrate a mixed batch of identities', async () => {
     const c1: RawCommit = { 
         hash: 'h1', date: new Date().toISOString(), author: 'a', subject: 's', body: 'b', 
         trailers: 'alpha: Alpha-id: aaaa1111',
@@ -38,9 +35,10 @@ describe('AtomRepository Batch Disambiguation', () => {
         filesChanged: []
     };
 
-    vi.mocked(gitClient.query).mockResolvedValue([c1, c2]);
+    vi.mocked(git.query).mockResolvedValue([c1, c2]);
 
-    const results = await repo.findByIds([
+    const infra = makeMockInfra({ git, protocols });
+    const results = await findAtomsByIds(infra, [
       { id: 'aaaa1111', protocol: 'alpha' },
       { id: 'bbbb2222', protocol: 'beta' }
     ]);
@@ -50,7 +48,7 @@ describe('AtomRepository Batch Disambiguation', () => {
     expect(results.find((a: Atom) => a.commitHash === 'h2')?.protocols.has('beta')).toBe(true);
     
     // Verify query patterns
-    const query = vi.mocked(gitClient.query).mock.calls[0][0];
+    const query = vi.mocked(git.query).mock.calls[0][0];
     expect(query.regexPatterns).toContainEqual(['^alpha: Alpha-id: aaaa1111$', '^beta: Beta-id: bbbb2222$']);
   });
 });

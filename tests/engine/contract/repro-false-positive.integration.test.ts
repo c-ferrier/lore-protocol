@@ -1,19 +1,15 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtomRepository,makeStubProtocolContext } from '../../../src/engine/testing.js';
+import { findAtomById,findAtoms } from '../../../src/engine/shell/orchestrators/discovery.js';
+import { makeStubProtocolContext, type ProtocolContext } from '../../../src/engine/testing.js';
 import { type MockedGitClient } from '../../mock-types.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
-;
+import { makeMockGitClient, makeMockInfra } from '../engine-test-utils.js';
 
-
-;
-
-describe('AtomRepository False Positive Repro', () => {
-  let gitClient: MockedGitClient;
-  let repository: AtomRepository;
+describe('Discovery False Positive Repro', () => {
+  let git: MockedGitClient;
+  let protocols: ProtocolMap<ProtocolContext>;
   const protocol = makeStubProtocolContext({
     name: 'Mock',
     identityKey: 'Mock-id',
@@ -23,14 +19,17 @@ describe('AtomRepository False Positive Repro', () => {
   });
 
   beforeEach(() => {
-    gitClient = makeMockGitClient();
-    const protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(protocol);
-    
-    repository = makeAtomRepository({ gitClient, protocolRegistry });
+    git = makeMockGitClient();
+    protocols = new ProtocolMap<ProtocolContext>();
+    protocols.set(protocol.name, protocol);
   });
 
-  it('findById should use an anchored grep (repro failure)', async () => {
+  const getInfra = () => makeMockInfra({
+      git,
+      protocols
+  });
+
+  it('findAtomById should use an anchored grep (repro failure)', async () => {
     const targetId = 'aaaa1111';
     const commit: RawCommit = {
       hash: 'h1',
@@ -42,14 +41,15 @@ describe('AtomRepository False Positive Repro', () => {
       filesChanged: []
     };
 
-    vi.mocked(gitClient.query).mockResolvedValue([commit]);
+    vi.mocked(git.query).mockResolvedValue([commit]);
 
+    const infra = getInfra();
     // Should return null because trailers didn't match targetId
-    const result = await repository.findById({ id: targetId });
+    const result = await findAtomById(infra, { id: targetId });
     expect(result).toBeNull();
   });
 
-  it('find (global) should use an anchored grep (repro failure)', async () => {
+  it('findAtoms (global) should use an anchored grep (repro failure)', async () => {
     const commit: RawCommit = {
       hash: 'h1',
       date: new Date().toISOString(),
@@ -60,11 +60,12 @@ describe('AtomRepository False Positive Repro', () => {
       filesChanged: []
     };
 
-    vi.mocked(gitClient.query).mockResolvedValue([commit]);
+    vi.mocked(git.query).mockResolvedValue([commit]);
 
+    const infra = getInfra();
     // Should return 0 atoms because although Git might return the commit due to subject text,
     // the trailers do not contain the Mock-id protocol sentinel.
-    const results = await repository.find();
+    const results = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });
     expect(results).toHaveLength(0);
   });
 });

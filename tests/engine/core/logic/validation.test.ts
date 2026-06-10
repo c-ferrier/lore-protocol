@@ -7,11 +7,11 @@ import {
     validateProtocolState,
     validateProtocolTrailer
 } from '../../../../src/engine/core/logic/validation.js';
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import { 
     makeStubProtocolContext,
-    makeStubProtocolRegistry,
     MOCK_CORE_TRAILERS, 
-    TEST_ENGINE_CONFIG, 
+    type ProtocolContext,    TEST_ENGINE_CONFIG, 
     TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
 
 describe('Validation Logic (Pure Functions)', () => {
@@ -124,9 +124,11 @@ describe('Validation Logic (Pure Functions)', () => {
           identityKey: 'Other-id', 
           trailers: {} 
       });
-      const registry = makeStubProtocolRegistry([protocol, otherProtocol]);
+      const protocols = new ProtocolMap<ProtocolContext>();
+      protocols.set(protocol.name, protocol);
+      protocols.set(otherProtocol.name, otherProtocol);
 
-      const result = validateProtocolTrailer('Related', 'other/abc', protocol.def, registry);
+      const result = validateProtocolTrailer('Related', 'other/abc', protocol.def, protocols);
       expect(result.valid).toBe(true);
     });
 
@@ -195,9 +197,6 @@ describe('Validation Logic (Pure Functions)', () => {
           validateProtocolState(state, nsProtocol.def);
 
           expect(state.unauthorized.Tream).toEqual(['typo']);
-
-          // Note: unauthorized-trailer rule is currently handled by normalization/orchestration loop
-          // But we verify the state contains it.
       });
     });
-    });
+});

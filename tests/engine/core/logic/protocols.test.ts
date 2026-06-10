@@ -1,13 +1,17 @@
-import { describe, expect,it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { 
-    createProtocolContext, 
-    getAuthorizedKeys, 
+    createProtocolContext,
+    getAuthorizedKeys,
+    getClaimedProtocolKeys, 
     getFormattableDefinitions,
-    getListKeys, 
+    getListKeys,
     getReferenceKeys,
-    getScalarKeys, 
-    isCoreTrailer} from '../../../../src/engine/core/logic/protocols.js';
+    getScalarKeys,
+    isCoreTrailer,
+    resolveProtocolIdentity, 
+    resolveProtocolKey} from '../../../../src/engine/core/logic/protocols.js';
+import { makeStubProtocolContext, makeStubProtocolMap } from '../../../../src/engine/testing.js';
 
 describe('Protocols Logic (Pure Functions)', () => {
   const definition = {
@@ -106,5 +110,84 @@ describe('Protocols Logic (Pure Functions)', () => {
       const formattable = getFormattableDefinitions(ctx);
       expect(formattable['Scalar'].ui?.kind).toBe('custom');
       expect(formattable['Scalar'].ui?.color).toBe('dim');
+  });
+
+  it('should aggregate claimed keys from all protocols', () => {
+    const p1 = makeStubProtocolContext({
+      name: 'P1',
+      trailers: { 'Key1': { description: 'D', multivalue: false, validation: 'none' as const } }
+    });
+    const p2 = makeStubProtocolContext({
+      name: 'P2',
+      namespace: 'ns',
+      trailers: { 'Key2': { description: 'D', multivalue: false, validation: 'none' as const } }
+    });
+
+    const protocols = makeStubProtocolMap([p1, p2]);
+
+    const keys = getClaimedProtocolKeys(protocols);
+    expect(keys.has('key1')).toBe(true);
+    expect(keys.has('key2')).toBe(false); // Key2 is isolated in 'ns' bucket
+    expect(keys.has('ns')).toBe(true); // Namespace is claimed
+  });
+
+  it('should correctly resolve a qualified identity (alpha/1234)', () => {
+    const alpha = makeStubProtocolContext({ name: 'Alpha', namespace: 'alpha' });
+    const protocols = makeStubProtocolMap([alpha]);
+
+    const identity = resolveProtocolIdentity(protocols, 'alpha/1234');
+    expect(identity).toEqual({ protocol: 'alpha', id: '1234' });
+  });
+
+  it('should resolve an unqualified identity to the root protocol', () => {
+    const root = makeStubProtocolContext({ name: 'Root', namespace: '' });
+    const protocols = makeStubProtocolMap([root]);
+    
+    const identity = resolveProtocolIdentity(protocols, '1234');
+    expect(identity).toEqual({ protocol: 'root', id: '1234' });
+  });
+
+  describe('resolveProtocolKey', () => {
+    it('should resolve a unique owner for a key', () => {
+      const p1 = makeStubProtocolContext({ 
+          name: 'P1', 
+          namespace: '',
+          trailers: { 'Key1': { description: 'K1', multivalue: false, validation: 'none' as const } }
+      });
+      const p2 = makeStubProtocolContext({ 
+          name: 'P2', 
+          namespace: 'ns2'
+      });
+      const protocols = makeStubProtocolMap([p1, p2]);
+  
+      expect(resolveProtocolKey(protocols, 'Key1')).toBe(p1);
+      expect(resolveProtocolKey(protocols, 'ns2')).toBe(p2);
+    });
+  
+    it('should return the root protocol as fallback for unknown keys', () => {
+      const p1 = makeStubProtocolContext({ name: 'Root', namespace: '' });
+      const protocols = makeStubProtocolMap([p1]);
+  
+      expect(resolveProtocolKey(protocols, 'Unknown')).toBe(p1);
+    });
+  
+    it('should return undefined if no protocol owns the key and no root exists', () => {
+        const p1 = makeStubProtocolContext({ name: 'NS', namespace: 'ns' });
+        const protocols = makeStubProtocolMap([p1]);
+  
+        expect(resolveProtocolKey(protocols, 'Unknown')).toBeUndefined();
+    });
+  
+    it('should be case-insensitive when checking ownership', () => {
+      const p = makeStubProtocolContext({
+          name: 'P1',
+          namespace: '',
+          trailers: { 'Status': { description: 'S', multivalue: false, validation: 'none' as const } }
+      });
+      const protocols = makeStubProtocolMap([p]);
+  
+      expect(resolveProtocolKey(protocols, 'status')).toBe(p);
+      expect(resolveProtocolKey(protocols, 'STATUS')).toBe(p);
+    });
   });
 });

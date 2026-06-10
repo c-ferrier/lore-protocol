@@ -4,11 +4,13 @@ import {
     evaluateDriftSignal, 
     getStaleSignals
 } from '../../core/logic/staleness.js';
+import { ProtocolMap } from '../../core/models/protocol-map.js';
 import type { EngineConfig } from '../../core/types/config.js';
 import type { Atom, StaleReason,SupersessionStatus } from '../../core/types/domain.js';
 import type { StaleAtomReport } from '../../core/types/output.js';
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { ProtocolContext } from '../../core/types/protocol-definition.js';
+import type { IGitClient } from '../../interfaces/git-client.js';
+import { getAtomDrift } from './discovery.js';
 
 /**
  * Orchestrates the analysis of Atoms to detect "staleness" signals.
@@ -20,14 +22,14 @@ export async function analyzeStaleness(
     atoms: readonly Atom[],
     globalSupersessionMap: Map<string, Map<string, SupersessionStatus>>,
     deps: {
-      atomRepository: AtomRepository;
+      gitClient: IGitClient;
       config: EngineConfig;
-      protocolRegistry: ProtocolRegistry;
+      protocols: ProtocolMap<ProtocolContext>;
     }
   ): Promise<StaleAtomReport[]> {
-    const { atomRepository, config, protocolRegistry } = deps;
+    const { gitClient, config, protocols } = deps;
     const now = new Date();
-    const protocols = protocolRegistry.getAll();
+    const protocolList = Array.from(protocols.values());
 
     const results = await Promise.all(atoms.map(async (atom) => {
       const reasons: StaleReason[] = [];
@@ -37,7 +39,7 @@ export async function analyzeStaleness(
       if (ageSignal) reasons.push(ageSignal);
 
       try {
-        const driftMap = await atomRepository.getAtomDrift(atom);
+        const driftMap = await getAtomDrift({ git: gitClient }, atom);
         const driftSignals = evaluateDriftSignal(driftMap, config.stale.driftThreshold);
         reasons.push(...driftSignals);
       } catch (_err) {
@@ -45,7 +47,7 @@ export async function analyzeStaleness(
       }
 
       // 2. Protocol-Specific Signals
-      for (const p of protocols) {
+      for (const p of protocolList) {
           const pReasons = getStaleSignals(p, atom, now, globalSupersessionMap);
           reasons.push(...pReasons);
       }
@@ -58,8 +60,3 @@ export async function analyzeStaleness(
 
     return results.filter((r): r is StaleAtomReport => r !== null);
   }
-
-  /**
-   * Fetches the commit count for all files modified by an atom.
-   * This is the I/O portion of the drift calculation.
-   */

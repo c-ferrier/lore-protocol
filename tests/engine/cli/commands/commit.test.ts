@@ -4,19 +4,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { registerCommitCommand } from '../../../../src/engine/cli/commands/commit.js';
 import * as InputResolver from '../../../../src/engine/cli/readers/commit-input-resolver.js';
 import * as FormattingLogic from '../../../../src/engine/core/logic/commit-formatting.js';
-import { ILogger } from '../../../../src/engine/interfaces/logger.js';
-import { IOutputFormatter } from '../../../../src/engine/interfaces/output-formatter.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import type { EngineInfra } from '../../../../src/engine/services/engine-bootstrapper.js';
 import * as HeadIdReader from '../../../../src/engine/shell/git/head-id-reader.js';
 import { 
     makeCommitInput, 
     makeStubProtocolContext, 
-    makeStubProtocolRegistry,
-    TEST_ENGINE_CONFIG, 
+    makeStubProtocolMap, 
     TEST_ID_KEY 
 } from '../../../../src/engine/testing.js';
-import { type MockedGitClient, type MockedPrompt } from '../../../mock-types.js';
-import { makeMockFormatter, makeMockGitClient, makeMockPrompt, TestLogger } from '../../engine-test-utils.js';
+import { makeMockGitClient,makeMockInfra } from '../../engine-test-utils.js';
 
 vi.mock('../../../../src/engine/shell/git/head-id-reader.js', () => ({
     readHeadIdentities: vi.fn().mockResolvedValue({})
@@ -35,38 +31,21 @@ vi.mock('../../../../src/engine/core/logic/commit-formatting.js', async (importO
     };
 });
 
-interface Deps {
-    gitClient: MockedGitClient;
-    getFormatter: () => IOutputFormatter;
-    prompt: MockedPrompt;
-    config: typeof TEST_ENGINE_CONFIG;
-    protocolRegistry: ProtocolRegistry;
-    logger: ILogger;
-}
-
-async function runCommitCommand(args: string[], deps: Deps): Promise<void> {
+async function runCommitCommand(args: string[], infra: EngineInfra): Promise<void> {
   const program = new Command();
   program.exitOverride();
-  // registerCommitCommand(program, deps, prompt)
-  registerCommitCommand(program, deps, deps.prompt);
+  registerCommitCommand(program, infra, infra.prompt);
   await program.parseAsync(['node', 'atom', 'commit', ...args]);
 }
 
-function createDeps(overrides: Partial<Deps> = {}): Deps {
+function createTestInfra(overrides: Partial<EngineInfra> = {}): EngineInfra {
   const protocol = makeStubProtocolContext();
-  const protocolRegistry = makeStubProtocolRegistry([protocol]);
-  const formatter = makeMockFormatter();
-  const prompt = makeMockPrompt();
-
-  return {
-    gitClient: makeMockGitClient(),
-    getFormatter: () => formatter,
-    prompt,
-    config: TEST_ENGINE_CONFIG,
-    protocolRegistry,
-    logger: new TestLogger(),
+  const protocols = makeStubProtocolMap([protocol]);
+  
+  return makeMockInfra({
+    protocols,
     ...overrides
-  } as Deps;
+  });
 }
 
 describe('atom commit --amend', () => {
@@ -77,20 +56,20 @@ describe('atom commit --amend', () => {
   });
 
   it('should skip staged-changes guard when --amend is used', async () => {
-    const gitClient = makeMockGitClient({ hasStagedChanges: vi.fn().mockResolvedValue(false) });
-    const deps = createDeps({ gitClient });
+    const git = makeMockGitClient({ hasStagedChanges: vi.fn().mockResolvedValue(false) });
+    const infra = createTestInfra({ git });
 
-    await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
+    await runCommitCommand(['--amend', '--subject', 'amend test'], infra);
 
-    expect(gitClient.hasStagedChanges).not.toHaveBeenCalled();
+    expect(git.hasStagedChanges).not.toHaveBeenCalled();
   });
 
   it(`should pass existing ${TEST_ID_KEY} to formatCommit when amending`, async () => {
     vi.mocked(HeadIdReader.readHeadIdentities).mockResolvedValue({ mock: 'cafebabe' });
     vi.mocked(InputResolver.resolveCommitInput).mockResolvedValue(makeCommitInput({ subject: 'amend test' }));
-    const deps = createDeps();
+    const infra = createTestInfra();
 
-    await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
+    await runCommitCommand(['--amend', '--subject', 'amend test'], infra);
 
     expect(HeadIdReader.readHeadIdentities).toHaveBeenCalledOnce();
     expect(FormattingLogic.formatCommit).toHaveBeenCalledWith(
@@ -102,88 +81,88 @@ describe('atom commit --amend', () => {
   });
 
   it('should pass --amend flag to gitClient.commit', async () => {
-    const deps = createDeps();
+    const infra = createTestInfra();
 
-    await runCommitCommand(['--amend', '--subject', 'amend test'], deps);
+    await runCommitCommand(['--amend', '--subject', 'amend test'], infra);
 
-    expect(deps.gitClient.commit).toHaveBeenCalledWith(
+    expect(infra.git.commit).toHaveBeenCalledWith(
       expect.stringContaining('Mock-id:'),
       { amend: true },
     );
   });
 
   it('should bypass processing with --amend --no-edit', async () => {
-    const deps = createDeps();
+    const infra = createTestInfra();
 
-    await runCommitCommand(['--amend', '--no-edit'], deps);
+    await runCommitCommand(['--amend', '--no-edit'], infra);
 
     expect(InputResolver.resolveCommitInput).not.toHaveBeenCalled();
     expect(FormattingLogic.formatCommit).not.toHaveBeenCalled();
-    expect(deps.gitClient.commit).toHaveBeenCalledWith(
+    expect(infra.git.commit).toHaveBeenCalledWith(
       '',
       { amend: true, noEdit: true },
     );
   });
 
   it('should allow --amend --no-edit when combined with global engine flags', async () => {
-    const deps = createDeps();
+    const infra = createTestInfra();
 
     // Simulation of 'lore commit --amend --no-edit --context /path --no-color'
     const program = new Command();
     program.exitOverride();
     program.option('--context <path>');
     program.option('--no-color');
-    registerCommitCommand(program, deps, deps.prompt);
+    registerCommitCommand(program, infra, infra.prompt);
     
     await program.parseAsync(['node', 'atom', '--context', '/repo', '--no-color', 'commit', '--amend', '--no-edit']);
 
-    expect(deps.gitClient.commit).toHaveBeenCalledWith(
+    expect(infra.git.commit).toHaveBeenCalledWith(
       '',
       { amend: true, noEdit: true },
     );
   });
 
   it('should throw when --no-edit is combined with --file', async () => {
-    const deps = createDeps();
+    const infra = createTestInfra();
     await expect(
-      runCommitCommand(['--amend', '--no-edit', '--file', 'input.json'], deps),
+      runCommitCommand(['--amend', '--no-edit', '--file', 'input.json'], infra),
     ).rejects.toThrow('--no-edit keeps the existing message unchanged');
   });
 
   it('should throw when --no-edit is combined with --subject', async () => {
-    const deps = createDeps();
+    const infra = createTestInfra();
     await expect(
-      runCommitCommand(['--amend', '--no-edit', '--subject', 'new'], deps),
+      runCommitCommand(['--amend', '--no-edit', '--subject', 'new'], infra),
     ).rejects.toThrow('--no-edit keeps the existing message unchanged');
   });
 
   it('should throw when --no-edit is combined with --interactive', async () => {
-    const deps = createDeps();
+    const infra = createTestInfra();
     await expect(
-      runCommitCommand(['--amend', '--no-edit', '-i'], deps),
+      runCommitCommand(['--amend', '--no-edit', '-i'], infra),
     ).rejects.toThrow('--no-edit keeps the existing message unchanged');
   });
 
   it('should throw when --no-edit is combined with --body', async () => {
-    const deps = createDeps();
+    const infra = createTestInfra();
     await expect(
-      runCommitCommand(['--amend', '--no-edit', '--body', 'some context'], deps),
+      runCommitCommand(['--amend', '--no-edit', '--body', 'some context'], infra),
     ).rejects.toThrow('--no-edit keeps the existing message unchanged');
   });
 
   it('should throw when --no-edit is used without --amend', async () => {
-    const deps = createDeps();
+    const infra = createTestInfra();
 
     await expect(
-      runCommitCommand(['--no-edit', '--subject', 'test'], deps),
+      runCommitCommand(['--no-edit', '--subject', 'test'], infra),
     ).rejects.toThrow('--no-edit can only be used with --amend');
   });
 
   it(`should generate new ${TEST_ID_KEY} when amending a non-Mock commit`, async () => {
     vi.mocked(HeadIdReader.readHeadIdentities).mockResolvedValue({});
-    const deps = createDeps();
+    const infra = createTestInfra();
 
-    await runCommitCommand(['--amend', '--subject', 'amend non-mock'], deps);
+    await runCommitCommand(['--amend', '--subject', 'amend non-mock'], infra);
 
     expect(HeadIdReader.readHeadIdentities).toHaveBeenCalledOnce();
     expect(FormattingLogic.formatCommit).toHaveBeenCalledWith(
@@ -196,9 +175,9 @@ describe('atom commit --amend', () => {
 
   it(`should not read ${TEST_ID_KEY} from HEAD for normal commits`, async () => {
     vi.mocked(HeadIdReader.readHeadIdentities).mockResolvedValue({ mock: 'cafebabe' });
-    const deps = createDeps();
+    const infra = createTestInfra();
 
-    await runCommitCommand(['--subject', 'normal commit'], deps);
+    await runCommitCommand(['--subject', 'normal commit'], infra);
 
     expect(HeadIdReader.readHeadIdentities).not.toHaveBeenCalled();
     expect(FormattingLogic.formatCommit).toHaveBeenCalledWith(
@@ -210,11 +189,11 @@ describe('atom commit --amend', () => {
   });
 
   it('should check staged changes for normal commits', async () => {
-    const gitClient = makeMockGitClient();
-    const deps = createDeps({ gitClient });
+    const git = makeMockGitClient();
+    const infra = createTestInfra({ git });
 
-    await runCommitCommand(['--subject', 'normal'], deps);
+    await runCommitCommand(['--subject', 'normal'], infra);
 
-    expect(gitClient.hasStagedChanges).toHaveBeenCalledOnce();
+    expect(git.hasStagedChanges).toHaveBeenCalledOnce();
   });
 });

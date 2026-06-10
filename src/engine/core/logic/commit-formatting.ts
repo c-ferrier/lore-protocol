@@ -1,11 +1,12 @@
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import { ProtocolError } from '../../util/errors.js';
 import type { CommitInput, PreparedCommit } from '../types/commit.js';
 import type { EngineConfig } from '../types/config.js';
 import { type AtomId, ProtocolMap, type ProtocolState } from '../types/domain.js';
 import type { ValidationIssue } from '../types/output.js';
+import type { ProtocolContext } from '../types/protocol-definition.js';
 import { generateId } from './identity.js';
 import { normalizeTrailers } from './normalization.js';
+import { getClaimedProtocolKeys } from './protocols.js';
 import { serializeTrailers } from './trailers.js';
 import { validateProtocolState } from './validation.js';
 
@@ -16,16 +17,16 @@ import { validateProtocolState } from './validation.js';
 export function formatCommit(
   input: CommitInput, 
   config: EngineConfig, 
-  registry: ProtocolRegistry, 
+  protocols: ProtocolMap<ProtocolContext>, 
   existingIds?: Record<string, AtomId>
 ): PreparedCommit {
-  const protocols = new ProtocolMap<ProtocolState>();
+  const resultProtocols = new ProtocolMap<ProtocolState>();
   const serializedTrailers: Record<string, string[]> = {};
   const displayOrder: string[] = [];
 
   // 1. Map logically grouped input into physical storage buckets
   for (const [pName, pTrailers] of input.trailers.entries()) {
-    const ctx = registry.get(pName);
+    const ctx = protocols.get(pName);
     
     if (!ctx) {
         throw new ProtocolError(`Unknown protocol "${pName}" in commit input`, 1);
@@ -71,18 +72,18 @@ export function formatCommit(
       }
     }
 
-    protocols.set(lowerPName, { trailers, unauthorized: {} });
+    resultProtocols.set(lowerPName, { trailers, unauthorized: {} });
   }
 
   // 2. Ensure all registered protocols have an identity, even if they had no input trailers
-  for (const ctx of registry.getAll()) {
+  for (const ctx of protocols.values()) {
       const lowerPName = ctx.name;
-      if (protocols.has(lowerPName)) continue;
+      if (resultProtocols.has(lowerPName)) continue;
 
       const id = (existingIds && (existingIds[lowerPName] || existingIds[ctx.def.name])) || generateId(ctx);
       const ns = ctx.storageNamespace;
 
-      protocols.set(lowerPName, { 
+      resultProtocols.set(lowerPName, { 
           trailers: { [ctx.identityKey]: [id] }, 
           unauthorized: {} 
       });
@@ -113,7 +114,7 @@ export function formatCommit(
       message, 
       subject,
       body,
-      protocols 
+      protocols: resultProtocols 
   };
 }
 
@@ -124,15 +125,15 @@ export function formatCommit(
 export async function validateFormatting(
   input: CommitInput, 
   config: EngineConfig, 
-  registry: ProtocolRegistry
+  protocols: ProtocolMap<ProtocolContext>
 ): Promise<ValidationIssue[]> {
   const issues: ValidationIssue[] = [];
   const validatedProtocols = new Set<string>();
-  const lowerClaimed = registry.getClaimedKeys();
+  const lowerClaimed = getClaimedProtocolKeys(protocols);
 
   // 1. Validate protocols present in the input
   for (const [pName, pTrailers] of input.trailers.entries()) {
-    const ctx = registry.get(pName);
+    const ctx = protocols.get(pName);
     
     if (!ctx) {
         continue;
@@ -160,7 +161,7 @@ export async function validateFormatting(
     const state = normalizeTrailers(rawMapForNormalize, ctx, lowerClaimed);
 
     // B. Validate: Expert reviews the structured state
-    const bucketIssues = validateProtocolState(state, ctx.def, registry);
+    const bucketIssues = validateProtocolState(state, ctx.def, protocols);
 
     // C. Post-process: Filter out "missing identity" errors if the protocol provides a generator
     const protocolSlug = ctx.name.replace(/-/g, '');
@@ -179,12 +180,12 @@ export async function validateFormatting(
 
   // 2. Global Integrity: Ensure all registered protocols have their requirements met
   // (even if they were missing from the input trailers map entirely)
-  for (const ctx of registry.getAll()) {
+  for (const ctx of protocols.values()) {
       if (validatedProtocols.has(ctx.name)) continue;
 
       // Perform validation on an empty state to catch missing required trailers
       const emptyState = normalizeTrailers({}, ctx, lowerClaimed);
-      const bucketIssues = validateProtocolState(emptyState, ctx.def, registry);
+      const bucketIssues = validateProtocolState(emptyState, ctx.def, protocols);
 
       // Filter out identity issues as they are handled during build()
       const protocolSlug = ctx.name.replace(/-/g, '');

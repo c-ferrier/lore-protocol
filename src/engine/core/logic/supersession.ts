@@ -1,17 +1,22 @@
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
-import { type Atom, ProtocolMap, type SupersessionStatus } from '../types/domain.js';
+import type { ProtocolMap, SupersessionStatus } from '../types/domain.js';
+import { type Atom } from '../types/domain.js';
+import type { ProtocolContext } from '../types/protocol-definition.js';
 import { getProtocolIdentity } from './identity.js';
+import { resolveProtocolIdentity } from './protocols.js';
 
 /**
  * Computes supersession chains and determines which atoms are active vs. superseded.
- * Pure logic: takes atoms and registry, returns a global status map.
+ * Pure logic: takes atoms and protocol map, returns a global status map.
  */
-export function resolveSupersession(atoms: readonly Atom[], registry: ProtocolRegistry): ProtocolMap<Map<string, SupersessionStatus>> {
-  const globalStatusMap = new ProtocolMap<Map<string, SupersessionStatus>>();
+export function resolveSupersession(
+  atoms: readonly Atom[], 
+  protocols: ProtocolMap<ProtocolContext>
+): ProtocolMap<Map<string, SupersessionStatus>> {
+  const globalStatusMap = new Map<string, Map<string, SupersessionStatus>>();
   const atomByQualifiedId = new Map<string, Atom>();
 
   // 1. Initialize global status map and ID lookup
-  for (const ctx of registry.getAll()) {
+  for (const ctx of protocols.values()) {
     const pName = ctx.def.name.toLowerCase();
     const statusMap = new Map<string, SupersessionStatus>();
     globalStatusMap.set(pName, statusMap);
@@ -26,11 +31,12 @@ export function resolveSupersession(atoms: readonly Atom[], registry: ProtocolRe
     }
   }
 
+  const pMap = new Map(globalStatusMap) as ProtocolMap<Map<string, SupersessionStatus>>;
 
   // 2. Resolve direct and transitive supersessions globally
   for (const atom of atoms) {
     for (const [pName, state] of atom.protocols) {
-      const ctx = registry.get(pName);
+      const ctx = protocols.get(pName);
       if (!ctx) continue;
 
       const id = getProtocolIdentity(state, ctx);
@@ -39,11 +45,11 @@ export function resolveSupersession(atoms: readonly Atom[], registry: ProtocolRe
 
       for (const ref of state.trailers.Supersedes || []) {
         try {
-          const targetIdentity = registry.resolveIdentity(ref, pName);
+          const targetIdentity = resolveProtocolIdentity(protocols, ref, pName);
           const targetPName = targetIdentity.protocol || pName;
           const targetQualifiedId = `${targetPName.toLowerCase()}/${targetIdentity.id}`;
 
-          const targetStatusMap = globalStatusMap.get(targetPName.toLowerCase());
+          const targetStatusMap = pMap.get(targetPName.toLowerCase());
           if (targetStatusMap?.has(targetIdentity.id)) {
             // 3. Mark direct supersession
             // Format supersededBy: omit prefix if it matches the target protocol
@@ -63,8 +69,8 @@ export function resolveSupersession(atoms: readonly Atom[], registry: ProtocolRe
               targetQualifiedId,
               displaySupersededBy,
               atomByQualifiedId,
-              globalStatusMap,
-              registry
+              pMap,
+              protocols
             );
           }
         } catch {
@@ -74,7 +80,7 @@ export function resolveSupersession(atoms: readonly Atom[], registry: ProtocolRe
     }
   }
 
-  return globalStatusMap;
+  return pMap;
 }
 
 /**
@@ -85,7 +91,7 @@ function resolveTransitiveChain(
   topQualifiedId: string,
   atomByQualifiedId: Map<string, Atom>,
   globalStatusMap: ProtocolMap<Map<string, SupersessionStatus>>,
-  registry: ProtocolRegistry,
+  protocols: ProtocolMap<ProtocolContext>,
   visited: Set<string> = new Set()
 ): void {
   if (visited.has(currentQualifiedId)) return;
@@ -97,7 +103,7 @@ function resolveTransitiveChain(
   for (const [pName, state] of atom.protocols) {
     for (const ref of state.trailers.Supersedes || []) {
       try {
-        const targetIdentity = registry.resolveIdentity(ref, pName);
+        const targetIdentity = resolveProtocolIdentity(protocols, ref, pName);
         const targetPName = targetIdentity.protocol || pName;
         const targetQualifiedId = `${targetPName.toLowerCase()}/${targetIdentity.id}`;
 
@@ -111,7 +117,7 @@ function resolveTransitiveChain(
                supersededBy: [...status.supersededBy, topQualifiedId],
              });
           }
-          resolveTransitiveChain(targetQualifiedId, topQualifiedId, atomByQualifiedId, globalStatusMap, registry, visited);
+          resolveTransitiveChain(targetQualifiedId, topQualifiedId, atomByQualifiedId, globalStatusMap, protocols, visited);
         }
       } catch {
         // Skip
@@ -126,7 +132,7 @@ function resolveTransitiveChain(
 export function filterActiveAtoms(
   atoms: readonly Atom[],
   globalStatusMap: ProtocolMap<Map<string, SupersessionStatus>>,
-  registry: ProtocolRegistry,
+  protocols: ProtocolMap<ProtocolContext>,
 ): Atom[] {
   return atoms.filter((atom) => {
     let isSupersededInAny = false;
@@ -136,7 +142,7 @@ export function filterActiveAtoms(
       const state = atom.protocols.get(pName);
       if (!state) continue;
 
-      const ctx = registry.get(pName);
+      const ctx = protocols.get(pName);
       if (!ctx) continue;
 
       const id = getProtocolIdentity(state, ctx);
@@ -153,4 +159,36 @@ export function filterActiveAtoms(
 
     return !hasProtocolMatch || !isSupersededInAny;
   });
+}
+
+/**
+ * Orchestrates supersession logic and attaches it to the atoms.
+ */
+export function attachSupersessionToAtoms(
+    atoms: Atom[], 
+    protocols: ProtocolMap<ProtocolContext>
+): Atom[] {
+    if (atoms.length === 0) return [];
+
+    const statusMap = resolveSupersession(atoms, protocols);
+    
+    for (const atom of atoms) {
+        for (const [pName, state] of atom.protocols) {
+            const ctx = protocols.get(pName);
+            if (!ctx) continue;
+            
+            const id = getProtocolIdentity(state, ctx);
+            const protocolStatusMap = statusMap.get(pName.toLowerCase());
+            const status: SupersessionStatus | undefined = id ? protocolStatusMap?.get(id) : undefined;
+            
+            if (status) {
+                state.supersession = {
+                    superseded: status.superseded,
+                    supersededBy: status.supersededBy
+                };
+            }
+        }
+    }
+
+    return atoms;
 }

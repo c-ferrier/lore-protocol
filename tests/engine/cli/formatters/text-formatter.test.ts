@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { TextFormatter } from '../../../../src/engine/cli/formatters/text-formatter.js';
-import { type ProtocolState, type Trailers } from '../../../../src/engine/core/types/domain.js';
+import { ProtocolMap, type ProtocolState, type Trailers } from '../../../../src/engine/core/types/domain.js';
 import type { 
     FormattableConfigResult,
     FormattableDoctorResult, 
@@ -11,19 +11,18 @@ import type {
     FormattableValidationResult 
 } from '../../../../src/engine/core/types/output.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeAtom, makeStubProtocolContext, TEST_ID_KEY } from '../../../../src/engine/testing.js';
 
 describe('TextFormatter', () => {
-  let registry: ProtocolRegistry;
+  let protocols: ProtocolMap<ProtocolContext>;
   let protocol: ProtocolContext;
   let formatter: TextFormatter;
 
   beforeEach(() => {
-    registry = new ProtocolRegistry();
+    protocols = new ProtocolMap<ProtocolContext>();
     protocol = makeStubProtocolContext();
-    registry.register(protocol);
-    formatter = new TextFormatter(registry, { color: false });
+    protocols.set(protocol.name, protocol);
+    formatter = new TextFormatter(protocols, { color: false });
   });
 
   describe('formatQueryResult', () => {
@@ -141,7 +140,7 @@ describe('TextFormatter', () => {
         visibleTrailers: 'all',
       };
 
-      const coloredFormatter = new TextFormatter(registry, { color: true });
+      const coloredFormatter = new TextFormatter(protocols, { color: true });
       const output = coloredFormatter.formatQueryResult(data);
 
       expect(output).toContain('Assisted-by:');
@@ -202,7 +201,7 @@ describe('TextFormatter', () => {
         identityKey: 'Fred-id',
         trailers: { 'Status': { description: 'S', multivalue: true, validation: 'none' } }
       });
-      registry.register(fredProtocol);
+      protocols.set(fredProtocol.name, fredProtocol);
 
       const data: FormattableQueryResult = {
         result: {
@@ -419,7 +418,7 @@ describe('TextFormatter', () => {
 
   describe('color support', () => {
     it('should produce output with color disabled', () => {
-      const noColor = new TextFormatter(registry, { color: false });
+      const noColor = new TextFormatter(protocols, { color: false });
       const output = noColor.formatSuccess('OK');
       // eslint-disable-next-line no-control-regex
       expect(output).not.toMatch(new RegExp('\\x1b\\['));

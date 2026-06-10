@@ -13,7 +13,7 @@ import {
     type FormattableTraceResult,
     type FormattableValidationResult,
     type IOutputFormatter,
-    type ProtocolRegistry } from '../../engine/index.js';
+    type ProtocolContext,    ProtocolMap} from '../../engine/index.js';
 
 /**
  * Lore-specific Text Formatter.
@@ -27,10 +27,10 @@ export class LoreTextFormatter implements IOutputFormatter {
   private readonly c = chalk;
 
   constructor(
-    private readonly registry: ProtocolRegistry,
+    private readonly protocols: ProtocolMap<ProtocolContext>,
     options: { color: boolean }
   ) {
-    this.base = createBaseFormatter('text', registry, options);
+    this.base = createBaseFormatter('text', protocols, options);
   }
 
   /**
@@ -63,7 +63,7 @@ export class LoreTextFormatter implements IOutputFormatter {
       return lines.join('\n');
     }
 
-    const loreProtocol = this.registry.get('lore');
+    const loreProtocol = this.protocols.get('lore');
 
     for (const atom of result.atoms) {
       const loreState = atom.protocols.get('lore');
@@ -114,7 +114,7 @@ export class LoreTextFormatter implements IOutputFormatter {
               }
           }
       } else if (loreState) {
-          // Fallback if protocol def is somehow missing from registry
+          // Fallback if protocol def is somehow missing from protocols map
           for (const [key, values] of Object.entries(loreState.trailers)) {
               if (key === 'Lore-id') continue;
               for (const v of values) {
@@ -157,7 +157,7 @@ export class LoreTextFormatter implements IOutputFormatter {
 
   formatStalenessResult(data: FormattableStalenessResult): string {
     const lines: string[] = [];
-    const loreProtocol = this.registry.get('lore');
+    const loreProtocol = this.protocols.get('lore');
 
     for (const report of data.atoms) {
       const { atom } = report;
@@ -193,7 +193,7 @@ export class LoreTextFormatter implements IOutputFormatter {
     
     const renderNode = (node: Atom, depth: number, prefix: string = '') => {
       const loreState = node.protocols.get('lore');
-      const loreProtocol = this.registry.get('lore');
+      const loreProtocol = this.protocols.get('lore');
       const id = (loreState && loreProtocol) 
           ? (getProtocolIdentity(loreState, loreProtocol) || node.commitHash.slice(0, 8))
           : node.commitHash.slice(0, 8);
@@ -302,18 +302,20 @@ export class LoreTextFormatter implements IOutputFormatter {
                 details = []; // Lore 0.5.0 had no details for config check
                 if (c.status === 'ok') message = 'ok';
             }
-            if (name === 'Identity Integrity') {
+            if (name.startsWith('Identity Integrity')) {
                 name = 'Lore-id uniqueness';
+                details = []; // Lore 0.5.0 had no details for success
                 if (c.status === 'ok') {
-                    // All X identities are unique
-                    message = c.message.replace('identities', 'Lore-ids');
+                    message = 'All X Lore-ids are unique'; // Pattern matching for normalize below
                 }
             }
-            if (name === 'Reference Integrity') {
+            if (name.startsWith('Reference Integrity')) {
                 name = 'Reference resolution';
+                details = []; // Lore 0.5.0 had no details for success
                 if (c.status === 'ok') message = 'All references resolve to existing atoms';
             }
             if (name === 'Orphaned dependencies') {
+                details = []; // Lore 0.5.0 had no details for success
                 if (c.status === 'ok') message = 'No orphaned dependencies found';
             }
 

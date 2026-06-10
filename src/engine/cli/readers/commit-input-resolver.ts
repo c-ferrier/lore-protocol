@@ -8,10 +8,11 @@ import {
     InputMode, 
     parseFlagsToInput, 
     selectInputMode} from '../../core/logic/input-interpretation.js';
+import { ProtocolMap } from '../../core/models/protocol-map.js';
 import type { CommitInput } from '../../core/types/commit.js';
 import type { EngineConfig } from '../../core/types/config.js';
+import type { ProtocolContext } from '../../core/types/protocol-definition.js';
 import type { IPrompt } from '../../interfaces/prompt.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import { TrailerCollectorRegistry } from './collectors/trailer-collector-registry.js';
 import { InteractiveInputReader } from './interactive-input-reader.js';
 import { JsonInputReader } from './json-input-reader.js';
@@ -28,7 +29,7 @@ export async function resolveCommitInput(
   options: CommitCommandOptions,
   deps: {
     prompt: IPrompt;
-    protocolRegistry: ProtocolRegistry;
+    protocols: ProtocolMap<ProtocolContext>;
     config: EngineConfig;
   }
 ): Promise<CommitInput> {
@@ -45,14 +46,14 @@ async function readIntent(
   options: CommitCommandOptions, 
   deps: { 
     prompt: IPrompt; 
-    protocolRegistry: ProtocolRegistry; 
+    protocols: ProtocolMap<ProtocolContext>; 
   }
 ): Promise<Partial<CommitInput>> {
-  const { prompt, protocolRegistry } = deps;
+  const { prompt, protocols } = deps;
 
   switch (mode) {
     case InputMode.Interactive: {
-      const collectors = protocolRegistry.getAll().flatMap(p => {
+      const collectors = Array.from(protocols.values()).flatMap(p => {
           const registry = new TrailerCollectorRegistry(p);
           return registry.getCollectors();
       });
@@ -61,15 +62,15 @@ async function readIntent(
     }
     case InputMode.File: {
       const content = await promisify(readFile)(options.file!, 'utf-8');
-      const reader = new JsonInputReader(content, protocolRegistry);
+      const reader = new JsonInputReader(content, protocols);
       return reader.read(options);
     }
     case InputMode.Flags: {
-      return parseFlagsToInput(options, protocolRegistry);
+      return parseFlagsToInput(options, protocols);
     }
     case InputMode.Stdin: {
       const content = await readStdinContent();
-      const reader = new JsonInputReader(content, protocolRegistry);
+      const reader = new JsonInputReader(content, protocols);
       return reader.read(options);
     }
   }

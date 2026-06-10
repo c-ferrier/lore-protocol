@@ -1,49 +1,41 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
 import { type QueryOptions } from '../../../src/engine/core/types/query.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtomRepository,makeStubProtocolContext,MOCK_CORE_TRAILERS, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
+import { findAtoms } from '../../../src/engine/shell/orchestrators/discovery.js';
+import { makeStubProtocolContext,MOCK_CORE_TRAILERS, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 import { type MockedGitClient } from '../../mock-types.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
-;
+import { makeMockGitClient, makeMockInfra } from '../engine-test-utils.js';
 
-
-
-;
-;
-;
-;
-
-describe('AtomRepository Filtering Parity', () => {
-  let gitClient: MockedGitClient;
-  let repo: AtomRepository;
+describe('Discovery Filtering Parity', () => {
+  let git: MockedGitClient;
+  let protocols: ProtocolMap<ProtocolContext>;
   let protocol: ProtocolContext;
-  let protocolRegistry: ProtocolRegistry;
 
   beforeEach(() => {
-    gitClient = makeMockGitClient();
+    git = makeMockGitClient();
 
     protocol = makeStubProtocolContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
     });
-    protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(protocol);
+    protocols = new ProtocolMap();
+    protocols.set(protocol.name, protocol);
+  });
 
-    repo = makeAtomRepository({
-        gitClient,
-        protocolRegistry,
-    });
+  const getInfra = () => makeMockInfra({
+      git,
+      protocols,
   });
 
   describe('Discovery Phase (Git Coarse Filtering)', () => {
     it('should always include Atom Discovery Mode patterns (Mock-id sentinel)', async () => {
-      await repo.find();
+      const infra = getInfra();
+      await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });
       
-      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      const query = vi.mocked(git.query).mock.calls[0][0];
 
       // Top level is list of lists
       expect(query.regexPatterns![0].some((p: string) => p.includes(TEST_ID_KEY))).toBe(true);
@@ -54,10 +46,10 @@ describe('AtomRepository Filtering Parity', () => {
         author: 'alice',
         scope: 'auth',
       };
-      await repo.find(undefined, options);
+      const infra = getInfra();
+      await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, options);
 
-      
-      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      const query = vi.mocked(git.query).mock.calls[0][0];
 
       expect(query.author).toBe('alice');
       // Scope should be its own AND condition
@@ -68,9 +60,10 @@ describe('AtomRepository Filtering Parity', () => {
       const options: QueryOptions = {
         has: 'Constraint',
       };
-      await repo.find(undefined, options);
+      const infra = getInfra();
+      await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, options);
       
-      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      const query = vi.mocked(git.query).mock.calls[0][0];
 
       // should contain the discovery pattern for Constraint
       expect(query.regexPatterns!.some((set: readonly string[]) => set.some(p => p.includes('Constraint: ')))).toBe(true);
@@ -82,9 +75,10 @@ describe('AtomRepository Filtering Parity', () => {
           Confidence: 'high'
         }
       };
-      await repo.find(undefined, options);
+      const infra = getInfra();
+      await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, options);
       
-      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      const query = vi.mocked(git.query).mock.calls[0][0];
 
       expect(query.regexPatterns!.some((set: readonly string[]) => set.some(p => p.includes('Confidence: high')))).toBe(true);
     });
@@ -93,9 +87,10 @@ describe('AtomRepository Filtering Parity', () => {
       const options: QueryOptions = {
         text: 'bug fix'
       };
-      await repo.find(undefined, options);
+      const infra = getInfra();
+      await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, options);
       
-      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      const query = vi.mocked(git.query).mock.calls[0][0];
 
       expect(query.regexPatterns!.some((set: readonly string[]) => set.includes('bug fix'))).toBe(true);
     });
@@ -104,10 +99,10 @@ describe('AtomRepository Filtering Parity', () => {
       const options: QueryOptions = {
         scope: 'auth) | grep (',
       };
-      await repo.find(undefined, options);
+      const infra = getInfra();
+      await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, options);
 
-      
-      const query = vi.mocked(gitClient.query).mock.calls[0][0];
+      const query = vi.mocked(git.query).mock.calls[0][0];
 
       // Characters should be escaped
       expect(query.regexPatterns!.some((set: readonly string[]) => set.some(p => p.includes('auth\\) \\| grep \\(')))).toBe(true);
@@ -128,9 +123,10 @@ describe('AtomRepository Filtering Parity', () => {
         filesChanged: []
       };
 
-      vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
+      vi.mocked(git.query).mockResolvedValue([commit1, commit2]);
 
-      const results = await repo.find(undefined, { author: 'alice' });
+      const infra = getInfra();
+      const results = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { author: 'alice' });
 
       expect(results).toHaveLength(1);
       expect(results[0].commitHash).toBe('h1');
@@ -148,10 +144,10 @@ describe('AtomRepository Filtering Parity', () => {
         filesChanged: []
       };
 
-      vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
+      vi.mocked(git.query).mockResolvedValue([commit1, commit2]);
 
-      const results = await repo.find(undefined, { author: 'alice', filters: { Confidence: 'high' } });
-
+      const infra = getInfra();
+      const results = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { author: 'alice', filters: { Confidence: 'high' } });
 
       expect(results).toHaveLength(1);
       expect(results[0].commitHash).toBe('h1');
@@ -169,11 +165,10 @@ describe('AtomRepository Filtering Parity', () => {
         filesChanged: []
       };
 
+      vi.mocked(git.query).mockResolvedValue([commit1, commit2]);
 
-      vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
-
-      const results = await repo.find(undefined, { text: 'target word' });
-
+      const infra = getInfra();
+      const results = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { text: 'target word' });
 
       expect(results).toHaveLength(1);
       expect(results[0].commitHash).toBe('h1');
@@ -193,12 +188,13 @@ describe('AtomRepository Filtering Parity', () => {
         filesChanged: []
       };
 
-      vi.mocked(gitClient.query).mockResolvedValue([commit1, commit2]);
+      vi.mocked(git.query).mockResolvedValue([commit1, commit2]);
 
+      const infra = getInfra();
       // Filter by Alice AND scope auth AND Confidence high
       // commit1: Alice, scope ui, high -> FAIL (scope)
       // commit2: Alice, scope auth, low -> FAIL (confidence)
-      const results = await repo.find(undefined, { 
+      const results = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { 
         author: 'alice', 
         scope: 'auth',
         filters: { Confidence: 'high' }

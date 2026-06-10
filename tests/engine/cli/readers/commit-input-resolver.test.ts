@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveCommitInput } from '../../../../src/engine/cli/readers/commit-input-resolver.js';
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeStubProtocolContext, TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { type MockedPrompt } from '../../../mock-types.js';
 import { makeMockPrompt } from '../../engine-test-utils.js';
@@ -10,19 +10,19 @@ import { makeMockPrompt } from '../../engine-test-utils.js';
 describe('resolveCommitInput', () => {
   let prompt: MockedPrompt;
   let protocol: ProtocolContext;
-  let registry: ProtocolRegistry;
+  let protocols: ProtocolMap<ProtocolContext>;
 
   beforeEach(() => {
     prompt = makeMockPrompt();
     protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
-    registry = new ProtocolRegistry();
-    registry.register(protocol);
+    protocols = new ProtocolMap();
+    protocols.set(protocol.name, protocol);
   });
 
   describe('mode resolution priority', () => {
     it('should dispatch to flags reader when --subject is set', async () => {
       const options = { subject: 'feat: add login' };
-      const result = await resolveCommitInput(options, { prompt, protocolRegistry: registry, config: TEST_ENGINE_CONFIG });
+      const result = await resolveCommitInput(options, { prompt, protocols, config: TEST_ENGINE_CONFIG });
       expect(result.subject).toBe('feat: add login');
     });
 
@@ -30,7 +30,7 @@ describe('resolveCommitInput', () => {
       const options = { interactive: true, file: 'config.json' };
       vi.mocked(prompt.askText).mockResolvedValue('inter-subject');
       vi.mocked(prompt.askConfirm).mockResolvedValue(false);
-      const result = await resolveCommitInput(options, { prompt, protocolRegistry: registry, config: TEST_ENGINE_CONFIG });
+      const result = await resolveCommitInput(options, { prompt, protocols, config: TEST_ENGINE_CONFIG });
       expect(result.subject).toBe('inter-subject');
     });
 
@@ -41,7 +41,7 @@ describe('resolveCommitInput', () => {
       });
 
       const options = { subject: 'feat: from flags' };
-      const result = await resolveCommitInput(options, { prompt, protocolRegistry: registry, config: TEST_ENGINE_CONFIG });
+      const result = await resolveCommitInput(options, { prompt, protocols, config: TEST_ENGINE_CONFIG });
 
       expect(result.subject).toBe('feat: from flags');
       vi.unstubAllGlobals();

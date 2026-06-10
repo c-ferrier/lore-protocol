@@ -465,7 +465,6 @@ export class GitClient implements IGitClient {
     this.activeProcesses++;
 
     try {
-        // // console.log('EXECUTING:', 'git', args.join(' '));
         return await new Promise((resolve, reject) => {
           const child = execFileCb('git', args as string[], {
             cwd: this.cwd,

@@ -1,9 +1,10 @@
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 import { GLOBAL_NAMESPACE } from '../../util/constants.js';
 import { ProtocolError } from '../../util/errors.js';
 import { ProtocolMap } from '../models/protocol-map.js';
 import type { CommitInput } from '../types/commit.js';
+import type { ProtocolContext } from '../types/protocol-definition.js';
 import { authorizeKey } from './ownership.js';
+import { resolveProtocolKey } from './protocols.js';
 import { camelCase,slugify } from './string.js';
 
 /**
@@ -56,12 +57,11 @@ export function selectInputMode(options: CommitCommandOptions): InputMode {
  * Maps raw CLI flag values into a structured CommitInput.
  * Pure logic: handles slugification, casing, and namespacing math.
  */
-export function parseFlagsToInput(options: CommitCommandOptions, registry: ProtocolRegistry): Partial<CommitInput> {
+export function parseFlagsToInput(options: CommitCommandOptions, protocols: ProtocolMap<ProtocolContext>): Partial<CommitInput> {
     const trailersMap = new ProtocolMap<Record<string, string[]>>();
-    const protocols = registry.getAll();
 
     // 1. Dynamically map all authorized trailers from registered flags
-    for (const ctx of protocols) {
+    for (const ctx of protocols.values()) {
         const { def } = ctx;
         const authorizedKeys = Object.keys(def.trailers);
         const ns = def.namespace;
@@ -99,8 +99,8 @@ export function parseFlagsToInput(options: CommitCommandOptions, registry: Proto
     for (const entry of catchAllEntries) {
         const { protocolName: entryProtocolName, key, values } = entry;
         const targetCtx = entryProtocolName 
-            ? registry.get(entryProtocolName) 
-            : registry.resolveKey(key);
+            ? protocols.get(entryProtocolName) 
+            : resolveProtocolKey(protocols, key);
 
         if (targetCtx) {
             const authorizedKey = authorizeKey(key, targetCtx);
@@ -118,7 +118,7 @@ export function parseFlagsToInput(options: CommitCommandOptions, registry: Proto
         }
 
         // C. Orphan Fallback (Permissive Root)
-        const root = registry.getByNamespace(GLOBAL_NAMESPACE);
+        const root = protocols.get(GLOBAL_NAMESPACE);
         if (root?.def.permissive) {
             const pName = root.def.name.toLowerCase();
             const pMap = trailersMap.get(pName) || {};

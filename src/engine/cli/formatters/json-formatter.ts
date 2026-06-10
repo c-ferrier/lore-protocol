@@ -1,4 +1,5 @@
 import { getProtocolIdentity } from '../../core/logic/identity.js';
+import { ProtocolMap } from '../../core/models/protocol-map.js';
 import type { Atom, ProtocolState } from '../../core/types/domain.js';
 import type {
   FormattableConfigResult,
@@ -8,8 +9,8 @@ import type {
   FormattableTraceResult,
   FormattableValidationResult,
 } from '../../core/types/output.js';
+import type { ProtocolContext } from '../../core/types/protocol-definition.js';
 import type { ErrorMessage,IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
 
 /**
  * Strategy implementation for JSON output.
@@ -18,7 +19,7 @@ import type { ProtocolRegistry } from '../../services/protocol-registry.js';
  * SOLID: SRP -- only responsible for JSON formatting.
  */
 export class JsonFormatter implements IOutputFormatter {
-  constructor(protected readonly protocolRegistry: ProtocolRegistry) {}
+  constructor(protected readonly protocols: ProtocolMap<ProtocolContext>) {}
 
   /**
    * Returns the key name for the subject field in the output JSON.
@@ -231,7 +232,7 @@ export class JsonFormatter implements IOutputFormatter {
     protocolName: string,
     visibleTrailers: readonly string[] | 'all'
   ): Record<string, unknown> {
-    const p = this.protocolRegistry.get(protocolName);
+    const p = this.protocols.get(protocolName);
     const id = p ? getProtocolIdentity(state, p) : null;
 
     return {
@@ -256,7 +257,7 @@ export class JsonFormatter implements IOutputFormatter {
   ): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     const trailers = state.trailers;
-    const p = this.protocolRegistry.get(protocolName);
+    const p = this.protocols.get(protocolName);
     const identityKey = p?.def.identityKey;
 
     const shouldShow = (key: string): boolean => {

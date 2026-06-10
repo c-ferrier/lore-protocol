@@ -1,7 +1,8 @@
 import type { EngineConfig } from '../types/config.js';
-import type { ProtocolState,Trailers } from '../types/domain.js';
+import { ProtocolMap, type ProtocolState, type Trailers } from '../types/domain.js';
 import type { ValidationIssue } from '../types/output.js';
-import type { IIdentityResolver, ProtocolContext,ProtocolDefinition } from '../types/protocol-definition.js';
+import type { ProtocolContext,ProtocolDefinition } from '../types/protocol-definition.js';
+import { resolveProtocolIdentity } from './protocols.js';
 
 /**
  * Basic commit message structural hygiene.
@@ -45,9 +46,9 @@ export function evaluateHygiene(subject: string = '', body: string = '', config:
 export function evaluateProtocolSchema(
   protocol: ProtocolContext,
   state: ProtocolState,
-  resolver?: IIdentityResolver,
+  protocols?: ProtocolMap<ProtocolContext>,
 ): ValidationIssue[] {
-  return validateProtocolState(state, protocol.def, resolver);
+  return validateProtocolState(state, protocol.def, protocols);
 }
 
 /**
@@ -67,7 +68,7 @@ export function isValidProtocolIdentity(id: string, def: ProtocolDefinition): bo
 export function validateProtocolState(
   state: ProtocolState,
   def: ProtocolDefinition,
-  resolver?: IIdentityResolver
+  protocols?: ProtocolMap<ProtocolContext>
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   
@@ -101,7 +102,7 @@ export function validateProtocolState(
     }
 
     for (const value of values) {
-      const result = validateProtocolTrailer(key, value, def, resolver);
+      const result = validateProtocolTrailer(key, value, def, protocols);
       if (!result.valid) {
         issues.push({
           severity: (key === def.identityKey || def.strict) ? 'error' : 'warning',
@@ -134,7 +135,7 @@ export function validateProtocolTrailer(
   key: string, 
   value: string, 
   def: ProtocolDefinition,
-  resolver?: IIdentityResolver
+  protocols?: ProtocolMap<ProtocolContext>
 ): { valid: boolean; message?: string; rule?: string } {
   const tDef = def.trailers[key];
   if (!tDef) return { valid: true };
@@ -189,7 +190,7 @@ export function validateProtocolTrailer(
       };
     }
 
-    if (!resolver) {
+    if (!protocols) {
       return {
         valid: false,
         rule: 'unknown-protocol-prefix',
@@ -198,10 +199,10 @@ export function validateProtocolTrailer(
     }
 
     try {
-      const identity = resolver.resolveIdentity(value, def.name);
+      const identity = resolveProtocolIdentity(protocols, value, def.name);
       if (!identity) return { valid: false, rule: 'unknown-protocol-prefix' };
 
-      const targetCtx = resolver.get(identity.protocol || def.name);
+      const targetCtx = protocols.get(identity.protocol || def.name);
       if (targetCtx && !isValidProtocolIdentity(identity.id, targetCtx.def)) {
           return {
               valid: false,

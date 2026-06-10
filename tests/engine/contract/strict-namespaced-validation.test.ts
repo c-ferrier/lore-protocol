@@ -1,7 +1,8 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { validateFormatting } from '../../../src/engine/core/logic/commit-formatting.js';
-import { makeCommitInput, makeStubProtocolContext, makeStubProtocolRegistry,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
+import { makeCommitInput, makeStubProtocolContext, type ProtocolContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 
 describe('Strict Namespaced Validation', () => {
 
@@ -14,18 +15,19 @@ describe('Strict Namespaced Validation', () => {
         { name: 'Fred', namespace: 'fred', identityKey: 'Mock-id' },
         { strict: true, permissive: false }
     );
-    const registry = makeStubProtocolRegistry([strictProtocol]);
+    const protocols = new ProtocolMap<ProtocolContext>();
+    protocols.set(strictProtocol.name, strictProtocol);
     
     // 2. Input with an orphan trailer in "fred" namespace
     const input = makeCommitInput({
       subject: 'feat: add feature',
-      trailers: new Map([['fred', { 
+      trailers: new ProtocolMap([['fred', { 
             'Mock-id': ['12345678'],
             'Orphan': ['value'] // Not defined in Fred schema
         }]]),
     });
 
-    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
+    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, protocols);
     
     // Should report that 'Orphan' is not allowed
     expect(issues.some(i => i.severity === 'error' && i.rule === 'unauthorized-trailer' && i.field === 'fred:Orphan')).toBe(true);
@@ -36,16 +38,17 @@ describe('Strict Namespaced Validation', () => {
         { name: 'Fred', namespace: 'fred', identityKey: 'Mock-id' },
         { strict: true, permissive: false }
     );
-    const registry = makeStubProtocolRegistry([strictProtocol]);
+    const protocols = new ProtocolMap<ProtocolContext>();
+    protocols.set(strictProtocol.name, strictProtocol);
     
     const input = makeCommitInput({
       subject: 'feat: add feature',
-      trailers: new Map([['fred', { 
+      trailers: new ProtocolMap([['fred', { 
             'Mock-id': ['12345678']
         }]])
     });
 
-    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
+    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, protocols);
     const errors = issues.filter(i => i.severity === 'error');
     expect(errors).toHaveLength(0);
   });
@@ -64,17 +67,18 @@ describe('Strict Namespaced Validation', () => {
         }
     );
 
-    const registry = makeStubProtocolRegistry([strictProtocol]);
+    const protocols = new ProtocolMap<ProtocolContext>();
+    protocols.set(strictProtocol.name, strictProtocol);
 
     const input = makeCommitInput({
       subject: 'feat: add feature',
-      trailers: new Map([['fred', { 
+      trailers: new ProtocolMap([['fred', { 
             // Missing Mock-id
             'Other': ['val']
         }]])
     });
 
-    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
+    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, protocols);
     expect(issues.some(i => i.rule === 'fred-id-present' && i.field === 'fred:Mock-id')).toBe(true);
   });
 
@@ -83,17 +87,18 @@ describe('Strict Namespaced Validation', () => {
         { name: 'Fred', namespace: 'fred', identityKey: 'Mock-id' },
         { strict: true, permissive: false }
     );
-    const registry = makeStubProtocolRegistry([strictProtocol]);
+    const protocols = new ProtocolMap<ProtocolContext>();
+    protocols.set(strictProtocol.name, strictProtocol);
 
     const input = makeCommitInput({
       subject: 'feat: add feature',
-      trailers: new Map([['fred', { 
+      trailers: new ProtocolMap([['fred', { 
             'Mock-id': ['12345678'],
             'Unknown-key': ['value'] // Truly unknown key
         }]]),
     });
 
-    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, registry);
+    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, protocols);
     expect(issues.some(i => i.rule === 'unauthorized-trailer' && i.field === 'fred:Unknown-key')).toBe(true);
   });
 });

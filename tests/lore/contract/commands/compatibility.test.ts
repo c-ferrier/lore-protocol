@@ -1,14 +1,11 @@
 import { Command } from 'commander';
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
-import { registerConstraintsCommand } from '../../../../src/lore/commands/constraints.js';
-import { registerContextCommand } from '../../../../src/lore/commands/context.js';
-;
-;
-;
 import { type PathQueryDeps } from '../../../../src/engine/cli/commands/helpers/path-query.js';
 import * as engineExports from '../../../../src/engine/index.js';
-import { makeMockLoreContext } from '../../lore-test-utils.js';
+import { registerConstraintsCommand } from '../../../../src/lore/commands/constraints.js';
+import { registerContextCommand } from '../../../../src/lore/commands/context.js';
+import { makeMockLoreInfra } from '../../lore-test-utils.js';
 
 describe('Lore Compatibility Command Registration', () => {
   let program: Command;
@@ -16,7 +13,7 @@ describe('Lore Compatibility Command Registration', () => {
 
   beforeEach(() => {
     program = new Command();
-    deps = makeMockLoreContext() as unknown as PathQueryDeps;
+    deps = makeMockLoreInfra() as unknown as PathQueryDeps;
     
     // Spy on the shared helper
     vi.spyOn(engineExports, 'executePathQuery').mockResolvedValue(undefined);

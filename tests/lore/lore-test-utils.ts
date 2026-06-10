@@ -1,18 +1,16 @@
 import { Command } from 'commander';
 
-import { type PathQueryDeps } from '../../src/engine/cli/commands/helpers/path-query.js';
+import { ProtocolMap } from '../../src/engine/core/models/protocol-map.js';
 import type { EngineOptions } from '../../src/engine/index.js';
-import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
+import type { EngineInfra } from '../../src/engine/services/engine-bootstrapper.js';
 import { 
-    makeAtomRepository, 
     makeStubFormatter, 
     makeStubProtocolContext, 
-    makeStubProtocolRegistry, 
-    TEST_ENGINE_CONFIG 
-} from '../../src/engine/testing.js';
+    type ProtocolContext, 
+    TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
 import { buildLoreCli as realBuildLoreCli } from '../../src/lore/cli-wrapper.js';
 import { LoreProtocolDefinition } from '../../src/lore/protocol-definition.js';
-import { TestLogger } from '../engine/engine-test-utils.js';
+import { makeMockGitClient, makeMockPrompt, makeMockQueryCache, TestLogger } from '../engine/engine-test-utils.js';
 
 /**
  * =============================================================================
@@ -20,39 +18,41 @@ import { TestLogger } from '../engine/engine-test-utils.js';
  * =============================================================================
  */
 
-export interface LoreTestContext extends PathQueryDeps {
-    readonly protocolRegistry: ProtocolRegistry;
-}
-
 /** Creates a real Lore protocol context using the production definition. */
 export function makeLoreProtocol() {
     return makeStubProtocolContext(LoreProtocolDefinition);
 }
 
-/** Creates a registry with the Lore protocol pre-registered. */
-export function makeLoreRegistry() {
-    return makeStubProtocolRegistry([makeLoreProtocol()]);
+/** Creates a ProtocolMap with the Lore protocol pre-registered. */
+export function makeLoreProtocolMap() {
+    const map = new ProtocolMap<ProtocolContext>();
+    const lore = makeLoreProtocol();
+    map.set(lore.name, lore);
+    return map;
 }
 
 /** Creates a full mock dependency bag for Lore-level command tests. */
-export function makeMockLoreContext(overrides: Record<string, unknown> = {}): LoreTestContext {
+export function makeMockLoreInfra(overrides: Partial<EngineInfra> = {}): EngineInfra {
   return {
-    atomRepository: makeAtomRepository(),
-    protocolRegistry: makeLoreRegistry(),
+    git: makeMockGitClient(),
+    cache: makeMockQueryCache(),
+    protocols: makeLoreProtocolMap(),
     getFormatter: () => makeStubFormatter(),
     logger: new TestLogger(),
     config: TEST_ENGINE_CONFIG,
     protocolRoot: process.cwd(),
     cwd: process.cwd(),
+    prompt: makeMockPrompt(),
+    baseTarget: { type: 'global', raw: 'all', resolvedPaths: [] },
     ...overrides
-  } as LoreTestContext;
+  };
 }
 
 /** Helper to create a Commander program for testing a specific command. */
-export function createLoreProgram(registerFn: (program: Command, deps: LoreTestContext) => void, deps: LoreTestContext) {
+export function createLoreProgram(registerFn: (program: Command, infra: EngineInfra) => void, infra: EngineInfra) {
     const program = new Command();
     program.exitOverride();
-    registerFn(program, deps);
+    registerFn(program, infra);
     return program;
 }
 

@@ -1,35 +1,30 @@
-import { type Mock, vi } from 'vitest';
+import { vi } from 'vitest';
 
 import type { ProtocolContext,ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
-import { QueryTargetAST } from '../../src/engine/core/types/query.js';
 import type { ICommitInputReader } from '../../src/engine/interfaces/commit-input-reader.js';
 import type { IGitClient } from '../../src/engine/interfaces/git-client.js';
 import { type ILogger,LogLevel } from '../../src/engine/interfaces/logger.js';
 import type { IOutputFormatter } from '../../src/engine/interfaces/output-formatter.js';
 import type { IPrompt } from '../../src/engine/interfaces/prompt.js';
 import type { IQueryCache } from '../../src/engine/interfaces/query-cache.js';
-import { AtomRepository } from '../../src/engine/services/atom-repository.js';
-import { ProtocolRegistry } from '../../src/engine/services/protocol-registry.js';
+import type { EngineInfra } from '../../src/engine/services/engine-bootstrapper.js';
 import { 
     createProtocolContext,
     makeAtom,
-    makeAtomRepository,
     makeQueryTarget,
     makeRawCommit,
-    makeStubAtomRepository, 
     makeStubConfigLoader, 
     makeStubFormatter,
     makeStubGitClient, 
     makeStubPrompt, 
     makeStubProtocolContext,
-    makeStubProtocolRegistry, 
+    makeStubProtocolMap, 
     makeStubQueryCache,
     makeStubQueryOptions,
     ProtocolMap,
     type ProtocolState,
     TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
 import { 
-    MockedAtomRepository,
     MockedConfigLoader,
     MockedGitClient,
     MockedInputResolver,
@@ -65,9 +60,8 @@ export function makeMockGitClient(overrides: Partial<IGitClient> = {}): MockedGi
     } as unknown as MockedGitClient;
 }
 
-export function makeMockProtocolRegistry(protocols: ProtocolContext[] = []): ProtocolRegistry {
-    const registry = makeStubProtocolRegistry(protocols);
-    return registry;
+export function makeMockProtocolMap(protocols: ProtocolContext[] = []): ProtocolMap<ProtocolContext> {
+    return makeStubProtocolMap(protocols);
 }
 
 export function makeMockQueryCache(overrides: Partial<IQueryCache> = {}): MockedQueryCache {
@@ -106,23 +100,6 @@ export function makeMockFormatter(overrides: Partial<IOutputFormatter> = {}): Mo
     } as unknown as MockedOutputFormatter;
 }
 
-export function makeMockAtomRepository(overrides: Partial<AtomRepository> = {}): MockedAtomRepository {
-    const stub = makeStubAtomRepository(overrides);
-    const mock = { 
-        ...stub, 
-        find: vi.fn(stub.find), 
-        findByIds: vi.fn(stub.findByIds),
-        findById: vi.fn(async (id: string | { id: string; protocol?: string }, opts: unknown) => {
-            const identity = typeof id === 'string' ? { id } : id;
-            const results = await (mock.findByIds as unknown as Mock)([identity], opts);
-            return results?.[0] || null;
-        }),
-        getAtomDrift: vi.fn(stub.getAtomDrift),
-        getHeadHash: vi.fn(stub.getHeadHash)
-    } as unknown as MockedAtomRepository;
-    return mock;
-}
-
 export function makeMockPrompt(overrides: Partial<IPrompt> = {}): MockedPrompt {
     const stub = makeStubPrompt(overrides);
     return {
@@ -150,16 +127,6 @@ export function makeMockProtocolContext(overrides: Partial<ProtocolDefinition> =
     return makeStubProtocolContext(overrides);
 }
 
-/** Helper to create a REAL AtomRepository instance with mocks/stubs injected. */
-export function createMockAtomRepository(deps: {
-    gitClient?: IGitClient;
-    protocolRegistry?: ProtocolRegistry;
-    queryCache?: IQueryCache;
-    baseTarget?: QueryTargetAST;
-} = {}) {
-    return makeAtomRepository(deps);
-}
-
 /** Mock logger that captures all output for inspection. */
 export class TestLogger implements ILogger {
     public readonly level: LogLevel = LogLevel.INFO;
@@ -183,6 +150,23 @@ export class TestLogger implements ILogger {
         this.resultLogs.push(msg);
     }
     child() { return this; }
+}
+
+/** Helper to create a fully mocked Infrastructure Bag. */
+export function makeMockInfra(overrides: Partial<EngineInfra> = {}): EngineInfra {
+    return {
+        git: makeMockGitClient(),
+        cache: makeMockQueryCache(),
+        protocols: makeMockProtocolMap(),
+        config: TEST_ENGINE_CONFIG,
+        logger: new TestLogger(),
+        prompt: makeMockPrompt(),
+        getFormatter: () => makeMockFormatter(),
+        protocolRoot: '/mock-repo',
+        cwd: '/mock-repo',
+        baseTarget: makeQueryTarget(),
+        ...overrides
+    } as EngineInfra;
 }
 
 // Re-exports of foundational test data/types from the SDK

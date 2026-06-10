@@ -1,16 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { type ProtocolDefinition } from '../../../src/engine/core/types/protocol-definition.js';
-import { type IGitClient } from '../../../src/engine/interfaces/git-client.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
 import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
-import { makeQueryTarget,makeStubProtocolContext } from '../../../src/engine/testing.js';
+import { findAtoms } from '../../../src/engine/shell/orchestrators/discovery.js';
+import { makeQueryTarget,makeStubProtocolContext, type ProtocolContext } from '../../../src/engine/testing.js';
 import { LoreJsonFormatter } from '../../../src/lore/formatters/lore-json-formatter.js';
-import { makeMockGitClient } from '../../engine/engine-test-utils.js';
-;
-;
-;
+import { makeMockGitClient, makeMockInfra } from '../../engine/engine-test-utils.js';
 
 /**
  * ARCHITECTURAL TEST: Wrapper Rebranding
@@ -35,11 +31,11 @@ describe('Lore Wrapper Rebranding Flow', () => {
     };
 
     const loreProtocol = makeStubProtocolContext(loreDef);
-    const registry = new ProtocolRegistry();
-    registry.register(loreProtocol);
+    const protocols = new ProtocolMap<ProtocolContext>();
+    protocols.set(loreProtocol.name, loreProtocol);
 
     // 2. Mock Storage to return a Lore commit
-    const mockGit = makeMockGitClient();
+    const git = makeMockGitClient();
     const rawCommit = {
       hash: 'abc12345',
       date: new Date().toISOString(),
@@ -49,21 +45,20 @@ describe('Lore Wrapper Rebranding Flow', () => {
       trailers: 'Lore-id: aabbccdd\nStatus: active',
       filesChanged: ['src/main.ts']
     };
-    vi.mocked(mockGit.query).mockResolvedValue([rawCommit]);
+    vi.mocked(git.query).mockResolvedValue([rawCommit]);
 
-    // 3. Setup Repository
-    const repo = new AtomRepository(
-      mockGit as IGitClient,
-      registry,
-      new NullQueryCache(),
-      makeQueryTarget()
-    );
+    // 3. Setup Infra
+    const infra = makeMockInfra({
+      git,
+      protocols,
+      cache: new NullQueryCache(),
+    });
 
-    const atoms = await repo.find(makeQueryTarget());
+    const atoms = await findAtoms(infra, makeQueryTarget());
     const atom = atoms[0];
 
     // 4. Format using the Lore-specific formatter
-    const formatter = new LoreJsonFormatter(registry);
+    const formatter = new LoreJsonFormatter(protocols);
     const json = JSON.parse(formatter.formatQueryResult({
       result: {
         atoms: [atom],

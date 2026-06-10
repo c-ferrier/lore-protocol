@@ -1,37 +1,25 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
-import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
-import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
-import { ProtocolRegistry } from '../../../src/engine/services/protocol-registry.js';
-import { makeAtom, makeAtomRepository,makeStubProtocolContext,TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
-import { type MockedGitClient } from '../../mock-types.js';
-import { makeMockGitClient } from '../engine-test-utils.js';
-;
-
-
-;
-;
-
 import * as HydrationLogic from '../../../src/engine/core/logic/hydration.js';
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
+import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
+import { findAtoms } from '../../../src/engine/shell/orchestrators/discovery.js';
+import { makeAtom, makeStubProtocolContext,type ProtocolContext,TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
+import { type MockedGitClient } from '../../mock-types.js';
+import { makeMockGitClient, makeMockInfra } from '../engine-test-utils.js';
 
 const TEST_ID_KEY = "Mock-id";
 
-describe('AtomRepository Cache Interaction', () => {
-  let gitClient: MockedGitClient;
-  let repo: AtomRepository;
-  let protocolRegistry: ProtocolRegistry;
+describe('Discovery Cache Interaction', () => {
+  let git: MockedGitClient;
+  let protocols: ProtocolMap<ProtocolContext>;
 
   beforeEach(() => {
-    gitClient = makeMockGitClient();
+    git = makeMockGitClient();
 
     const protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
-    protocolRegistry = new ProtocolRegistry();
-    protocolRegistry.register(protocol);
-
-    repo = makeAtomRepository({
-        gitClient,
-        protocolRegistry,
-    });
+    protocols = new ProtocolMap();
+    protocols.set(protocol.name, protocol);
   });
 
   const mockCommit: RawCommit = {
@@ -45,13 +33,18 @@ describe('AtomRepository Cache Interaction', () => {
   };
 
   it('should utilize hydrateAtoms logic module', async () => {
-    vi.mocked(gitClient.query).mockResolvedValue([mockCommit]);
+    vi.mocked(git.query).mockResolvedValue([mockCommit]);
     const mockAtoms = [makeAtom({ commitHash: mockCommit.hash })];
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue(mockAtoms);
 
-    const result = await repo.find();
+    const infra = makeMockInfra({
+        git,
+        protocols,
+    });
+
+    const result = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });
 
     expect(result).toStrictEqual(mockAtoms);
-    expect(HydrationLogic.hydrateAtoms).toHaveBeenCalledWith([mockCommit], protocolRegistry, { includeAllCommits: undefined });
+    expect(HydrationLogic.hydrateAtoms).toHaveBeenCalledWith([mockCommit], protocols, { includeAllCommits: undefined });
   });
 });

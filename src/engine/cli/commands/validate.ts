@@ -1,11 +1,9 @@
 import { Command } from 'commander';
 
 import { createQueryTarget } from '../../core/logic/query-targets.js';
-import type { EngineConfig } from '../../core/types/config.js';
 import type { CommitValidationResult, FormattableValidationResult, ValidationIssue } from '../../core/types/output.js';
-import type { IOutputFormatter } from '../../interfaces/output-formatter.js';
-import type { AtomRepository } from '../../services/atom-repository.js';
-import type { ProtocolRegistry } from '../../services/protocol-registry.js';
+import type { EngineInfra } from '../../services/engine-bootstrapper.js';
+import { findAtoms } from '../../shell/orchestrators/discovery.js';
 import { validateCommits } from '../../shell/orchestrators/validation.js';
 
 interface ValidateCommandOptions {
@@ -20,16 +18,9 @@ interface ValidateCommandOptions {
  */
 export function registerValidateCommand(
   program: Command,
-  deps: {
-    atomRepository: AtomRepository;
-    protocolRegistry: ProtocolRegistry;
-    config: EngineConfig;
-    getFormatter: () => IOutputFormatter;
-    protocolRoot: string;
-    cwd: string;
-  },
+  infra: EngineInfra,
 ): void {
-  const { protocolRoot, cwd } = deps;
+  const { protocolRoot, cwd } = infra;
   program
     .command('validate [range]')
     .description('Validate commits for protocol compliance')
@@ -37,22 +28,18 @@ export function registerValidateCommand(
     .option('--last <n>', 'Validate the last N commits', parseInt)
     .option('--strict', 'Treat warnings as errors')
     .action(async (range: string | undefined, options: ValidateCommandOptions) => {
-      const { atomRepository, protocolRegistry, config, getFormatter } = deps;
+      const { getFormatter } = infra;
 
       const target = createQueryTarget(range, { cwd, protocolRoot, isScoped: false });
 
-      const atoms = await atomRepository.find(target, {
+      const atoms = await findAtoms(infra, target, {
         since: options.since,
         maxCommits: options.last,
         includeAllCommits: true,
       });
 
       // Validate all commits using the shell orchestrator
-      let results: readonly CommitValidationResult[] = await validateCommits(atoms, {
-        atomRepository,
-        config,
-        protocolRegistry,
-      });
+      let results: readonly CommitValidationResult[] = await validateCommits(atoms, infra);
 
       // In strict mode, upgrade each warning issue to an error
       if (options.strict) {
@@ -100,7 +87,7 @@ export function registerValidateCommand(
       };
 
       const formatter = getFormatter();
-      console.log(formatter.formatValidationResult(validationResult));
+      logger.result(formatter.formatValidationResult(validationResult));
 
       // Exit with appropriate code
       if (totalErrors > 0) {

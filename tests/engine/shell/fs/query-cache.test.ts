@@ -251,11 +251,11 @@ describe('Cache Bypass Integration (--no-cache)', () => {
     await rm(integrationTempDir, { recursive: true, force: true });
   });
 
-  it('should verify the atomRepository is created when running a command', async () => {
+  it('should verify the infrastructure is created when running a command', async () => {
     const originalArgv = process.argv;
     process.argv = ['node', 'atom', 'log', '--no-cache'];
     
-    const { sharedDeps } = await runCli({
+    const { infra } = await runCli({
       binaryName: 'atom', version: '0.0.0-test',
       description: 'Agnostic',
       engineDirName: TEST_ENGINE_DIR,
@@ -265,7 +265,7 @@ describe('Cache Bypass Integration (--no-cache)', () => {
       prompt: makeMockPrompt(),
     });
 
-    expect(sharedDeps.atomRepository).toBeDefined();
+    expect(infra.git).toBeDefined();
     process.argv = originalArgv;
   });
 });

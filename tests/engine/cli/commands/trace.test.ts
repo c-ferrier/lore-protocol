@@ -1,60 +1,64 @@
 import { Command } from 'commander';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerTraceCommand } from '../../../../src/engine/cli/commands/trace.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
+import * as Discovery from '../../../../src/engine/shell/orchestrators/discovery.js';
 import { 
     makeAtom, 
     makeStubProtocolContext, 
-    makeStubProtocolRegistry,
+    type ProtocolContext, 
     TEST_ENGINE_CONFIG,
     TEST_ID_KEY, 
-    TEST_PROTOCOL_DEFINITION 
-} from '../../../../src/engine/testing.js';
-import { type MockedAtomRepository, type MockedGitClient, type MockedOutputFormatter } from '../../../mock-types.js';
+    TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
+import { type MockedGitClient, type MockedOutputFormatter } from '../../../mock-types.js';
 import { 
-    makeMockAtomRepository, 
     makeMockFormatter, 
     makeMockGitClient,
+    makeMockInfra,
     TestLogger 
 } from '../../engine-test-utils.js';
 
+vi.mock('../../../../src/engine/shell/orchestrators/discovery.js', () => ({
+    findAtomsByIds: vi.fn()
+}));
+
 describe('registerTraceCommand (Integrated Expansion)', () => {
-  let atomRepository: MockedAtomRepository;
-  let protocolRegistry: ProtocolRegistry;
-  let gitClient: MockedGitClient;
+  let git: MockedGitClient;
   let logger: TestLogger;
   let formatter: MockedOutputFormatter;
   let program: Command;
+  let protocols: ProtocolMap<ProtocolContext>;
 
   beforeEach(() => {
-    atomRepository = makeMockAtomRepository();
-    gitClient = makeMockGitClient();
+    git = makeMockGitClient();
     // Register protocol with 'Related' reference trailer to enable tracing
-    protocolRegistry = makeStubProtocolRegistry([makeStubProtocolContext({
+    const protocol = makeStubProtocolContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: {
             ...TEST_PROTOCOL_DEFINITION.trailers,
             'Related': { description: 'R', multivalue: true, validation: 'reference', isCore: true }
         }
-    })]);
+    });
+    protocols = new ProtocolMap();
+    protocols.set(protocol.name, protocol);
+
     logger = new TestLogger();
     formatter = makeMockFormatter();
     formatter.formatTraceResult.mockReturnValue('formatted trace');
     program = new Command();
     program.exitOverride();
 
-    registerTraceCommand(program, {
-      atomRepository,
-      gitClient,
-      protocolRegistry,
+    registerTraceCommand(program, makeMockInfra({
+      git,
+      protocols,
       logger,
       config: TEST_ENGINE_CONFIG,
       getFormatter: () => formatter
-    });
+    }));
   });
 
-  it('delegates BFS traversal to the repository and builds edges', async () => {
+  it('delegates BFS traversal to findAtomsByIds and builds edges', async () => {
     const id1 = 'aaaaaaaa';
     const id2 = 'bbbbbbbb';
 
@@ -74,13 +78,14 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
         }]])
     });
 
-    // Mock repository to return the entire expanded set in one call
-    atomRepository.findByIds.mockResolvedValue([rootAtom, relatedAtom]);
+    // Mock orchestrator to return the entire expanded set in one call
+    vi.mocked(Discovery.findAtomsByIds).mockResolvedValue([rootAtom, relatedAtom]);
 
     await program.parseAsync(['node', 'test', 'trace', id1]);
 
-    // 1. Verify repository call: findByIds with follow: true
-    expect(atomRepository.findByIds).toHaveBeenCalledWith(
+    // 1. Verify orchestrator call: findAtomsByIds with follow: true
+    expect(Discovery.findAtomsByIds).toHaveBeenCalledWith(
+        expect.anything(),
         [expect.objectContaining({ id: id1 })],
         expect.objectContaining({ follow: true, maxDepth: 10 })
     );
@@ -100,7 +105,7 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
   });
 
   it('throws error if root atom is not found', async () => {
-    atomRepository.findByIds.mockResolvedValue([]);
+    vi.mocked(Discovery.findAtomsByIds).mockResolvedValue([]);
     await expect(program.parseAsync(['node', 'test', 'trace', 'missing']))
         .rejects.toThrow(/not found in history/);
   });

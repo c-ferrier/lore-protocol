@@ -51,11 +51,11 @@ describe('Lore CLI Configuration Mapping', () => {
 intent_max_length = 42
 `);
 
-    const { sharedDeps } = await buildLoreCli({ 
+    const { infra } = await buildLoreCli({ 
         engineDirName: '.atom', 
         configFileName: 'config.toml' 
     });
-    const config = sharedDeps.config;
+    const config = infra.config;
     expect(config.validation.subjectMaxLength).toBe(42);
   });
 
@@ -65,11 +65,11 @@ intent_max_length = 42
 version = "1.0"
 `);
 
-    const { sharedDeps } = await buildLoreCli({ 
+    const { infra } = await buildLoreCli({ 
         engineDirName: '.atom', 
         configFileName: 'config.toml' 
     });
-    const lore = sharedDeps.protocolRegistry.get('lore')!;
+    const lore = infra.protocols.get('lore')!;
     expect(lore).toBeDefined();
     expect(lore.permissive).toBe(true);
   });
@@ -82,11 +82,11 @@ version = "1.0"
 custom = ["New-Trailer"]
 `);
 
-    const { sharedDeps } = await buildLoreCli({ 
+    const { infra } = await buildLoreCli({ 
         engineDirName: '.atom', 
         configFileName: 'config.toml' 
     });
-    const lore = sharedDeps.protocolRegistry.get('lore')!;
+    const lore = infra.protocols.get('lore')!;
     
     // Auto-lockdown: non-standard trailer found
     expect(lore.permissive).toBe(false);
@@ -98,11 +98,11 @@ custom = ["New-Trailer"]
 max_depth = 9
 `);
 
-    const { sharedDeps } = await buildLoreCli({ 
+    const { infra } = await buildLoreCli({ 
         engineDirName: '.atom', 
         configFileName: 'config.toml' 
     });
-    expect(sharedDeps.config.follow.maxDepth).toBe(9);
+    expect(infra.config.follow.maxDepth).toBe(9);
   });
 
   it('should correctly map legacy validation.strict to lore protocol strictness', async () => {
@@ -111,12 +111,12 @@ max_depth = 9
 strict = true
 `);
 
-    const { sharedDeps } = await buildLoreCli({ 
+    const { infra } = await buildLoreCli({ 
         engineDirName: '.atom', 
         configFileName: 'config.toml' 
     });
     
-    const lore = sharedDeps.protocolRegistry.get('lore')!;
+    const lore = infra.protocols.get('lore')!;
     expect(lore.strict).toBe(true);
   });
 });

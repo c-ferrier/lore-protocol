@@ -1,16 +1,15 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { finalizeCommitInput, InputMode, parseFlagsToInput, selectInputMode } from '../../../../src/engine/core/logic/input-interpretation.js';
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
-import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { 
     makeStubProtocolContext,
-    makeStubProtocolRegistry, 
     MOCK_CORE_TRAILERS, 
     TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
 
 describe('Input Interpretation Logic (Pure Functions)', () => {
-  let registry: ProtocolRegistry;
+  let protocols: ProtocolMap<ProtocolContext>;
   let mockProtocol: ProtocolContext;
 
   beforeEach(() => {
@@ -18,8 +17,8 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
         ...TEST_PROTOCOL_DEFINITION,
         trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
     });
-    registry = new ProtocolRegistry();
-    registry.register(mockProtocol);
+    protocols = new ProtocolMap<ProtocolContext>();
+    protocols.set(mockProtocol.name, mockProtocol);
   });
 
   describe('selectInputMode', () => {
@@ -47,6 +46,14 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
         const mode = selectInputMode({ updateNotifier: false });
         expect(mode).toBe(InputMode.Stdin);
     });
+
+    it('should select Flags mode when subject is provided', () => {
+      expect(selectInputMode({ subject: 'feat: text' })).toBe(InputMode.Flags);
+    });
+
+    it('should select Stdin mode by default', () => {
+      expect(selectInputMode({})).toBe(InputMode.Stdin);
+    });
   });
 
   describe('parseFlagsToInput', () => {
@@ -59,7 +66,7 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
           related: ['id3'],
         };
     
-        const result = parseFlagsToInput(options, registry);
+        const result = parseFlagsToInput(options, protocols);
     
         expect(result.subject).toBe('feat: add auth');
         expect(result.body).toBe('Detailed description');
@@ -73,7 +80,7 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
       const input = parseFlagsToInput({ 
           subject: 'feat: add login',
           confidence: 'high'
-      }, registry);
+      }, protocols);
 
       expect(input.subject).toBe('feat: add login');
       expect(input.trailers?.get('mock')?.['Confidence']).toEqual(['high']);
@@ -82,7 +89,7 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
     it('should support explicit catch-all --trailer flags', () => {
         const input = parseFlagsToInput({ 
             trailer: ['Confidence=medium', 'Constraint=rule1']
-        }, registry);
+        }, protocols);
 
         expect(input.trailers?.get('mock')?.['Confidence']).toEqual(['medium']);
         expect(input.trailers?.get('mock')?.['Constraint']).toEqual(['rule1']);
@@ -92,7 +99,7 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
         const input = parseFlagsToInput({ 
             confidence: 'high',
             trailer: ['Confidence=medium']
-        }, registry);
+        }, protocols);
 
         expect(input.trailers?.get('mock')?.['Confidence']).toEqual(['high', 'medium']);
     });
@@ -100,7 +107,7 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
     it('should support multiple values for a single key in catch-all flag', () => {
         const input = parseFlagsToInput({ 
             trailer: ['Constraint=c1', 'Constraint=c2']
-        }, registry);
+        }, protocols);
 
         expect(input.trailers?.get('mock')?.['Constraint']).toEqual(['c1', 'c2']);
     });
@@ -109,20 +116,22 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
         const p1 = makeStubProtocolContext({ 
             name: 'P1', 
             namespace: 'p1', 
-            trailers: { Status: { description: 'S', multivalue: false, validation: 'none' } } 
+            trailers: { Status: { description: 'S', multivalue: false, validation: 'none' as const } } 
         });
         const p2 = makeStubProtocolContext({ 
             name: 'P2', 
             namespace: 'p2', 
-            trailers: { Status: { description: 'S', multivalue: false, validation: 'none' } } 
+            trailers: { Status: { description: 'S', multivalue: false, validation: 'none' as const } } 
         });
-        const localRegistry = makeStubProtocolRegistry([p1, p2]);
+        const localProtocols = new ProtocolMap<ProtocolContext>();
+        localProtocols.set(p1.name, p1);
+        localProtocols.set(p2.name, p2);
         
         const options = {
             trailer: ['P1/Status=active', 'P2/Status=pending']
         };
     
-        const result = parseFlagsToInput(options, localRegistry);
+        const result = parseFlagsToInput(options, localProtocols);
     
         expect(result.trailers?.get('p1')!.Status).toEqual(['active']);
         expect(result.trailers?.get('p2')!.Status).toEqual(['pending']);
@@ -132,27 +141,27 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
         const p1 = makeStubProtocolContext({ 
             name: 'Root', 
             namespace: '', 
-            trailers: { Status: { description: 'S', multivalue: false, validation: 'none' } } 
+            trailers: { Status: { description: 'S', multivalue: false, validation: 'none' as const } } 
         });
         const p2 = makeStubProtocolContext({ 
             name: 'NS', 
             namespace: 'ns', 
-            trailers: { Other: { description: 'O', multivalue: false, validation: 'none' } } 
+            trailers: { Other: { description: 'O', multivalue: false, validation: 'none' as const } } 
         });
-        const localRegistry = makeStubProtocolRegistry([p1, p2]);
+        const localProtocols = new ProtocolMap<ProtocolContext>();
+        localProtocols.set(p1.name, p1);
+        localProtocols.set(p2.name, p2);
         
         const options = {
             trailer: ['Status=active']
         };
     
-        const result = parseFlagsToInput(options, localRegistry);
+        const result = parseFlagsToInput(options, localProtocols);
         expect(result.trailers?.get('root')!.Status).toEqual(['active']);
     });
 
     it('should ignore unknown flags that do not match any protocol trailers (Current Behavior)', () => {
-        // NOTE: Strictly speaking, this should warn or error (See Roadmap Phase 7.7)
-        // But for now, we allow them to pass through to satisfy global CLI options.
-        const input = parseFlagsToInput({ unknown: 'val' }, registry);
+        const input = parseFlagsToInput({ unknown: 'val' }, protocols);
         expect(input.trailers?.size).toBe(0);
     });
 
@@ -163,17 +172,19 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
               Department: {
                 description: 'dept',
                 multivalue: false,
-                validation: 'none',
+                validation: 'none' as const,
                 cli: { flag: 'dept' },
               },
           },
         });
+        const localProtocols = new ProtocolMap<ProtocolContext>();
+        localProtocols.set(customProtocol.name, customProtocol);
         const options = {
           subject: 't',
           dept: 'Eng',
         };
     
-        const result = parseFlagsToInput(options, makeStubProtocolRegistry([customProtocol]));
+        const result = parseFlagsToInput(options, localProtocols);
     
         const mockGroup = result.trailers?.get('mock') || {};
         expect(mockGroup.Department).toEqual(['Eng']);
@@ -186,17 +197,19 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
               'Regulatory-Compliance': {
                 description: 'Check for compliance',
                 multivalue: true,
-                validation: 'none',
+                validation: 'none' as const,
               }
           }
         });
+        const localProtocols = new ProtocolMap<ProtocolContext>();
+        localProtocols.set(customProtocol.name, customProtocol);
         
         const options = {
           subject: 'feat',
           regulatoryCompliance: ['GDPR', 'HIPAA'],
         };
     
-        const result = parseFlagsToInput(options, makeStubProtocolRegistry([customProtocol]));
+        const result = parseFlagsToInput(options, localProtocols);
     
         const mockGroup = result.trailers?.get('mock') || {};
         expect(mockGroup['Regulatory-Compliance']).toEqual(['GDPR', 'HIPAA']);
@@ -209,14 +222,17 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
           trailer: ['Confidence=high', 'Department=Eng'],
         };
     
-        const result = parseFlagsToInput(options, makeStubProtocolRegistry([makeStubProtocolContext({
+        const localProtocols = new ProtocolMap<ProtocolContext>();
+        localProtocols.set('mock', makeStubProtocolContext({
             ...TEST_PROTOCOL_DEFINITION,
             trailers: { 
                 ...TEST_PROTOCOL_DEFINITION.trailers, 
                 ...MOCK_CORE_TRAILERS,
-                'Department': { description: 'D', multivalue: false, validation: 'none' } 
+                'Department': { description: 'D', multivalue: false, validation: 'none' as const } 
             }
-        })]));
+        }));
+    
+        const result = parseFlagsToInput(options, localProtocols);
     
         const mockGroup = result.trailers?.get('mock') || {};
         expect(mockGroup.Confidence).toEqual(['low', 'high']);
@@ -224,20 +240,36 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
     });
 
     it('should default subject to empty string when undefined', () => {
-        const result = parseFlagsToInput({}, makeStubProtocolRegistry([mockProtocol]));
+        const result = parseFlagsToInput({}, protocols);
         expect(result.subject).toBe('');
     });
 
     describe('Logic Parity', () => {
         it('should leave body undefined when not provided', () => {
-            const input = parseFlagsToInput({ subject: 's' }, registry);
+            const input = parseFlagsToInput({ subject: 's' }, protocols);
             expect(input.body).toBeUndefined();
         });
     
         it('should map core trailers dynamically using metadata', () => {
-            const input = parseFlagsToInput({ subject: 's', confidence: 'high' }, registry);
+            const input = parseFlagsToInput({ subject: 's', confidence: 'high' }, protocols);
             expect(input.trailers?.get('mock')?.Confidence).toEqual(['high']);
         });
+    });
+
+    it('should map trailers from catch-all --trailer flag', () => {
+      const permissiveProtocol = makeStubProtocolContext({
+          ...TEST_PROTOCOL_DEFINITION,
+          permissive: true,
+          trailers: {
+              ...TEST_PROTOCOL_DEFINITION.trailers,
+              'Status': { description: 'S', multivalue: false, validation: 'none' as const }
+          }
+      });
+      const localProtocols = new ProtocolMap<ProtocolContext>();
+      localProtocols.set(permissiveProtocol.name, permissiveProtocol);
+
+      const input = parseFlagsToInput({ trailer: ['mock/Status=active'] }, localProtocols);
+      expect(input.trailers?.get('mock')?.Status).toEqual(['active']);
     });
   });
 
@@ -250,4 +282,3 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
     });
   });
 });
-
