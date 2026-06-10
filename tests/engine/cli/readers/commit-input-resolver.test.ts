@@ -2,28 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveCommitInput } from '../../../../src/engine/cli/readers/commit-input-resolver.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
-import { type IPrompt } from '../../../../src/engine/interfaces/prompt.js';
 import { ProtocolRegistry } from '../../../../src/engine/services/protocol-registry.js';
 import { makeStubProtocolContext, TEST_ENGINE_CONFIG, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
-
-function createMockPrompt(overrides: Partial<IPrompt> = {}): IPrompt {
-  return {
-    askText: vi.fn(),
-    askConfirm: vi.fn(),
-    askChoice: vi.fn(),
-    askMultiline: vi.fn(),
-    close: vi.fn(),
-    ...overrides,
-  } as unknown as IPrompt;
-}
+import { type MockedPrompt } from '../../../mock-types.js';
+import { makeMockPrompt } from '../../engine-test-utils.js';
 
 describe('resolveCommitInput', () => {
-  let prompt: IPrompt;
+  let prompt: MockedPrompt;
   let protocol: ProtocolContext;
   let registry: ProtocolRegistry;
 
   beforeEach(() => {
-    prompt = createMockPrompt();
+    prompt = makeMockPrompt();
     protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
     registry = new ProtocolRegistry();
     registry.register(protocol);

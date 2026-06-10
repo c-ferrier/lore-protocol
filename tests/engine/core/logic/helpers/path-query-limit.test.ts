@@ -1,12 +1,12 @@
-import { beforeEach,describe, expect, it, vi } from 'vitest';
+import { beforeEach,describe, expect, it } from 'vitest';
 
 import {         executePathQuery,type PathQueryCommandOptions,
     type PathQueryDeps } from '../../../../../src/engine/cli/commands/helpers/path-query.js';
 import { type Atom, ProtocolMap, type ProtocolState } from '../../../../../src/engine/core/types/domain.js';
-import { IOutputFormatter } from '../../../../../src/engine/interfaces/output-formatter.js';
 import { AtomRepository } from '../../../../../src/engine/services/atom-repository.js';
 import { TEST_ENGINE_CONFIG } from '../../../../../src/engine/testing.js';
-import { TestLogger } from '../../../engine-test-utils.js';
+import { type MockedAtomRepository, type MockedOutputFormatter } from '../../../../mock-types.js';
+import { makeMockAtomRepository, makeMockFormatter, TestLogger } from '../../../engine-test-utils.js';
 
 const TEST_ID_KEY = "Mock-id";
 
@@ -34,30 +34,28 @@ function makeAtom(id: string, supersedes: string[] = []): Atom {
 
 describe('executePathQuery — --limit as post-supersession result cap', () => {
   let deps: PathQueryDeps;
-  let mockFind: ReturnType<typeof vi.fn>;
+  let atomRepository: MockedAtomRepository;
+  let formatter: MockedOutputFormatter;
   let formattedOutput: string;
   let logger: TestLogger;
 
   beforeEach(() => {
-    mockFind = vi.fn();
+    atomRepository = makeMockAtomRepository();
+    formatter = makeMockFormatter();
     formattedOutput = '';
     logger = new TestLogger();
 
+    formatter.formatQueryResult.mockImplementation((data) => {
+        formattedOutput = JSON.stringify({
+          atoms: data.result.atoms.length,
+          filteredAtoms: data.result.meta.filteredAtoms,
+        });
+        return formattedOutput;
+    });
+
     deps = {
-      atomRepository: {
-        find: mockFind,
-        findByScope: vi.fn(),
-        resolveFollowLinks: vi.fn(),
-      } as unknown as AtomRepository,
-      getFormatter: () => ({
-        formatQueryResult: vi.fn().mockImplementation((data) => {
-          formattedOutput = JSON.stringify({
-            atoms: data.result.atoms.length,
-            filteredAtoms: data.result.meta.filteredAtoms,
-          });
-          return formattedOutput;
-        }),
-      } as unknown as IOutputFormatter),
+      atomRepository: atomRepository as unknown as AtomRepository,
+      getFormatter: () => formatter,
       config: TEST_ENGINE_CONFIG,
       logger,
       protocolRoot: '/mock',
@@ -80,7 +78,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     a5.protocols.get('mock')!.supersession = { superseded: false, supersededBy: [] };
 
     const atoms = [a1, a2, a3, a4, a5];
-    mockFind.mockResolvedValue(atoms);
+    atomRepository.find.mockResolvedValue(atoms);
 
     const options: PathQueryCommandOptions = { limit: 2 };
     await executePathQuery('src/test.ts', options, deps, 'context', 'all');
@@ -93,23 +91,23 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
   });
 
   it('should not pass limit to atomRepository (only maxCommits)', async () => {
-    mockFind.mockResolvedValue([]);
+    atomRepository.find.mockResolvedValue([]);
 
     const options: PathQueryCommandOptions = { limit: 5, maxCommits: 100 };
     await executePathQuery('src/test.ts', options, deps, 'context', 'all');
 
     // Verify find received maxCommits in options (second argument)
-    const queryOptions = mockFind.mock.calls[0][1];
-    expect(queryOptions.maxCommits).toBe(100);
+    const queryOptions = atomRepository.find.mock.calls[0][1];
+    expect(queryOptions!.maxCommits).toBe(100);
     // limit is in the options but should NOT affect git scan (in repository call)
-    expect(queryOptions.limit).toBeNull();
+    expect(queryOptions!.limit).toBeNull();
   });
 
   it('should return all atoms when limit is not specified', async () => {
     const atoms = [makeAtom('aaaa1111'), makeAtom('bbbb2222'), makeAtom('cccc3333')];
     for (const a of atoms) a.protocols.get('mock')!.supersession = { superseded: false, supersededBy: [] };
 
-    mockFind.mockResolvedValue(atoms);
+    atomRepository.find.mockResolvedValue(atoms);
 
     const options: PathQueryCommandOptions = {};
     await executePathQuery('src/test.ts', options, deps, 'context', 'all');
@@ -122,7 +120,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     const atoms = [makeAtom('aaaa1111'), makeAtom('bbbb2222')];
     for (const a of atoms) a.protocols.get('mock')!.supersession = { superseded: false, supersededBy: [] };
 
-    mockFind.mockResolvedValue(atoms);
+    atomRepository.find.mockResolvedValue(atoms);
 
     const options: PathQueryCommandOptions = { limit: 0 };
     await executePathQuery('src/test.ts', options, deps, 'context', 'all');

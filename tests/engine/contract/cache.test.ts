@@ -4,17 +4,15 @@ import { Command } from 'commander';
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { registerCacheCommand } from '../../../src/engine/cli/commands/cache.js';
-import type { IOutputFormatter } from '../../../src/engine/interfaces/output-formatter.js';
-import { TestLogger } from '../engine-test-utils.js';
+import { type MockedOutputFormatter } from '../../mock-types.js';
+import { makeMockFormatter,TestLogger } from '../engine-test-utils.js';
 
 describe('Cache Command', () => {
-  const mockFormatter = {
-    formatSuccess: vi.fn((m) => m),
-    formatError: vi.fn((code, msgs) => msgs[0].message),
-  };
+  let mockFormatter: MockedOutputFormatter;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFormatter = makeMockFormatter();
   });
 
   it('should register the cache command with clean option', () => {
@@ -23,7 +21,7 @@ describe('Cache Command', () => {
     registerCacheCommand(
       program, 
       {
-        getFormatter: () => mockFormatter as unknown as IOutputFormatter,
+        getFormatter: () => mockFormatter,
         logger,
       },
       join(process.cwd(), '.atom', 'cache')

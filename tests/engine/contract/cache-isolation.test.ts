@@ -1,6 +1,5 @@
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
-import { QueryTargetAST } from '../../../src/engine/core/types/query.js';
 import { type IGitClient } from '../../../src/engine/interfaces/git-client.js';
 import { type IQueryCache } from '../../../src/engine/interfaces/query-cache.js';
 import { AtomRepository } from '../../../src/engine/services/atom-repository.js';
@@ -38,13 +37,11 @@ describe('AtomRepository Cache Isolation', () => {
     vi.mocked(gitClient.resolveRef).mockResolvedValue('head-hash');
     
     // Create an identity target for ID 'aaaa1111'
-    const target = {
+    const target = makeQueryTarget({
       type: 'identity',
       identities: [{ id: 'aaaa1111', protocol: 'mock' }],
-      raw: 'aaaa1111',
-      resolvedPaths: [],
-      getCacheFingerprint: () => 'identity:mock/aaaa1111'
-    } as unknown as QueryTargetAST;
+      raw: 'aaaa1111'
+    });
 
     await repo.find(target);
     expect(queryCache.get).toHaveBeenCalledWith('head-hash', 'identity:mock/aaaa1111', expect.any(Object));

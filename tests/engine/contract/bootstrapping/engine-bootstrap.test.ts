@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { LogLevel } from '../../../../src/engine/interfaces/logger.js';
-import { type IPrompt } from '../../../../src/engine/interfaces/prompt.js';
 import { EngineBootstrapper } from '../../../../src/engine/services/engine-bootstrapper.js';
 import { makeStubProtocolContext,TEST_ENGINE_CONFIG } from '../../../../src/engine/testing.js';
+import { makeMockPrompt } from '../../engine-test-utils.js';
 
 // Mock dependency services to avoid FS/Git access
 vi.mock('../../../../src/engine/shell/git/git-client.js', () => ({
@@ -47,7 +47,7 @@ describe('EngineBootstrapper', () => {
     configFileName: 'config.toml',
     defaultConfig: TEST_ENGINE_CONFIG,
     staticProtocols: [],
-    prompt: { askConfirm: vi.fn(), askChoice: vi.fn(), askInput: vi.fn(), askText: vi.fn(), askMultiline: vi.fn(), close: vi.fn() } as unknown as IPrompt,
+    prompt: makeMockPrompt(),
     logLevel: LogLevel.SILENT
   };
 
