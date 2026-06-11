@@ -57,13 +57,11 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
   });
 
   describe('parseFlagsToInput', () => {
-    it('should map all CLI options correctly', () => {
+    it('should map all explicit CLI trailer options correctly', () => {
         const options = {
           subject: 'feat: add auth',
           body: 'Detailed description',
-          constraint: ['must be fast', 'no breaking changes'],
-          confidence: 'high',
-          related: ['id3'],
+          trailer: ['Constraint=must be fast', 'Constraint=no breaking changes', 'Confidence=high', 'Related=id3']
         };
     
         const result = parseFlagsToInput(options, protocols);
@@ -76,16 +74,6 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
         expect(mockGroup.Related).toEqual(['id3']);
     });
 
-    it('should map flat flags to protocol trailers using camelCase', () => {
-      const input = parseFlagsToInput({ 
-          subject: 'feat: add login',
-          confidence: 'high'
-      }, protocols);
-
-      expect(input.subject).toBe('feat: add login');
-      expect(input.trailers?.get('mock')?.['Confidence']).toEqual(['high']);
-    });
-
     it('should support explicit catch-all --trailer flags', () => {
         const input = parseFlagsToInput({ 
             trailer: ['Confidence=medium', 'Constraint=rule1']
@@ -93,15 +81,6 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
 
         expect(input.trailers?.get('mock')?.['Confidence']).toEqual(['medium']);
         expect(input.trailers?.get('mock')?.['Constraint']).toEqual(['rule1']);
-    });
-
-    it('should merge duplicate values from short flags and explicit trailers', () => {
-        const input = parseFlagsToInput({ 
-            confidence: 'high',
-            trailer: ['Confidence=medium']
-        }, protocols);
-
-        expect(input.trailers?.get('mock')?.['Confidence']).toEqual(['high', 'medium']);
     });
 
     it('should support multiple values for a single key in catch-all flag', () => {
@@ -160,85 +139,6 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
         expect(result.trailers?.get('root')!.Status).toEqual(['active']);
     });
 
-    it('should ignore unknown flags that do not match any protocol trailers (Current Behavior)', () => {
-        const input = parseFlagsToInput({ unknown: 'val' }, protocols);
-        expect(input.trailers?.size).toBe(0);
-    });
-
-    it('should prioritize explicit cli flags over automatic ones', () => {
-        const customProtocol = makeStubProtocolContext({
-          ...TEST_PROTOCOL_DEFINITION,
-          trailers: {
-              Department: {
-                description: 'dept',
-                multivalue: false,
-                validation: 'none' as const,
-                cli: { flag: 'dept' },
-              },
-          },
-        });
-        const localProtocols = new ProtocolMap<ProtocolContext>();
-        localProtocols.set(customProtocol.name, customProtocol);
-        const options = {
-          subject: 't',
-          dept: 'Eng',
-        };
-    
-        const result = parseFlagsToInput(options, localProtocols);
-    
-        const mockGroup = result.trailers?.get('mock') || {};
-        expect(mockGroup.Department).toEqual(['Eng']);
-    });
-
-    it('should automatically slugify custom trailer keys into CLI flags', () => {
-        const customProtocol = makeStubProtocolContext({
-          ...TEST_PROTOCOL_DEFINITION,
-          trailers: {
-              'Regulatory-Compliance': {
-                description: 'Check for compliance',
-                multivalue: true,
-                validation: 'none' as const,
-              }
-          }
-        });
-        const localProtocols = new ProtocolMap<ProtocolContext>();
-        localProtocols.set(customProtocol.name, customProtocol);
-        
-        const options = {
-          subject: 'feat',
-          regulatoryCompliance: ['GDPR', 'HIPAA'],
-        };
-    
-        const result = parseFlagsToInput(options, localProtocols);
-    
-        const mockGroup = result.trailers?.get('mock') || {};
-        expect(mockGroup['Regulatory-Compliance']).toEqual(['GDPR', 'HIPAA']);
-    });
-
-    it('should preserve existing trailers when adding custom ones', () => {
-        const options = {
-          subject: 'feat',
-          confidence: 'low',
-          trailer: ['Confidence=high', 'Department=Eng'],
-        };
-    
-        const localProtocols = new ProtocolMap<ProtocolContext>();
-        localProtocols.set('mock', makeStubProtocolContext({
-            ...TEST_PROTOCOL_DEFINITION,
-            trailers: { 
-                ...TEST_PROTOCOL_DEFINITION.trailers, 
-                ...MOCK_CORE_TRAILERS,
-                'Department': { description: 'D', multivalue: false, validation: 'none' as const } 
-            }
-        }));
-    
-        const result = parseFlagsToInput(options, localProtocols);
-    
-        const mockGroup = result.trailers?.get('mock') || {};
-        expect(mockGroup.Confidence).toEqual(['low', 'high']);
-        expect(mockGroup.Department).toEqual(['Eng']);
-    });
-
     it('should default subject to empty string when undefined', () => {
         const result = parseFlagsToInput({}, protocols);
         expect(result.subject).toBe('');
@@ -249,14 +149,10 @@ describe('Input Interpretation Logic (Pure Functions)', () => {
             const input = parseFlagsToInput({ subject: 's' }, protocols);
             expect(input.body).toBeUndefined();
         });
-    
-        it('should map core trailers dynamically using metadata', () => {
-            const input = parseFlagsToInput({ subject: 's', confidence: 'high' }, protocols);
-            expect(input.trailers?.get('mock')?.Confidence).toEqual(['high']);
-        });
     });
 
     it('should map trailers from catch-all --trailer flag', () => {
+
       const permissiveProtocol = makeStubProtocolContext({
           ...TEST_PROTOCOL_DEFINITION,
           permissive: true,

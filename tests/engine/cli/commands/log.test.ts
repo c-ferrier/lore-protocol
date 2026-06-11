@@ -9,7 +9,8 @@ import { makeAtom, makeStubProtocolContext,type ProtocolContext,TEST_ID_KEY, TES
 import { makeMockFormatter, makeMockInfra, TestLogger } from '../../engine-test-utils.js';
 
 vi.mock('../../../../src/engine/shell/orchestrators/discovery.js', () => ({
-    findAtoms: vi.fn()
+    findAtoms: vi.fn(),
+    findAtomsStream: vi.fn()
 }));
 
 /**
@@ -18,19 +19,26 @@ vi.mock('../../../../src/engine/shell/orchestrators/discovery.js', () => ({
 
 interface Harness {
   program: Command;
-  capturedResult: { data: unknown };
+  capturedAtoms: Atom[];
   logger: TestLogger;
 }
 
 function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
-  vi.mocked(Discovery.findAtoms).mockResolvedValue(filteredAtoms ?? atoms);
+  const targetAtoms = filteredAtoms ?? atoms;
+  vi.mocked(Discovery.findAtomsStream).mockImplementation(async function* () {
+      for (const atom of targetAtoms) {
+          yield atom;
+      }
+  });
 
-  const capturedResult: { data: unknown } = { data: undefined };
+  const capturedAtoms: Atom[] = [];
   const formatter = makeMockFormatter();
-  formatter.formatQueryResult.mockImplementation((data: unknown) => {
-      capturedResult.data = data;
+  formatter.formatAtom.mockImplementation((atom: Atom) => {
+      capturedAtoms.push(atom);
       return '';
   });
+  formatter.formatHeader.mockReturnValue('');
+  formatter.formatFooter.mockReturnValue('');
 
   const logger = new TestLogger();
   const program = new Command();
@@ -50,7 +58,7 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
 
   registerLogCommand(program, infra);
 
-  return { program, capturedResult, logger };
+  return { program, capturedAtoms, logger };
 }
 
 describe('registerLogCommand (agnostic path arguments)', () => {
@@ -68,13 +76,12 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     await h.program.parseAsync(['node', 'atom', 'log', 'src/main.ts']);
 
-    expect(Discovery.findAtoms).toHaveBeenCalledTimes(1);
-    const target = vi.mocked(Discovery.findAtoms).mock.calls[0][1];
+    expect(Discovery.findAtomsStream).toHaveBeenCalledTimes(1);
+    const target = vi.mocked(Discovery.findAtomsStream).mock.calls[0][1];
     expect(target.resolvedPaths).toContain('src/main.ts');
 
-    const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
-    expect(result.atoms).toHaveLength(1);
-    expect(result.atoms[0].protocols.get('mock')!.trailers[TEST_ID_KEY][0]).toBe('match0002');
+    expect(h.capturedAtoms).toHaveLength(1);
+    expect(h.capturedAtoms[0].protocols.get('mock')!.trailers[TEST_ID_KEY][0]).toBe('match0002');
   });
 
   it('accepts the `--` pass-through and routes identically', async () => {
@@ -86,13 +93,12 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     await h.program.parseAsync(['node', 'atom', 'log', '--', 'src/main.ts']);
 
-    expect(Discovery.findAtoms).toHaveBeenCalledTimes(1);
-    const target = vi.mocked(Discovery.findAtoms).mock.calls[0][1];
+    expect(Discovery.findAtomsStream).toHaveBeenCalledTimes(1);
+    const target = vi.mocked(Discovery.findAtomsStream).mock.calls[0][1];
     expect(target.resolvedPaths).toContain('src/main.ts');
 
-    const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
-    expect(result.atoms).toHaveLength(1);
-    expect(result.atoms[0].protocols.get('mock')!.trailers[TEST_ID_KEY][0]).toBe('match0002');
+    expect(h.capturedAtoms).toHaveLength(1);
+    expect(h.capturedAtoms[0].protocols.get('mock')!.trailers[TEST_ID_KEY][0]).toBe('match0002');
   });
 
   it('uses global find when no path argument is provided', async () => {
@@ -102,11 +108,10 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
     await h.program.parseAsync(['node', 'atom', 'log']);
 
-    expect(Discovery.findAtoms).toHaveBeenCalledTimes(1);
-    const target = vi.mocked(Discovery.findAtoms).mock.calls[0][1];
+    expect(Discovery.findAtomsStream).toHaveBeenCalledTimes(1);
+    const target = vi.mocked(Discovery.findAtomsStream).mock.calls[0][1];
     expect(target.type).toBe('global');
 
-    const result = (h.capturedResult.data as { result: { atoms: Atom[] } }).result;
-    expect(result.atoms).toHaveLength(2);
+    expect(h.capturedAtoms).toHaveLength(2);
   });
 });

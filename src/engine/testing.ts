@@ -19,7 +19,7 @@ import type { ProtocolContext,ProtocolDefinition } from './core/types/protocol-d
 export type { ProtocolContext,ProtocolDefinition };
 import type { QueryOptions,QueryTargetAST } from './core/types/query.js';
 import type { IConfigLoader } from './interfaces/config-loader.js';
-import type { IGitClient, RawCommit as IGitRawCommit } from './interfaces/git-client.js';
+import type { IGitClient, RawCommit as IGitRawCommit, StorageQuery } from './interfaces/git-client.js';
 import type { ILogger } from './interfaces/logger.js';
 import type { IOutputFormatter } from './interfaces/output-formatter.js';
 import type { IPrompt } from './interfaces/prompt.js';
@@ -151,11 +151,14 @@ export function makeStubProtocolMap(protocols: ProtocolContext[] = []): Protocol
   return map;
 }
 
-/** 
- * Helper to create a raw commit object for mocking history. 
+let commitCounter = 0;
+/**
+ * Helper to create a raw commit object for mocking history.
  */
 export function makeRawCommit(overrides: Partial<IGitRawCommit> & { id?: string; message?: string } = {}): IGitRawCommit {
-    const hash = overrides.hash || 'h1';
+    commitCounter++;
+    const hash = overrides.hash || `h${commitCounter}`;
+
     const id = overrides.id || 'a1b2c3d4';
     const trailers = overrides.trailers !== undefined ? overrides.trailers : `${TEST_ID_KEY}: ${id}`;
     
@@ -206,6 +209,10 @@ export function makeStubGitClient(overrides: Partial<IGitClient> = {}): IGitClie
     blame: async () => [],
     getCommitsByHashes: async () => [],
     getLogStream: async function* () {},
+    queryStream: async function* (this: IGitClient, q: StorageQuery) {
+        const results = await this.query(q);
+        for (const r of results) yield r;
+    },
     commit: async () => ({ hash: 'new-hash', message: 'commit msg', success: true }),
     hasStagedChanges: async () => true,
     isInsideRepo: async () => true,
@@ -227,6 +234,9 @@ export function makeStubFormatter(): IOutputFormatter {
         formatDoctorResult: () => 'Mock Doctor Result',
         formatSuccess: (msg: string) => `Success: ${msg}`,
         formatError: (_code: number, messages: readonly { message: string }[]) => `Error: ${messages[0]?.message}`,
+        formatHeader: (target: string) => `Mock Header: ${target}`,
+        formatAtom: (atom: Atom) => `Mock Atom: ${atom.commitHash}`,
+        formatFooter: () => 'Mock Footer',
     } as unknown as IOutputFormatter;
 }
 

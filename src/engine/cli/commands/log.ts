@@ -2,11 +2,9 @@ import type { Command } from 'commander';
 
 // Pure Logic Modules
 import { createQueryTarget } from '../../core/logic/query-targets.js';
-import type { FormattableQueryResult } from '../../core/types/output.js';
-import type { QueryResult } from '../../core/types/query.js';
+import type { QueryOptions } from '../../core/types/query.js';
 import type { EngineInfra } from '../../services/engine-bootstrapper.js';
-import { findAtoms } from '../../shell/orchestrators/discovery.js';
-import { buildQueryMeta } from './helpers/build-query-meta.js';
+import { findAtomsStream } from '../../shell/orchestrators/discovery.js';
 import { mergeOptions } from './helpers/merge-options.js';
 import { addPathQueryOptions, type PathQueryCommandOptions } from './helpers/path-query.js';
 
@@ -36,29 +34,45 @@ export function registerLogCommand(
         isScoped: !!options.scope 
     });
 
-    const atoms = await findAtoms(infra, target, { ...options, includeAllCommits: options.history });
-    const totalAtoms = atoms.length;
+    const formatter = getFormatter();
+    
+    // 1. Output Header
+    logger.result(formatter.formatHeader(target.raw ? target.raw.toString() : 'all', target.type));
 
-    // Step 2: Apply the display-level limit
-    let displayAtoms = atoms;
-    if (options.limit !== null && options.limit !== undefined && options.limit > 0) {
-      displayAtoms = displayAtoms.slice(0, options.limit);
+    const queryOptions: QueryOptions = {
+        ...options,
+        includeAllCommits: options.history ?? false
+    };
+
+    const stream = findAtomsStream(infra, target, queryOptions);
+    
+    let totalCount = 0;
+    let filteredCount = 0;
+    let oldest: Date | null = null;
+    let newest: Date | null = null;
+
+    for await (const atom of stream) {
+        totalCount++;
+        
+        // Apply display-level limit
+        if (options.limit && filteredCount >= options.limit) continue;
+
+        filteredCount++;
+        
+        // Update stats
+        if (!oldest || atom.date < oldest) oldest = atom.date;
+        if (!newest || atom.date > newest) newest = atom.date;
+
+        // 2. Output Atom Progressive
+        logger.result(formatter.formatAtom(atom));
     }
 
-    const result: QueryResult = {
-      command: 'log',
-      target: target.raw ? target.raw.toString() : 'all',
-      targetType: target.type === 'global' ? 'global' : 'path',
-      atoms: displayAtoms,
-      meta: buildQueryMeta(totalAtoms, displayAtoms),
-    };
-
-    const formattable: FormattableQueryResult = {
-      result,
-      visibleTrailers: 'all',
-    };
-
-    const formatter = getFormatter();
-    logger.result(formatter.formatQueryResult(formattable));
+    // 3. Output Footer
+    logger.result(formatter.formatFooter({ 
+        total: totalCount, 
+        filtered: filteredCount,
+        oldest,
+        newest
+    }));
   });
 }

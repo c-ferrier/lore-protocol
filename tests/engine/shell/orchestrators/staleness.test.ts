@@ -33,9 +33,9 @@ describe('analyzeStaleness (Shell Orchestrator)', () => {
     // Mock Git: 25 commits since atom for this file (threshold is 20)
     git.getLogStream.mockImplementation(async function* () {
         for (let i = 0; i < 25; i++) {
-            yield { hash: `c${i}`, lines: ['src/logic.ts'] };
+            yield `c${i}\nsrc/logic.ts`;
         }
-        yield { hash: atom.commitHash, lines: ['src/logic.ts'] };
+        yield `${atom.commitHash}\nsrc/logic.ts`;
     });
 
     const reports = await analyzeStaleness([atom], new Map(), getDeps());
@@ -70,7 +70,7 @@ describe('analyzeStaleness (Shell Orchestrator)', () => {
     protocols.set(protocol.name, protocol);
     const atom = makeAtom({ date: new Date(), trailers: { Confidence: ['low'] } });
     git.getLogStream.mockImplementation(async function* () {
-        yield { hash: atom.commitHash, lines: [] };
+        yield atom.commitHash;
     });
 
     const reports = await analyzeStaleness([atom], new Map(), getDeps(protocols));

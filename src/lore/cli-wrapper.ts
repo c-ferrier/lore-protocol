@@ -243,7 +243,8 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
                       const camelFlag = camelCase(flagName);
                       if (opts[camelFlag]) {
                           const vals = Array.isArray(opts[camelFlag]) ? opts[camelFlag] : [opts[camelFlag]];
-                          for (const v of vals) trailerArray.push(`${key}=${v}`);
+                          // Explicitly namespace the trailer to ensure it binds to the Lore protocol
+                          for (const v of vals) trailerArray.push(`lore/${key}=${v}`);
                       }
                   }
               }

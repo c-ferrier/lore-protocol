@@ -97,7 +97,13 @@ function parseFilterKey(raw: string): { protocol: string | null, key: string, op
  * Applies authoritative application-level filtering to a collection of atoms.
  */
 export function filterAtoms(atoms: readonly Atom[], options: QueryOptions, protocols: ProtocolMap<ProtocolContext>): Atom[] {
-  return atoms.filter((atom) => atomMatchesOptions(atom, options, protocols));
+  return atoms.filter((atom) => {
+    const matched = atomMatchesOptions(atom, options, protocols);
+    if (!matched) {
+        console.log(`[DIAG] filterAtoms REJECTED ${atom.commitHash}. Options:`, JSON.stringify(options));
+    }
+    return matched;
+  });
 }
 
 function atomMatchesOptions(atom: Atom, options: QueryOptions, protocols: ProtocolMap<ProtocolContext>): boolean {

@@ -5,7 +5,6 @@ import type { CommitInput } from '../types/commit.js';
 import type { ProtocolContext } from '../types/protocol-definition.js';
 import { authorizeKey } from './ownership.js';
 import { resolveProtocolKey } from './protocols.js';
-import { camelCase,slugify } from './string.js';
 
 /**
  * The modes of commit input resolution, ordered by priority.
@@ -60,41 +59,7 @@ export function selectInputMode(options: CommitCommandOptions): InputMode {
 export function parseFlagsToInput(options: CommitCommandOptions, protocols: ProtocolMap<ProtocolContext>): Partial<CommitInput> {
     const trailersMap = new ProtocolMap<Record<string, string[]>>();
 
-    // 1. Dynamically map all authorized trailers from registered flags
-    for (const ctx of protocols.values()) {
-        const { def } = ctx;
-        const authorizedKeys = Object.keys(def.trailers);
-        const ns = def.namespace;
-        const protocolName = def.name;
-
-        for (const key of authorizedKeys) {
-            if (key === def.identityKey) continue;
-
-            const tDef = def.trailers[key];
-            if (!tDef) continue;
-
-            const shortFlag = tDef.cli?.flag || slugify(key);
-            const fullFlag = ns ? `${slugify(ns)}:${shortFlag}` : shortFlag;
-            
-            const camelShort = camelCase(shortFlag);
-            const camelFull = camelCase(fullFlag);
-            
-            const flagValue = (options as Record<string, unknown>)[camelFull] ?? 
-                             (options as Record<string, unknown>)[fullFlag] ??
-                             (options as Record<string, unknown>)[camelShort] ?? 
-                             (options as Record<string, unknown>)[shortFlag];
-
-            if (flagValue !== undefined && flagValue !== null) {
-                const pMap = trailersMap.get(protocolName.toLowerCase()) || trailersMap.get(protocolName) || {};
-                pMap[key] = Array.isArray(flagValue) 
-                    ? flagValue.map(v => String(v)) 
-                    : [String(flagValue)];
-                trailersMap.set(protocolName.toLowerCase(), pMap);
-            }
-        }
-    }
-
-    // 2. Add custom trailers from the catch-all --trailer flag
+    // Add custom trailers from the catch-all --trailer flag
     const catchAllEntries = parseCustomTrailers(options.trailer);
     for (const entry of catchAllEntries) {
         const { protocolName: entryProtocolName, key, values } = entry;

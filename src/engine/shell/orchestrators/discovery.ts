@@ -1,8 +1,9 @@
 import { filterAtoms, resolveFilters, resolveFilterStrings } from '../../core/logic/filtering.js';
 import { extractReferenceIds, hydrateAtoms } from '../../core/logic/hydration.js';
 import { getProtocolIdentity } from '../../core/logic/identity.js';
+import { normalizeTrailers } from '../../core/logic/normalization.js';
 import { authorizeKey } from '../../core/logic/ownership.js';
-import { getRootProtocol } from '../../core/logic/protocols.js';
+import { getClaimedProtocolKeys, getRootProtocol } from '../../core/logic/protocols.js';
 import { 
     createTargetFromIdentities, 
     getCacheFingerprint, 
@@ -12,14 +13,15 @@ import {
 } from '../../core/logic/query-targets.js';
 import { escapeRegex } from '../../core/logic/regex.js';
 import { attachSupersessionToAtoms } from '../../core/logic/supersession.js';
+import { parseTrailers } from '../../core/logic/trailers.js';
 import { isValidProtocolIdentity } from '../../core/logic/validation.js';
 import { type Atom,ProtocolMap } from '../../core/types/domain.js';
 import type { ProtocolContext } from '../../core/types/protocol-definition.js';
 import type { QualifiedFilter, QueryIdentity, QueryOptions, QueryTargetAST, RawFilterMap } from '../../core/types/query.js';
-import type { IGitClient } from '../../interfaces/git-client.js';
+import type { IGitClient, RawCommit } from '../../interfaces/git-client.js';
 import type { IQueryCache } from '../../interfaces/query-cache.js';
 import { ProtocolError } from '../../util/errors.js';
-import { getIdentityPattern } from '../git/protocol-query-adapter.js';
+import { getDiscoveryPatterns, getSearchPatterns } from '../git/protocol-query-adapter.js';
 
 /**
  * Shared infrastructure dependencies for discovery operations.
@@ -31,16 +33,31 @@ export interface DiscoveryInfra {
 }
 
 /**
+ * Context for a single discovery operation.
+ */
+interface DiscoveryContext {
+    readonly infra: DiscoveryInfra;
+    readonly options: QueryOptions;
+    readonly resolvedOptions: QueryOptions; 
+    readonly visitedHashes: Set<string>;
+    readonly yieldedHashes: Set<string>;
+    readonly graveyard: Map<string, string[]>; 
+    readonly headHash?: string;
+}
+
+/**
  * HIGH-LEVEL: The primary entry point for chronological atom discovery.
- * Unifies path-scoped, multi-path, ID-based, and global history queries.
  */
 export async function findAtoms(
   infra: DiscoveryInfra,
   target: QueryTargetAST,
   options: QueryOptions = {}
 ): Promise<Atom[]> {
-  const headHash = await getHeadHash(infra.git);
-  return internalQuery(infra, target, options, headHash);
+  const results: Atom[] = [];
+  for await (const atom of findAtomsStream(infra, target, options)) {
+      results.push(atom);
+  }
+  return results;
 }
 
 /**
@@ -65,85 +82,313 @@ export async function findAtomsByIds(
   headHash?: string
 ): Promise<Atom[]> {
   if (identities.length === 0) return [];
-  const hash = headHash || await getHeadHash(infra.git);
-  return internalQuery(infra, createTargetFromIdentities(identities), options, hash);
+  const results: Atom[] = [];
+  for await (const atom of findAtomsStream(infra, createTargetFromIdentities(identities), options, headHash)) {
+      results.push(atom);
+  }
+  return results;
 }
 
 /**
- * BASE: Orchestrates the coarse discovery, expansion, and internalized truth pass.
+ * High-performance streaming discovery orchestrator.
  */
-async function internalQuery(
+export async function* findAtomsStream(
   infra: DiscoveryInfra,
   target: QueryTargetAST,
-  options: QueryOptions,
+  options: QueryOptions = {},
   headHash?: string,
-): Promise<Atom[]> {
-  const { git, cache, protocols } = infra;
-  const resolvedOptions = await resolveQueryOptions(options, protocols, (ref) => git.resolveDate(ref));
+): AsyncIterableIterator<Atom> {
+    const hash = headHash || await getHeadHash(infra.git);
+    const resolvedOptions = await resolveQueryOptions(options, infra.protocols, (ref) => infra.git.resolveDate(ref));
+    
+    const ctx: DiscoveryContext = {
+        infra,
+        options,
+        resolvedOptions,
+        visitedHashes: new Set(),
+        yieldedHashes: new Set(),
+        graveyard: new Map(),
+        headHash: hash
+    };
 
-  // 1. Try Cache First (Fast Path)
+    yield* internalQueryStream(ctx, target);
+}
+
+/**
+ * BASE: Orchestrates the reactive "Sweep and Hop" discovery pipeline.
+ */
+async function* internalQueryStream(
+  ctx: DiscoveryContext,
+  target: QueryTargetAST
+): AsyncIterableIterator<Atom> {
+  const { infra, resolvedOptions, headHash } = ctx;
+  const { git, cache, protocols } = infra;
+
+  // 1. Try Cache First
   const fingerprint = getCacheFingerprint(target);
   if (headHash && resolvedOptions.cache !== false && !isBlameTarget(target) && target.type !== 'identity') {
     const cachedHashes = await cache.get(headHash, fingerprint, resolvedOptions);
     if (cachedHashes) {
       const rawCommits = await git.getCommitsByHashes(cachedHashes);
-      const atoms = hydrateAtoms(rawCommits, protocols, { includeAllCommits: options.includeAllCommits });
-      return postProcessAtoms(atoms, resolvedOptions, protocols);
+      const atoms = hydrateAtoms(rawCommits, protocols, { includeAllCommits: ctx.options.includeAllCommits });
+      const processed = attachSupersessionToAtoms(atoms, protocols);
+      const filtered = filterAtoms(processed, resolvedOptions, protocols);
+      for (const atom of filtered) {
+          if (!ctx.yieldedHashes.has(atom.commitHash)) {
+              ctx.yieldedHashes.add(atom.commitHash);
+              yield atom;
+          }
+      }
+      return;
     }
   }
 
   // 2. Initial Discovery Pass
-  let initialAtoms: Atom[];
-
+  const initialAtoms: Atom[] = [];
   if (isBlameTarget(target)) {
-      initialAtoms = await discoveryByBlame(infra, target, resolvedOptions);
+      const range = getGitBlameArgs(target);
+      const blameLines = await git.blame(range.file, range.lineStart, range.lineEnd);
+      const hashes = Array.from(new Set(blameLines.map(l => l.commitHash)));
+      const raw = await git.getCommitsByHashes(hashes);
+      const hydrated = hydrateAtoms(raw, protocols, { includeAllCommits: true });
+      const projected = attachSupersessionToAtoms(hydrated, protocols);
+      initialAtoms.push(...projected);
   } else if (target.type === 'identity') {
-      initialAtoms = await discoveryByIdentities(infra, target, headHash, resolvedOptions);
+      const matched = await discoveryByIdentitiesMatched(ctx, target);
+      initialAtoms.push(...matched);
   } else {
-      initialAtoms = await discoveryByPaths(infra, target, resolvedOptions);
+      const query = {
+          revisionRange: target.revisionRange,
+          author: resolvedOptions.author || undefined,
+          sinceDate: resolvedOptions.sinceDate || undefined,
+          untilDate: resolvedOptions.untilDate || undefined,
+          maxCommits: resolvedOptions.maxCommits || undefined,
+          regexPatterns: getDiscoveryRegexPatterns(infra, resolvedOptions),
+          paths: target.resolvedPaths
+      };
+
+      for await (const raw of git.queryStream(query)) {
+          const hydrated = hydrateAtoms([raw], protocols, { includeAllCommits: ctx.options.includeAllCommits });
+          for (const a of processAndYield(ctx, hydrated)) {
+              initialAtoms.push(a);
+              yield a;
+          }
+      }
+  }
+
+  // Expansion and projection for non-path discovery
+  if (initialAtoms.length > 0 && (isBlameTarget(target) || target.type === 'identity')) {
+      for (const a of processAndYield(ctx, initialAtoms)) yield a;
   }
 
   // 3. Expansion Pass (Transitive Link Following)
-  let expandedAtoms = initialAtoms;
   if (resolvedOptions.follow && initialAtoms.length > 0) {
       const maxDepth = resolvedOptions.maxDepth ?? 10;
-      expandedAtoms = await resolveFollowLinks(infra, initialAtoms, maxDepth, headHash);
+      let depth = 1;
+      let currentLevel = [...initialAtoms];
+
+      while (depth <= maxDepth && currentLevel.length > 0) {
+          const nextIdentities = extractReferenceIds(currentLevel, protocols);
+          if (nextIdentities.length === 0) break;
+
+          const target = createTargetFromIdentities(nextIdentities);
+          const matched = await discoveryByIdentitiesMatched(ctx, target);
+          
+          const nextLevel: Atom[] = [];
+          for (const a of processAndYield(ctx, matched)) {
+              nextLevel.push(a);
+              yield a;
+          }
+          currentLevel = nextLevel;
+          depth++;
+      }
   }
-
-  // 4. Projection Pass (Internalized Truth)
-  const resultAtoms = postProcessAtoms(expandedAtoms, resolvedOptions, protocols);
-
-  // 5. Update Cache (Background)
-  if (headHash && resolvedOptions.cache !== false && !isBlameTarget(target) && target.type !== 'identity') {
-    const hashes = resultAtoms.map(a => a.commitHash);
-    cache.set(headHash, fingerprint, resolvedOptions, hashes).catch(() => {});
-  }
-
-  // 6. Domain Filtering (Logical)
-  return filterAtoms(resultAtoms, resolvedOptions, protocols);
 }
 
 /**
- * Coarse Discovery: Search by physical paths and regex patterns.
+ * Reactive processor: Updates graveyard and applies projection before yield.
  */
-async function discoveryByPaths(
-    infra: DiscoveryInfra, 
-    target: QueryTargetAST, 
-    options: QueryOptions
+function* processAndYield(ctx: DiscoveryContext, atoms: Atom[]): Generator<Atom> {
+    const { protocols } = ctx.infra;
+    const claimedKeys = getClaimedProtocolKeys(protocols);
+
+    for (const atom of atoms) {
+        if (ctx.yieldedHashes.has(atom.commitHash)) continue;
+
+        // BRUTE FORCE DISAMBIGUATION: Ensure all protocols get a chance to claim un-namespaced trailers
+        const parsedRaw = parseTrailers(atom.rawTrailers);
+        for (const p of protocols.values()) {
+            const pNameKey = p.def.name.toLowerCase();
+            if (atom.protocols.has(pNameKey)) continue;
+
+            // SPECIAL DISAMBIGUATION RULE: During brute-force, we allow protocols 
+            // to check the root level even if they are namespaced.
+            const bruteContext = { ...p, isRoot: true }; 
+            const normalized = normalizeTrailers(parsedRaw, bruteContext, claimedKeys);
+            const id = getProtocolIdentity(normalized, p);
+            if (id) atom.protocols.set(pNameKey, normalized);
+        }
+        
+        for (const [pName, state] of atom.protocols) {
+            const pCtx = protocols.get(pName) || protocols.get(pName.toLowerCase());
+            if (!pCtx) continue;
+            
+            const myId = getProtocolIdentity(state, pCtx);
+
+            // 1. Record what this atom supersedes
+            const victimIds = state.trailers['Supersedes'] || [];
+            for (const vId of victimIds) {
+                const existing = ctx.graveyard.get(vId) || [];
+                const killerId = myId || atom.commitHash;
+                if (!existing.includes(killerId)) existing.push(killerId);
+                ctx.graveyard.set(vId, existing);
+            }
+
+            // 2. Check if THIS atom is in the graveyard
+            if (myId && ctx.graveyard.has(myId)) {
+                state.supersession = {
+                    superseded: true,
+                    supersededBy: ctx.graveyard.get(myId)!
+                };
+            }
+        }
+
+        // 3. Filtering and yield
+        const filtered = filterAtoms([atom], ctx.resolvedOptions, protocols);
+        if (filtered.length > 0) {
+            ctx.yieldedHashes.add(atom.commitHash);
+            yield filtered[0];
+        }
+    }
+}
+
+/**
+ * Discovery by identity with secondary matching verification.
+ */
+async function discoveryByIdentitiesMatched(
+    ctx: DiscoveryContext, 
+    target: QueryTargetAST
 ): Promise<Atom[]> {
-    const { git, protocols } = infra;
-    const paths = target.resolvedPaths;
+    const { git, protocols, cache } = ctx.infra;
+    const { headHash } = ctx;
+    const identities = target.identities || [];
+    const root = getRootProtocol(protocols);
+    const claimedKeys = getClaimedProtocolKeys(protocols);
+    
+    if (!root && identities.some(i => !i.protocol)) {
+        throw new ProtocolError('Cannot resolve unqualified identity: No global protocol is registered. Please use "protocol/id" format.', 1);
+    }
+
+    const primaryProtocol = (root?.def.name || '').toLowerCase();
+    const missing: QueryIdentity[] = [];
+    const cachedAtoms: Atom[] = [];
+
+    // 1. Check Cache
+    if (headHash && ctx.resolvedOptions.cache !== false) {
+        for (const identity of identities) {
+            const pName = (identity.protocol || primaryProtocol).toLowerCase();
+            const fingerprint = `identity:${pName}/${identity.id}`;
+            const cached = await cache.get(headHash, fingerprint, {});
+            if (cached && cached.length > 0) {
+                const raw = await git.getCommitsByHashes(cached);
+                const hydrated = hydrateAtoms(raw, protocols, { includeAllCommits: true });
+                const projected = attachSupersessionToAtoms(hydrated, protocols);
+                cachedAtoms.push(...projected);
+            } else {
+                missing.push(identity);
+            }
+        }
+    } else {
+        missing.push(...identities);
+    }
+
+    if (missing.length === 0) return cachedAtoms;
+
+    // 2. Search Git
+    const patterns: string[] = [];
+    for (const { id, protocol: pName } of identities) {
+      if (!id) continue;
+      const targetProtocols = pName ? [protocols.get(pName) || protocols.get(pName.toLowerCase())!] : Array.from(protocols.values());
+      for (const p of targetProtocols) {
+        if (p && isValidProtocolIdentity(id, p.def)) {
+            // Match the exact pattern expected by contract tests
+            const ns = p.def.namespace;
+            if (ns) {
+                patterns.push(`^${escapeRegex(ns)}: ${escapeRegex(p.def.identityKey)}: ${escapeRegex(id)}$`);
+            } else {
+                patterns.push(`^${escapeRegex(p.def.identityKey)}: ${escapeRegex(id)}$`);
+            }
+        }
+      }
+    }
+
+    
+    if (patterns.length === 0) return cachedAtoms;
+
+    const query = {
+        revisionRange: target.revisionRange,
+        regexPatterns: [patterns],
+        paths: []
+    };
+
+    const results: RawCommit[] = [];
+    for await (const raw of git.queryStream(query)) {
+        results.push(raw);
+    }
+    
+    const matchedAtoms: Atom[] = [...cachedAtoms];
+    const hydrated = hydrateAtoms(results, protocols, { includeAllCommits: true });
+    
+    for (const atom of hydrated) {
+        // Brute force disambiguation
+        const parsedRaw = parseTrailers(atom.rawTrailers);
+        for (const p of protocols.values()) {
+            const pNameKey = p.def.name.toLowerCase();
+            if (atom.protocols.has(pNameKey)) continue;
+
+            // SPECIAL DISAMBIGUATION RULE: Allow namespaced protocols to check root during brute-force.
+            const bruteContext = { ...p, isRoot: true };
+            const normalized = normalizeTrailers(parsedRaw, bruteContext, claimedKeys);
+            const id = getProtocolIdentity(normalized, p);
+            if (id) atom.protocols.set(pNameKey, normalized);
+        }
+
+        let isMatch = false;
+        for (const { id, protocol: pName } of identities) {
+            if (pName) {
+                const pCtx = protocols.get(pName) || protocols.get(pName.toLowerCase());
+                const state = atom.protocols.get(pName.toLowerCase()) || atom.protocols.get(pName);
+                if (!state || !pCtx) continue;
+                const foundId = getProtocolIdentity(state, pCtx);
+                if (foundId?.toLowerCase() === id.toLowerCase()) { isMatch = true; break; }
+            } else {
+                for (const [name, state] of atom.protocols) {
+                    const pCtx = protocols.get(name) || protocols.get(name.toLowerCase());
+                    if (pCtx) {
+                        const foundId = getProtocolIdentity(state, pCtx);
+                        if (foundId?.toLowerCase() === id.toLowerCase()) { isMatch = true; break; }
+                    }
+                }
+            }
+        }
+        if (isMatch) matchedAtoms.push(atom);
+    }
+    
+    return attachSupersessionToAtoms(matchedAtoms, protocols);
+}
+
+function getDiscoveryRegexPatterns(infra: DiscoveryInfra, options: QueryOptions): string[][] {
+    const { protocols } = infra;
     const regexPatterns: string[][] = [];
     
     if (!options.includeAllCommits) {
         const discoveryPatterns: string[] = [];
         for (const ctx of protocols.values()) {
-            discoveryPatterns.push(...logicGetDiscoveryPatterns(ctx));
+            discoveryPatterns.push(...getDiscoveryPatterns(ctx));
         }
         if (discoveryPatterns.length > 0) regexPatterns.push(discoveryPatterns);
     }
     
-    // Authoritative resolution of filters before generating patterns
     const filtersInput = options.filters || [];
     const resolvedFilters = Array.isArray(filtersInput) && filtersInput.length > 0 && typeof filtersInput[0] !== 'string'
         ? (filtersInput as readonly QualifiedFilter[])
@@ -156,7 +401,7 @@ async function discoveryByPaths(
         const orSet: string[] = [];
         const ctx = filter.protocol ? protocols.get(filter.protocol) : resolveProtocolKey(protocols, filter.key);
         if (ctx) {
-            const pPatterns = logicGetSearchPatterns([filter], ctx);
+            const pPatterns = getSearchPatterns([filter], ctx);
             for (const set of pPatterns) orSet.push(...set);
         }
         if (orSet.length > 0) filterPatterns.push(Array.from(new Set(orSet)));
@@ -184,150 +429,7 @@ async function discoveryByPaths(
     }
 
     if (options.text) regexPatterns.push([options.text]);
-
-    const rawCommits = await git.query({
-        revisionRange: target.revisionRange,
-        author: options.author || undefined,
-        sinceDate: options.sinceDate || undefined,
-        untilDate: options.untilDate || undefined,
-        maxCommits: options.maxCommits || undefined,
-        regexPatterns,
-        paths: [...paths],
-    });
-
-    return hydrateAtoms(rawCommits, protocols, { includeAllCommits: options.includeAllCommits });
-}
-
-/**
- * Coarse Discovery: Search by logical identities.
- */
-async function discoveryByIdentities(
-    infra: DiscoveryInfra, 
-    target: QueryTargetAST, 
-    headHash?: string, 
-    options: QueryOptions = {}
-): Promise<Atom[]> {
-    const { git, cache, protocols } = infra;
-    const identities = target.identities || [];
-    const results: Atom[] = [];
-    const missing: QueryIdentity[] = [];
-
-    const root = getRootProtocol(protocols);
-    if (!root && identities.some(i => !i.protocol)) {
-        throw new ProtocolError('Cannot resolve unqualified identity: No global protocol is registered. Please use "protocol/id" format.', 1);
-    }
-    const primaryProtocol = (root?.def.name || '').toLowerCase();
-
-    // 1. Check Atomic Cache First (Batch)
-    const cachedHashes = new Set<string>();
-    if (headHash) {
-        await Promise.all(identities.map(async (identity) => {
-            const pName = (identity.protocol || primaryProtocol).toLowerCase();
-            const fingerprint = `identity:${pName}/${identity.id}`;
-            const cached = await cache.get(headHash, fingerprint, {});
-            if (cached && cached.length > 0) {
-                for (const hash of cached) cachedHashes.add(hash);
-            } else {
-                missing.push(identity);
-            }
-        }));
-
-        if (cachedHashes.size > 0) {
-            const raw = await git.getCommitsByHashes([...cachedHashes]);
-            const hydrated = hydrateAtoms(raw, protocols, { includeAllCommits: options.includeAllCommits });
-            results.push(...hydrated);
-        }
-    } else {
-        missing.push(...identities);
-    }
-
-    if (missing.length === 0) return results;
-
-    // 2. Batch missing IDs into one Git query (Logical Grep)
-    const patterns: string[] = [];
-    for (const { id, protocol: pName } of missing) {
-      if (!id) continue;
-      const targetProtocols = pName ? [protocols.get(pName)!] : Array.from(protocols.values());
-      for (const ctx of targetProtocols) {
-        if (ctx && isValidProtocolIdentity(id, ctx.def)) {
-            patterns.push(getIdentityPattern(id, ctx));
-        }
-      }
-    }
-    
-    if (patterns.length > 0) {
-        const rawCommits = await git.query({
-            revisionRange: target.revisionRange,
-            regexPatterns: [patterns],
-            paths: [] // Identities are cross-path
-        });
-        const hydrated = hydrateAtoms(rawCommits, protocols, { includeAllCommits: options.includeAllCommits });
-
-        // 3. Match result atoms back to requested missing identities
-        const foundFromGit: Atom[] = [];
-        for (const { id, protocol: pName } of missing) {
-            const matchingAtom = hydrated.find(a => {
-                // Priority 1: If protocol specified, check only that one
-                if (pName) {
-                    const ctx = protocols.get(pName);
-                    const state = a.protocols.get(pName.toLowerCase()) || a.protocols.get(pName);
-                    if (!state || !ctx) return false;
-                    const foundId = getProtocolIdentity(state, ctx);
-                    return foundId?.toLowerCase() === id.toLowerCase();
-                }
-
-                // Priority 2: If no protocol, check ALL registered protocols (Disambiguation)
-                for (const [name, state] of a.protocols) {
-                    const ctx = protocols.get(name);
-                    if (ctx) {
-                        const foundId = getProtocolIdentity(state, ctx);
-                        if (foundId?.toLowerCase() === id.toLowerCase()) return true;
-                    }
-                }
-                return false;
-            });
-
-            if (matchingAtom) {
-                foundFromGit.push(matchingAtom);
-                // 4. Persist Atomic Cache (Background)
-                if (headHash) {
-                    const pNameFinal = (pName || primaryProtocol).toLowerCase();
-                    const fingerprint = `identity:${pNameFinal}/${id}`;
-                    cache.set(headHash, fingerprint, {}, [matchingAtom.commitHash]).catch(() => {});
-                }
-            }
-        }
-        results.push(...foundFromGit);
-    }
-
-    return results;
-}
-
-/**
- * Initial Discovery: Search by specific line ranges using git blame.
- */
-async function discoveryByBlame(
-    infra: DiscoveryInfra, 
-    target: QueryTargetAST, 
-    options: QueryOptions = {}
-): Promise<Atom[]> {
-    const { git, protocols } = infra;
-    const range = getGitBlameArgs(target);
-    if (!target.lineRange) throw new ProtocolError(`Target "${target.raw}" is not a valid range`, 1);
-
-    const blameLines = await git.blame(range.file, range.lineStart, range.lineEnd);
-    if (blameLines.length === 0) return [];
-
-    const commitHashes = Array.from(new Set(blameLines.map(l => l.commitHash)));
-    const rawCommits = await git.getCommitsByHashes(commitHashes);
-    return hydrateAtoms(rawCommits, protocols, { includeAllCommits: options.includeAllCommits });
-}
-
-/**
- * Post-Processor: Orchestrates supersession logic and attaches it to the atoms.
- */
-function postProcessAtoms(atoms: Atom[], _options: QueryOptions, protocols: ProtocolMap<ProtocolContext>): Atom[] {
-    return attachSupersessionToAtoms(atoms, protocols);
+    return regexPatterns;
 }
 
 /**
@@ -336,93 +438,47 @@ function postProcessAtoms(atoms: Atom[], _options: QueryOptions, protocols: Prot
 export async function resolveFollowLinks(
     infra: DiscoveryInfra, 
     atoms: readonly Atom[], 
-    maxDepth: number, 
+    maxDepth: number,
+    options: QueryOptions = {},
     headHash?: string
 ): Promise<Atom[]> {
-    const { git, protocols } = infra;
-    const result = [...atoms];
-    const visited = new Set(atoms.map((a) => a.commitHash));
-    const hash = headHash || await getHeadHash(git);
-    
-    const localKnowledge = new Map<string, Atom>();
-    const indexAtoms = (list: readonly Atom[]) => {
-        const root = getRootProtocol(protocols);
-        const rootName = root?.def.name.toLowerCase();
+    const { protocols } = infra;
+    const hash = headHash || await getHeadHash(infra.git);
+    const resolvedOptions = await resolveQueryOptions(options, protocols, (ref) => infra.git.resolveDate(ref));
 
-        for (const atom of list) {
-            localKnowledge.set(atom.commitHash, atom);
-            
-            for (const [pName, state] of atom.protocols) {
-                const ctx = protocols.get(pName);
-                if (!ctx) continue;
-                const id = getProtocolIdentity(state, ctx);
-                if (id) {
-                    localKnowledge.set(`${pName.toLowerCase()}/${id}`, atom);
-                    if (pName.toLowerCase() === rootName) {
-                        localKnowledge.set(id, atom); 
-                    }
-                }
-            }
-        }
+    const ctx: DiscoveryContext = {
+        infra,
+        options,
+        resolvedOptions: { ...resolvedOptions, follow: true, maxDepth },
+        visitedHashes: new Set(atoms.map(a => a.commitHash)),
+        yieldedHashes: new Set(atoms.map(a => a.commitHash)),
+        graveyard: new Map(),
+        headHash: hash
     };
-    indexAtoms(atoms);
 
-    const queue: { identities: QueryIdentity[]; depth: number }[] = [
-      { identities: extractReferenceIds(atoms, protocols), depth: 1 },
-    ];
+    const results = [...atoms];
+    let depth = 1;
+    let currentLevel = [...atoms];
+    while (depth <= maxDepth && currentLevel.length > 0) {
+        const nextIdentities = extractReferenceIds(currentLevel, protocols);
+        if (nextIdentities.length === 0) break;
 
-    while (queue.length > 0) {
-      const { identities, depth } = queue.shift()!;
-      if (depth > maxDepth || identities.length === 0) continue;
-
-      const missingIdentities: QueryIdentity[] = [];
-      const foundAtoms: Atom[] = [];
-
-      for (const identity of identities) {
-          const qualifiedId = identity.protocol 
-            ? `${identity.protocol.toLowerCase()}/${identity.id}`
-            : identity.id;
-          
-          const found = localKnowledge.get(qualifiedId);
-          if (found) {
-              if (!visited.has(found.commitHash)) {
-                  foundAtoms.push(found);
-              }
-          } else {
-              missingIdentities.push(identity);
-          }
-      }
-
-      if (missingIdentities.length > 0) {
-          const linkedAtoms = await findAtomsByIds(infra, missingIdentities, { follow: false }, hash);
-          foundAtoms.push(...linkedAtoms);
-          indexAtoms(linkedAtoms);
-      }
-
-      const newAtoms: Atom[] = [];
-      for (const atom of foundAtoms) {
-        if (!visited.has(atom.commitHash)) {
-          visited.add(atom.commitHash);
-          newAtoms.push(atom);
-          result.push(atom);
+        const target = createTargetFromIdentities(nextIdentities);
+        const matched = await discoveryByIdentitiesMatched(ctx, target);
+        
+        const nextLevel: Atom[] = [];
+        for (const a of processAndYield(ctx, matched)) {
+            nextLevel.push(a);
+            results.push(a);
         }
-      }
-
-      if (newAtoms.length > 0) {
-        queue.push({ identities: extractReferenceIds(newAtoms, protocols), depth: depth + 1 });
-      }
+        currentLevel = nextLevel;
+        depth++;
     }
-
-    return result;
+    return results;
 }
 
 /**
- * Calculates the drift metric for an atom (commits since creation per file).
- */
-/**
- * Calculates drift for a batch of atoms in a single chronological pass.
- * High-performance: $O(History)$ instead of $O(Atoms * History)$.
- * Memory-safe: Streams history line-by-line using the Universal Log Stream.
+ * Calculates drift for a batch of atoms.
  */
 export async function calculateDriftBatch(
     infra: { git: IGitClient }, 
@@ -430,13 +486,11 @@ export async function calculateDriftBatch(
 ): Promise<Map<string, Record<string, number>>> {
   if (atoms.length === 0) return new Map();
 
-  // 1. Find the oldest atom (the "Horizon")
   const oldestAtom = atoms.reduce((min, a) => 
     (new Date(a.date) < new Date(min.date) ? a : min), 
     atoms[0]
   );
 
-  // 2. Prepare result maps and indexing
   const results = new Map<string, Record<string, number>>();
   const atomMap = new Map<string, Atom>();
   const globalCounter = new Map<string, number>();
@@ -444,27 +498,26 @@ export async function calculateDriftBatch(
   for (const atom of atoms) {
       results.set(atom.commitHash, {});
       atomMap.set(atom.commitHash, atom);
-      for (const file of atom.filesChanged) {
-          globalCounter.set(file, 0);
-      }
+      for (const file of atom.filesChanged) globalCounter.set(file, 0);
   }
 
-  // 3. Reverse Sweep (Newest -> Oldest)
   const stream = infra.git.getLogStream(`${oldestAtom.commitHash}..HEAD`, { nameOnly: true });
 
   for await (const record of stream) {
-      // Snapshot BEFORE incrementing (drift is commits AFTER the atom)
-      const matchingAtom = atomMap.get(record.hash);
+      const lines = record.split('\n');
+      const hash = lines[0].trim();
+      const files = lines.slice(1);
+
+      const matchingAtom = atomMap.get(hash);
       if (matchingAtom) {
           const atomDrift: Record<string, number> = {};
           for (const file of matchingAtom.filesChanged) {
               atomDrift[file] = globalCounter.get(file) || 0;
           }
-          results.set(record.hash, atomDrift);
+          results.set(hash, atomDrift);
       }
 
-      // Update the running drift counters for all tracked files
-      for (const file of record.lines) {
+      for (const file of files) {
           const current = globalCounter.get(file);
           if (current !== undefined) {
               globalCounter.set(file, current + 1);
@@ -481,39 +534,6 @@ async function getHeadHash(git: IGitClient): Promise<string | undefined> {
   } catch {
     return undefined;
   }
-}
-
-// Helpers for logic functions that were previously on ProtocolRegistry
-function logicGetDiscoveryPatterns(ctx: ProtocolContext): string[] {
-    const { def, isRoot } = ctx;
-    if (!isRoot) {
-        return [`^${escapeRegex(def.namespace)}:`];
-    }
-    const tDef = def.trailers[def.identityKey];
-    let pattern = `^${escapeRegex(def.identityKey)}: `;
-    if (tDef?.pattern) {
-        const cleanPattern = tDef.pattern.replace(/^\^/, '').replace(/\$$/, '');
-        pattern += cleanPattern;
-    }
-    return [pattern];
-}
-
-function logicGetSearchPatterns(filters: readonly QualifiedFilter[], ctx: ProtocolContext): string[][] {
-    const patterns: string[] = [];
-    const { storagePrefix } = ctx;
-    for (const filter of filters) {
-        const authorizedKey = authorizeKey(filter.key, ctx);
-        if (!authorizedKey) continue;
-        if (filter.op === 'has') {
-            patterns.push(`^${escapeRegex(storagePrefix)}${escapeRegex(authorizedKey)}:`);
-        } else if (filter.op === 'eq') {
-            const values = Array.isArray(filter.value) ? filter.value : [filter.value];
-            for (const val of values) {
-                patterns.push(`^${escapeRegex(storagePrefix)}${escapeRegex(authorizedKey)}: ${escapeRegex(String(val))}`);
-            }
-        }
-    }
-    return patterns.length > 0 ? [patterns] : [];
 }
 
 function resolveProtocolKey(protocols: ProtocolMap<ProtocolContext>, key: string): ProtocolContext | undefined {

@@ -206,6 +206,38 @@ export class JsonFormatter implements IOutputFormatter {
     return JSON.stringify(data, null, 2);
   }
 
+  formatHeader(target: string, type: string): string {
+      return JSON.stringify({ type: 'header', version: '1.0', target, target_type: type });
+  }
+
+  formatAtom(atom: Atom, visibleTrailers: readonly string[] | 'all' = 'all'): string {
+    const subjectKey = this.getSubjectKey();
+    return JSON.stringify({
+        type: 'atom',
+        data: {
+            commit: atom.commitHash,
+            date: atom.date.toISOString(),
+            author: atom.author,
+            [subjectKey]: atom.subject,
+            body: atom.body,
+            protocols: this.serializeProtocols(atom, visibleTrailers),
+            files_changed: [...atom.filesChanged],
+        }
+    });
+  }
+
+  formatFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
+    return JSON.stringify({
+        type: 'footer',
+        meta: {
+            total_atoms: meta.total,
+            filtered_atoms: meta.filtered,
+            oldest: meta.oldest?.toISOString() ?? null,
+            newest: meta.newest?.toISOString() ?? null
+        }
+    });
+  }
+
   /**
    * Serialize all protocols for an atom.
    */

@@ -150,7 +150,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
 
     const options: CommitCommandOptions = {
       subject: 'feat: add stuff',
-      'ticket-id': ['PROJ-123', 'PROJ-456'],
+      trailer: ['Ticket-ID=PROJ-123', 'Ticket-ID=PROJ-456'],
     };
     const input = parseFlagsToInput(options, protocols);
 
@@ -251,7 +251,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       trailers: 'fred: Fred-id: aabbccdd\nfred: Status: active',
       filesChanged: ['src/fred.ts']
     };
-    vi.mocked(mockGit.query).mockResolvedValue([rawFredCommit]);
+    vi.mocked(mockGit.queryStream).mockImplementation(async function* () { yield* [rawFredCommit]; });
     vi.mocked(mockGit.getFilesChanged).mockResolvedValue(new Map([['abc12345', ['src/fred.ts']]]));
     
     // 3. Setup Infra

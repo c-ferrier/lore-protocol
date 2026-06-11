@@ -59,7 +59,7 @@ describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
     });
 
     git.getLogStream.mockImplementation(async function* () {
-        yield { hash: atom.commitHash, lines: [] };
+        yield atom.commitHash;
     });
     const deps = {
         gitClient: git,

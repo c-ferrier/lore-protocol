@@ -1,6 +1,7 @@
 import { createBaseFormatter } from '../../engine/cli/formatters/index.js';
 import { getProtocolIdentity } from '../../engine/core/logic/identity.js';
 import {  
+    type Atom,
     type ErrorMessage,
     type FormattableConfigResult,
     type FormattableDoctorResult, 
@@ -186,5 +187,67 @@ export class LoreJsonFormatter implements IOutputFormatter {
 
   formatConfig(data: FormattableConfigResult): string {
     return this.inner.formatConfig(data);
+  }
+
+  formatHeader(target: string, type: string): string {
+    const loreProtocol = this.protocols.get('lore');
+    const version = loreProtocol?.def.version ?? '1.0';
+    return JSON.stringify({
+        type: 'header',
+        lore_version: version,
+        command: 'log', // Default to log for streaming
+        target,
+        target_type: type
+    });
+  }
+
+  formatAtom(atom: Atom): string {
+    const loreProtocol = this.protocols.get('lore');
+    const loreState = atom.protocols.get('lore');
+    const loreId = (loreState && loreProtocol) ? getProtocolIdentity(loreState, loreProtocol) : null;
+    const status = (loreState && loreState.supersession) ? loreState.supersession : { superseded: false, supersededBy: [] };
+
+    const trailers: Record<string, string | string[] | null> = {};
+    if (loreState && loreProtocol) {
+        for (const [key, values] of Object.entries(loreState.trailers)) {
+            const def = loreProtocol.def.trailers[key];
+            const isScalar = def && !def.multivalue;
+            trailers[snakeCase(key)] = isScalar ? values[0] : [...values];
+        }
+        if (loreId) trailers.lore_id = loreId;
+    }
+
+    return JSON.stringify({
+        type: 'atom',
+        data: {
+            lore_id: loreId,
+            commit: atom.commitHash,
+            date: atom.date.toISOString(),
+            author: atom.author.includes('<') 
+                ? atom.author.match(/<([^>]+)>/)?.[1] || atom.author 
+                : atom.author,
+            intent: atom.subject,
+            body: atom.body,
+            trailers,
+            files_changed: [...atom.filesChanged],
+            superseded: status.superseded,
+            superseded_by: status.supersededBy?.[0] ?? null,
+        }
+    });
+  }
+
+  formatFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
+    const loreProtocol = this.protocols.get('lore');
+    const version = loreProtocol?.def.version ?? '1.0';
+    return JSON.stringify({
+        type: 'footer',
+        lore_version: version,
+        meta: {
+            total_atoms: meta.total,
+            filtered_atoms: meta.filtered,
+            oldest: meta.oldest?.toISOString() ?? null,
+            newest: meta.newest?.toISOString() ?? null,
+        }
+    });
   }
 }

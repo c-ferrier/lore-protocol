@@ -46,7 +46,7 @@ export function normalizeTrailers(
         continue;
       }
 
-      // CASE 2: Global/Root Context
+      // CASE 2: Namespaced Context (Top-level Prefix)
       if (!ctx.isRoot) {
           // Check for "Namespace: Key" format at top level
           const prefix = `${ctx.storageNamespace.toLowerCase()}: `;
@@ -63,8 +63,7 @@ export function normalizeTrailers(
                   unauthorized[innerKey] = [...(unauthorized[innerKey] || []), ...values];
               }
           } else {
-              // If it's a namespaced protocol but the key DOES NOT start with our namespace prefix,
-              // we ignore it (it belongs to the root or another namespace).
+              // Rule: Namespaced protocols IGNORE root-level trailers.
           }
           continue;
       }

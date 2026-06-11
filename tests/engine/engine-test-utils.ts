@@ -55,6 +55,7 @@ export function makeMockGitClient(overrides: Partial<IGitClient> = {}): MockedGi
         isInsideRepo: vi.fn(stub.isInsideRepo),
         getHeadMessage: vi.fn(stub.getHeadMessage),
         getLogStream: vi.fn(stub.getLogStream),
+        queryStream: vi.fn(stub.queryStream),
         log: vi.fn(stub.log),
         commit: vi.fn(stub.commit)
     } as unknown as MockedGitClient;
@@ -96,6 +97,9 @@ export function makeMockFormatter(overrides: Partial<IOutputFormatter> = {}): Mo
         formatDoctorResult: vi.fn(stub.formatDoctorResult),
         formatSuccess: vi.fn(stub.formatSuccess),
         formatError: vi.fn(stub.formatError),
+        formatHeader: vi.fn(stub.formatHeader),
+        formatAtom: vi.fn(stub.formatAtom),
+        formatFooter: vi.fn(stub.formatFooter),
         ...overrides
     } as unknown as MockedOutputFormatter;
 }

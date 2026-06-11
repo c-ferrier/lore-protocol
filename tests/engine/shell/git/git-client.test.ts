@@ -133,20 +133,21 @@ describe('GitClient Implementation', () => {
         } as unknown as ReturnType<typeof spawnCb>);
 
         const results = [];
-        for await (const record of client.getLogStream('HEAD~2..HEAD')) {
+        for await (const record of client.getLogStream('HEAD')) {
             results.push(record);
         }
 
         expect(results).toHaveLength(2);
-        expect(results[0]).toEqual({ hash: 'h1', lines: ['file1.ts', 'file2.ts'] });
-        expect(results[1]).toEqual({ hash: 'h2', lines: ['file3.ts'] });
-    });
+        expect(results[0]).toBe('h1\nfile1.ts\nfile2.ts\n');
+        expect(results[1]).toBe('h2\nfile3.ts\n');
+        });
+
   });
 
   describe('Git Log Combined Stream Parser', () => {
     it('should correctly parse multiple commits with interleaved file lists using ASCII delimiters', () => {
       const FIELD_SEP = '\x1F';
-      const RECORD_SEP = '\x1E';
+      const RECORD_SEP = '\x1E\x1E\x1E\x1E';
   
       const rawOutput = [
         RECORD_SEP,

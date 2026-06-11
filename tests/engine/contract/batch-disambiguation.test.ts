@@ -35,7 +35,7 @@ describe('Discovery Batch Disambiguation', () => {
         filesChanged: []
     };
 
-    vi.mocked(git.query).mockResolvedValue([c1, c2]);
+    vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [c1, c2]; });
 
     const infra = makeMockInfra({ git, protocols });
     const results = await findAtomsByIds(infra, [
@@ -48,7 +48,7 @@ describe('Discovery Batch Disambiguation', () => {
     expect(results.find((a: Atom) => a.commitHash === 'h2')?.protocols.has('beta')).toBe(true);
     
     // Verify query patterns
-    const query = vi.mocked(git.query).mock.calls[0][0];
+    const query = vi.mocked(git.queryStream).mock.calls[0][0];
     expect(query.regexPatterns).toContainEqual(['^alpha: Alpha-id: aaaa1111$', '^beta: Beta-id: bbbb2222$']);
   });
 });

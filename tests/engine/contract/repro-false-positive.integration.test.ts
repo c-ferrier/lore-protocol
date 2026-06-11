@@ -41,7 +41,7 @@ describe('Discovery False Positive Repro', () => {
       filesChanged: []
     };
 
-    vi.mocked(git.query).mockResolvedValue([commit]);
+    vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit]; });
 
     const infra = getInfra();
     // Should return null because trailers didn't match targetId
@@ -60,7 +60,7 @@ describe('Discovery False Positive Repro', () => {
       filesChanged: []
     };
 
-    vi.mocked(git.query).mockResolvedValue([commit]);
+    vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit]; });
 
     const infra = getInfra();
     // Should return 0 atoms because although Git might return the commit due to subject text,

@@ -34,7 +34,7 @@ describe('Git Security (Argument Escaping)', () => {
     const infra = getInfra();
     await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { author: maliciousAuthor });
     
-    expect(git.query).toHaveBeenCalledWith(expect.objectContaining({
+    expect(git.queryStream).toHaveBeenCalledWith(expect.objectContaining({
         author: maliciousAuthor
     }));
   });
@@ -43,7 +43,7 @@ describe('Git Security (Argument Escaping)', () => {
     const infra = getInfra();
     await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { scope: 'ui) | grep (secret' });
     
-    const query = git.query.mock.calls[0][0];
+    const query = git.queryStream.mock.calls[0][0];
     const found = query.regexPatterns!.some((set: readonly string[]) => 
         set.some(p => p.includes('ui\\) \\| grep \\(secret'))
     );
@@ -55,7 +55,7 @@ describe('Git Security (Argument Escaping)', () => {
     const infra = getInfra();
     await findAtomById(infra, { id: maliciousId, protocol: 'mock' });
     
-    const query = git.query.mock.calls[0][0];
+    const query = git.queryStream.mock.calls[0][0];
     const found = query.regexPatterns!.some((set: readonly string[]) => 
         set.some(p => p.includes('dead\\) \\| beef'))
     );
@@ -67,7 +67,7 @@ describe('Git Security (Argument Escaping)', () => {
     await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { has: 'Secret: ) | grep' });
     
     // The 'has' filter should result in an escaped regex pattern starting with ^
-    const query = git.query.mock.calls[0][0];
+    const query = git.queryStream.mock.calls[0][0];
     const found = query.regexPatterns!.some((set: readonly string[]) => 
         set.some(p => p.includes('^Secret: \\) \\| grep: '))
     );

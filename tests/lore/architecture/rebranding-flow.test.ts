@@ -45,7 +45,7 @@ describe('Lore Wrapper Rebranding Flow', () => {
       trailers: 'Lore-id: aabbccdd\nStatus: active',
       filesChanged: ['src/main.ts']
     };
-    vi.mocked(git.query).mockResolvedValue([rawCommit]);
+    vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [rawCommit]; });
 
     // 3. Setup Infra
     const infra = makeMockInfra({

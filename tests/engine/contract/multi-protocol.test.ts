@@ -40,7 +40,7 @@ describe('Multi-Protocol Integration', () => {
   it('Discovery: should aggregate discovery patterns from all protocols', async () => {
     const infra = getInfra();
     await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });
-    const query = vi.mocked(git.query).mock.calls[0][0];
+    const query = vi.mocked(git.queryStream).mock.calls[0][0];
     
     // Top-level 0 is the discovery OR-set
     const discoverySet = query.regexPatterns![0];
@@ -59,7 +59,7 @@ describe('Multi-Protocol Integration', () => {
       filesChanged: [],
     };
 
-    vi.mocked(git.query).mockResolvedValue([commit]);
+    vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit]; });
 
     const infra = getInfra();
     const [atom] = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });

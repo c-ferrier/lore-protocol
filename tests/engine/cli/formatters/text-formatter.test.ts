@@ -51,7 +51,7 @@ describe('TextFormatter', () => {
 
       const output = formatter.formatQueryResult(data);
       expect(output).toContain('abc1234');
-      expect(output).toContain('[mock] (superseded by e5f6a7b8)');
+      expect(output).toContain('(superseded by e5f6a7b8)');
     });
 
     it('should show "No decision atoms found." when empty', () => {
@@ -95,7 +95,7 @@ describe('TextFormatter', () => {
       expect(output).toContain('abc1234');
       expect(output).toContain('2025-01-15');
       expect(output).toContain('alice@example.com');
-      expect(output).toContain('[mock] Constraint: Must use OAuth2');
+      expect(output).toContain('Constraint: Must use OAuth2');
       expect(output).toContain('[mock] Confidence: high');
     });
 
@@ -118,7 +118,7 @@ describe('TextFormatter', () => {
       };
 
       const output = formatter.formatQueryResult(data);
-      expect(output).toContain('[mock] Constraint: Must use OAuth2');
+      expect(output).toContain('Constraint: Must use OAuth2');
       expect(output).not.toContain('Confidence:');
     });
 

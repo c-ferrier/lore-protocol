@@ -108,7 +108,7 @@ function stripTrailersFromBody(body: string, trailersRaw: string): string {
   try {
     const trailerRegex = new RegExp(flexiblePattern, 'm');
     if (trailerRegex.test(body)) {
-      return body.replace(trailerRegex, '').trim();
+      return body.replace(trailerRegex, '').trimEnd();
     }
   } catch {
     // Best effort

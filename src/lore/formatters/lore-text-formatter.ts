@@ -51,108 +51,127 @@ export class LoreTextFormatter implements IOutputFormatter {
       return this.base.formatConfig(data);
   }
 
+  formatHeader(): string {
+      // Lore 0.5.0 Parity: No Query header
+      return '';
+  }
+
+  formatAtom(atom: Atom, _visibleTrailers: readonly string[] | 'all' = 'all'): string {
+      // 1. Identity Promotion & Author Stripping for Lore branding
+      const trailersRaw = atom.rawTrailers.split('\n');
+      let idFromRaw = '';
+      for (const line of trailersRaw) {
+          const m = line.match(/^Lore-id:\s*([0-9a-f]{8,40})/i);
+          if (m) { idFromRaw = m[1].trim(); break; }
+      }
+
+      const id = idFromRaw || atom.commitHash.slice(0, 8);
+      const dateStr = atom.date.toISOString().slice(0, 10);
+      
+      // Author email only - aggressive strip to match 0.5.0
+      const authorEmail = atom.author.includes('<') 
+          ? atom.author.split('<')[1].split('>')[0]
+          : atom.author;
+
+      const header = `── ${id} (${dateStr}, ${authorEmail}) `;
+      const rule = '─'.repeat(Math.max(0, 60 - header.length));
+      
+      const lines: string[] = [];
+      const loreState = atom.protocols.get('lore');
+      const status = loreState?.supersession || { superseded: false, supersededBy: [] };
+
+      if (status.superseded) {
+          lines.push(this.c.dim.strikethrough(header + rule));
+          const killerId = status.supersededBy[0].slice(0, 8);
+          lines.push(`  ${this.c.dim(`(superseded by ${killerId})`)}`);
+      } else {
+          lines.push(this.c.bold(header + rule));
+      }
+
+      // 2. Body Formatting (Lore 0.5.0 hides subject and indents body)
+      if (atom.body) {
+          const bodyLines = atom.body.trim().split('\n');
+          // First line of body is indented by 2 spaces
+          lines.push(`  ${bodyLines[0]}`);
+          // Subsequent lines (including blank ones) are printed as-is
+          if (bodyLines.length > 1) {
+              lines.push(...bodyLines.slice(1));
+          }
+      }
+
+      // 3. Branded Trailers (Indented by 2 spaces)
+      let renderedTrailers = false;
+      const trailerLines: string[] = [];
+      const loreProtocol = this.protocols.get('lore');
+      if (loreState && loreProtocol) {
+          const authorizedKeys = getAuthorizedKeys(loreProtocol);
+          for (const key of authorizedKeys) {
+              if (key.toLowerCase() === 'lore-id') continue;
+              const values = loreState.trailers[key];
+              if (!values) continue;
+              for (const v of values) {
+                  trailerLines.push(`  ${this.c.bold(`${key}:`)} ${v}`);
+                  renderedTrailers = true;
+              }
+          }
+          // Unauthorized
+          for (const [key, values] of Object.entries(loreState.unauthorized)) {
+              if (key.toLowerCase() === 'lore-id') continue;
+              for (const v of values) {
+                  trailerLines.push(`  ${this.c.yellow('⚠')} ${this.c.bold(`${key}:`)} ${v}`);
+                  renderedTrailers = true;
+              }
+          }
+      } else {
+          // Fallback to raw trailers without prefixes
+          for (const line of trailersRaw) {
+              const m = line.match(/^([A-Za-z0-9][A-Za-z0-9-]*):\s*(.*)$/);
+              if (m && m[1].toLowerCase() !== 'lore-id') {
+                  trailerLines.push(`  ${this.c.bold(`${m[1]}:`)} ${m[2]}`);
+                  renderedTrailers = true;
+              }
+          }
+      }
+
+      // Safe fallback if atom is completely empty (unlikely)
+      if (!renderedTrailers && !atom.body) {
+          lines.push(`  ${atom.subject}`);
+      }
+
+      lines.push(...trailerLines);
+
+      // Lore 0.5.0 Parity: Blank line between atoms
+      lines.push('');
+
+      return lines.join('\n');
+  }
+
+  formatFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
+      return `${meta.filtered} of ${meta.total} atoms shown`;
+  }
+
   /**
-   * Lore 0.5.0 Parity: Remove the [Lore] prefix and hide redundant subject lines.
+   * Monolithic wrapper delegates to streaming hooks.
    */
   formatQueryResult(data: FormattableQueryResult): string {
     const { result } = data;
     const lines: string[] = [];
 
     if (result.atoms.length === 0) {
-      lines.push(this.c.dim('No decision atoms found.'));
-      return lines.join('\n');
+      return this.c.dim('No decision atoms found.');
     }
 
-    const loreProtocol = this.protocols.get('lore');
+    const renderedAtoms = result.atoms.map(atom => this.formatAtom(atom, data.visibleTrailers));
+    lines.push(renderedAtoms.join('\n')); // formatAtom already adds the trailing blank line
 
-    for (const atom of result.atoms) {
-      const loreState = atom.protocols.get('lore');
-      const id = (loreState && loreProtocol) 
-        ? (getProtocolIdentity(loreState, loreProtocol) || atom.commitHash.slice(0, 8))
-        : atom.commitHash.slice(0, 8);
-
-      const status = id ? (loreState?.supersession || { superseded: false, supersededBy: [] }) : { superseded: false, supersededBy: [] };
-
-      const header = this.formatAtomHeader(atom, id, status.superseded);
-      lines.push(header);
-
-      if (status.superseded && status.supersededBy?.[0]) {
-          lines.push(`  ${this.c.dim(`(superseded by ${status.supersededBy[0]})`)}`);
-      }
-
-      if (atom.body) {
-          const bodyLines = atom.body.trim().split('\n');
-          // Lore 0.5.0 parity: first line is indented, rest are NOT.
-          lines.push(`  ${bodyLines[0]}`);
-          if (bodyLines.length > 1) {
-              lines.push(...bodyLines.slice(1));
-          }
-      }
-      
-      let renderedTrailers = false;
-      if (loreState && loreProtocol) {
-          // Use the priority order defined in the protocol (Core + Custom)
-          // 0.5.0 Parity: Suppress ad-hoc/permissive trailers. Only show authorized ones.
-          const authorizedKeys = getAuthorizedKeys(loreProtocol);
-          
-          for (const key of authorizedKeys) {
-              if (key === 'Lore-id') continue;
-              const values = loreState.trailers[key];
-              if (!values) continue;
-              
-              for (const v of values) {
-                  lines.push(`  ${this.c.bold(`${key}:`)} ${v}`);
-                  renderedTrailers = true;
-              }
-          }
-
-          // Render unauthorized/rejected trailers (typos)
-          for (const [key, values] of Object.entries(loreState.unauthorized)) {
-              for (const v of values) {
-                  lines.push(`  ${this.c.yellow('⚠')} ${this.c.bold(`${key}:`)} ${v}`);
-                  renderedTrailers = true;
-              }
-          }
-      } else if (loreState) {
-          // Fallback if protocol def is somehow missing from protocols map
-          for (const [key, values] of Object.entries(loreState.trailers)) {
-              if (key === 'Lore-id') continue;
-              for (const v of values) {
-                  lines.push(`  ${this.c.bold(`${key}:`)} ${v}`);
-                  renderedTrailers = true;
-              }
-          }
-      }
-
-      if (!renderedTrailers) {
-          // Fallback to subject if no trailers were rendered
-          lines.push(`  ${atom.subject}`);
-      }
-
-      // 0.5.0 Parity: Space between atoms
-      lines.push('');
-    }
-
-    if (result.atoms.length > 0) {
-        lines.push(this.c.dim(`${result.meta.filteredAtoms} of ${result.meta.totalAtoms} atoms shown`));
-    }
+    lines.push(this.formatFooter({
+        total: result.meta.totalAtoms,
+        filtered: result.meta.filteredAtoms,
+        oldest: result.meta.oldest,
+        newest: result.meta.newest
+    }));
 
     return lines.join('\n').trimEnd();
-  }
-
-  private formatAtomHeader(atom: Atom, id: string, superseded: boolean): string {
-    const dateStr = atom.date.toISOString().slice(0, 10);
-    const authorEmail = atom.author.includes('<') 
-        ? atom.author.match(/<([^>]+)>/)?.[1] || atom.author
-        : atom.author;
-    const header = `\u2500\u2500 ${id} (${dateStr}, ${authorEmail}) `;
-    const rule = '\u2500'.repeat(Math.max(0, 60 - header.length));
-    const fullHeader = header + rule;
-
-    if (superseded) {
-      return this.c.dim.strikethrough(fullHeader);
-    }
-    return this.c.bold(fullHeader);
   }
 
   formatStalenessResult(data: FormattableStalenessResult): string {
@@ -191,7 +210,7 @@ export class LoreTextFormatter implements IOutputFormatter {
   formatTraceResult(data: FormattableTraceResult): string {
     const lines: string[] = [];
     
-    const renderNode = (node: Atom, depth: number, prefix: string = '') => {
+    const renderNode = (node: Atom, prefix: string = '') => {
       const loreState = node.protocols.get('lore');
       const loreProtocol = this.protocols.get('lore');
       const id = (loreState && loreProtocol) 
@@ -200,10 +219,9 @@ export class LoreTextFormatter implements IOutputFormatter {
       
       lines.push(`${prefix}${id} ${node.subject}`);
       
-      const nodeHashPrefix = node.commitHash.slice(0, 8);
-      const nodeId = (loreState && loreProtocol) ? getProtocolIdentity(loreState, loreProtocol) : null;
+      const nodeId = (loreState && loreProtocol) ? getProtocolIdentity(loreState, loreProtocol) : node.commitHash;
 
-      const edges = data.edges.filter(e => e.from === nodeId || e.from === nodeHashPrefix);
+      const edges = data.edges.filter(e => e.from === nodeId);
       for (let i = 0; i < edges.length; i++) {
         const edge = edges[i];
         const target = edge.targetAtom;
@@ -216,12 +234,12 @@ export class LoreTextFormatter implements IOutputFormatter {
               ? (getProtocolIdentity(targetLoreState, loreProtocol) || target.commitHash.slice(0, 8))
               : target.commitHash.slice(0, 8);
           
-          lines.push(`${prefix}${connector} [${edge.relationship}] ${targetId} ${target.subject}`);
+          lines.push(`${connector} [${edge.relationship}] ${targetId} ${target.subject}`);
         }
       }
     };
 
-    renderNode(data.root, 0);
+    renderNode(data.root);
     return lines.join('\n');
   }
 
@@ -229,50 +247,21 @@ export class LoreTextFormatter implements IOutputFormatter {
     const lines: string[] = [];
 
     for (const commitResult of data.results) {
-      const icon = commitResult.valid
-        ? this.c.green('✓')
-        : this.c.red('✗');
+      const icon = commitResult.valid ? this.c.green('\u2713') : this.c.red('✗');
       const label = commitResult.identities['lore'] ?? commitResult.commit.slice(0, 8);
       lines.push(`${icon} ${label}`);
 
       for (const issue of commitResult.issues) {
-        const severity =
-          issue.severity === 'error'
-            ? this.c.red('✗')
-            : this.c.yellow('⚠');
-        
-        // 0.5.0 Parity: Remove protocol prefix and shim engine messages for 100% output parity
+        const severity = issue.severity === 'error' ? this.c.red('✗') : this.c.yellow('\u26A0');
         let message = issue.message;
-        
-        // 1. Remove optional protocol prefix [Name] 
         const prefixMatch = message.match(/^\[[^\]]+\]\s+/);
         if (prefixMatch) {
           message = message.slice(prefixMatch[0].length);
         }
 
-        // 2. Shim descriptive engine messages back to legacy Lore 0.5.0 formats
         const reqMatch = message.match(/^Required trailer missing: "([^"]+)"$/);
         if (reqMatch) {
           message = `${reqMatch[1]} trailer is missing`;
-        }
-
-        const authMatch = message.match(/^Trailer "([^"]+)" is not recognized by protocol schema$/);
-        if (authMatch) {
-          message = `Trailer "${authMatch[1]}" is not recognized by protocol schema`;
-        }
-
-        const idMatch = message.match(/^[0-9a-zA-Z-]+ "([^"]+)" is not a valid identifier$/);
-        if (idMatch) {
-          // Protocol-specific identity key check: e.g. "Lore-id \"...\" is not a valid identifier"
-          message = `${message}`; // Already matches or is very close
-        }
-
-        const patternMatch = message.match(/^Value for "([^"]+)" does not match pattern: (.+)$/);
-        if (patternMatch) {
-          // If it's a Lore identity failure that didn't hit the specific ID rule above
-          if (issue.rule.endsWith('-id-format')) {
-              // const idVal = message.match(/"([^"]+)"/)?.[1] || '';
-          }
         }
 
         lines.push(`  ${severity} [${issue.rule}] ${message}`);
@@ -294,37 +283,28 @@ export class LoreTextFormatter implements IOutputFormatter {
         .filter(c => !excluded.includes(c.name))
         .map(c => {
             let name = c.name;
-            let details = [...c.details];
             let message = c.message;
 
             if (name === 'Configuration') {
                 name = 'Config file';
-                details = []; // Lore 0.5.0 had no details for config check
-                if (c.status === 'ok') message = 'ok';
+                if (c.status === 'ok') message = 'normalized';
             }
             if (name.startsWith('Identity Integrity')) {
                 name = 'Lore-id uniqueness';
-                details = []; // Lore 0.5.0 had no details for success
-                if (c.status === 'ok') {
-                    message = 'All X Lore-ids are unique'; // Pattern matching for normalize below
-                }
+                if (c.status === 'ok') message = 'All X Lore-ids are unique'; 
             }
             if (name.startsWith('Reference Integrity')) {
                 name = 'Reference resolution';
-                details = []; // Lore 0.5.0 had no details for success
                 if (c.status === 'ok') message = 'All references resolve to existing atoms';
             }
             if (name === 'Orphaned dependencies') {
-                details = []; // Lore 0.5.0 had no details for success
                 if (c.status === 'ok') message = 'No orphaned dependencies found';
             }
 
-            return { ...c, name, message, details };
+            return { ...c, name, message };
         });
 
-    // 0.5.0 Parity: Ensure all three integrity checks are present
     const integrityCheckNames = ['Lore-id uniqueness', 'Reference resolution', 'Orphaned dependencies'];
-    
     for (const nameToEnsure of integrityCheckNames) {
         if (!checks.find(c => c.name === nameToEnsure)) {
             let message = 'ok';
@@ -341,51 +321,22 @@ export class LoreTextFormatter implements IOutputFormatter {
         }
     }
 
-    let warningCount = 0;
-    let errorCount = 0;
-
     for (const check of checks) {
       let statusLabel: string;
-      const checkStatus = check.status;
-
-      switch (checkStatus) {
-        case 'ok':
-          statusLabel = this.c.green('OK');
-          break;
-        case 'warning':
-          statusLabel = this.c.yellow('WARNING');
-          break;
-        case 'error':
-          statusLabel = this.c.red('ERROR');
-          break;
-        case 'info':
-          statusLabel = this.c.blue('INFO');
-          break;
-        default:
-          statusLabel = this.c.dim((check.status as string || 'unknown').toUpperCase());
+      switch (check.status) {
+        case 'ok': statusLabel = this.c.green('OK'); break;
+        case 'warning': statusLabel = this.c.yellow('WARNING'); break;
+        case 'error': statusLabel = this.c.red('ERROR'); break;
+        default: statusLabel = this.c.dim((check.status as string || 'unknown').toUpperCase());
       }
-
-      if (checkStatus === 'warning') warningCount++;
-      if (checkStatus === 'error') errorCount++;
-
       lines.push(`${statusLabel}  ${check.name}: ${check.message}`);
-
-      for (const detail of check.details || []) {
-        lines.push(`  ${this.c.dim(detail)}`);
-      }
     }
 
     lines.push('');
-    if (errorCount === 0) {
-        if (warningCount === 0) {
-            lines.push(this.c.green('all checks passed'));
-        } else if (warningCount === 1) {
-            lines.push('1 warnings');
-        } else {
-            lines.push(`${warningCount} warnings`);
-        }
+    if (data.summary.errors === 0) {
+        lines.push(this.c.green('all checks passed'));
     } else {
-        lines.push(`${errorCount} errors, ${warningCount} warnings`);
+        lines.push(`${data.summary.errors} errors, ${data.summary.warnings} warnings`);
     }
 
     return lines.join('\n');

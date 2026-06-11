@@ -60,13 +60,13 @@ function extractTestMap(content) {
     const match = line.match(/^(\s*)/);
     const currentIndent = match ? match[1].length : 0;
 
-    if (trimmed.startsWith('describe(') || trimmed.startsWith('it(')) {
-      // Clean up the string to just the description
-      const labelMatch = trimmed.match(/^(?:describe|it)\(['"](.+?)['"]/);
-      if (labelMatch) {
-        const type = trimmed.startsWith('describe') ? 'DESC' : 'TEST';
-        map.push(`${'  '.repeat(currentIndent / 2)}${type}: ${labelMatch[1]}`);
-      }
+    // Improved regex to handle describe.each, it.skip, describe.only, it.todo, etc.
+    // Also allows optional spaces before parenthesis.
+    const blockMatch = trimmed.match(/^(?:describe|it|test)(?:\.[a-z]+)?\s*\(['"](.+?)['"]/);
+    
+    if (blockMatch) {
+      const type = trimmed.startsWith('describe') ? 'DESC' : 'TEST';
+      map.push(`${'  '.repeat(currentIndent / 2)}${type}: ${blockMatch[1]}`);
     }
   }
   return map;

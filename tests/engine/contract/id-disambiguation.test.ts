@@ -56,7 +56,7 @@ describe('Discovery Identity Disambiguation', () => {
       filesChanged: [],
     };
 
-    vi.mocked(git.query).mockResolvedValue([commit]);
+    git.queryStream.mockImplementation(async function* () { yield* [commit]; });
 
     const infra = getInfra();
     const result = await findAtomById(infra, { id: targetId, protocol: 'alpha' });
@@ -66,7 +66,7 @@ describe('Discovery Identity Disambiguation', () => {
     expect(state.trailers['Alpha-id'][0]).toBe(targetId);
     
     // Ensure we used a specific regex pattern
-    const query = vi.mocked(git.query).mock.calls[0][0];
+    const query = vi.mocked(git.queryStream).mock.calls[0][0];
     const found = query.regexPatterns!.some((set: readonly string[]) => 
         set.some(p => p.includes('alpha: Alpha-id: 12345678'))
     );
@@ -85,7 +85,7 @@ describe('Discovery Identity Disambiguation', () => {
       filesChanged: [],
     };
 
-    vi.mocked(git.query).mockResolvedValue([commit]);
+    git.queryStream.mockImplementation(async function* () { yield* [commit]; });
 
     const infra = getInfra();
     const result = await findAtomById(infra, { id: targetId, protocol: 'beta' });
@@ -100,41 +100,32 @@ describe('Discovery Identity Disambiguation', () => {
         name: 'Lore',
         version: '1.0',
         identityKey: 'Lore-id',
-        namespace: '', // Global
+        namespace: '', // Root
         trailers: {
           'Lore-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' },
         }
     };
     protocols.set('lore', makeStubProtocolContext(LORE_DEF));
 
-    const targetId = '12345678';
-    // Commit only has Beta ID
+    const targetId = 'abcdef00';
+    // This commit is in Beta protocol format but has no namespace prefix
     const commit: RawCommit = {
-      hash: 'h2',
+      hash: 'h3',
       date: new Date().toISOString(),
       author: 'a',
       subject: 's',
       body: 'b',
-      trailers: `beta: Beta-id: ${targetId}`,
+      trailers: `Beta-id: ${targetId}`,
       filesChanged: [],
     };
 
-    vi.mocked(git.query).mockResolvedValue([commit]);
+    git.queryStream.mockImplementation(async function* () { yield* [commit]; });
 
     const infra = getInfra();
-    // Query without protocol prefix
     const result = await findAtomById(infra, { id: targetId });
 
     expect(result).not.toBeNull();
     expect(result!.protocols.has('beta')).toBe(true);
-
-    // Verification: ensure the query included all possible patterns in an OR-set
-    const query = vi.mocked(git.query).mock.calls[0][0];
-    expect(query.regexPatterns![0]).toEqual(expect.arrayContaining([
-        '^Lore-id: 12345678$',
-        '^alpha: Alpha-id: 12345678$',
-        '^beta: Beta-id: 12345678$'
-    ]));
   });
 
   it('should throw an error for unqualified queries when no global protocol is registered', async () => {

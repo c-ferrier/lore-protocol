@@ -56,13 +56,16 @@ export interface IGitClient {
    */
   getCommitsByHashes(hashes: readonly string[]): Promise<readonly RawCommit[]>;
   /**
-   * Universal streaming log. Yields structured records (hash + lines) 
-   * for any revision range and format.
+   * Universal streaming log. Yields raw structured records.
    */
   getLogStream(
     revisionRange: string, 
-    options?: { format?: string; nameOnly?: boolean; additionalArgs?: string[] }
-  ): AsyncIterable<{ hash: string; lines: string[] }>;
+    options?: { format?: string; nameOnly?: boolean; additionalArgs?: string[]; stdin?: string }
+  ): AsyncIterable<string>;
+  /**
+   * High-level query stream. Yields raw commits matching criteria.
+   */
+  queryStream(query: StorageQuery): AsyncIterable<RawCommit>;
   resolveRef(ref: string): Promise<string>;
   resolveDate(dateStr: string): Promise<Date | null>;
   getHeadMessage(): Promise<string>;
