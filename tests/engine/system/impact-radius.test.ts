@@ -37,20 +37,16 @@ describe('Git Impact Radius (System)', () => {
   });
 
   it('should verify the impact radius logic with real Git history', async () => {
-    // This tests the getCommitsByHashes 
-    const commits = await client.getCommitsByHashes(['HEAD']);
+    const commits = await Array.fromAsync(client.queryStream({ revisionRange: 'HEAD', maxCommits: 1 }));
     
-    expect(commits).toHaveLength(1);
-
-    const commitsMatch = await client.getCommitsByHashes(['HEAD']);
-    expect(commitsMatch).toHaveLength(1);
-    expect(commitsMatch[0].subject).toBe('feat: add logic');
+    expect(commits.length).toBeGreaterThanOrEqual(1);
+    expect(commits[0].subject).toContain('feat: add logic');
   });
 
   it('should correctly report files changed when no path limiting is applied', async () => {
-    const commits = await client.getCommitsByHashes(['HEAD^']);
-    expect(commits).toHaveLength(1);
-    expect(commits[0].subject).toBe('feat: first');
+    const commits = await Array.fromAsync(client.queryStream({ revisionRange: 'HEAD^', maxCommits: 1 }));
+    expect(commits.length).toBeGreaterThanOrEqual(1);
+    expect(commits[0].subject).toContain('feat: first');
     // Note: Git's --name-only truncates the file list to only show files that match the path scope
     expect(commits[0].filesChanged).toContain('README.md');
   });

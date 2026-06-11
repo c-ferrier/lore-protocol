@@ -2,6 +2,7 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
+import { type StorageQuery } from '../../../../src/engine/interfaces/git-client.js';
 import { calculateDriftBatch, type DiscoveryInfra, findAtomById, findAtoms, findAtomsByIds, resolveFollowLinks } from '../../../../src/engine/shell/orchestrators/discovery.js';
 import { 
     makeAtom,
@@ -60,7 +61,7 @@ describe('Discovery Orchestrator', () => {
 
     it('should return atoms for a file target', async () => {
       const commit = makeRawCommit({ hash: 'unique-h1', author: 'dev@example.com', filesChanged: ['src/auth.ts'] });
-      git.query.mockResolvedValue([commit]);
+      git.queryStream.mockImplementation(async function* () { yield commit; });
       
       const infra = getInfra();
       const result = await findAtoms(infra, makeQueryTarget('src/auth.ts'));
@@ -83,7 +84,7 @@ describe('Discovery Orchestrator', () => {
       const commit1 = makeRawCommit({ hash: 'c1', subject: 't' }); // Has trailers
       const commit2 = makeRawCommit({ hash: 'c2', subject: 't', trailers: 'Junk: junk' }); 
       
-      git.query.mockResolvedValue([commit1, commit2]);
+      git.queryStream.mockImplementation(async function* () { yield* [commit1, commit2]; });
 
       const infra = getInfra();
       const result = await findAtoms(infra, makeQueryTarget('src/main.ts'));
@@ -100,7 +101,7 @@ describe('Discovery Orchestrator', () => {
 
     it('match scope case-insensitively', async () => {
         const commit = makeRawCommit({ subject: 'FEAT(AUTH): LOGIN' });
-        git.query.mockResolvedValue([commit]);
+        git.queryStream.mockImplementation(async function* () { yield commit; });
         
         const infra = getInfra();
         const result = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, makeQueryOptions({ scope: 'auth' }));
@@ -110,7 +111,7 @@ describe('Discovery Orchestrator', () => {
     it('should apply author filter at the application level (Secondary Pass)', async () => {
       const commit1 = makeRawCommit({ hash: 'c1', author: 'dev@example.com', subject: 't' });
       const commit2 = makeRawCommit({ hash: 'c2', author: 'other@example.com', subject: 't' });
-      git.query.mockResolvedValue([commit1, commit2]);
+      git.queryStream.mockImplementation(async function* () { yield* [commit1, commit2]; });
 
       const infra = getInfra();
       const result = await findAtoms(infra, makeQueryTarget('src/main.ts'), makeQueryOptions({ author: 'dev@example.com' }));
@@ -119,7 +120,7 @@ describe('Discovery Orchestrator', () => {
     });
 
     it('should handle empty array when no commits match', async () => {
-      git.query.mockResolvedValue([]);
+      git.queryStream.mockImplementation(async function* () { yield* []; });
       const infra = getInfra();
       const result = await findAtoms(infra, makeQueryTarget('src/main.ts'));
       expect(result).toEqual([]);
@@ -137,7 +138,9 @@ describe('Discovery Orchestrator', () => {
     it('should return atoms for a line range target', async () => {
       const commit = makeRawCommit({ id: 'a1b2c3d4', subject: 't' });
       git.blame.mockResolvedValue([{ commitHash: commit.hash, lineNumber: 10, content: 'code' }]);
-      git.getCommitsByHashes.mockResolvedValue([commit]);
+      git.getLogStream.mockImplementation(async function* () {
+          yield `${commit.hash}\x1Fdate\x1Fauthor\x1Ft\x1Fbody\x1F\x1F`;
+      });
 
       const infra = getInfra();
       const result = await findAtoms(infra, makeQueryTarget('src/main.ts:10-20'));
@@ -150,7 +153,7 @@ describe('Discovery Orchestrator', () => {
   describe('findAtomById', () => {
     it('should find an atom by its Mock-id', async () => {
       const commit = makeRawCommit({ id: 'a1b2c3d4', subject: 't' });
-      git.query.mockResolvedValue([commit]);
+      git.queryStream.mockImplementation(async function* () { yield commit; });
 
       const infra = getInfra();
       const result = await findAtomById(infra, { id: 'a1b2c3d4' });
@@ -159,7 +162,7 @@ describe('Discovery Orchestrator', () => {
     });
 
     it('should return null if no atom matches the Mock-id', async () => {
-      git.query.mockResolvedValue([]);
+      git.queryStream.mockImplementation(async function* () { yield* []; });
       const infra = getInfra();
       const result = await findAtomById(infra, { id: 'a1b2c3d4' });
       expect(result).toBeNull();
@@ -170,7 +173,7 @@ describe('Discovery Orchestrator', () => {
     it('should find atoms by their Mock-ids', async () => {
       const commit1 = makeRawCommit({ id: 'a1b2c3d4', subject: 't' });
       const commit2 = makeRawCommit({ id: 'b2c3d4e5', subject: 't' });
-      git.query.mockResolvedValue([commit1, commit2]);
+      git.queryStream.mockImplementation(async function* () { yield* [commit1, commit2]; });
 
       const infra = getInfra();
       const results = await findAtomsByIds(infra, [{ id: 'a1b2c3d4' }, { id: 'b2c3d4e5' }]);
@@ -188,7 +191,7 @@ describe('Discovery Orchestrator', () => {
         const infra = getInfra({ protocols });
         const commit1 = makeRawCommit({ trailers: 'ns1: P1-id: aaaa1111', subject: 't' });
         const commit2 = makeRawCommit({ trailers: 'ns2: P2-id: bbbb2222', subject: 't' });
-        git.query.mockResolvedValue([commit1, commit2]);
+        git.queryStream.mockImplementation(async function* () { yield* [commit1, commit2]; });
 
         const results = await findAtomsByIds(infra, [{ id: 'aaaa1111', protocol: 'p1' }, { id: 'bbbb2222', protocol: 'p2' }]);
         expect(results).toHaveLength(2);
@@ -200,11 +203,10 @@ describe('Discovery Orchestrator', () => {
       const c3 = makeRawCommit({ hash: 'h3', id: 'cccc3333', subject: 't' });
       const c2 = makeRawCommit({ hash: 'h2', id: 'bbbb2222', subject: 't', trailers: `Mock-id: bbbb2222\nRelated: cccc3333` });
       
-      git.query.mockImplementation(async (q) => {
+      git.queryStream.mockImplementation(async function* (q: StorageQuery) {
           const patterns = (q.regexPatterns?.[0] || []);
-          if (patterns.some(p => p.includes('bbbb2222'))) return [c2];
-          if (patterns.some(p => p.includes('cccc3333'))) return [c3];
-          return [];
+          if (patterns.some((p: string) => p.includes('bbbb2222'))) yield c2;
+          else if (patterns.some((p: string) => p.includes('cccc3333'))) yield c3;
       });
 
       const initial = makeAtom({
@@ -228,11 +230,10 @@ describe('Discovery Orchestrator', () => {
       const c3 = makeRawCommit({ hash: 'h3', id: 'cccc3333', subject: 't' });
       const c2 = makeRawCommit({ hash: 'h2', id: 'bbbb2222', subject: 't', trailers: `Mock-id: bbbb2222\nRelated: cccc3333` });
       
-      git.query.mockImplementation(async (q) => {
+      git.queryStream.mockImplementation(async function* (q: StorageQuery) {
           const p = q.regexPatterns?.[0] || [];
-          if (p.some(s => s.includes('bbbb2222'))) return [c2];
-          if (p.some(s => s.includes('cccc3333'))) return [c3];
-          return [];
+          if (p.some((s: string) => s.includes('bbbb2222'))) yield c2;
+          else if (p.some((s: string) => s.includes('cccc3333'))) yield c3;
       });
 
       const initial = makeAtom({
@@ -254,11 +255,10 @@ describe('Discovery Orchestrator', () => {
         const c1 = makeRawCommit({ hash: 'h1', id: id1, subject: 't', trailers: `Mock-id: ${id1}\nRelated: ${id2}` });
         const c2 = makeRawCommit({ hash: 'h2', id: id2, subject: 't', trailers: `Mock-id: ${id2}\nRelated: ${id1}` });
         
-        git.query.mockImplementation(async (q) => {
+        git.queryStream.mockImplementation(async function* (q: StorageQuery) {
             const p = q.regexPatterns?.[0] || [];
-            if (p.some(s => s.includes(id1))) return [c1];
-            if (p.some(s => s.includes(id2))) return [c2];
-            return [];
+            if (p.some((s: string) => s.includes(id1))) yield c1;
+            else if (p.some((s: string) => s.includes(id2))) yield c2;
         });
 
         const infra = getInfra();
@@ -295,6 +295,7 @@ describe('Discovery Orchestrator', () => {
           yield 'hashA\nsrc/a.ts'; // Atom A (Start snapshot)
       });
 
+
       const results = await calculateDriftBatch({ git }, [atomA, atomB]);
 
       const driftA = results.get('hashA');
@@ -328,7 +329,7 @@ describe('Discovery Orchestrator', () => {
       const child1 = makeRawCommit({ hash: 'c1', id: 'bbbbbbbb', subject: 't', trailers: `Mock-id: bbbbbbbb\nSupersedes: aaaaaaaa` });
       const child2 = makeRawCommit({ hash: 'c2', id: 'cccccccc', subject: 't', trailers: `Mock-id: cccccccc\nSupersedes: aaaaaaaa` });
       
-      git.query.mockResolvedValue([child2, child1, parent]);
+      git.queryStream.mockImplementation(async function* () { yield* [child2, child1, parent]; });
 
       const infra = getInfra();
       const results = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });

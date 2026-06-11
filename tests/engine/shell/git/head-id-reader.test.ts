@@ -10,9 +10,8 @@ const TEST_ID_KEY = "Mock-id";
 
 function createMockGitClient(headMessage: string): IGitClient {
   return makeStubGitClient({
-    log: vi.fn(async (args) => {
-       if (args.includes('-1')) {
-         return [{ 
+    queryStream: async function* (_args) {
+       yield { 
              hash: 'h1', 
              trailers: headMessage.split('\n\n').pop() || headMessage,
              date: new Date().toISOString(),
@@ -20,10 +19,8 @@ function createMockGitClient(headMessage: string): IGitClient {
              subject: 'subj',
              body: '',
              filesChanged: []
-         }];
-       }
-       return [];
-    }),
+         };
+    },
     getHeadMessage: vi.fn().mockResolvedValue(headMessage),
   });
 }

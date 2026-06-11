@@ -204,14 +204,9 @@ export function makeStubGitClient(overrides: Partial<IGitClient> = {}): IGitClie
     getRepoRoot: async () => '/mock-repo',
     resolveRef: async () => 'head-hash',
     resolveDate: async (d: string) => new Date(d),
-    log: async () => [],
-    query: async () => [],
     blame: async () => [],
-    getCommitsByHashes: async () => [],
     getLogStream: async function* () {},
-    queryStream: async function* (this: IGitClient, q: StorageQuery) {
-        const results = await this.query(q);
-        for (const r of results) yield r;
+    queryStream: async function* (this: IGitClient, _q: StorageQuery) {
     },
     commit: async () => ({ hash: 'new-hash', message: 'commit msg', success: true }),
     hasStagedChanges: async () => true,

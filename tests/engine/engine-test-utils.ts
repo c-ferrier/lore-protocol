@@ -44,9 +44,7 @@ export function makeMockGitClient(overrides: Partial<IGitClient> = {}): MockedGi
     const stub = makeStubGitClient(overrides);
     return { 
         ...stub, 
-        query: vi.fn(stub.query),
         resolveDate: vi.fn(stub.resolveDate),
-        getCommitsByHashes: vi.fn(stub.getCommitsByHashes),
         blame: vi.fn(stub.blame),
         getFilesChanged: vi.fn(stub.getFilesChanged),
         resolveRef: vi.fn(stub.resolveRef),
@@ -56,7 +54,6 @@ export function makeMockGitClient(overrides: Partial<IGitClient> = {}): MockedGi
         getHeadMessage: vi.fn(stub.getHeadMessage),
         getLogStream: vi.fn(stub.getLogStream),
         queryStream: vi.fn(stub.queryStream),
-        log: vi.fn(stub.log),
         commit: vi.fn(stub.commit)
     } as unknown as MockedGitClient;
 }
@@ -190,3 +187,4 @@ import { QueryOptions } from '../../src/engine/core/types/query.js';
 export function makeQueryOptions(overrides: Partial<QueryOptions> = {}): QueryOptions {
     return makeStubQueryOptions(overrides);
 }
+

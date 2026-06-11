@@ -96,7 +96,7 @@ export function registerCommitCommand(
       }
 
       const result = await git.commit('', { amend: true, noEdit: true });
-      console.log(formatter.formatSuccess(result.message, { hash: result.hash }));
+      logger.result(formatter.formatSuccess(result.message, { hash: result.hash }));
       return;
     }
 

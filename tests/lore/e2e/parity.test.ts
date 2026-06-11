@@ -139,28 +139,9 @@ describe('Lore CLI Output Parity (v0.5.0 vs Local)', () => {
 
   it('should maintain PARITY: lore log (JSON)', () => {
     const system = JSON.parse(execSystem('log', ['--json']));
-    const localRaw = execLocal('log', ['--json']).trim();
+    const local = JSON.parse(execLocal('log', ['--json']));
     
-    // Parse NDJSON events and reconstruct monolithic result for comparison
-    const events = localRaw.split('\n').map(l => JSON.parse(l));
-    const atoms = events.filter(e => e.type === 'atom').map(e => e.data);
-    const footer = events.find(e => e.type === 'footer')?.meta;
-
-    const localReconstructed = {
-        lore_version: footer?.lore_version || '1.0',
-        command: 'log',
-        target: 'all',
-        target_type: 'global',
-        meta: {
-            total_atoms: footer?.total_atoms,
-            filtered_atoms: footer?.filtered_atoms,
-            oldest: footer?.oldest,
-            newest: footer?.newest
-        },
-        results: atoms
-    };
-    
-    expect(localReconstructed).toEqual(system);
+    expect(local).toEqual(system);
   });
 
   it('should maintain PARITY: lore search (Text)', () => {

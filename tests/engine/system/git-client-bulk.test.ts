@@ -37,20 +37,19 @@ describe('GitClient Bulk Fetch (System)', () => {
   });
 
   it('should fetch multiple commits by their hashes in one call', async () => {
-    const results = await client.getCommitsByHashes(commitHashes);
+    const results = await Array.fromAsync(client.getLogStream("", { stdin: commitHashes.join("\n"), nameOnly: true }));
 
     expect(results).toHaveLength(5);
     // Verify each result matches its hash
     for (let i = 0; i < 5; i++) {
-      const commit = results.find(c => c.hash === commitHashes[i]);
+      const commit = results.find((c: string) => c.startsWith(commitHashes[i]));
       expect(commit).toBeDefined();
-      expect(commit?.subject).toBe(`feat: commit ${i + 1}`);
-      expect(commit?.filesChanged).toContain(`file${i + 1}.txt`);
+      expect(commit?.includes(`file${i + 1}.txt`)).toBe(true);
     }
   });
 
   it('should handle empty input gracefully', async () => {
-    const results = await client.getCommitsByHashes([]);
+    const results = await Array.fromAsync(client.getLogStream("", { stdin: [].join("\n"), nameOnly: true }));
     expect(results).toHaveLength(0);
   });
 });

@@ -123,7 +123,7 @@ describe('Discovery Filtering Parity', () => {
         filesChanged: []
       };
 
-      vi.mocked(git.query).mockResolvedValue([commit1, commit2]);
+      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit1, commit2]; });
 
       const infra = getInfra();
       const results = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { author: 'alice' });
@@ -144,7 +144,7 @@ describe('Discovery Filtering Parity', () => {
         filesChanged: []
       };
 
-      vi.mocked(git.query).mockResolvedValue([commit1, commit2]);
+      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit1, commit2]; });
 
       const infra = getInfra();
       const results = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { author: 'alice', filters: { Confidence: 'high' } });
@@ -165,7 +165,7 @@ describe('Discovery Filtering Parity', () => {
         filesChanged: []
       };
 
-      vi.mocked(git.query).mockResolvedValue([commit1, commit2]);
+      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit1, commit2]; });
 
       const infra = getInfra();
       const results = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { text: 'target word' });
@@ -188,7 +188,7 @@ describe('Discovery Filtering Parity', () => {
         filesChanged: []
       };
 
-      vi.mocked(git.query).mockResolvedValue([commit1, commit2]);
+      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit1, commit2]; });
 
       const infra = getInfra();
       // Filter by Alice AND scope auth AND Confidence high

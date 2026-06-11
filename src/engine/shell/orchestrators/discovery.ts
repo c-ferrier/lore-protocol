@@ -23,6 +23,42 @@ import type { IQueryCache } from '../../interfaces/query-cache.js';
 import { ProtocolError } from '../../util/errors.js';
 import { getDiscoveryPatterns, getSearchPatterns } from '../git/protocol-query-adapter.js';
 
+// Local helper to replace deprecated git.getCommitsByHashes
+async function fetchCommitsByHashes(git: IGitClient, hashes: readonly string[]): Promise<RawCommit[]> {
+    if (hashes.length === 0) return [];
+    const results: RawCommit[] = [];
+    const FIELD_SEP = '\x1F';
+    const format = `%H${FIELD_SEP}%aI${FIELD_SEP}%an <%ae>${FIELD_SEP}%s${FIELD_SEP}%b${FIELD_SEP}%(trailers:only,unfold)${FIELD_SEP}`;
+    const stream = git.getLogStream('', {
+        format,
+        nameOnly: true,
+        stdin: hashes.join('\n'),
+        additionalArgs: ['--no-walk']
+    });
+
+    for await (const record of stream) {
+        if (!record) continue;
+        const lines = record.split('\n');
+        const metadataLine = lines[0];
+        if (!metadataLine) continue;
+
+        const parts = metadataLine.split(FIELD_SEP);
+
+        if (parts.length >= 6) {
+            results.push({
+                hash: parts[0].trim(),
+                date: parts[1].trim(),
+                author: parts[2].trim(),
+                subject: parts[3].trim(),
+                body: parts[4].trimEnd(),
+                trailers: parts[5].trim(),
+                filesChanged: lines.slice(1).map(f => f.trim()).filter(f => f.length > 0)
+            });
+        }
+    }
+    return results;
+}
+
 /**
  * Shared infrastructure dependencies for discovery operations.
  */
@@ -129,7 +165,7 @@ async function* internalQueryStream(
   if (headHash && resolvedOptions.cache !== false && !isBlameTarget(target) && target.type !== 'identity') {
     const cachedHashes = await cache.get(headHash, fingerprint, resolvedOptions);
     if (cachedHashes) {
-      const rawCommits = await git.getCommitsByHashes(cachedHashes);
+      const rawCommits = await fetchCommitsByHashes(git, cachedHashes);
       const atoms = hydrateAtoms(rawCommits, protocols, { includeAllCommits: ctx.options.includeAllCommits });
       const processed = attachSupersessionToAtoms(atoms, protocols);
       const filtered = filterAtoms(processed, resolvedOptions, protocols);
@@ -149,7 +185,7 @@ async function* internalQueryStream(
       const range = getGitBlameArgs(target);
       const blameLines = await git.blame(range.file, range.lineStart, range.lineEnd);
       const hashes = Array.from(new Set(blameLines.map(l => l.commitHash)));
-      const raw = await git.getCommitsByHashes(hashes);
+      const raw = await fetchCommitsByHashes(git, hashes);
       const hydrated = hydrateAtoms(raw, protocols, { includeAllCommits: true });
       const projected = attachSupersessionToAtoms(hydrated, protocols);
       initialAtoms.push(...projected);
@@ -290,7 +326,7 @@ async function discoveryByIdentitiesMatched(
             const fingerprint = `identity:${pName}/${identity.id}`;
             const cached = await cache.get(headHash, fingerprint, {});
             if (cached && cached.length > 0) {
-                const raw = await git.getCommitsByHashes(cached);
+                const raw = await fetchCommitsByHashes(git, cached);
                 const hydrated = hydrateAtoms(raw, protocols, { includeAllCommits: true });
                 const projected = attachSupersessionToAtoms(hydrated, protocols);
                 cachedAtoms.push(...projected);
@@ -311,12 +347,12 @@ async function discoveryByIdentitiesMatched(
       const targetProtocols = pName ? [protocols.get(pName) || protocols.get(pName.toLowerCase())!] : Array.from(protocols.values());
       for (const p of targetProtocols) {
         if (p && isValidProtocolIdentity(id, p.def)) {
-            // Match the exact pattern expected by contract tests
+            // HARDENED REGEX: allow optional trailing space before end of line
             const ns = p.def.namespace;
             if (ns) {
-                patterns.push(`^${escapeRegex(ns)}: ${escapeRegex(p.def.identityKey)}: ${escapeRegex(id)}$`);
+                patterns.push(`^${escapeRegex(ns)}: ${escapeRegex(p.def.identityKey)}: ${escapeRegex(id)}\\s*$`);
             } else {
-                patterns.push(`^${escapeRegex(p.def.identityKey)}: ${escapeRegex(id)}$`);
+                patterns.push(`^${escapeRegex(p.def.identityKey)}: ${escapeRegex(id)}\\s*$`);
             }
         }
       }
@@ -328,7 +364,8 @@ async function discoveryByIdentitiesMatched(
     const query = {
         revisionRange: target.revisionRange,
         regexPatterns: [patterns],
-        paths: []
+        paths: [],
+        includeAllCommits: true
     };
 
     const results: RawCommit[] = [];
@@ -478,32 +515,31 @@ export async function resolveFollowLinks(
 }
 
 /**
- * Calculates drift for a batch of atoms.
+ * DRIFT: Calculates file modification counts since atoms were created.
  */
 export async function calculateDriftBatch(
     infra: { git: IGitClient }, 
     atoms: readonly Atom[]
 ): Promise<Map<string, Record<string, number>>> {
-  if (atoms.length === 0) return new Map();
-
-  const oldestAtom = atoms.reduce((min, a) => 
-    (new Date(a.date) < new Date(min.date) ? a : min), 
-    atoms[0]
-  );
-
   const results = new Map<string, Record<string, number>>();
-  const atomMap = new Map<string, Atom>();
-  const globalCounter = new Map<string, number>();
+  if (atoms.length === 0) return results;
 
+  const atomMap = new Map(atoms.map(a => [a.commitHash, a]));
+  const sorted = [...atoms].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const oldestAtom = sorted[0];
+
+  const globalCounter = new Map<string, number>();
   for (const atom of atoms) {
-      results.set(atom.commitHash, {});
-      atomMap.set(atom.commitHash, atom);
-      for (const file of atom.filesChanged) globalCounter.set(file, 0);
+      for (const file of atom.filesChanged) {
+          globalCounter.set(file, 0);
+      }
   }
 
   const stream = infra.git.getLogStream(`${oldestAtom.commitHash}..HEAD`, { nameOnly: true });
 
   for await (const record of stream) {
+      if (!record) continue;
+      
       const lines = record.split('\n');
       const hash = lines[0].trim();
       const files = lines.slice(1);
@@ -518,9 +554,11 @@ export async function calculateDriftBatch(
       }
 
       for (const file of files) {
-          const current = globalCounter.get(file);
+          const trimmed = file.trim();
+          if (!trimmed) continue;
+          const current = globalCounter.get(trimmed);
           if (current !== undefined) {
-              globalCounter.set(file, current + 1);
+              globalCounter.set(trimmed, current + 1);
           }
       }
   }

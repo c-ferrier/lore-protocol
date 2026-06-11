@@ -18,10 +18,15 @@ export async function readHeadIdentities(
   protocols: ProtocolMap<ProtocolContext>,
 ): Promise<Record<string, AtomId>> {
   try {
-    const log = await gitClient.log(['-1']);
-    if (log.length === 0) return {};
+    let headCommit = null;
+    for await (const raw of gitClient.queryStream({ maxCommits: 1 })) {
+        headCommit = raw;
+        break;
+    }
+    
+    if (!headCommit) return {};
 
-    const trailers = parseTrailers(log[0].trailers);
+    const trailers = parseTrailers(headCommit.trailers);
     const results: Record<string, AtomId> = {};
 
     for (const ctx of protocols.values()) {

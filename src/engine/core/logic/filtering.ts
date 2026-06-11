@@ -98,11 +98,7 @@ function parseFilterKey(raw: string): { protocol: string | null, key: string, op
  */
 export function filterAtoms(atoms: readonly Atom[], options: QueryOptions, protocols: ProtocolMap<ProtocolContext>): Atom[] {
   return atoms.filter((atom) => {
-    const matched = atomMatchesOptions(atom, options, protocols);
-    if (!matched) {
-        console.log(`[DIAG] filterAtoms REJECTED ${atom.commitHash}. Options:`, JSON.stringify(options));
-    }
-    return matched;
+    return atomMatchesOptions(atom, options, protocols);
   });
 }
 

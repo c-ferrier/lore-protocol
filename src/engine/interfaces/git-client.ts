@@ -42,21 +42,15 @@ export interface CommitOptions {
 }
 
 export interface IGitClient {
-  log(args: readonly string[]): Promise<readonly RawCommit[]>;
-  query(query: StorageQuery): Promise<readonly RawCommit[]>;
   blame(file: string, lineStart: number, lineEnd: number): Promise<readonly BlameLine[]>;
   commit(message: string, options?: CommitOptions): Promise<CommitResult>;
   hasStagedChanges(): Promise<boolean>;
   getRepoRoot(): Promise<string>;
   isInsideRepo(): Promise<boolean>;
   getFilesChanged(commitHashes: readonly string[]): Promise<ReadonlyMap<string, readonly string[]>>;
+
   /**
-   * Retrieve multiple commit records by their hashes in a single operation.
-   * Useful for hydrating results from the query cache.
-   */
-  getCommitsByHashes(hashes: readonly string[]): Promise<readonly RawCommit[]>;
-  /**
-   * Universal streaming log. Yields raw structured records.
+   * Universal streaming log. Yields raw structured records as strings.
    */
   getLogStream(
     revisionRange: string, 

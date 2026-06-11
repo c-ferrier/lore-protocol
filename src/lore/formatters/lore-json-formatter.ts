@@ -1,4 +1,3 @@
-import { createBaseFormatter } from '../../engine/cli/formatters/index.js';
 import { getProtocolIdentity } from '../../engine/core/logic/identity.js';
 import {  
     type Atom,
@@ -18,24 +17,90 @@ import {
 /**
  * Lore CLI 0.5.0 Legacy JSON Formatter.
  * 
- * Uses Composition over Inheritance: wraps the base engine formatter 
- * and provides a total reconstruction of the Lore 0.5.0 JSON schema.
+ * Provides 100% backward compatibility with the Lore 0.5.0 monolithic JSON schema.
  * 
- * It ignores the generic engine structure entirely and produces a flat, 
- * Lore-exclusive JSON document for backward compatibility.
+ * NOTE: This formatter is stateful. It buffers atoms from the streaming hooks 
+ * and flushes a single, valid JSON document in the footer. 
+ * This sacrifices zero-latency printing for absolute legacy parity.
  */
 export class LoreJsonFormatter implements IOutputFormatter {
-  private readonly inner: IOutputFormatter;
+  private bufferedAtoms: Atom[] = [];
+  private currentHeader: { target: string; type: string } | null = null;
 
-  constructor(private readonly protocols: ProtocolMap<ProtocolContext>) {
-      this.inner = createBaseFormatter('json', protocols);
+  constructor(private readonly protocols: ProtocolMap<ProtocolContext>) {}
+
+  /**
+   * Monolithic entry point (Legacy/Direct calls)
+   */
+  formatQueryResult(data: FormattableQueryResult): string {
+      const { result } = data;
+      return this.reconstructMonolithic(
+          result.atoms,
+          result.command,
+          result.target,
+          result.targetType,
+          {
+              total: result.meta.totalAtoms,
+              filtered: result.meta.filteredAtoms,
+              oldest: result.meta.oldest,
+              newest: result.meta.newest
+          }
+      );
   }
 
-  formatQueryResult(data: FormattableQueryResult): string {
+  /**
+   * Streaming Hook: Header
+   * Buffers metadata, returns nothing.
+   */
+  formatHeader(target: string, type: string): string {
+      this.bufferedAtoms = [];
+      this.currentHeader = { target, type };
+      return '';
+  }
+
+  /**
+   * Streaming Hook: Atom
+   * Buffers the atom, returns nothing.
+   */
+  formatAtom(atom: Atom): string {
+      this.bufferedAtoms.push(atom);
+      return '';
+  }
+
+  /**
+   * Streaming Hook: Footer
+   * Performs the final reconstruction and flushes the monolithic JSON.
+   */
+  formatFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
+      const output = this.reconstructMonolithic(
+          this.bufferedAtoms,
+          'log', // Defaults to log for streaming commands
+          this.currentHeader?.target || 'all',
+          this.currentHeader?.type || 'global',
+          meta
+      );
+      
+      // Reset state for next potential run in same process
+      this.bufferedAtoms = [];
+      this.currentHeader = null;
+      
+      return output;
+  }
+
+  /**
+   * Internal logic to build the exact 0.5.0 Lore JSON structure.
+   */
+  private reconstructMonolithic(
+      atoms: readonly Atom[],
+      command: string,
+      target: string,
+      targetType: string,
+      meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }
+  ): string {
     const loreProtocol = this.protocols.get('lore');
     const version = loreProtocol?.def.version ?? '1.0';
 
-    const results = data.result.atoms.map((atom) => {
+    const results = atoms.map((atom) => {
       const loreState = atom.protocols.get('lore');
       const loreId = (loreState && loreProtocol) ? getProtocolIdentity(loreState, loreProtocol) : null;
       const status = (loreState && loreState.supersession) ? loreState.supersession : { superseded: false, supersededBy: [] };
@@ -69,21 +134,40 @@ export class LoreJsonFormatter implements IOutputFormatter {
 
     return JSON.stringify({
       lore_version: version,
-      command: data.result.command,
-      target: 'all', // Lore 0.5.0 hardcoded "all" for global logs
-      target_type: data.result.targetType,
+      command,
+      target: target === 'all' || targetType === 'global' ? 'all' : target,
+      target_type: targetType,
       meta: {
-        total_atoms: data.result.meta.totalAtoms,
-        filtered_atoms: data.result.meta.filteredAtoms,
-        oldest: data.result.meta.oldest?.toISOString() ?? null,
-        newest: data.result.meta.newest?.toISOString() ?? null,
+        total_atoms: meta.total,
+        filtered_atoms: meta.filtered,
+        oldest: meta.oldest?.toISOString() ?? null,
+        newest: meta.newest?.toISOString() ?? null,
       },
       results
     }, null, 2);
   }
 
   formatValidationResult(data: FormattableValidationResult): string {
-    return this.inner.formatValidationResult(data);
+    const loreProtocol = this.protocols.get('lore');
+    
+    return JSON.stringify({
+        lore_version: loreProtocol?.def.version ?? '1.0',
+        summary: {
+            commits_checked: data.summary.commitsChecked,
+            errors: data.summary.errors,
+            warnings: data.summary.warnings
+        },
+        results: data.results.map(r => ({
+            commit: r.commit,
+            valid: r.valid,
+            identity: r.identities['lore'] || null,
+            issues: r.issues.map(i => ({
+                severity: i.severity,
+                rule: i.rule,
+                message: i.message
+            }))
+        }))
+    }, null, 2);
   }
 
   formatStalenessResult(data: FormattableStalenessResult): string {
@@ -123,7 +207,29 @@ export class LoreJsonFormatter implements IOutputFormatter {
   }
 
   formatTraceResult(data: FormattableTraceResult): string {
-      return this.inner.formatTraceResult(data);
+    const loreProtocol = this.protocols.get('lore');
+    const version = loreProtocol?.def.version ?? '1.0';
+
+    const renderNode = (node: Atom) => {
+        const loreState = node.protocols.get('lore');
+        const loreId = (loreState && loreProtocol) ? getProtocolIdentity(loreState, loreProtocol) : null;
+        return {
+            lore_id: loreId,
+            commit: node.commitHash,
+            intent: node.subject
+        };
+    };
+
+    return JSON.stringify({
+        lore_version: version,
+        root: renderNode(data.root),
+        edges: data.edges.map(e => ({
+            from: e.from,
+            to: e.to,
+            relationship: e.relationship,
+            target: e.targetAtom ? renderNode(e.targetAtom) : null
+        }))
+    }, null, 2);
   }
 
   formatDoctorResult(data: FormattableDoctorResult): string {
@@ -186,68 +292,15 @@ export class LoreJsonFormatter implements IOutputFormatter {
   }
 
   formatConfig(data: FormattableConfigResult): string {
-    return this.inner.formatConfig(data);
-  }
-
-  formatHeader(target: string, type: string): string {
     const loreProtocol = this.protocols.get('lore');
-    const version = loreProtocol?.def.version ?? '1.0';
     return JSON.stringify({
-        type: 'header',
-        lore_version: version,
-        command: 'log', // Default to log for streaming
-        target,
-        target_type: type
-    });
-  }
-
-  formatAtom(atom: Atom): string {
-    const loreProtocol = this.protocols.get('lore');
-    const loreState = atom.protocols.get('lore');
-    const loreId = (loreState && loreProtocol) ? getProtocolIdentity(loreState, loreProtocol) : null;
-    const status = (loreState && loreState.supersession) ? loreState.supersession : { superseded: false, supersededBy: [] };
-
-    const trailers: Record<string, string | string[] | null> = {};
-    if (loreState && loreProtocol) {
-        for (const [key, values] of Object.entries(loreState.trailers)) {
-            const def = loreProtocol.def.trailers[key];
-            const isScalar = def && !def.multivalue;
-            trailers[snakeCase(key)] = isScalar ? values[0] : [...values];
-        }
-        if (loreId) trailers.lore_id = loreId;
-    }
-
-    return JSON.stringify({
-        type: 'atom',
-        data: {
-            lore_id: loreId,
-            commit: atom.commitHash,
-            date: atom.date.toISOString(),
-            author: atom.author.includes('<') 
-                ? atom.author.match(/<([^>]+)>/)?.[1] || atom.author 
-                : atom.author,
-            intent: atom.subject,
-            body: atom.body,
-            trailers,
-            files_changed: [...atom.filesChanged],
-            superseded: status.superseded,
-            superseded_by: status.supersededBy?.[0] ?? null,
-        }
-    });
-  }
-
-  formatFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
-    const loreProtocol = this.protocols.get('lore');
-    const version = loreProtocol?.def.version ?? '1.0';
-    return JSON.stringify({
-        type: 'footer',
-        lore_version: version,
-        meta: {
-            total_atoms: meta.total,
-            filtered_atoms: meta.filtered,
-            oldest: meta.oldest?.toISOString() ?? null,
-            newest: meta.newest?.toISOString() ?? null,
-        }
-    });
+        lore_version: loreProtocol?.def.version ?? '1.0',
+        protocols: data.protocols.map(p => ({
+            name: p.name,
+            version: p.version,
+            namespace: p.namespace,
+            trailers: p.trailers
+        }))
+    }, null, 2);
   }
 }

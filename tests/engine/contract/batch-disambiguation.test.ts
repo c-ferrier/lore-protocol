@@ -49,6 +49,6 @@ describe('Discovery Batch Disambiguation', () => {
     
     // Verify query patterns
     const query = vi.mocked(git.queryStream).mock.calls[0][0];
-    expect(query.regexPatterns).toContainEqual(['^alpha: Alpha-id: aaaa1111$', '^beta: Beta-id: bbbb2222$']);
+    expect(query.regexPatterns).toContainEqual(['^alpha: Alpha-id: aaaa1111\\s*$', '^beta: Beta-id: bbbb2222\\s*$']);
   });
 });

@@ -58,19 +58,19 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
     });
 
     // 1. First run: Perform full Discovery + Fetch
-    vi.mocked(git.query).mockResolvedValue([commit]);
+    vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit]; });
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
     vi.spyOn(cache, 'get').mockResolvedValue(null);
     
     const target = makeQueryTarget('src/logic.ts');
     const infra = getInfra();
     await findAtoms(infra, target, { cache: true });
-    expect(git.query).toHaveBeenCalledTimes(1);
+    expect(git.queryStream).toHaveBeenCalledTimes(1);
 
     // 2. Second run: Cache should hit (skipping query)
-    vi.mocked(git.query).mockClear();
+    vi.mocked(git.queryStream).mockClear();
     vi.spyOn(cache, 'get').mockResolvedValue(['abc']);
-    vi.mocked(git.getCommitsByHashes).mockResolvedValue([commit]);
+    vi.mocked(git.getLogStream).mockImplementation(async function* () { yield 'abc\nsrc/logic.ts'; });
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
     
     const result = await findAtoms(infra, target, { cache: true });
@@ -78,8 +78,8 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
     // VERIFICATION A: Physical Integrity
     // Discovery is skipped, but FETCH still gets full records (including files)
     expect(result).toHaveLength(1);
-    expect(git.query).not.toHaveBeenCalled();
-    expect(git.getCommitsByHashes).toHaveBeenCalledWith(['abc']);
+    expect(git.queryStream).not.toHaveBeenCalled();
+    expect(git.getLogStream).toHaveBeenCalled();
     expect(result[0].filesChanged).toEqual(['src/logic.ts']);
     
     // VERIFICATION B: Logical Truth
@@ -91,7 +91,6 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
   it('should skip DISCOVERY for identity targets on cache hit', async () => {
     const headHash = 'f1e2d3c4b5a6';
     const id = '12345678'; // Must be valid 8-char hex
-    const commit = makeRawCommit({ hash: 'hash123', id });
 
     const mockAtomState = makeAtom({ 
         id,
@@ -99,7 +98,7 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
     });
 
     vi.mocked(git.resolveRef).mockResolvedValue(headHash);
-    vi.mocked(git.getCommitsByHashes).mockResolvedValue([commit]);
+    vi.mocked(git.getLogStream).mockImplementation(async function* () { yield 'hash123'; });
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
 
     // 1. Initial run: Fill cache
@@ -108,17 +107,17 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
 
     const infra = getInfra();
     await findAtoms(infra, target, { cache: true });
-    expect(git.query).toHaveBeenCalledTimes(1);
+    expect(git.queryStream).toHaveBeenCalledTimes(1);
 
     // 2. Second run: Cache hit
-    vi.mocked(git.query).mockClear();
+    vi.mocked(git.queryStream).mockClear();
     vi.spyOn(cache, 'get').mockResolvedValue(['hash123']);
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
 
     const result = await findAtoms(infra, target, { cache: true });
 
     // VERIFICATION: Discovery is skipped, but truth projection still happens
-    expect(git.query).not.toHaveBeenCalled();
+    expect(git.queryStream).not.toHaveBeenCalled();
     expect(result).toHaveLength(1);
     expect(result[0].protocols.get('mock')?.supersession).toBeDefined();
   });
