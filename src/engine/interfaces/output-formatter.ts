@@ -27,7 +27,7 @@ export interface IOutputFormatter {
   formatError(code: number, messages: readonly ErrorMessage[]): string;
 
   // --- Streaming Lifecycle Hooks ---
-  formatHeader(target: string, type: string): string;
+  formatHeader(target: string, type: string, visibleTrailers?: readonly string[] | 'all'): string;
   formatAtom(atom: Atom, visibleTrailers?: readonly string[] | 'all'): string;
   formatFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string;
 }

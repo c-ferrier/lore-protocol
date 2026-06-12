@@ -79,7 +79,7 @@ export async function executePathQuery(
   const formatter = getFormatter();
   
   // 1. Output Header
-  const header = formatter.formatHeader(target.raw ? target.raw.toString() : 'all', target.type);
+  const header = formatter.formatHeader(target.raw ? target.raw.toString() : 'all', target.type, visibleTrailers);
   if (header) logger.result(header);
 
   const stream = findAtomsStream(infra, target, queryOptions);

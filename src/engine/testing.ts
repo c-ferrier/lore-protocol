@@ -233,8 +233,8 @@ export function makeStubFormatter(): IOutputFormatter {
         formatDoctorResult: () => 'Mock Doctor Result',
         formatSuccess: (msg: string) => `Success: ${msg}`,
         formatError: (_code: number, messages: readonly { message: string }[]) => `Error: ${messages[0]?.message}`,
-        formatHeader: (target: string) => `Mock Header: ${target}`,
-        formatAtom: (atom: Atom) => `Mock Atom: ${atom.commitHash}`,
+        formatHeader: (target: string, type: string, _visibleTrailers?: readonly string[] | 'all') => `Mock Header: ${target} (${type})`,
+        formatAtom: (atom: Atom, _visibleTrailers?: readonly string[] | 'all') => `Mock Atom: ${atom.commitHash}`,
         formatFooter: () => 'Mock Footer',
     } as unknown as IOutputFormatter;
 }

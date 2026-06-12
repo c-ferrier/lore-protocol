@@ -50,7 +50,8 @@ const target = createQueryTarget(undefined, {
 const formatter = getFormatter();
 
 // 1. Output Header
-logger.result(formatter.formatHeader(target.raw.toString(), target.type));
+const header = formatter.formatHeader(target.raw.toString(), target.type, 'all');
+if (header) logger.result(header);
 
 const stream = findAtomsStream(infra, target, { ...searchOptions, includeAllCommits: !!options.history });
 
@@ -84,16 +85,18 @@ for await (const atom of stream) {
     if (!newest || atom.date > newest) newest = atom.date;
 
     // 2. Output Atom Progressive
-    logger.result(formatter.formatAtom(atom));
+    const atomOutput = formatter.formatAtom(atom, 'all');
+    if (atomOutput) logger.result(atomOutput);
 }
 
 // 3. Output Footer
-logger.result(formatter.formatFooter({ 
+const footer = formatter.formatFooter({ 
     total: totalCount, 
     filtered: filteredCount,
     oldest,
     newest
-}));
+});
+if (footer) logger.result(footer);
 });
 }
 

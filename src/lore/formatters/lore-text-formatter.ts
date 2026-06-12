@@ -51,7 +51,7 @@ export class LoreTextFormatter implements IOutputFormatter {
       return this.base.formatConfig(data);
   }
 
-  formatHeader(): string {
+  formatHeader(_target: string, _type: string, _visibleTrailers?: readonly string[] | 'all'): string {
       // Lore 0.5.0 Parity: No Query header
       return '';
   }

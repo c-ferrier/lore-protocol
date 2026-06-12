@@ -53,9 +53,9 @@ export class LoreJsonFormatter implements IOutputFormatter {
    * Streaming Hook: Header
    * Buffers metadata, returns nothing.
    */
-  formatHeader(target: string, type: string, visibleTrailers: readonly string[] | 'all' = 'all'): string {
+  formatHeader(target: string, type: string, visibleTrailers?: readonly string[] | 'all'): string {
       this.bufferedAtoms = [];
-      this.currentHeader = { target, type, visibleTrailers };
+      this.currentHeader = { target, type, visibleTrailers: visibleTrailers || 'all' };
       return '';
   }
 

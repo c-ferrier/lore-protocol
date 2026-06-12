@@ -152,7 +152,7 @@ export class TextFormatter implements IOutputFormatter {
     return lines.join('\n');
   }
 
-  formatHeader(target: string, type: string): string {
+  formatHeader(target: string, type: string, _visibleTrailers?: readonly string[] | 'all'): string {
     return `Query: ${this.c.bold(target)} (${type})\n`;
   }
 

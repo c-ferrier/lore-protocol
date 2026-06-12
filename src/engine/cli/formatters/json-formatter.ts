@@ -206,7 +206,7 @@ export class JsonFormatter implements IOutputFormatter {
     return JSON.stringify(data, null, 2);
   }
 
-  formatHeader(target: string, type: string): string {
+  formatHeader(target: string, type: string, _visibleTrailers?: readonly string[] | 'all'): string {
       return JSON.stringify({ type: 'header', version: '1.0', target, target_type: type });
   }
 
