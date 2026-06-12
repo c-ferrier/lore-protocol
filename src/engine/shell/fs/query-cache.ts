@@ -171,8 +171,10 @@ export class QueryCache implements IQueryCache {
         return Object.keys(record)
           .sort()
           .reduce((acc: Record<string, unknown>, key) => {
-            // limit and page are display concerns and should not invalidate the cache
-            if (key === 'limit' || key === 'page') return acc;
+            // These keys represent presentation, pagination, or meta-concerns 
+            // and do not change the underlying data returned from Git.
+            const presentationKeys = ['limit', 'page', 'color', 'nocolor', 'json', 'format', 'context', 'updatenotifier'];
+            if (presentationKeys.includes(key.toLowerCase())) return acc;
             
             const val = record[key];
             if (val !== null && val !== undefined) {

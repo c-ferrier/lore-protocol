@@ -237,6 +237,22 @@ describe('QueryCache Implementation', () => {
     
         expect(result).toEqual(hashes);
     });
+
+    it('should be independent of presentation options (color, format, etc.)', async () => {
+        const headHash = 'a'.repeat(40);
+        const target = 'global';
+        const hashes = ['h1'];
+        
+        // Base options
+        const o1 = { ...getBaseOptions(), color: true, format: 'text', json: false };
+        // Changed presentation options
+        const o2 = { ...getBaseOptions(), color: false, format: 'json', json: true };
+    
+        await cache.set(headHash, target, o1, hashes);
+        const result = await cache.get(headHash, target, o2);
+    
+        expect(result).toEqual(hashes);
+    });
   });
 });
 
