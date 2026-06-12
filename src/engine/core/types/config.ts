@@ -91,11 +91,13 @@ export interface EngineConfig {
   readonly follow: {
     readonly maxDepth: number;
   };
+  readonly cache: {
+    readonly query: boolean;
+    readonly identity: boolean;
+    readonly pruneThreshold: number;
+  };
   readonly cli: {
     readonly updateCheck: boolean;
-    readonly cache: boolean;
-    readonly queryCache: boolean;
-    readonly queryCachePruneThreshold: number;
   };
   /**
    * Raw protocol overrides indexed by protocol name.
@@ -113,6 +115,7 @@ export const ENGINE_CONFIG_SCHEMA: Record<string, string[]> = {
   stale: ['olderThan', 'driftThreshold'],
   output: ['defaultFormat'],
   follow: ['maxDepth'],
-  cli: ['updateCheck', 'cache', 'queryCache', 'queryCachePruneThreshold'],
+  cache: ['query', 'identity', 'pruneThreshold'],
+  cli: ['updateCheck'],
   protocols: [], // Dynamic section
 };

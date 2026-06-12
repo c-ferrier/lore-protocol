@@ -26,11 +26,13 @@ const CAMEL_TO_SNAKE: Record<string, Record<string, string>> = {
   follow: {
     maxDepth: 'max_depth',
   },
+  cache: {
+    query: 'query',
+    identity: 'identity',
+    pruneThreshold: 'prune_threshold',
+  },
   cli: {
     updateCheck: 'update_check',
-    cache: 'cache',
-    queryCache: 'query_cache',
-    queryCachePruneThreshold: 'query_cache_prune_threshold',
   },
 };
 

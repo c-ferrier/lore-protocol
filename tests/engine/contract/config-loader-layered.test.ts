@@ -14,7 +14,8 @@ describe('Layered Configuration Integration', () => {
   
   const DEFAULT_CONFIG = {
     protocols: {},
-    cli: { updateCheck: true, queryCache: true, cache: true, queryCachePruneThreshold: 100 },
+    cache: { query: true, identity: true, pruneThreshold: 100 },
+    cli: { updateCheck: true },
     validation: { subjectMaxLength: 72, maxMessageLines: 50 },
     stale: { olderThan: '6m', driftThreshold: 20 },
     output: { defaultFormat: 'text' },
@@ -36,7 +37,9 @@ describe('Layered Configuration Integration', () => {
     await writeFile(join(configDir, 'config.toml'), `
 [cli]
 update_check = false
-query_cache = true
+
+[cache]
+query = true
     `);
 
     // 2. Test Loading
@@ -44,6 +47,6 @@ query_cache = true
     const engineConfig = await engineLoader.loadForPath(tempDir);
 
     expect(engineConfig.cli.updateCheck).toBe(false);
-    expect(engineConfig.cli.queryCache).toBe(true);
+    expect(engineConfig.cache.query).toBe(true);
   });
 });

@@ -79,3 +79,13 @@ export class IdentityIndex implements IIdentityIndex {
     return map;
   }
 }
+
+/**
+ * Null Object implementation of IIdentityIndex.
+ * Silent no-op for all operations.
+ */
+export class NullIdentityIndex implements IIdentityIndex {
+    async get(): Promise<string[]> { return []; }
+    async append(): Promise<void> { }
+    async clear(): Promise<void> { }
+}

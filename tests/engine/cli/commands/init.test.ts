@@ -25,11 +25,13 @@ describe('Engine registerInitCommand', () => {
   let logger: TestLogger;
 
   const MOCK_CONFIG: EngineConfig = {
+    cache: { 
+        query: true,
+        identity: true,
+        pruneThreshold: 100
+    },
     cli: { 
         updateCheck: true, 
-        cache: true,
-        queryCache: true,
-        queryCachePruneThreshold: 100
     },
     validation: { 
         subjectMaxLength: 72,

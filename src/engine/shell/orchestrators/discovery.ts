@@ -304,7 +304,6 @@ async function discoveryByIdentitiesMatched(
     const { headHash } = ctx;
     const identities = target.identities || [];
     const root = getRootProtocol(protocols);
-    const claimedKeys = getClaimedProtocolKeys(protocols);
     
     if (!root && identities.some(i => !i.protocol)) {
         throw new ProtocolError('Cannot resolve unqualified identity: No global protocol is registered. Please use "protocol/id" format.', 1);

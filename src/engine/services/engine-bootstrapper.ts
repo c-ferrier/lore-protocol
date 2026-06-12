@@ -34,9 +34,9 @@ import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { IPrompt } from '../interfaces/prompt.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import { EngineConfigLoader } from '../shell/fs/config-loader.js';
-import { IdentityIndex } from '../shell/fs/identity-index.js';
+import { IdentityIndex, NullIdentityIndex } from '../shell/fs/identity-index.js';
 import { DynamicProtocolLoader, ProtocolLoader } from '../shell/fs/protocol-loader.js';
-import { QueryCache } from '../shell/fs/query-cache.js';
+import { NullQueryCache, QueryCache } from '../shell/fs/query-cache.js';
 import { resolveProtocolRoot } from '../shell/fs/root-resolver.js';
 import { GitClient } from '../shell/git/git-client.js';
 import { CACHE_DIR, DEFAULT_CACHE_PRUNE_THRESHOLD, PROTOCOLS_DIR_NAME, QUERY_CACHE_DIR } from '../util/constants.js';
@@ -162,15 +162,19 @@ export class EngineBootstrapper {
         .sort()
         .join(';');
 
-    const queryCache: IQueryCache = new QueryCache(
-      join(activeRoot, this.options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
-      config.cli.queryCachePruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
-      `engine@${getEngineVersion()};${fingerprint}`,
-    );
+    const queryCache: IQueryCache = config.cache.query 
+      ? new QueryCache(
+          join(activeRoot, this.options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
+          config.cache.pruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
+          `engine@${getEngineVersion()};${fingerprint}`,
+        )
+      : new NullQueryCache();
 
-    const identityIndex: IIdentityIndex = new IdentityIndex(
-      join(activeRoot, this.options.engineDirName, CACHE_DIR, 'identities')
-    );
+    const identityIndex: IIdentityIndex = config.cache.identity
+      ? new IdentityIndex(
+          join(activeRoot, this.options.engineDirName, CACHE_DIR, 'identity')
+        )
+      : new NullIdentityIndex();
 
     const baseTarget = createQueryTarget(undefined, {
       cwd,

@@ -5,18 +5,18 @@ import { analyzeConfigGaps } from '../../../../src/engine/core/logic/config-anal
 
 describe('analyzeConfigGaps', () => {
   const schema = {
-    cli: ['updateCheck', 'cache'],
+    cache: ['query', 'identity'],
     validation: ['subjectMaxLength']
   };
 
   const defaults = {
-    cli: { updateCheck: true, cache: true },
+    cache: { query: true, identity: true },
     validation: { subjectMaxLength: 72 }
   };
 
   it('should return zero gaps for a perfect match', () => {
     const config = {
-      cli: { update_check: true, cache: true },
+      cache: { query: true, identity: true },
       validation: { subject_max_length: 72 }
     };
     const result = analyzeConfigGaps(config, schema, defaults);
@@ -25,32 +25,32 @@ describe('analyzeConfigGaps', () => {
   });
 
   it('should identify missing sections', () => {
-    const config = { cli: { cache: true } };
+    const config = { cache: { query: true } };
     const result = analyzeConfigGaps(config, schema, defaults);
     expect(result.missing).toContain('[validation] section');
   });
 
   it('should identify missing keys within a section', () => {
     const config = { 
-      cli: { cache: true },
+      cache: { query: true },
       validation: { subject_max_length: 72 }
     };
     const result = analyzeConfigGaps(config, schema, defaults);
-    expect(result.missing).toContain('cli.update_check');
+    expect(result.missing).toContain('cache.identity');
   });
 
   it('should identify customized values', () => {
     const config = {
-      cli: { update_check: false, cache: true },
+      cache: { query: false, identity: true },
       validation: { subject_max_length: 72 }
     };
     const result = analyzeConfigGaps(config, schema, defaults);
-    expect(result.customized).toContain('cli.update_check');
+    expect(result.customized).toContain('cache.query');
   });
 
   it('should respect both snake_case and camelCase', () => {
     const config = {
-      cli: { updateCheck: true, cache: true },
+      cache: { query: true, identity: true },
       validation: { subjectMaxLength: 72 }
     };
     const result = analyzeConfigGaps(config, schema, defaults);
@@ -59,12 +59,12 @@ describe('analyzeConfigGaps', () => {
 
   it('should identify multiple customized values and missing keys simultaneously', () => {
     const config = {
-      cli: { update_check: false }, // customized, and 'cache' is missing
+      cache: { query: false }, // customized, and 'identity' is missing
     };
     const result = analyzeConfigGaps(config, schema, defaults);
     
-    expect(result.customized).toContain('cli.update_check');
-    expect(result.missing).toContain('cli.cache');
+    expect(result.customized).toContain('cache.query');
+    expect(result.missing).toContain('cache.identity');
     expect(result.missing).toContain('[validation] section');
   });
 });

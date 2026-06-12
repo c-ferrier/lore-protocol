@@ -37,7 +37,8 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     stale: { olderThan: '6m', driftThreshold: 20 },
     output: { defaultFormat: 'text' },
     follow: { maxDepth: 3 },
-    cli: { updateCheck: false, cache: true, queryCache: true, queryCachePruneThreshold: 100 },
+    cache: { query: true, identity: true, pruneThreshold: 100 },
+    cli: { updateCheck: false },
     protocols: {}
   };
   beforeAll(() => {

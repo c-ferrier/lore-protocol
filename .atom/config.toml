@@ -12,10 +12,12 @@ default_format = "text"
 [follow]
 max_depth = 3
 
+[cache]
+query = true
+identity = true
+prune_threshold = 100
+
 [cli]
 update_check = true
-cache = true
-query_cache = true
-query_cache_prune_threshold = 100
 
 [protocols]

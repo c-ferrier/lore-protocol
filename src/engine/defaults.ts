@@ -18,11 +18,13 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   follow: {
     maxDepth: 3,
   },
+  cache: {
+    query: true,
+    identity: true,
+    pruneThreshold: 100,
+  },
   cli: {
     updateCheck: true,
-    cache: true,
-    queryCache: true,
-    queryCachePruneThreshold: 100,
   },
   protocols: {},
 };
