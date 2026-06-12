@@ -46,6 +46,7 @@ describe('Discovery Cache Isolation', () => {
     });
 
     await findAtoms(infra, target);
-    expect(cache.get).toHaveBeenCalledWith('head-hash', 'identity:mock/aaaa1111', expect.any(Object));
+    expect(infra.identityIndex.get).toHaveBeenCalledWith('mock/aaaa1111');
+    expect(cache.get).not.toHaveBeenCalled();
   });
 });

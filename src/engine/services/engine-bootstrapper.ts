@@ -27,12 +27,14 @@ import type { EngineConfig } from '../core/types/config.js';
 import type { ProtocolContext, ProtocolDefinition } from '../core/types/protocol-definition.js';
 import type { QueryTargetAST } from '../core/types/query.js';
 import type { IGitClient } from '../interfaces/git-client.js';
+import type { IIdentityIndex } from '../interfaces/identity-index.js';
 import type { ILogger } from '../interfaces/logger.js';
 import { LogLevel } from '../interfaces/logger.js';
 import type { IOutputFormatter } from '../interfaces/output-formatter.js';
 import type { IPrompt } from '../interfaces/prompt.js';
 import type { IQueryCache } from '../interfaces/query-cache.js';
 import { EngineConfigLoader } from '../shell/fs/config-loader.js';
+import { IdentityIndex } from '../shell/fs/identity-index.js';
 import { DynamicProtocolLoader, ProtocolLoader } from '../shell/fs/protocol-loader.js';
 import { QueryCache } from '../shell/fs/query-cache.js';
 import { resolveProtocolRoot } from '../shell/fs/root-resolver.js';
@@ -45,6 +47,7 @@ import { CACHE_DIR, DEFAULT_CACHE_PRUNE_THRESHOLD, PROTOCOLS_DIR_NAME, QUERY_CAC
 export interface EngineInfra {
   readonly git: IGitClient;
   readonly cache: IQueryCache;
+  readonly identityIndex: IIdentityIndex;
   readonly protocols: ProtocolMap<ProtocolContext>;
   readonly config: EngineConfig;
   readonly logger: ILogger;
@@ -165,6 +168,10 @@ export class EngineBootstrapper {
       `engine@${getEngineVersion()};${fingerprint}`,
     );
 
+    const identityIndex: IIdentityIndex = new IdentityIndex(
+      join(activeRoot, this.options.engineDirName, CACHE_DIR, 'identities')
+    );
+
     const baseTarget = createQueryTarget(undefined, {
       cwd,
       protocolRoot: activeRoot,
@@ -194,6 +201,7 @@ export class EngineBootstrapper {
     const infra: EngineInfra = {
       git: gitClient,
       cache: queryCache,
+      identityIndex,
       protocols: protocolMap,
       config,
       logger,

@@ -65,6 +65,17 @@ export class GitClient implements IGitClient {
     }
   }
 
+  async filterAliveHashes(hashes: readonly string[], ref: string = 'HEAD'): Promise<string[]> {
+      if (hashes.length === 0) return [];
+      
+      const stdout = await this.exec(
+          ['rev-list', '--no-walk', '--stdin', '--ignore-missing', ref],
+          hashes.join('\n')
+      );
+      
+      return stdout.trim().split('\n').map(h => h.trim()).filter(h => h.length > 0);
+  }
+
   async *getLogStream(
     revisionRange: string, 
     options: { format?: string; nameOnly?: boolean; additionalArgs?: string[]; stdin?: string } = {}

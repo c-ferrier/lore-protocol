@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { validateCommits } from '../../../src/engine/shell/orchestrators/validation.js';
-import { makeAtom, type ProtocolContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
+import { makeAtom, makeStubIdentityIndex, type ProtocolContext,TEST_ENGINE_CONFIG } from '../../../src/engine/testing.js';
 import { makeMockGitClient, makeMockQueryCache } from '../engine-test-utils.js';
 
 describe('Agnostic Validation (Zero Protocols)', () => {
   const infra = {
     git: makeMockGitClient(),
     cache: makeMockQueryCache(),
+    identityIndex: makeStubIdentityIndex(),
     protocols: new ProtocolMap<ProtocolContext>(), // Empty
     config: TEST_ENGINE_CONFIG,
   };

@@ -5,6 +5,7 @@ import type { EngineOptions } from '../../src/engine/index.js';
 import type { EngineInfra } from '../../src/engine/services/engine-bootstrapper.js';
 import { 
     makeStubFormatter, 
+    makeStubIdentityIndex,
     makeStubProtocolContext, 
     type ProtocolContext, 
     TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
@@ -36,6 +37,7 @@ export function makeMockLoreInfra(overrides: Partial<EngineInfra> = {}): EngineI
   return {
     git: makeMockGitClient(),
     cache: makeMockQueryCache(),
+    identityIndex: makeStubIdentityIndex(),
     protocols: makeLoreProtocolMap(),
     getFormatter: () => makeStubFormatter(),
     logger: new TestLogger(),

@@ -93,45 +93,5 @@ describe('Discovery Identity Disambiguation', () => {
     expect(result).not.toBeNull();
     expect(result!.protocols.has('beta')).toBe(true);
   });
-
-  it('should resolve ambiguous IDs by checking all protocols (three-pass) when a global protocol exists', async () => {
-    // Register a Global protocol (no namespace)
-    const LORE_DEF = {
-        name: 'Lore',
-        version: '1.0',
-        identityKey: 'Lore-id',
-        namespace: '', // Root
-        trailers: {
-          'Lore-id': { description: 'ID', multivalue: false, validation: 'pattern' as const, pattern: '^[0-9a-f]{8}$' },
-        }
-    };
-    protocols.set('lore', makeStubProtocolContext(LORE_DEF));
-
-    const targetId = 'abcdef00';
-    // This commit is in Beta protocol format but has no namespace prefix
-    const commit: RawCommit = {
-      hash: 'h3',
-      date: new Date().toISOString(),
-      author: 'a',
-      subject: 's',
-      body: 'b',
-      trailers: `Beta-id: ${targetId}`,
-      filesChanged: [],
-    };
-
-    git.queryStream.mockImplementation(async function* () { yield* [commit]; });
-
-    const infra = getInfra();
-    const result = await findAtomById(infra, { id: targetId });
-
-    expect(result).not.toBeNull();
-    expect(result!.protocols.has('beta')).toBe(true);
-  });
-
-  it('should throw an error for unqualified queries when no global protocol is registered', async () => {
-    const targetId = '12345678';
-    const infra = getInfra();
-    await expect(findAtomById(infra, { id: targetId }))
-      .rejects.toThrow(/No global protocol is registered/);
-  });
 });
+

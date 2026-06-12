@@ -60,6 +60,13 @@ export interface IGitClient {
    * High-level query stream. Yields raw commits matching criteria.
    */
   queryStream(query: StorageQuery): AsyncIterable<RawCommit>;
+
+  /**
+   * Bulk existence and reachability check.
+   * Filters the provided hashes and returns only those reachable from HEAD.
+   */
+  filterAliveHashes(hashes: readonly string[], ref?: string): Promise<string[]>;
+
   resolveRef(ref: string): Promise<string>;
   resolveDate(dateStr: string): Promise<Date | null>;
   getHeadMessage(): Promise<string>;

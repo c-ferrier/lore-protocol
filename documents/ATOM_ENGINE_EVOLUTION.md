@@ -100,6 +100,16 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 *   **Post-Commit Hook**: Automatically append new nodes to the index during `lore commit`.
 **Value:** Eliminates the "First Run Pain" after a commit. Tracing a decision through history becomes a near-zero latency operation regardless of repository size or history depth.
 
+### PHASE 4.2: Strict Core & Edge-Bound Qualification (The "No Guessing" Rule)
+**Urgency**: Medium | **Importance**: High | **Difficulty**: Medium
+**Concept:** The Core Orchestrator must become 100% strict and deterministic, operating exclusively on fully qualified Absolute URIs (e.g., `lore/a1b2c3d4`). The responsibility for "guessing" intent (unqualified ID resolution) shifts entirely to the external boundaries (CLI Layer and Edge Extraction Layer).
+**Action:** 
+*   **AST Enforcement**: Make `protocol: string` required on the `QueryIdentity` AST interface.
+*   **CLI Delegation**: The CLI command layer (`src/engine/cli`) becomes responsible for translating raw user input (`lore why 12345678`) into qualified URIs based on the invoked binary context (`lore` implies `lore/12345678`; `atom` implies `system:git/12345678`).
+*   **Extraction Delegation**: The hydration layer (`extractReferenceIds`) must use the context of the defining trailer (e.g., the protocol that owns the `Depends-on` key) to qualify implicit values before passing them to the Orchestrator.
+*   **Core Deletion**: Remove the legacy "Three-Pass" brute-force and fuzzy scanning loops from the Core `Discovery` orchestrator entirely.
+**Value:** Prevents ambiguous graph resolution, simplifies the core codebase, and establishes a rigid, cacheable foundation for the Persistent Identity Index.
+
 ### PHASE 3: Hosted Protocol Registry
 **Urgency**: Medium | **Importance**: High | **Difficulty**: Medium
 **Vision:** Create an ecosystem where organizations can download standardized engineering, security, and product workflows just like npm packages (e.g., `@standard/security`).

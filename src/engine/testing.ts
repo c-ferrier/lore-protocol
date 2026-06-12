@@ -20,6 +20,7 @@ export type { ProtocolContext,ProtocolDefinition };
 import type { QueryOptions,QueryTargetAST } from './core/types/query.js';
 import type { IConfigLoader } from './interfaces/config-loader.js';
 import type { IGitClient, RawCommit as IGitRawCommit, StorageQuery } from './interfaces/git-client.js';
+import type { IIdentityIndex } from './interfaces/identity-index.js';
 import type { ILogger } from './interfaces/logger.js';
 import type { IOutputFormatter } from './interfaces/output-formatter.js';
 import type { IPrompt } from './interfaces/prompt.js';
@@ -208,6 +209,7 @@ export function makeStubGitClient(overrides: Partial<IGitClient> = {}): IGitClie
     getLogStream: async function* () {},
     queryStream: async function* (this: IGitClient, _q: StorageQuery) {
     },
+    filterAliveHashes: async (hashes: readonly string[]) => [...hashes],
     commit: async () => ({ hash: 'new-hash', message: 'commit msg', success: true }),
     hasStagedChanges: async () => true,
     isInsideRepo: async () => true,
@@ -255,6 +257,16 @@ export function makeStubQueryCache(overrides: Partial<IQueryCache> = {}): IQuery
     } as IQueryCache;
 }
 
+/** Stub Identity Index. */
+export function makeStubIdentityIndex(overrides: Partial<IIdentityIndex> = {}): IIdentityIndex {
+    return {
+        get: async () => [],
+        append: async () => {},
+        clear: async () => {},
+        ...overrides
+    };
+}
+
 /** Stub Query Options. */
 export function makeStubQueryOptions(overrides: Partial<QueryOptions> = {}): QueryOptions {
     return {
@@ -291,6 +303,7 @@ export function makeStubInfra(overrides: Partial<EngineInfra> = {}): EngineInfra
     return {
         git: makeStubGitClient(),
         cache: makeStubQueryCache(),
+        identityIndex: makeStubIdentityIndex(),
         protocols: makeStubProtocolMap(),
         config: TEST_ENGINE_CONFIG,
         logger: makeStubLogger(),

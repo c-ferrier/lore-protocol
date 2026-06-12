@@ -3,6 +3,7 @@ import { vi } from 'vitest';
 import type { ProtocolContext,ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
 import type { ICommitInputReader } from '../../src/engine/interfaces/commit-input-reader.js';
 import type { IGitClient } from '../../src/engine/interfaces/git-client.js';
+import type { IIdentityIndex } from '../../src/engine/interfaces/identity-index.js';
 import { type ILogger,LogLevel } from '../../src/engine/interfaces/logger.js';
 import type { IOutputFormatter } from '../../src/engine/interfaces/output-formatter.js';
 import type { IPrompt } from '../../src/engine/interfaces/prompt.js';
@@ -16,6 +17,7 @@ import {
     makeStubConfigLoader, 
     makeStubFormatter,
     makeStubGitClient, 
+    makeStubIdentityIndex,
     makeStubPrompt, 
     makeStubProtocolContext,
     makeStubProtocolMap, 
@@ -27,6 +29,7 @@ import {
 import { 
     MockedConfigLoader,
     MockedGitClient,
+    MockedIdentityIndex,
     MockedInputResolver,
     MockedOutputFormatter,
     MockedPrompt,
@@ -54,6 +57,7 @@ export function makeMockGitClient(overrides: Partial<IGitClient> = {}): MockedGi
         getHeadMessage: vi.fn(stub.getHeadMessage),
         getLogStream: vi.fn(stub.getLogStream),
         queryStream: vi.fn(stub.queryStream),
+        filterAliveHashes: vi.fn(stub.filterAliveHashes),
         commit: vi.fn(stub.commit)
     } as unknown as MockedGitClient;
 }
@@ -70,6 +74,16 @@ export function makeMockQueryCache(overrides: Partial<IQueryCache> = {}): Mocked
         set: vi.fn(stub.set),
         prune: vi.fn(stub.prune)
     } as unknown as MockedQueryCache;
+}
+
+export function makeMockIdentityIndex(overrides: Partial<IIdentityIndex> = {}): MockedIdentityIndex {
+    const stub = makeStubIdentityIndex(overrides);
+    return {
+        ...stub,
+        get: vi.fn(stub.get),
+        append: vi.fn(stub.append),
+        clear: vi.fn(stub.clear)
+    } as unknown as MockedIdentityIndex;
 }
 
 export function makeMockConfigLoader(overrides: Partial<import('../../src/engine/interfaces/config-loader.js').IConfigLoader<unknown>> = {}): MockedConfigLoader {
@@ -158,6 +172,7 @@ export function makeMockInfra(overrides: Partial<EngineInfra> = {}): EngineInfra
     return {
         git: makeMockGitClient(),
         cache: makeMockQueryCache(),
+        identityIndex: makeMockIdentityIndex(),
         protocols: makeMockProtocolMap(),
         config: TEST_ENGINE_CONFIG,
         logger: new TestLogger(),

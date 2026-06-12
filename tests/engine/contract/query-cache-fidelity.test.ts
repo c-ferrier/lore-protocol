@@ -101,17 +101,20 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
     vi.mocked(git.getLogStream).mockImplementation(async function* () { yield 'hash123'; });
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
 
+    const infra = getInfra();
+
     // 1. Initial run: Fill cache
-    vi.spyOn(cache, 'get').mockResolvedValue(null);
+    vi.spyOn(infra.identityIndex, 'get').mockResolvedValue([]);
+    vi.mocked(infra.git.filterAliveHashes).mockResolvedValue([]);
     const target = createTargetFromIdentities([{ id }]);
 
-    const infra = getInfra();
     await findAtoms(infra, target, { cache: true });
     expect(git.queryStream).toHaveBeenCalledTimes(1);
 
     // 2. Second run: Cache hit
     vi.mocked(git.queryStream).mockClear();
-    vi.spyOn(cache, 'get').mockResolvedValue(['hash123']);
+    vi.spyOn(infra.identityIndex, 'get').mockResolvedValue(['hash123']);
+    vi.mocked(infra.git.filterAliveHashes).mockResolvedValue(['hash123']);
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
 
     const result = await findAtoms(infra, target, { cache: true });

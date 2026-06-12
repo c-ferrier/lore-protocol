@@ -18,7 +18,8 @@ import { isValidProtocolIdentity } from '../../core/logic/validation.js';
 import { type Atom,ProtocolMap } from '../../core/types/domain.js';
 import type { ProtocolContext } from '../../core/types/protocol-definition.js';
 import type { QualifiedFilter, QueryIdentity, QueryOptions, QueryTargetAST, RawFilterMap } from '../../core/types/query.js';
-import type { IGitClient, RawCommit } from '../../interfaces/git-client.js';
+import type { IGitClient, RawCommit, StorageQuery } from '../../interfaces/git-client.js';
+import type { IIdentityIndex } from '../../interfaces/identity-index.js';
 import type { IQueryCache } from '../../interfaces/query-cache.js';
 import { ProtocolError } from '../../util/errors.js';
 import { getDiscoveryPatterns, getSearchPatterns } from '../git/protocol-query-adapter.js';
@@ -38,12 +39,8 @@ async function fetchCommitsByHashes(git: IGitClient, hashes: readonly string[]):
 
     for await (const record of stream) {
         if (!record) continue;
-        const lines = record.split('\n');
-        const metadataLine = lines[0];
-        if (!metadataLine) continue;
-
-        const parts = metadataLine.split(FIELD_SEP);
-
+        const parts = record.split(FIELD_SEP);
+        
         if (parts.length >= 6) {
             results.push({
                 hash: parts[0].trim(),
@@ -52,7 +49,7 @@ async function fetchCommitsByHashes(git: IGitClient, hashes: readonly string[]):
                 subject: parts[3].trim(),
                 body: parts[4].trimEnd(),
                 trailers: parts[5].trim(),
-                filesChanged: lines.slice(1).map(f => f.trim()).filter(f => f.length > 0)
+                filesChanged: parts.length > 6 ? parts[6].split('\n').map(f => f.trim()).filter(f => f.length > 0) : []
             });
         }
     }
@@ -65,6 +62,7 @@ async function fetchCommitsByHashes(git: IGitClient, hashes: readonly string[]):
 export interface DiscoveryInfra {
   readonly git: IGitClient;
   readonly cache: IQueryCache;
+  readonly identityIndex: IIdentityIndex;
   readonly protocols: ProtocolMap<ProtocolContext>;
 }
 
@@ -298,14 +296,11 @@ function* processAndYield(ctx: DiscoveryContext, atoms: Atom[]): Generator<Atom>
     }
 }
 
-/**
- * Discovery by identity with secondary matching verification.
- */
 async function discoveryByIdentitiesMatched(
     ctx: DiscoveryContext, 
     target: QueryTargetAST
 ): Promise<Atom[]> {
-    const { git, protocols, cache } = ctx.infra;
+    const { git, protocols, identityIndex } = ctx.infra;
     const { headHash } = ctx;
     const identities = target.identities || [];
     const root = getRootProtocol(protocols);
@@ -315,102 +310,126 @@ async function discoveryByIdentitiesMatched(
         throw new ProtocolError('Cannot resolve unqualified identity: No global protocol is registered. Please use "protocol/id" format.', 1);
     }
 
-    const primaryProtocol = (root?.def.name || '').toLowerCase();
-    const missing: QueryIdentity[] = [];
-    const cachedAtoms: Atom[] = [];
+    const defaultProtocol = root?.def.name || '';
+    const unresolved = new Set<string>();
+    const hashToId = new Map<string, string>();
+    const verifiedHashes: string[] = [];
+    const greppedCommits: RawCommit[] = [];
 
-    // 1. Check Cache
-    if (headHash && ctx.resolvedOptions.cache !== false) {
-        for (const identity of identities) {
-            const pName = (identity.protocol || primaryProtocol).toLowerCase();
-            const fingerprint = `identity:${pName}/${identity.id}`;
-            const cached = await cache.get(headHash, fingerprint, {});
-            if (cached && cached.length > 0) {
-                const raw = await fetchCommitsByHashes(git, cached);
-                const hydrated = hydrateAtoms(raw, protocols, { includeAllCommits: true });
-                const projected = attachSupersessionToAtoms(hydrated, protocols);
-                cachedAtoms.push(...projected);
-            } else {
-                missing.push(identity);
+    // 1. Fully Qualify and Index Lookup
+    for (const identity of identities) {
+        const pName = (identity.protocol || defaultProtocol).toLowerCase();
+        const qualifiedId = `${pName}/${identity.id}`;
+        unresolved.add(qualifiedId);
+
+        const knownHashes = await identityIndex.get(qualifiedId);
+        for (const hash of knownHashes) {
+            hashToId.set(hash, qualifiedId);
+        }
+    }
+
+    // 2. Reality Check (Fast Filter)
+    if (hashToId.size > 0 && headHash) {
+        const aliveHashes = await git.filterAliveHashes(Array.from(hashToId.keys()), headHash);
+        for (const hash of aliveHashes) {
+            const qId = hashToId.get(hash);
+            if (qId && unresolved.has(qId)) {
+                // NOTE: We don't delete from unresolved yet because 
+                // the hash might be a false positive in the index.
+                // We mark it for verification.
+                verifiedHashes.push(hash);
             }
         }
-    } else {
-        missing.push(...identities);
     }
 
-    if (missing.length === 0) return cachedAtoms;
+    // 3. Fallback Grep (Slow Discovery)
+    const stillUnresolved = identities.filter(i => {
+        const pName = (i.protocol || defaultProtocol).toLowerCase();
+        const qId = `${pName}/${i.id}`;
+        // If we don't have any verified hashes for this ID, it's still unresolved.
+        return !verifiedHashes.some(h => hashToId.get(h) === qId);
+    });
 
-    // 2. Search Git
-    const patterns: string[] = [];
-    for (const { id, protocol: pName } of identities) {
-      if (!id) continue;
-      const targetProtocols = pName ? [protocols.get(pName) || protocols.get(pName.toLowerCase())!] : Array.from(protocols.values());
-      for (const p of targetProtocols) {
-        if (p && isValidProtocolIdentity(id, p.def)) {
-            // HARDENED REGEX: allow optional trailing space before end of line
-            const ns = p.def.namespace;
-            if (ns) {
-                patterns.push(`^${escapeRegex(ns)}: ${escapeRegex(p.def.identityKey)}: ${escapeRegex(id)}\\s*$`);
-            } else {
-                patterns.push(`^${escapeRegex(p.def.identityKey)}: ${escapeRegex(id)}\\s*$`);
-            }
-        }
-      }
-    }
-
-    
-    if (patterns.length === 0) return cachedAtoms;
-
-    const query = {
-        revisionRange: target.revisionRange,
-        regexPatterns: [patterns],
-        paths: [],
-        includeAllCommits: true
-    };
-
-    const results: RawCommit[] = [];
-    for await (const raw of git.queryStream(query)) {
-        results.push(raw);
-    }
-    
-    const matchedAtoms: Atom[] = [...cachedAtoms];
-    const hydrated = hydrateAtoms(results, protocols, { includeAllCommits: true });
-    
-    for (const atom of hydrated) {
-        // Brute force disambiguation
-        const parsedRaw = parseTrailers(atom.rawTrailers);
-        for (const p of protocols.values()) {
-            const pNameKey = p.def.name.toLowerCase();
-            if (atom.protocols.has(pNameKey)) continue;
-
-            // SPECIAL DISAMBIGUATION RULE: Allow namespaced protocols to check root during brute-force.
-            const bruteContext = { ...p, isRoot: true };
-            const normalized = normalizeTrailers(parsedRaw, bruteContext, claimedKeys);
-            const id = getProtocolIdentity(normalized, p);
-            if (id) atom.protocols.set(pNameKey, normalized);
-        }
-
-        let isMatch = false;
-        for (const { id, protocol: pName } of identities) {
-            if (pName) {
-                const pCtx = protocols.get(pName) || protocols.get(pName.toLowerCase());
-                const state = atom.protocols.get(pName.toLowerCase()) || atom.protocols.get(pName);
-                if (!state || !pCtx) continue;
-                const foundId = getProtocolIdentity(state, pCtx);
-                if (foundId?.toLowerCase() === id.toLowerCase()) { isMatch = true; break; }
-            } else {
-                for (const [name, state] of atom.protocols) {
-                    const pCtx = protocols.get(name) || protocols.get(name.toLowerCase());
-                    if (pCtx) {
-                        const foundId = getProtocolIdentity(state, pCtx);
-                        if (foundId?.toLowerCase() === id.toLowerCase()) { isMatch = true; break; }
+    if (stillUnresolved.length > 0) {
+        const patterns: string[] = [];
+        for (const { id, protocol: pName } of stillUnresolved) {
+            const targetProtocols = pName ? [protocols.get(pName) || protocols.get(pName.toLowerCase())!] : Array.from(protocols.values());
+            for (const p of targetProtocols) {
+                if (p && isValidProtocolIdentity(id, p.def)) {
+                    const ns = p.def.namespace;
+                    if (ns) {
+                        patterns.push(`^${escapeRegex(ns)}: ${escapeRegex(p.def.identityKey)}: ${escapeRegex(id)}\\s*$`);
+                    } else {
+                        patterns.push(`^${escapeRegex(p.def.identityKey)}: ${escapeRegex(id)}\\s*$`);
                     }
                 }
             }
         }
-        if (isMatch) matchedAtoms.push(atom);
+
+        if (patterns.length > 0) {
+            const stream = git.queryStream({
+                revisionRange: headHash,
+                regexPatterns: [patterns],
+                includeAllCommits: true
+            } as StorageQuery);
+
+            for await (const raw of stream) {
+                greppedCommits.push(raw);
+            }
+        }
     }
-    
+
+    // 4. Strict Secondary Verification (Pass 2/3)
+    const fetchedCommits = verifiedHashes.length > 0 ? await fetchCommitsByHashes(git, verifiedHashes) : [];
+    const allRaw = [...fetchedCommits, ...greppedCommits];
+    const hydrated = hydrateAtoms(allRaw, protocols, { includeAllCommits: true });
+    const matchedAtoms: Atom[] = [];
+
+    for (const atom of hydrated) {
+        // Verify if this atom matches ANY of our target identities
+        let isMatch = false;
+        for (const identity of identities) {
+            if (identity.protocol) {
+                // Strict qualified match
+                const pName = identity.protocol.toLowerCase();
+                const state = atom.protocols.get(pName);
+                const pCtx = protocols.get(pName);
+                if (state && pCtx) {
+                    const foundId = getProtocolIdentity(state, pCtx);
+                    if (foundId?.toLowerCase() === identity.id.toLowerCase()) {
+                        isMatch = true;
+                    }
+                }
+            } else {
+                // Legacy fuzzy match (Phase 4.2 pending)
+                for (const [pName, state] of atom.protocols) {
+                    const pCtx = protocols.get(pName) || protocols.get(pName.toLowerCase());
+                    if (pCtx) {
+                        const foundId = getProtocolIdentity(state, pCtx);
+                        if (foundId?.toLowerCase() === identity.id.toLowerCase()) {
+                            isMatch = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (isMatch) {
+                // HEAL: If this was a grepped commit, add to index
+                const pName = (identity.protocol || defaultProtocol).toLowerCase();
+                const qualifiedId = `${pName}/${identity.id}`;
+                if (greppedCommits.some(c => c.hash === atom.commitHash)) {
+                    await identityIndex.append(qualifiedId, atom.commitHash);
+                }
+                break;
+            }
+        }
+
+        if (isMatch) {
+            matchedAtoms.push(atom);
+        }
+    }
+
     return attachSupersessionToAtoms(matchedAtoms, protocols);
 }
 
