@@ -24,6 +24,7 @@ import { registerInitCommand } from './commands/init.js';
 import { registerRejectedCommand } from './commands/rejected.js';
 import { registerSearchCommand } from './commands/search.js';
 import { registerTestedCommand } from './commands/tested.js';
+import { registerWhyCommand } from './commands/why.js';
 import { LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from './defaults.js';
 import { LoreJsonFormatter } from './formatters/lore-json-formatter.js';
 import { LoreTextFormatter } from './formatters/lore-text-formatter.js';
@@ -154,6 +155,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
   });
   registerContextCommand(program, infra);
   registerSearchCommand(program, infra);
+  registerWhyCommand(program, infra);
   registerConstraintsCommand(program, infra);
   registerDirectivesCommand(program, infra);
   registerTestedCommand(program, infra);

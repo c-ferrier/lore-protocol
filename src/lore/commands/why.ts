@@ -1,11 +1,11 @@
-import type { Command } from 'commander';
+import { type Command } from 'commander';
 
-import type { EngineInfra } from '../../services/engine-bootstrapper.js';
-// Pure Logic Modules
-import { addPathQueryOptions, executePathQuery, type PathQueryCommandOptions } from './helpers/path-query.js';
+import { addPathQueryOptions, executePathQuery, type PathQueryCommandOptions } from '../../engine/cli/commands/helpers/path-query.js';
+import { type EngineInfra } from '../../engine/services/engine-bootstrapper.js';
 
 /**
  * Register the `why <target>` command.
+ * Lore-specific alias for line-range decision surveying.
  * Target must be `file:line` or `file:line-line` format.
  */
 export function registerWhyCommand(

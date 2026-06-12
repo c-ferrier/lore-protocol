@@ -12,7 +12,6 @@ import {
   registerStaleCommand,
   registerTraceCommand,
   registerValidateCommand,
-  registerWhyCommand,
 } from '../cli/commands/index.js';
 import { JsonFormatter } from '../cli/formatters/json-formatter.js';
 import { TextFormatter } from '../cli/formatters/text-formatter.js';
@@ -217,7 +216,6 @@ export class EngineBootstrapper {
     };
 
     // 8. Register Commands
-    registerWhyCommand(program, infra);
     registerLogCommand(program, infra);
     registerStaleCommand(program, infra);
     registerTraceCommand(program, infra);

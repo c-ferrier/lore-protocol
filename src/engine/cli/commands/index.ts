@@ -8,4 +8,3 @@ export * from './squash.js';
 export * from './stale.js';
 export * from './trace.js';
 export * from './validate.js';
-export * from './why.js';
