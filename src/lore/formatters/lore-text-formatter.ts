@@ -56,7 +56,7 @@ export class LoreTextFormatter implements IOutputFormatter {
       return '';
   }
 
-  formatAtom(atom: Atom, _visibleTrailers: readonly string[] | 'all' = 'all'): string {
+  formatAtom(atom: Atom, visibleTrailers: readonly string[] | 'all' = 'all'): string {
       // 1. Identity Promotion & Author Stripping for Lore branding
       const trailersRaw = atom.rawTrailers.split('\n');
       let idFromRaw = '';
@@ -107,6 +107,10 @@ export class LoreTextFormatter implements IOutputFormatter {
           const authorizedKeys = getAuthorizedKeys(loreProtocol);
           for (const key of authorizedKeys) {
               if (key.toLowerCase() === 'lore-id') continue;
+              
+              // Apply visibility filter
+              if (visibleTrailers !== 'all' && !visibleTrailers.includes(key)) continue;
+
               const values = loreState.trailers[key];
               if (!values) continue;
               for (const v of values) {
@@ -114,7 +118,7 @@ export class LoreTextFormatter implements IOutputFormatter {
                   renderedTrailers = true;
               }
           }
-          // Unauthorized
+          // Unauthorized (Always visible if present, as they indicate errors/typos)
           for (const [key, values] of Object.entries(loreState.unauthorized)) {
               if (key.toLowerCase() === 'lore-id') continue;
               for (const v of values) {
@@ -127,6 +131,9 @@ export class LoreTextFormatter implements IOutputFormatter {
           for (const line of trailersRaw) {
               const m = line.match(/^([A-Za-z0-9][A-Za-z0-9-]*):\s*(.*)$/);
               if (m && m[1].toLowerCase() !== 'lore-id') {
+                  // Apply visibility filter in fallback mode too
+                  if (visibleTrailers !== 'all' && !visibleTrailers.includes(m[1])) continue;
+
                   trailerLines.push(`  ${this.c.bold(`${m[1]}:`)} ${m[2]}`);
                   renderedTrailers = true;
               }

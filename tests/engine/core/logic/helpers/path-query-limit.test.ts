@@ -11,10 +11,12 @@ import { makeMockFormatter, makeMockInfra, TestLogger } from '../../../engine-te
 const TEST_ID_KEY = "Mock-id";
 
 vi.mock('../../../../../src/engine/shell/orchestrators/discovery.js', () => ({
-    findAtoms: vi.fn()
+    findAtoms: vi.fn(),
+    findAtomsStream: vi.fn()
 }));
 
 function makeLocalAtom(id: string, supersedes: string[] = []): Atom {
+
   const protocols = new ProtocolMap<ProtocolState>();
   protocols.set('mock', {
     trailers: {
@@ -48,13 +50,8 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     formattedOutput = '';
     logger = new TestLogger();
 
-    formatter.formatQueryResult.mockImplementation((data) => {
-        formattedOutput = JSON.stringify({
-          atoms: data.result.atoms.length,
-          filteredAtoms: data.result.meta.filteredAtoms,
-        });
-        return formattedOutput;
-    });
+    formatter.formatAtom.mockImplementation((atom) => `ATOM:${atom.commitHash}`);
+    formatter.formatFooter.mockImplementation((meta) => `FOOTER:${meta.filtered}/${meta.total}`);
 
     infra = makeMockInfra({
       getFormatter: () => formatter,
@@ -80,54 +77,65 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     a5.protocols.get('mock')!.supersession = { superseded: false, supersededBy: [] };
 
     const atoms = [a1, a2, a3, a4, a5];
-    vi.mocked(Discovery.findAtoms).mockResolvedValue(atoms);
+    vi.mocked(Discovery.findAtomsStream).mockReturnValue((async function* () {
+        for (const a of atoms) yield a;
+    })() as any);
 
     const options: PathQueryCommandOptions = { limit: 2 };
     await executePathQuery('src/test.ts', options, infra, 'context', 'all');
 
-    // The output should have exactly 2 atoms (limit applied after supersession filtering)
-    // Active atoms are a3, a4, a5. Limit 2 takes a3, a4.
-    const output = JSON.parse(logger.resultLogs[0]);
-    expect(output.atoms).toBe(2);
-    expect(output.filteredAtoms).toBe(2);
+    // Expected: a3, a4 (a1, a2 are superseded, a5 is over limit)
+    const atomLogs = logger.resultLogs.filter(l => l.startsWith('ATOM:'));
+    expect(atomLogs).toHaveLength(2);
+    expect(atomLogs).toContain('ATOM:hash_cccc3333');
+    expect(atomLogs).toContain('ATOM:hash_dddd4444');
+
+    const footerLog = logger.resultLogs.find(l => l.startsWith('FOOTER:'))!;
+    expect(footerLog).toBe('FOOTER:2/5');
   });
 
   it('should not pass limit to Discovery (only maxCommits)', async () => {
-    vi.mocked(Discovery.findAtoms).mockResolvedValue([]);
+    vi.mocked(Discovery.findAtomsStream).mockReturnValue((async function* () {
+        yield* [];
+    })() as any);
 
     const options: PathQueryCommandOptions = { limit: 5, maxCommits: 100 };
     await executePathQuery('src/test.ts', options, infra, 'context', 'all');
 
-    // Verify findAtoms received maxCommits in options (third argument)
-    const queryOptions = vi.mocked(Discovery.findAtoms).mock.calls[0][2];
+    // Verify findAtomsStream received maxCommits in options (third argument)
+    const queryOptions = vi.mocked(Discovery.findAtomsStream).mock.calls[0][2];
     expect(queryOptions!.maxCommits).toBe(100);
-    // limit is in the options but should NOT affect git scan (in orchestrator call)
-    expect(queryOptions!.limit).toBeNull();
+    // limit is passed through but ignored by storage layer; applied at CLI display level
+    expect(queryOptions!.limit).toBe(5);
   });
 
   it('should return all atoms when limit is not specified', async () => {
     const atoms = [makeLocalAtom('aaaa1111'), makeLocalAtom('bbbb2222'), makeLocalAtom('cccc3333')];
     for (const a of atoms) a.protocols.get('mock')!.supersession = { superseded: false, supersededBy: [] };
 
-    vi.mocked(Discovery.findAtoms).mockResolvedValue(atoms);
+    vi.mocked(Discovery.findAtomsStream).mockReturnValue((async function* () {
+        for (const a of atoms) yield a;
+    })() as any);
 
     const options: PathQueryCommandOptions = {};
     await executePathQuery('src/test.ts', options, infra, 'context', 'all');
 
-    const output = JSON.parse(logger.resultLogs[0]);
-    expect(output.atoms).toBe(3);
+    const atomLogs = logger.resultLogs.filter(l => l.startsWith('ATOM:'));
+    expect(atomLogs).toHaveLength(3);
   });
 
   it('should treat limit 0 as no limit', async () => {
     const atoms = [makeLocalAtom('aaaa1111'), makeLocalAtom('bbbb2222')];
     for (const a of atoms) a.protocols.get('mock')!.supersession = { superseded: false, supersededBy: [] };
 
-    vi.mocked(Discovery.findAtoms).mockResolvedValue(atoms);
+    vi.mocked(Discovery.findAtomsStream).mockReturnValue((async function* () {
+        for (const a of atoms) yield a;
+    })() as any);
 
     const options: PathQueryCommandOptions = { limit: 0 };
     await executePathQuery('src/test.ts', options, infra, 'context', 'all');
 
-    const output = JSON.parse(logger.resultLogs[0]);
-    expect(output.atoms).toBe(2);
+    const atomLogs = logger.resultLogs.filter(l => l.startsWith('ATOM:'));
+    expect(atomLogs).toHaveLength(2);
   });
 });

@@ -25,7 +25,7 @@ import {
  */
 export class LoreJsonFormatter implements IOutputFormatter {
   private bufferedAtoms: Atom[] = [];
-  private currentHeader: { target: string; type: string } | null = null;
+  private currentHeader: { target: string; type: string; visibleTrailers: readonly string[] | 'all' } | null = null;
 
   constructor(private readonly protocols: ProtocolMap<ProtocolContext>) {}
 
@@ -33,7 +33,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
    * Monolithic entry point (Legacy/Direct calls)
    */
   formatQueryResult(data: FormattableQueryResult): string {
-      const { result } = data;
+      const { result, visibleTrailers } = data;
       return this.reconstructMonolithic(
           result.atoms,
           result.command,
@@ -44,7 +44,8 @@ export class LoreJsonFormatter implements IOutputFormatter {
               filtered: result.meta.filteredAtoms,
               oldest: result.meta.oldest,
               newest: result.meta.newest
-          }
+          },
+          visibleTrailers
       );
   }
 
@@ -52,9 +53,9 @@ export class LoreJsonFormatter implements IOutputFormatter {
    * Streaming Hook: Header
    * Buffers metadata, returns nothing.
    */
-  formatHeader(target: string, type: string): string {
+  formatHeader(target: string, type: string, visibleTrailers: readonly string[] | 'all' = 'all'): string {
       this.bufferedAtoms = [];
-      this.currentHeader = { target, type };
+      this.currentHeader = { target, type, visibleTrailers };
       return '';
   }
 
@@ -77,7 +78,8 @@ export class LoreJsonFormatter implements IOutputFormatter {
           'log', // Defaults to log for streaming commands
           this.currentHeader?.target || 'all',
           this.currentHeader?.type || 'global',
-          meta
+          meta,
+          this.currentHeader?.visibleTrailers || 'all'
       );
       
       // Reset state for next potential run in same process
@@ -95,7 +97,8 @@ export class LoreJsonFormatter implements IOutputFormatter {
       command: string,
       target: string,
       targetType: string,
-      meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }
+      meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null },
+      visibleTrailers: readonly string[] | 'all' = 'all'
   ): string {
     const loreProtocol = this.protocols.get('lore');
     const version = loreProtocol?.def.version ?? '1.0';
@@ -108,6 +111,9 @@ export class LoreJsonFormatter implements IOutputFormatter {
       const trailers: Record<string, string | string[] | null> = {};
       if (loreState && loreProtocol) {
           for (const [key, values] of Object.entries(loreState.trailers)) {
+              // Apply visibility filter
+              if (visibleTrailers !== 'all' && !visibleTrailers.includes(key)) continue;
+
               const def = loreProtocol.def.trailers[key];
               const isScalar = def && !def.multivalue;
               trailers[snakeCase(key)] = isScalar ? values[0] : [...values];

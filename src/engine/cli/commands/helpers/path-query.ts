@@ -6,9 +6,8 @@ import type { Atom } from '../../../core/types/domain.js';
 import type { FormattableQueryResult } from '../../../core/types/output.js';
 import type { QueryOptions,QueryResult } from '../../../core/types/query.js';
 import type { EngineInfra } from '../../../services/engine-bootstrapper.js';
-import { findAtoms } from '../../../shell/orchestrators/discovery.js';
+import { findAtomsStream } from '../../../shell/orchestrators/discovery.js';
 import { ProtocolError } from '../../../util/errors.js';
-import { buildQueryMeta } from './build-query-meta.js';
 
 /** Parse a CLI value as a strict positive integer; rejects non-numeric trailing chars. */
 export function parsePositiveInt(value: string): number {
@@ -40,17 +39,16 @@ export interface PathQueryCommandOptions {
 }
 
 /**
- * Shared helper for path-scoped query commands (context, constraints, rejected,
- * directives, tested). Each command follows the same resolve -> query -> filter ->
- * format pipeline, differing only in which trailers are visible.
- *
- * GoF: Template Method (via composition, not inheritance).
+ * Shared helper for path-scoped query commands.
+ * Unified streaming implementation for log, context, constraints, etc.
+ * 
+ * GRASP: Pure Fabrication -- handles the standard CLI interaction lifecycle.
  */
 export async function executePathQuery(
-  rawTarget: string,
+  rawTarget: string | string[] | undefined,
   options: PathQueryCommandOptions,
   infra: PathQueryDeps,
-  commandName: string,
+  _commandName: string,
   visibleTrailers: readonly string[] | 'all',
 ): Promise<void> {
   const { config, logger, getFormatter, protocolRoot, cwd } = infra;
@@ -78,47 +76,53 @@ export async function executePathQuery(
     isScoped: !!queryOptions.scope 
   });
 
-  const atoms = await findAtoms(infra, target, { ...queryOptions, limit: null });
-
-  const totalAtoms = atoms.length;
-
-  // Step 3: Filter superseded atoms unless --all (Active Truth)
-  // We use the internalized status for high-speed filtering.
-  let displayAtoms: readonly Atom[];
-  if (queryOptions.all) {
-    displayAtoms = atoms;
-  } else {
-    displayAtoms = atoms.filter(atom => {
-        // Find ANY protocol interpretation that is superseded
-        for (const state of atom.protocols.values()) {
-            if (state.supersession?.superseded) return false;
-        }
-        return true;
-    });
-  }
-
-  // Step 4b: Apply result limit (--limit) after supersession filtering
-  if (queryOptions.limit !== null && queryOptions.limit !== undefined && queryOptions.limit > 0) {
-    displayAtoms = displayAtoms.slice(0, queryOptions.limit);
-  }
-
-  // Step 5: Build QueryResult
-  const result: QueryResult = {
-    command: commandName,
-    target: target.raw.toString(),
-    targetType: target.type === 'line-range' ? 'line-range' : 'path',
-    atoms: displayAtoms,
-    meta: buildQueryMeta(totalAtoms, displayAtoms),
-  };
-
-  const formattable: FormattableQueryResult = {
-    result,
-    visibleTrailers,
-  };
-
-  // Step 6: Format and output
   const formatter = getFormatter();
-  logger.result(formatter.formatQueryResult(formattable));
+  
+  // 1. Output Header
+  const header = formatter.formatHeader(target.raw ? target.raw.toString() : 'all', target.type);
+  if (header) logger.result(header);
+
+  const stream = findAtomsStream(infra, target, queryOptions);
+  
+  let totalCount = 0;
+  let filteredCount = 0;
+  let oldest: Date | null = null;
+  let newest: Date | null = null;
+
+  for await (const atom of stream) {
+      totalCount++;
+
+      // 1. Supersession filter (Active Truth)
+      if (!queryOptions.all) {
+          let isSuperseded = false;
+          for (const state of atom.protocols.values()) {
+              if (state.supersession?.superseded) { isSuperseded = true; break; }
+          }
+          if (isSuperseded) continue;
+      }
+      
+      // 2. Result Limit check (after logical filtering)
+      if (queryOptions.limit && filteredCount >= queryOptions.limit) continue;
+
+      filteredCount++;
+      
+      // 3. Stats tracking
+      if (!oldest || atom.date < oldest) oldest = atom.date;
+      if (!newest || atom.date > newest) newest = atom.date;
+
+      // 4. Output Atom Progressive
+      const atomOutput = formatter.formatAtom(atom, visibleTrailers);
+      if (atomOutput) logger.result(atomOutput);
+  }
+
+  // 3. Output Footer
+  const footer = formatter.formatFooter({ 
+      total: totalCount, 
+      filtered: filteredCount,
+      oldest,
+      newest
+  });
+  if (footer) logger.result(footer);
 }
 
 /**
