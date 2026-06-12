@@ -255,6 +255,7 @@ export function makeStubQueryCache(overrides: Partial<IQueryCache> = {}): IQuery
         get: async () => null,
         set: async () => {},
         prune: async () => {},
+        clear: async () => {},
         ...overrides
     } as IQueryCache;
 }

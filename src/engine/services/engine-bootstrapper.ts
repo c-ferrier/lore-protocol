@@ -92,6 +92,7 @@ export class EngineBootstrapper {
    */
   async bootstrap(cwd: string = process.cwd(), argv: string[] = process.argv) {
     const useColor = !argv.includes('--no-color');
+    const useCache = !argv.includes('--no-cache');
     const logger = this.options.logger || new TerminalLogger(this.options.logLevel ?? LogLevel.INFO, useColor);
 
     const program = new Command();
@@ -136,7 +137,7 @@ export class EngineBootstrapper {
       .version(this.options.version, '--version')
       .description(this.options.description)
       .option('--json', 'Output results in JSON format')
-      .option('--no-cache', 'Bypass local atom cache')
+      .option('--no-cache', 'Bypass local identity and query caches')
       .option('--no-color', 'Disable terminal colors')
       .option('--no-update-notifier', 'Disable update notification')
       .option('--context <path>', 'Run in the context of a specific directory')
@@ -162,7 +163,7 @@ export class EngineBootstrapper {
         .sort()
         .join(';');
 
-    const queryCache: IQueryCache = config.cache.query 
+    const queryCache: IQueryCache = (config.cache.query && useCache)
       ? new QueryCache(
           join(activeRoot, this.options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
           config.cache.pruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
@@ -170,7 +171,7 @@ export class EngineBootstrapper {
         )
       : new NullQueryCache();
 
-    const identityIndex: IIdentityIndex = config.cache.identity
+    const identityIndex: IIdentityIndex = (config.cache.identity && useCache)
       ? new IdentityIndex(
           join(activeRoot, this.options.engineDirName, CACHE_DIR, 'identity')
         )
@@ -225,7 +226,7 @@ export class EngineBootstrapper {
     registerCommitCommand(program, infra, this.options.prompt);
     registerValidateCommand(program, infra);
     registerSquashCommand(program, infra);
-    registerCacheCommand(program, infra, join(activeRoot, this.options.engineDirName, CACHE_DIR));
+    registerCacheCommand(program, infra);
     registerConfigCommand(program, infra);
     registerDoctorCommand(program, infra);
 

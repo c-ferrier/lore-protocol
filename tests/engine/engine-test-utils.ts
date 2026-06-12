@@ -72,7 +72,8 @@ export function makeMockQueryCache(overrides: Partial<IQueryCache> = {}): Mocked
         ...stub,
         get: vi.fn(stub.get),
         set: vi.fn(stub.set),
-        prune: vi.fn(stub.prune)
+        prune: vi.fn(stub.prune),
+        clear: vi.fn(stub.clear)
     } as unknown as MockedQueryCache;
 }
 

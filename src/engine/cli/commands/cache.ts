@@ -1,5 +1,3 @@
-import { rm } from 'node:fs/promises';
-
 import type { Command } from 'commander';
 
 import type { EngineInfra } from '../../services/engine-bootstrapper.js';
@@ -11,20 +9,20 @@ import type { EngineInfra } from '../../services/engine-bootstrapper.js';
 export function registerCacheCommand(
   program: Command,
   infra: EngineInfra,
-  cacheDir: string
 ): void {
   program
     .command('cache')
-    .description('Manage the local protocol cache')
-    .option('--clean', 'Clear all cached atom and query data')
+    .description('Manage the local caches')
+    .option('--clean', 'Clear the identity index and query caches')
     .action(async (options) => {
-      const { getFormatter, logger } = infra;
+      const { getFormatter, logger, cache, identityIndex } = infra;
       const formatter = getFormatter();
 
       if (options.clean) {
         try {
-          await rm(cacheDir, { recursive: true, force: true });
-          logger.info(formatter.formatSuccess('Successfully cleared local atom and query caches.'));
+          await cache.clear();
+          await identityIndex.clear();
+          logger.info(formatter.formatSuccess('Successfully cleared local identity index and query caches.'));
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : String(error);
           logger.error(formatter.formatError(1, [{ severity: 'error', message: `Failed to clear cache: ${message}` }]));
@@ -38,3 +36,4 @@ export function registerCacheCommand(
       program.commands.find(c => c.name() === 'cache')?.help();
     });
 }
+

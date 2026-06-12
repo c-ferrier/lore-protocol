@@ -1,4 +1,3 @@
-import { join } from 'node:path';
 
 import { Command } from 'commander';
 import { beforeEach,describe, expect, it, vi } from 'vitest';
@@ -24,8 +23,7 @@ describe('Cache Command', () => {
     });
     registerCacheCommand(
       program, 
-      infra,
-      join(process.cwd(), '.atom', 'cache')
+      infra
     );
 
     const cacheCmd = program.commands.find(c => c.name() === 'cache');

@@ -35,4 +35,9 @@ export interface IQueryCache {
    * Perform deferred cleanup of old cache files based on LRU (atime).
    */
   prune(): Promise<void>;
+
+  /**
+   * Completely clear the query cache directory.
+   */
+  clear(): Promise<void>;
 }

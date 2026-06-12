@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readdir, readFile, rename,stat, unlink, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, unlink, utimes, writeFile } from 'node:fs/promises';
 import { dirname,join } from 'node:path';
 
 import type { QueryOptions } from '../../core/types/query.js';
@@ -140,6 +140,14 @@ export class QueryCache implements IQueryCache {
     }
   }
 
+  async clear(): Promise<void> {
+    try {
+      await rm(this.cacheDir, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+  }
+
   private getCachePath(headHash: string, targetFingerprint: string, options: QueryOptions): string {
     const queryHash = this.generateQueryHash(targetFingerprint, options);
     return join(this.cacheDir, `${headHash}-${queryHash}`);
@@ -211,6 +219,10 @@ export class NullQueryCache implements IQueryCache {
   }
 
   async prune(): Promise<void> {
+    // No-op
+  }
+
+  async clear(): Promise<void> {
     // No-op
   }
 }
