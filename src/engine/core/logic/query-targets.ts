@@ -1,3 +1,4 @@
+import { ConfigurationError, ProtocolError } from '../../util/errors.js';
 import { ProtocolMap } from '../models/protocol-map.js';
 import type { ProtocolContext } from '../types/protocol-definition.js';
 import type { QualifiedFilter, QueryIdentity, QueryOptions, QueryTargetAST, QueryTargetType, RawFilterMap } from '../types/query.js';
@@ -40,25 +41,33 @@ export function createQueryTarget(
       // 2a. Line Range (file:line-line)
       const lrMatch = /^(.*):(\d+)(?:-(\d+))?$/.exec(item);
       if (lrMatch) {
+          if (lineRange || resolvedPaths.length > 0 || revisionRange) {
+              throw new ProtocolError('Line-range targets cannot be mixed with other paths or revisions.', 1);
+          }
+
           const filePath = lrMatch[1];
           const start = parseInt(lrMatch[2], 10);
           const end = lrMatch[3] ? parseInt(lrMatch[3], 10) : start;
           const resolved = normalizePathToRoot(filePath, context.cwd, context.protocolRoot);
           
-          if (!lineRange) {
-              lineRange = { file: resolved, start, end };
-          }
+          lineRange = { file: resolved, start, end };
           resolvedPaths.push(resolved);
           continue;
       }
 
       // 2b. Git Revision (Range, Hash, or Ref)
       if (!revisionRange && isRevision(item)) {
+          if (lineRange) {
+              throw new ProtocolError('Line-range targets cannot be mixed with other paths or revisions.', 1);
+          }
           revisionRange = item;
           continue;
       }
 
       // 2c. Path (Default)
+      if (lineRange) {
+          throw new ProtocolError('Line-range targets cannot be mixed with other paths or revisions.', 1);
+      }
       resolvedPaths.push(normalizePathToRoot(item, context.cwd, context.protocolRoot));
   }
 

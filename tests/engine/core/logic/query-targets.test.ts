@@ -47,6 +47,24 @@ describe('Query Target Logic (Pure Functions)', () => {
         expect(target.type).toBe('path');
         expect(target.resolvedPaths).toEqual(['file1.ts', 'src/file2.ts']);
     });
+
+    it('should throw error if multiple line-ranges are provided', () => {
+        expect(() => createQueryTarget(['file1.ts:1-10', 'file2.ts:20-30'], context))
+            .toThrow('Line-range targets cannot be mixed with other paths or revisions.');
+    });
+
+    it('should throw error if line-range is mixed with other paths', () => {
+        expect(() => createQueryTarget(['file1.ts:1-10', 'file2.ts'], context))
+            .toThrow('Line-range targets cannot be mixed with other paths or revisions.');
+        
+        expect(() => createQueryTarget(['file2.ts', 'file1.ts:1-10'], context))
+            .toThrow('Line-range targets cannot be mixed with other paths or revisions.');
+    });
+
+    it('should throw error if line-range is mixed with revisions', () => {
+        expect(() => createQueryTarget(['HEAD..main', 'file1.ts:1-10'], context))
+            .toThrow('Line-range targets cannot be mixed with other paths or revisions.');
+    });
   });
 
   describe('createTargetFromIdentities', () => {
