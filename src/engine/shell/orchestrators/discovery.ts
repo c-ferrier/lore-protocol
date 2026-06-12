@@ -201,12 +201,19 @@ async function* internalQueryStream(
           paths: target.resolvedPaths
       };
 
+      const collectedHashes: string[] = [];
       for await (const raw of git.queryStream(query)) {
+          collectedHashes.push(raw.hash);
           const hydrated = hydrateAtoms([raw], protocols, { includeAllCommits: ctx.options.includeAllCommits });
           for (const a of processAndYield(ctx, hydrated)) {
               initialAtoms.push(a);
               yield a;
           }
+      }
+
+      // PERSIST CACHE: Only for non-identity, non-blame queries that completed successfully
+      if (headHash && resolvedOptions.cache !== false && collectedHashes.length > 0) {
+          await cache.set(headHash, fingerprint, resolvedOptions, collectedHashes);
       }
   }
 
