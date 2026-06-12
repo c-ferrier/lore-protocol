@@ -85,7 +85,7 @@ export class IdentityIndex implements IIdentityIndex {
  * Silent no-op for all operations.
  */
 export class NullIdentityIndex implements IIdentityIndex {
-    async get(): Promise<string[]> { return []; }
-    async append(): Promise<void> { }
+    async get(_qualifiedId: string): Promise<string[]> { return []; }
+    async append(_qualifiedId: string, _hash: string): Promise<void> { }
     async clear(): Promise<void> { }
 }

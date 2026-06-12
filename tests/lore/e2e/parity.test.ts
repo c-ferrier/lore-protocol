@@ -178,7 +178,7 @@ describe('Lore CLI Output Parity (v0.5.0 vs Local)', () => {
     const normalizedSystem = system.replace(labelRegex, '[LABEL]');
     const normalizedLocal = local.replace(labelRegex, '[LABEL]');
 
-    console.log(local); expect(normalizedLocal).toBe(normalizedSystem);
+    expect(normalizedLocal).toBe(normalizedSystem);
   });
 
   it('should maintain PARITY: lore doctor (Text)', () => {

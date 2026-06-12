@@ -57,6 +57,33 @@ describe('GitClient Implementation', () => {
     });
   });
 
+  describe('filterAliveHashes', () => {
+    it('should correctly pass hashes via stdin and parse results', async () => {
+      const hashes = ['h1', 'h2', 'h3'];
+      const mockOutput = 'h1\nh3\n';
+
+      vi.mocked(execFileCb).mockImplementation(((cmd: string, args: string[], opts: Record<string, unknown>, callback: ExecFileCallback) => {
+        callback(null, mockOutput, '');
+      }) as unknown as typeof execFileCb);
+
+      const result = await client.filterAliveHashes(hashes, 'HEAD');
+
+      expect(result).toEqual(['h1', 'h3']);
+      expect(execFileCb).toHaveBeenCalledWith(
+        'git',
+        ['rev-list', '--no-walk', '--stdin', '--ignore-missing', 'HEAD'],
+        expect.objectContaining({ maxBuffer: expect.any(Number) }),
+        expect.any(Function)
+      );
+    });
+
+    it('should return empty array for empty input', async () => {
+      const result = await client.filterAliveHashes([]);
+      expect(result).toEqual([]);
+      expect(execFileCb).not.toHaveBeenCalled();
+    });
+  });
+
   describe('queryStream', () => {
       it('should construct correct git log flags for high-level filters', async () => {
           vi.mocked(spawnCb).mockReturnValue({
