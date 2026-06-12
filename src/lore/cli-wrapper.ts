@@ -22,6 +22,7 @@ import { registerContextCommand } from './commands/context.js';
 import { registerDirectivesCommand } from './commands/directives.js';
 import { registerInitCommand } from './commands/init.js';
 import { registerRejectedCommand } from './commands/rejected.js';
+import { registerSearchCommand } from './commands/search.js';
 import { registerTestedCommand } from './commands/tested.js';
 import { LORE_CONFIG_DIR, LORE_CONFIG_FILENAME } from './defaults.js';
 import { LoreJsonFormatter } from './formatters/lore-json-formatter.js';
@@ -152,6 +153,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
     logger
   });
   registerContextCommand(program, infra);
+  registerSearchCommand(program, infra);
   registerConstraintsCommand(program, infra);
   registerDirectivesCommand(program, infra);
   registerTestedCommand(program, infra);

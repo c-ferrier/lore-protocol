@@ -4,7 +4,6 @@ export * from './config.js';
 export * from './doctor.js';
 export * from './init.js';
 export * from './log.js';
-export * from './search.js';
 export * from './squash.js';
 export * from './stale.js';
 export * from './trace.js';

@@ -8,7 +8,6 @@ import {
   registerConfigCommand,
   registerDoctorCommand,
   registerLogCommand,
-  registerSearchCommand,
   registerSquashCommand,
   registerStaleCommand,
   registerTraceCommand,
@@ -219,7 +218,6 @@ export class EngineBootstrapper {
 
     // 8. Register Commands
     registerWhyCommand(program, infra);
-    registerSearchCommand(program, infra);
     registerLogCommand(program, infra);
     registerStaleCommand(program, infra);
     registerTraceCommand(program, infra);

@@ -66,7 +66,6 @@ describe('EngineBootstrapper', () => {
 
     const commandNames = program.commands.map(c => c.name());
     expect(commandNames).toContain('why');
-    expect(commandNames).toContain('search');
     expect(commandNames).toContain('log');
     expect(commandNames).toContain('stale');
     expect(commandNames).toContain('trace');
