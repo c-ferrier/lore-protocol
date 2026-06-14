@@ -1,4 +1,4 @@
-import { ConfigurationError, ProtocolError } from '../../util/errors.js';
+import { ProtocolError } from '../../util/errors.js';
 import { ProtocolMap } from '../models/protocol-map.js';
 import type { ProtocolContext } from '../types/protocol-definition.js';
 import type { QualifiedFilter, QueryIdentity, QueryOptions, QueryTargetAST, QueryTargetType, RawFilterMap } from '../types/query.js';

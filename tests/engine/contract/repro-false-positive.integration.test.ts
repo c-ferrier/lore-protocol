@@ -45,7 +45,7 @@ describe('Discovery False Positive Repro', () => {
 
     const infra = getInfra();
     // Should return null because trailers didn't match targetId
-    const result = await findAtomById(infra, { id: targetId });
+    const result = await findAtomById(infra, { protocol: 'mock', id: targetId });
     expect(result).toBeNull();
   });
 

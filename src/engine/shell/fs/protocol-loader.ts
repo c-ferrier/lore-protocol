@@ -116,7 +116,21 @@ export class ProtocolLoader {
     }
     
     const all = Array.from(mergedMap.values());
-    return ProtocolLoader.applyOverrides(all, config.protocols);
+    const finalized = ProtocolLoader.applyOverrides(all, config.protocols);
+
+    // Guard: Single Permissive per Namespace
+    const permissiveNamespaces = new Set<string>();
+    for (const p of finalized) {
+      if (p.permissive) {
+        const ns = p.namespace || '';
+        if (permissiveNamespaces.has(ns)) {
+            throw new ConfigurationError(`Namespace collision: multiple permissive protocols in namespace "${ns || '(root)'}". Only one protocol per namespace may be permissive.`);
+        }
+        permissiveNamespaces.add(ns);
+      }
+    }
+
+    return finalized;
   }
 
   static applyOverrides(

@@ -13,7 +13,7 @@ import {
     type FormattableTraceResult,
     type FormattableValidationResult,
     type IOutputFormatter,
-    type ProtocolContext,    ProtocolMap} from '../../engine/index.js';
+    type ProtocolContext,    ProtocolMap, SYSTEM_PROTOCOL} from '../../engine/index.js';
 
 /**
  * Lore-specific Text Formatter.
@@ -47,8 +47,8 @@ export class LoreTextFormatter implements IOutputFormatter {
       return this.base.formatError(code, messages);
   }
 
-  formatConfig(data: FormattableConfigResult): string {
-      return this.base.formatConfig(data);
+  formatConfigResult(data: FormattableConfigResult): string {
+      return this.base.formatConfigResult(data);
   }
 
   formatHeader(_target: string, _type: string, _visibleTrailers?: readonly string[] | 'all'): string {
@@ -103,6 +103,8 @@ export class LoreTextFormatter implements IOutputFormatter {
       let renderedTrailers = false;
       const trailerLines: string[] = [];
       const loreProtocol = this.protocols.get('lore');
+      
+      // 3a. Lore Trailers (Primary)
       if (loreState && loreProtocol) {
           const authorizedKeys = getAuthorizedKeys(loreProtocol);
           for (const key of authorizedKeys) {
@@ -118,7 +120,7 @@ export class LoreTextFormatter implements IOutputFormatter {
                   renderedTrailers = true;
               }
           }
-          // Unauthorized (Always visible if present, as they indicate errors/typos)
+          // Unauthorized (Typos in Lore namespace)
           for (const [key, values] of Object.entries(loreState.unauthorized)) {
               if (key.toLowerCase() === 'lore-id') continue;
               for (const v of values) {
@@ -126,7 +128,30 @@ export class LoreTextFormatter implements IOutputFormatter {
                   renderedTrailers = true;
               }
           }
-      } else {
+      }
+
+      // 3b. System Trailers (Ad-hoc and Catch-all)
+      const systemState = atom.protocols.get(SYSTEM_PROTOCOL);
+      const systemProtocol = this.protocols.get(SYSTEM_PROTOCOL);
+      if (systemState && systemProtocol) {
+          const keys = Object.keys(systemState.trailers);
+          for (const key of keys) {
+              if (key === systemProtocol.identityKey) continue;
+              
+              // Apply visibility filter
+              if (visibleTrailers !== 'all' && !visibleTrailers.includes(key)) continue;
+
+              const values = systemState.trailers[key];
+              if (!values) continue;
+              for (const v of values) {
+                  trailerLines.push(`  ${this.c.bold(`${key}:`)} ${v}`);
+                  renderedTrailers = true;
+              }
+          }
+      }
+
+      // 4. Fallback (Raw)
+      if (!loreState && !systemState) {
           // Fallback to raw trailers without prefixes
           for (const line of trailersRaw) {
               const m = line.match(/^([A-Za-z0-9][A-Za-z0-9-]*):\s*(.*)$/);

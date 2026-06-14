@@ -2,7 +2,20 @@ import { TerminalPrompt } from './engine/cli/io/terminal-prompt.js';
 import { checkForUpdates } from './engine/core/logic/update-check.js';
 import { getEnginePackageName, getEnginePublishedVersion,getEngineVersion } from './engine/core/logic/version.js';
 import { DEFAULT_ENGINE_CONFIG } from './engine/defaults.js';
-import { execute,runCli } from './engine/index.js';
+import { 
+    execute,
+    registerCacheCommand,
+    registerCommitCommand,
+    registerConfigCommand,
+    registerDoctorCommand,
+    registerLogCommand,
+    registerSquashCommand,
+    registerStaleCommand,
+    registerTraceCommand,
+    registerValidateCommand,
+    runCli,
+    SYSTEM_PROTOCOL
+} from './engine/index.js';
 import { ENGINE_CONFIG_FILENAME, ENGINE_DIR_NAME } from './engine/util/constants.js';
 
 /**
@@ -20,8 +33,19 @@ async function main() {
     prompt: new TerminalPrompt(),
   };
 
-  const { program, getFormatter, config } = await runCli(options);
+  const { program, getFormatter, config, infra } = await runCli(options);
   
+  // 8. Register Commands
+  registerLogCommand(program, infra);
+  registerStaleCommand(program, infra);
+  registerTraceCommand(program, infra, SYSTEM_PROTOCOL);
+  registerCommitCommand(program, infra);
+  registerValidateCommand(program, infra);
+  registerSquashCommand(program, infra);
+  registerCacheCommand(program, infra);
+  registerConfigCommand(program, infra);
+  registerDoctorCommand(program, infra);
+
   // Non-blocking update check for the core engine
   void checkForUpdates({
     packageName: getEnginePackageName(), 

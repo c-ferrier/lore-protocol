@@ -2,23 +2,13 @@ import { join } from 'node:path';
 
 import { Command } from 'commander';
 
-import {
-  registerCacheCommand,
-  registerCommitCommand,
-  registerConfigCommand,
-  registerDoctorCommand,
-  registerLogCommand,
-  registerSquashCommand,
-  registerStaleCommand,
-  registerTraceCommand,
-  registerValidateCommand,
-} from '../cli/commands/index.js';
 import { JsonFormatter } from '../cli/formatters/json-formatter.js';
 import { TextFormatter } from '../cli/formatters/text-formatter.js';
 import { TerminalLogger } from '../cli/io/terminal-logger.js';
 // Pure Logic Modules
 import { createProtocolContext } from '../core/logic/protocols.js';
 import { createQueryTarget } from '../core/logic/query-targets.js';
+import { SystemProtocolDefinition } from '../core/logic/system-protocol.js';
 import { getEngineVersion } from '../core/logic/version.js';
 import { ProtocolMap } from '../core/models/protocol-map.js';
 import type { EngineConfig } from '../core/types/config.js';
@@ -50,7 +40,7 @@ export interface EngineInfra {
   readonly config: EngineConfig;
   readonly logger: ILogger;
   readonly prompt: IPrompt;
-  readonly getFormatter: () => IOutputFormatter;
+  readonly getFormatter: (options?: { visibleTrailers?: readonly string[] | 'all' }) => IOutputFormatter;
   readonly protocolRoot: string;
   readonly cwd: string;
   readonly baseTarget: QueryTargetAST;
@@ -65,8 +55,8 @@ export interface EngineOptions {
   defaultConfig: EngineConfig;
   staticProtocols: ProtocolDefinition[];
   prompt: IPrompt;
-  jsonFormatterFactory?: (protocols: ProtocolMap<ProtocolContext>) => IOutputFormatter;
-  textFormatterFactory?: (protocols: ProtocolMap<ProtocolContext>, options: { color: boolean }) => IOutputFormatter;
+  jsonFormatterFactory?: (protocols: ProtocolMap<ProtocolContext>, options?: { visibleTrailers?: readonly string[] | 'all' }) => IOutputFormatter;
+  textFormatterFactory?: (protocols: ProtocolMap<ProtocolContext>, options: { color: boolean; visibleTrailers?: readonly string[] | 'all' }) => IOutputFormatter;
 
   onConfigLoaded?: (config: EngineConfig) => Promise<EngineConfig>;
   onProtocolsLoaded?: (protocols: ProtocolDefinition[]) => Promise<ProtocolDefinition[]>;
@@ -121,7 +111,7 @@ export class EngineBootstrapper {
     const protocolsDir = join(activeRoot, engineDir, PROTOCOLS_DIR_NAME);
     const protocolLoader = new ProtocolLoader(
         new DynamicProtocolLoader(protocolsDir),
-        this.options.staticProtocols || []
+        [...(this.options.staticProtocols || []), SystemProtocolDefinition]
     );
 
     let allProtocols = await protocolLoader.loadAll(config);
@@ -182,56 +172,34 @@ export class EngineBootstrapper {
     });
 
     // 6. Formatter factory
-    let cachedFormatter: IOutputFormatter | null = null;
-    const getFormatter = (): IOutputFormatter => {
-      if (cachedFormatter !== null) return cachedFormatter;
+    const getFormatter = (options?: { visibleTrailers?: readonly string[] | 'all' }): IOutputFormatter => {
       const opts = program.opts();
       const isJson = opts.json || opts.format === 'json';
 
       if (isJson) {
-        cachedFormatter = this.options.jsonFormatterFactory
-          ? this.options.jsonFormatterFactory(protocolMap)
+        return this.options.jsonFormatterFactory
+          ? this.options.jsonFormatterFactory(protocolMap, options)
           : new JsonFormatter(protocolMap);
       } else {
-        cachedFormatter = this.options.textFormatterFactory
-          ? this.options.textFormatterFactory(protocolMap, { color: opts.color })
+        return this.options.textFormatterFactory
+          ? this.options.textFormatterFactory(protocolMap, { color: opts.color, ...options })
           : new TextFormatter(protocolMap, { color: opts.color });
       }
-      return cachedFormatter;
     };
-
-    // 7. Consolidate into Infrastructure Bag
-    const infra: EngineInfra = {
-      git: gitClient,
-      cache: queryCache,
-      identityIndex,
-      protocols: protocolMap,
-      config,
-      logger,
-      prompt: this.options.prompt,
-      getFormatter,
-      protocolRoot: activeRoot,
-      cwd,
-      baseTarget,
-    };
-
-    // 8. Register Commands
-    registerLogCommand(program, infra);
-    registerStaleCommand(program, infra);
-    registerTraceCommand(program, infra);
-    registerCommitCommand(program, infra, this.options.prompt);
-    registerValidateCommand(program, infra);
-    registerSquashCommand(program, infra);
-    registerCacheCommand(program, infra);
-    registerConfigCommand(program, infra);
-    registerDoctorCommand(program, infra);
-
-    if (this.options.hiddenCommands) {
-        for (const name of this.options.hiddenCommands) {
-            const cmd = program.commands.find(c => c.name() === name);
-            if (cmd) (cmd as unknown as { _hidden: boolean })._hidden = true;
-        }
-    }
+// 7. Consolidate into Infrastructure Bag
+const infra: EngineInfra = {
+  git: gitClient,
+  cache: queryCache,
+  identityIndex,
+  protocols: protocolMap,
+  config,
+  logger,
+  prompt: this.options.prompt,
+  getFormatter,
+  protocolRoot: activeRoot,
+  cwd,
+  baseTarget,
+};
 
     return { program, getFormatter, infra, config };
   }

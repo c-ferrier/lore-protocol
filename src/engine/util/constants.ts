@@ -59,6 +59,9 @@ export const QUERY_CACHE_DIR = 'query';
 /** Sentinel key for global query cache entries (when no paths are provided) */
 export const GLOBAL_CACHE_KEY = 'GLOBAL';
 
+/** Reserved protocol name for physical storage and Git-native metadata */
+export const SYSTEM_PROTOCOL = 'system';
+
 /** The namespace used by the primary "Global" protocol (empty string) */
 export const GLOBAL_NAMESPACE = '';
 

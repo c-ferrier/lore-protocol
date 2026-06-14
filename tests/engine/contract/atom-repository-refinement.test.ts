@@ -152,7 +152,7 @@ describe('Discovery Refinement', () => {
       vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit]; });
 
       const infra = makeMockInfra({ git, protocols });
-      const result = await findAtomById(infra, { id: targetId });
+      const result = await findAtomById(infra, { protocol: 'mock', id: targetId });
 
       expect(result).toBeNull();
     });
@@ -172,7 +172,7 @@ describe('Discovery Refinement', () => {
       vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit]; });
 
       const infra = makeMockInfra({ git, protocols });
-      const result = await findAtomById(infra, { id: targetId });
+      const result = await findAtomById(infra, { protocol: 'mock', id: targetId });
 
       expect(result).not.toBeNull();
       expect(result!.protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]).toBe(targetId);

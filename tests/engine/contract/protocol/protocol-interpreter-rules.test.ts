@@ -1,9 +1,12 @@
 import { describe, expect,it } from 'vitest';
 
 import { getStaleSignals } from '../../../../src/engine/core/logic/staleness.js';
-import { ProtocolMap } from '../../../../src/engine/core/types/domain.js';
 import { type ProtocolDefinition } from '../../../../src/engine/core/types/protocol-definition.js';
-import { makeAtom, makeStubProtocolContext } from '../../../../src/engine/testing.js';
+import { 
+    makeAtom, 
+    makeStubProtocolContext, 
+    makeStubProtocolMap,
+    makeStubProtocolState } from '../../../../src/engine/testing.js';
 
 describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
   
@@ -35,10 +38,9 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
 
     const now = new Date(2025, 0, 1);
     const atom = makeAtom({
-      protocols: new ProtocolMap([['mock', { 
-          trailers: { Status: ['deprecated [until:2024-01-01]'] }, 
-          unauthorized: {} 
-      }]])
+      protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ 
+          trailers: { Status: ['deprecated [until:2024-01-01]'] }
+      })]])
     });
 
     const signals = getStaleSignals(protocol, atom, now, new Map());
@@ -58,10 +60,9 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
     });
 
     const atom = makeAtom({
-      protocols: new ProtocolMap([['mock', { 
-          trailers: { Tags: ['fresh', 'stale-tag', 'stale-tag'] }, 
-          unauthorized: {} 
-      }]])
+      protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ 
+          trailers: { Tags: ['fresh', 'stale-tag', 'stale-tag'] }
+      })]])
     });
 
     const signals = getStaleSignals(protocol, atom, new Date(), new Map());
@@ -86,10 +87,9 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
     ]);
 
     const atom = makeAtom({
-      protocols: new ProtocolMap([['lore', { 
-          trailers: { 'Lore-id': ['a1b2c3d4'], 'Depends-on': ['sec/cve-1234'] }, 
-          unauthorized: {} 
-      }]])
+      protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ 
+          trailers: { 'Lore-id': ['a1b2c3d4'], 'Depends-on': ['sec/cve-1234'] }
+      })]])
     });
 
     const signals = getStaleSignals(protocol, atom, new Date(), globalMap);
@@ -115,10 +115,9 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
     ]);
 
     const atom = makeAtom({
-      protocols: new ProtocolMap([['mock', { 
-          trailers: { 'Mock-id': ['a1b2c3d4'], 'Supersedes': ['deadbeef'] }, 
-          unauthorized: {} 
-      }]])
+      protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ 
+          trailers: { 'Mock-id': ['a1b2c3d4'], 'Supersedes': ['deadbeef'] }
+      })]])
     });
 
     const signals = getStaleSignals(protocol, atom, new Date(), globalMap);
@@ -136,10 +135,10 @@ describe('ProtocolInterpreter - Declarative Rules (Edge Cases)', () => {
     });
 
     const atom = makeAtom({
-      protocols: new ProtocolMap([['mock', { 
+      protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ 
           trailers: { Authorized: ['fresh'] }, 
           unauthorized: { Unauthorized: ['stale'] } 
-      }]])
+      })]])
     });
 
     const signals = getStaleSignals(protocol, atom, new Date(), new Map());

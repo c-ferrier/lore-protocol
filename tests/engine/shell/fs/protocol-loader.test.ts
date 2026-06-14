@@ -71,5 +71,18 @@ describe('ProtocolLoader', () => {
     // String was hydrated into a full TrailerDefinition object
     expect(typeof testP.trailers.Raw).toBe('object');
     expect(testP.trailers.Raw.description).toBe('Simple String Definition');
-  });
-});
+    });
+
+    it('should throw ConfigurationError if multiple permissive protocols share a namespace', async () => {
+    const p1: ProtocolDefinition = { ...staticLore, name: 'P1', namespace: '', permissive: true };
+    const p2: ProtocolDefinition = { ...staticLore, name: 'P2', namespace: '', permissive: true };
+
+    const loader = new ProtocolLoader(
+        createMockDynamicLoader([p1, p2]),
+        []
+    );
+
+    await expect(loader.loadAll(TEST_ENGINE_CONFIG))
+        .rejects.toThrow(/multiple permissive protocols in namespace "\(root\)"/);
+    });
+    });

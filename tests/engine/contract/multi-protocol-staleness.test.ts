@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
+import { type SupersessionStatus } from '../../../src/engine/core/types/domain.js';
 import { analyzeStaleness } from '../../../src/engine/shell/orchestrators/staleness.js';
-import { makeStubProtocolContext, type ProtocolContext } from '../../../src/engine/testing.js';
+import { 
+    makeStubProtocolContext, 
+    makeStubProtocolMap,
+    makeStubProtocolState } from '../../../src/engine/testing.js';
 import { type MockedGitClient } from '../../mock-types.js';
 import { 
     makeAtom, 
     makeMockGitClient,
-    ProtocolState,
     TEST_ENGINE_CONFIG 
 } from '../engine-test-utils.js';
 
@@ -47,14 +49,12 @@ describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
       }
     });
 
-    const protocols = new ProtocolMap<ProtocolContext>();
-    protocols.set('p1', p1);
-    protocols.set('p2', p2);
+    const protocols = makeStubProtocolMap([p1, p2]);
 
     const atom = makeAtom({
-      protocols: new ProtocolMap<ProtocolState>([
-        ['p1', { trailers: { 'Status': ['stale'] }, unauthorized: {} }],
-        ['p2', { trailers: { 'Level': ['high'] }, unauthorized: {} }]
+      protocols: makeStubProtocolMap([
+        ['p1', makeStubProtocolState({ trailers: { 'Status': ['stale'] } })],
+        ['p2', makeStubProtocolState({ trailers: { 'Level': ['high'] } })]
       ])
     });
 
@@ -69,7 +69,7 @@ describe('analyzeStaleness (Multi-Protocol Aggregation)', () => {
 
     const reports = await analyzeStaleness(
         [atom], 
-        new ProtocolMap<Map<string, { superseded: boolean; supersededBy: string[] }>>(), 
+        makeStubProtocolMap<Map<string, SupersessionStatus>>([]), 
         deps
     );
 

@@ -9,7 +9,8 @@ import { authorizeKey, isBucketOwner } from './ownership.js';
 export function normalizeTrailers(
     rawMap: Record<string, readonly string[]>, 
     ctx: ProtocolContext, 
-    claimedKeys?: Set<string>
+    claimedKeys: Set<string> = new Set(),
+    invalidReferences: Record<string, readonly string[]> = {}
 ): ProtocolState {
     const normalized: Record<string, string[]> = {};
     const unauthorized: Record<string, string[]> = {};
@@ -75,25 +76,16 @@ export function normalizeTrailers(
           continue;
       }
 
-      // Root Sovereignty & Permissive Landlord logic
+      // Root Sovereignty & Rental Agreement logic
       const authKey = authorizeKey(key, ctx);
       if (authKey) {
-          const inSchema = ctx.caseMap.has(lowerKey);
-          if (inSchema || ctx.permissive) {
-            normalized[authKey] = [...(normalized[authKey] || []), ...values];
-            continue;
-          }
-      }
-
-      // Root Catch-all (Rule: if permissive and unclaimed)
-      if (ctx.permissive) {
-          normalized[key] = [...(normalized[key] || []), ...values];
+          normalized[authKey] = [...(normalized[authKey] || []), ...values];
           continue;
       }
 
-      // Root Strictly Unauthorized (typos or orphaned namespaces in strict mode)
+      // Root Strictly Unauthorized (typos or orphaned namespaces for this protocol)
       unauthorized[key] = [...(unauthorized[key] || []), ...values];
     }
 
-    return { trailers: normalized, unauthorized };
+    return { trailers: normalized, unauthorized, invalidReferences };
 }

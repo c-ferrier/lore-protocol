@@ -1,7 +1,7 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
-import { makeAtom, makeStubProtocolContext, type ProtocolContext } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState, type ProtocolContext } from '../../../../src/engine/testing.js';
 import { LoreTextFormatter } from '../../../../src/lore/formatters/lore-text-formatter.js';
 
 describe('LoreTextFormatter', () => {
@@ -9,7 +9,6 @@ describe('LoreTextFormatter', () => {
   let formatter: LoreTextFormatter;
 
   beforeEach(() => {
-    protocols = new ProtocolMap();
     const lore = makeStubProtocolContext({ 
         name: 'lore', 
         identityKey: 'Lore-id',
@@ -17,13 +16,13 @@ describe('LoreTextFormatter', () => {
             'Confidence': { description: 'C', multivalue: false, validation: 'none' as const }
         }
     });
-    protocols.set(lore.name, lore);
+    protocols = makeStubProtocolMap([lore]);
     formatter = new LoreTextFormatter(protocols, { color: false });
   });
 
   it('should suppress [lore] prefix in the output (Lore 0.5.0 Parity)', () => {
     const atom = makeAtom({
-      protocols: new ProtocolMap([['lore', { trailers: { 'Confidence': ['high'] }, unauthorized: {} }]])
+      protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ trailers: { 'Confidence': ['high'] } })]])
     });
 
     const output = formatter.formatQueryResult({
@@ -44,7 +43,7 @@ describe('LoreTextFormatter', () => {
   it('should only indent the first line of the body (Lore 0.5.0 Parity)', () => {
     const atom = makeAtom({
       body: 'Line 1\nLine 2',
-      protocols: new ProtocolMap([['lore', { trailers: { 'Lore-id': ['aaaa1111'] }, unauthorized: {} }]])
+      protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ trailers: { 'Lore-id': ['aaaa1111'] } })]])
     });
 
     const output = formatter.formatQueryResult({
@@ -75,7 +74,7 @@ describe('LoreTextFormatter', () => {
   it('should show subject only if no trailers are present', () => {
     const atom = makeAtom({
       subject: 'feat: minimal',
-      protocols: new ProtocolMap([['lore', { trailers: { 'Lore-id': ['aaaa1111'] }, unauthorized: {} }]])
+      protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ trailers: { 'Lore-id': ['aaaa1111'] } })]])
     });
 
     const output = formatter.formatQueryResult({

@@ -7,11 +7,11 @@ import {
     validateProtocolState,
     validateProtocolTrailer
 } from '../../../../src/engine/core/logic/validation.js';
-import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import { 
     makeStubProtocolContext,
-    MOCK_CORE_TRAILERS, 
-    type ProtocolContext,    TEST_ENGINE_CONFIG, 
+    makeStubProtocolMap,
+    makeStubProtocolState,
+    MOCK_CORE_TRAILERS,    TEST_ENGINE_CONFIG, 
     TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
 
 describe('Validation Logic (Pure Functions)', () => {
@@ -58,7 +58,7 @@ describe('Validation Logic (Pure Functions)', () => {
       const protocol = makeStubProtocolContext({ 
           ...TEST_PROTOCOL_DEFINITION 
       });
-      const state = { trailers: { 'Mock-id': ['abc12345'] }, unauthorized: {} };
+      const state = makeStubProtocolState({ trailers: { 'Mock-id': ['abc12345'] } });
 
       const issues = validateProtocolState(state, protocol.def);
 
@@ -124,7 +124,7 @@ describe('Validation Logic (Pure Functions)', () => {
           identityKey: 'Other-id', 
           trailers: {} 
       });
-      const protocols = new ProtocolMap<ProtocolContext>();
+      const protocols = makeStubProtocolMap();
       protocols.set(protocol.name, protocol);
       protocols.set(otherProtocol.name, otherProtocol);
 
@@ -149,12 +149,12 @@ describe('Validation Logic (Pure Functions)', () => {
         trailers: {
             Department: { description: 'dept', multivalue: false, validation: 'none' as const, required: true },
         },
-      });
+        });
 
-      const state = { trailers: { 'Mock-id': ['abc'] }, unauthorized: {} };
-      const issues = validateProtocolState(state, protocol.def);
+        const state = makeStubProtocolState({ trailers: { 'Mock-id': ['abc'] } });
+        const issues = validateProtocolState(state, protocol.def);
 
-      expect(issues.some(i => i.rule === 'required-trailer')).toBe(true);
+        expect(issues.some(i => i.rule === 'required-trailer')).toBe(true);
       expect(issues.find(i => i.rule === 'required-trailer')?.message).toContain('Department');
     });
 

@@ -1,3 +1,4 @@
+import { SYSTEM_PROTOCOL } from '../../util/constants.js';
 import { ProtocolError } from '../../util/errors.js';
 import type { CommitInput, PreparedCommit } from '../types/commit.js';
 import type { EngineConfig } from '../types/config.js';
@@ -72,20 +73,21 @@ export function formatCommit(
       }
     }
 
-    resultProtocols.set(lowerPName, { trailers, unauthorized: {} });
+    resultProtocols.set(lowerPName, { trailers, unauthorized: {}, invalidReferences: {} });
   }
 
   // 2. Ensure all registered protocols have an identity, even if they had no input trailers
   for (const ctx of protocols.values()) {
       const lowerPName = ctx.name;
-      if (resultProtocols.has(lowerPName)) continue;
+      if (resultProtocols.has(lowerPName) || lowerPName === SYSTEM_PROTOCOL) continue;
 
       const id = (existingIds && (existingIds[lowerPName] || existingIds[ctx.def.name])) || generateId(ctx);
       const ns = ctx.storageNamespace;
 
       resultProtocols.set(lowerPName, { 
           trailers: { [ctx.identityKey]: [id] }, 
-          unauthorized: {} 
+          unauthorized: {},
+          invalidReferences: {} 
       });
 
       if (ns) {
@@ -181,7 +183,7 @@ export async function validateFormatting(
   // 2. Global Integrity: Ensure all registered protocols have their requirements met
   // (even if they were missing from the input trailers map entirely)
   for (const ctx of protocols.values()) {
-      if (validatedProtocols.has(ctx.name)) continue;
+      if (validatedProtocols.has(ctx.name) || ctx.name === SYSTEM_PROTOCOL) continue;
 
       // Perform validation on an empty state to catch missing required trailers
       const emptyState = normalizeTrailers({}, ctx, lowerClaimed);

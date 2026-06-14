@@ -202,7 +202,7 @@ export class JsonFormatter implements IOutputFormatter {
     );
   }
 
-  formatConfig(data: FormattableConfigResult): string {
+  formatConfigResult(data: FormattableConfigResult): string {
     return JSON.stringify(data, null, 2);
   }
 

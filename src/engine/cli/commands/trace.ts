@@ -17,6 +17,7 @@ import { mergeOptions } from './helpers/merge-options.js';
 export function registerTraceCommand(
   program: Command,
   infra: EngineInfra,
+  defaultProtocol: string
 ): void {
   program
     .command('trace <id>')
@@ -26,7 +27,7 @@ export function registerTraceCommand(
       const options = mergeOptions<{ maxDepth: number; cache: boolean }>(command);
       const { protocols: protocolMap, getFormatter, logger } = infra;
       
-      const identity = resolveProtocolIdentity(protocolMap, id);
+      const identity = resolveProtocolIdentity(protocolMap, id, defaultProtocol);
       
       // ONE repository call handles the entire BFS walk up to maxDepth.
       const atoms = await findAtomsByIds(infra, [identity], { 

@@ -2,11 +2,10 @@ import { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerDoctorCommand } from '../../../../src/engine/cli/commands/doctor.js';
-import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import { type ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
 import type { EngineInfra } from '../../../../src/engine/services/engine-bootstrapper.js';
 import * as Discovery from '../../../../src/engine/shell/orchestrators/discovery.js';
-import { makeAtom, makeStubProtocolContext, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { makeMockFormatter, makeMockGitClient, makeMockInfra, TestLogger } from '../../engine-test-utils.js';
 
 vi.mock('../../../../src/engine/shell/orchestrators/discovery.js', () => ({
@@ -43,8 +42,7 @@ describe('Doctor Command', () => {
 
   it('should run basic health checks', async () => {
     const logger = new TestLogger();
-    const protocols = new ProtocolMap<ProtocolContext>();
-    protocols.set(protocol.name, protocol);
+    const protocols = makeStubProtocolMap([protocol]);
 
     await runDoctor({
       logger,
@@ -86,18 +84,14 @@ describe('Doctor Command', () => {
   it('should report broken references for namespaced trailers', async () => {
     const atom = makeAtom({
       commitHash: 'h1',
-      protocols: new Map([
-        ['mock', { 
-            trailers: { 'Ref-id': ['missing'] },
-            unauthorized: {}
-        }]
+      protocols: makeStubProtocolMap([
+        ['mock', makeStubProtocolState({ trailers: { 'Ref-id': ['missing'] } })]
       ]),
       filesChanged: []
     });
 
     vi.mocked(Discovery.findAtoms).mockResolvedValue([atom]);
     const logger = new TestLogger();
-    const protocols = new ProtocolMap<ProtocolContext>();
     const protocolWithRef = makeStubProtocolContext({
         ...TEST_PROTOCOL_DEFINITION,
         trailers: {
@@ -105,7 +99,7 @@ describe('Doctor Command', () => {
             'Ref-id': { description: 'R', multivalue: true, validation: 'reference' as const }
         }
     });
-    protocols.set(protocolWithRef.name, protocolWithRef);
+    const protocols = makeStubProtocolMap([protocolWithRef]);
 
     const formatter = makeMockFormatter();
 
@@ -117,24 +111,23 @@ describe('Doctor Command', () => {
 
     expect(Discovery.findAtoms).toHaveBeenCalled();
     expect(formatter.formatDoctorResult).toHaveBeenCalled();
-  });
+    });
 
-  it('should identify duplicate IDs across the repository', async () => {
+    it('should identify duplicate IDs across the repository', async () => {
     const atom1 = makeAtom({
       commitHash: 'h1',
-      protocols: new Map([['mock', { trailers: { 'Mock-id': ['id1'] }, unauthorized: {} }]]),
+      protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ trailers: { 'Mock-id': ['id1'] } })]]),
       filesChanged: []
     });
     const atom2 = makeAtom({
       commitHash: 'h2',
-      protocols: new Map([['mock', { trailers: { 'Mock-id': ['id1'] }, unauthorized: {} }]]),
+      protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ trailers: { 'Mock-id': ['id1'] } })]]),
       filesChanged: []
     });
 
     vi.mocked(Discovery.findAtoms).mockResolvedValue([atom1, atom2]);
     const logger = new TestLogger();
-    const protocols = new ProtocolMap<ProtocolContext>();
-    protocols.set(protocol.name, protocol);
+    const protocols = makeStubProtocolMap([protocol]);
 
     const formatter = makeMockFormatter();
 
@@ -143,6 +136,7 @@ describe('Doctor Command', () => {
       protocols,
       getFormatter: () => formatter
     });
+
 
     expect(Discovery.findAtoms).toHaveBeenCalled();
     expect(formatter.formatDoctorResult).toHaveBeenCalledWith(expect.objectContaining({

@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { TextFormatter } from '../../../../src/engine/cli/formatters/text-formatter.js';
-import { ProtocolMap, type ProtocolState, type Trailers } from '../../../../src/engine/core/types/domain.js';
+import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
+import type { Trailers } from '../../../../src/engine/core/types/domain.js';
 import type { 
     FormattableConfigResult,
     FormattableDoctorResult, 
@@ -11,7 +12,12 @@ import type {
     FormattableValidationResult 
 } from '../../../../src/engine/core/types/output.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
-import { makeAtom, makeStubProtocolContext, TEST_ID_KEY } from '../../../../src/engine/testing.js';
+import { 
+    makeAtom, 
+    makeStubProtocolContext, 
+    makeStubProtocolMap,
+    makeStubProtocolState,
+    TEST_ID_KEY } from '../../../../src/engine/testing.js';
 
 describe('TextFormatter', () => {
   let protocols: ProtocolMap<ProtocolContext>;
@@ -19,9 +25,8 @@ describe('TextFormatter', () => {
   let formatter: TextFormatter;
 
   beforeEach(() => {
-    protocols = new ProtocolMap<ProtocolContext>();
     protocol = makeStubProtocolContext();
-    protocols.set(protocol.name, protocol);
+    protocols = makeStubProtocolMap([protocol]);
     formatter = new TextFormatter(protocols, { color: false });
   });
 
@@ -29,12 +34,11 @@ describe('TextFormatter', () => {
     it('should strike-through the header for superseded atoms', () => {
       const atom = makeAtom({
         commitHash: 'abc1234567890',
-        protocols: new Map<string, ProtocolState>([
-          ['mock', { 
+        protocols: makeStubProtocolMap([
+          ['mock', makeStubProtocolState({ 
             trailers: { [TEST_ID_KEY]: ['abc1234'] },
-            unauthorized: {},
             supersession: { superseded: true, supersededBy: ['e5f6a7b8'] }
-          }]
+          })]
         ])
       });
 
@@ -189,9 +193,9 @@ describe('TextFormatter', () => {
       
       const atom = makeAtom({
         id: 'mock1234',
-        protocols: new Map<string, ProtocolState>([
-          ['mock', { trailers, unauthorized: {} }],
-          ['fred', { trailers: fredTrailers, unauthorized: {} }]
+        protocols: makeStubProtocolMap([
+          ['mock', makeStubProtocolState({ trailers })],
+          ['fred', makeStubProtocolState({ trailers: fredTrailers })]
         ])
       });
 
@@ -345,7 +349,7 @@ describe('TextFormatter', () => {
     });
   });
 
-  describe('formatConfig', () => {
+  describe('formatConfigResult', () => {
     it('should format hierarchical protocol config', () => {
       const data: FormattableConfigResult = {
         engineVersion: '1.2.3',
@@ -384,7 +388,7 @@ describe('TextFormatter', () => {
         ],
       };
 
-      const output = formatter.formatConfig(data);
+      const output = formatter.formatConfigResult(data);
       expect(output).toContain('Active Protocol Configurations (Engine v1.2.3)');
       expect(output).toContain('Protocol: Lore (v1.0)');
       expect(output).toContain('Namespace: (none), Permissive: true');
@@ -404,7 +408,7 @@ describe('TextFormatter', () => {
                 trailers: {}
             }]
         };
-        const output = formatter.formatConfig(data);
+        const output = formatter.formatConfigResult(data);
         expect(output).toContain('(No matching trailers defined)');
     });
   });

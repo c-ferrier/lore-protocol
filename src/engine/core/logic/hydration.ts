@@ -33,7 +33,30 @@ export function hydrateAtoms(
 
     if (hasProtocols) {
       for (const p of activeProtocols) {
-        protocolMap.set(p.name.toLowerCase(), normalizeTrailers(parsedRaw, p, claimedKeys));
+        const pName = p.name.toLowerCase();
+        
+        // 1. Calculate Data Quality (References) before instantiation
+        const invalidReferences: Record<string, string[]> = {};
+        const refKeys = Object.keys(p.def.trailers).filter(k => p.def.trailers[k].validation === 'reference');
+        
+        for (const key of refKeys) {
+            const values = parsedRaw[key] || [];
+            const invalid: string[] = [];
+            for (const val of values) {
+                try {
+                    resolveProtocolIdentity(protocols, val, pName);
+                } catch (_e) {
+                    invalid.push(val);
+                }
+            }
+            if (invalid.length > 0) {
+                invalidReferences[key] = invalid;
+            }
+        }
+
+        // 2. Perform Pure Normalization with pre-calculated data
+        const state = normalizeTrailers(parsedRaw, p, claimedKeys, invalidReferences);
+        protocolMap.set(pName, state);
       }
     }
 
@@ -71,14 +94,13 @@ export function extractReferenceIds(atoms: readonly Atom[], protocols: ProtocolM
         for (const val of values) {
           try {
             const identity = resolveProtocolIdentity(protocols, val, pName);
-            const pNameFinal = (identity.protocol || pName).toLowerCase();
-            const idKey = `${pNameFinal}/${identity.id}`;
+            const idKey = `${identity.protocol}/${identity.id}`;
             if (!seen.has(idKey)) {
               seen.add(idKey);
               identities.push(identity);
             }
           } catch (_e) {
-            // Skip invalid references during extraction (they will be caught by validator)
+            // Invalid references are already captured in state.invalidReferences during hydration
           }
         }
       }

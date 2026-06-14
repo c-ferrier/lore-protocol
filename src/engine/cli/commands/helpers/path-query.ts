@@ -2,9 +2,7 @@ import { type Command } from 'commander';
 
 // Pure Logic Modules
 import { createQueryTarget } from '../../../core/logic/query-targets.js';
-import type { Atom } from '../../../core/types/domain.js';
-import type { FormattableQueryResult } from '../../../core/types/output.js';
-import type { QueryOptions,QueryResult } from '../../../core/types/query.js';
+import type { QueryOptions } from '../../../core/types/query.js';
 import type { EngineInfra } from '../../../services/engine-bootstrapper.js';
 import { findAtomsStream } from '../../../shell/orchestrators/discovery.js';
 import { ProtocolError } from '../../../util/errors.js';

@@ -5,7 +5,6 @@ import { formatCommit, validateFormatting } from '../../core/logic/commit-format
 import { getAuthorizedKeys } from '../../core/logic/protocols.js';
 import { slugify } from '../../core/logic/string.js';
 import type { AtomId } from '../../core/types/domain.js';
-import type { IPrompt } from '../../interfaces/prompt.js';
 import type { EngineInfra } from '../../services/engine-bootstrapper.js';
 import { readHeadIdentities } from '../../shell/git/head-id-reader.js';
 import { ProtocolError } from '../../util/errors.js';
@@ -34,10 +33,9 @@ interface CommitCommandOptions {
  */
 export function registerCommitCommand(
   program: Command,
-  infra: EngineInfra,
-  prompt: IPrompt
+  infra: EngineInfra
 ): void {
-  const { protocols: protocolMap, logger, config } = infra;
+  const { protocols: protocolMap, logger, config, prompt } = infra;
   const cmd = program
     .command('commit')
     .description('Create a decision-enriched commit')

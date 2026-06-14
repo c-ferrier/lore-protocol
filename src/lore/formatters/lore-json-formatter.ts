@@ -11,8 +11,8 @@ import {
     type IOutputFormatter,
     type ProtocolContext,
     ProtocolMap,
-    snakeCase
- } from '../../engine/index.js';
+    snakeCase,
+    SYSTEM_PROTOCOL } from '../../engine/index.js';
 
 /**
  * Lore CLI 0.5.0 Legacy JSON Formatter.
@@ -109,6 +109,8 @@ export class LoreJsonFormatter implements IOutputFormatter {
       const status = (loreState && loreState.supersession) ? loreState.supersession : { superseded: false, supersededBy: [] };
 
       const trailers: Record<string, string | string[] | null> = {};
+      
+      // 1. Lore Trailers
       if (loreState && loreProtocol) {
           for (const [key, values] of Object.entries(loreState.trailers)) {
               // Apply visibility filter
@@ -118,9 +120,28 @@ export class LoreJsonFormatter implements IOutputFormatter {
               const isScalar = def && !def.multivalue;
               trailers[snakeCase(key)] = isScalar ? values[0] : [...values];
           }
-          // 0.5.0 included lore_id inside trailers too
-          if (loreId) trailers.lore_id = loreId;
       }
+
+      // 2. System Trailers (Ad-hoc and Git-native)
+      const systemState = atom.protocols.get(SYSTEM_PROTOCOL);
+      const systemProtocol = this.protocols.get(SYSTEM_PROTOCOL);
+      if (systemState && systemProtocol) {
+          for (const [key, values] of Object.entries(systemState.trailers)) {
+              // Apply visibility filter
+              if (visibleTrailers !== 'all' && !visibleTrailers.includes(key)) continue;
+
+              // If it's already in trailers (collided with lore), skip it
+              const sKey = snakeCase(key);
+              if (trailers[sKey] !== undefined) continue;
+
+              const def = systemProtocol.def.trailers[key];
+              const isScalar = !def || !def.multivalue; // Standard git trailers are scalar
+              trailers[sKey] = isScalar ? values[0] : [...values];
+          }
+      }
+
+      // 0.5.0 included lore_id inside trailers too
+      if (loreId) trailers.lore_id = loreId;
 
       return {
         lore_id: loreId,
@@ -297,7 +318,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
     }, null, 2);
   }
 
-  formatConfig(data: FormattableConfigResult): string {
+  formatConfigResult(data: FormattableConfigResult): string {
     const loreProtocol = this.protocols.get('lore');
     return JSON.stringify({
         lore_version: loreProtocol?.def.version ?? '1.0',

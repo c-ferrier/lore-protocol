@@ -7,6 +7,8 @@ import * as Discovery from '../../../../src/engine/shell/orchestrators/discovery
 import { 
     makeAtom, 
     makeStubProtocolContext, 
+    makeStubProtocolMap,
+    makeStubProtocolState,
     type ProtocolContext, 
     TEST_ENGINE_CONFIG,
     TEST_ID_KEY, 
@@ -40,8 +42,7 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
             'Related': { description: 'R', multivalue: true, validation: 'reference', isCore: true }
         }
     });
-    protocols = new ProtocolMap();
-    protocols.set(protocol.name, protocol);
+    protocols = makeStubProtocolMap([protocol]);
 
     logger = new TestLogger();
     formatter = makeMockFormatter();
@@ -55,28 +56,25 @@ describe('registerTraceCommand (Integrated Expansion)', () => {
       logger,
       config: TEST_ENGINE_CONFIG,
       getFormatter: () => formatter
-    }));
+    }), 'mock');
   });
 
   it('delegates BFS traversal to findAtomsByIds and builds edges', async () => {
     const id1 = 'aaaaaaaa';
     const id2 = 'bbbbbbbb';
+const rootAtom = makeAtom({ 
+    id: id1,
+    protocols: makeStubProtocolMap([
+        ['mock', makeStubProtocolState({ trailers: { [TEST_ID_KEY]: [id1], 'Related': [id2] } })]
+    ])
+});
 
-    const rootAtom = makeAtom({ 
-        id: id1,
-        protocols: new Map([['mock', { 
-            trailers: { [TEST_ID_KEY]: [id1], 'Related': [id2] },
-            unauthorized: {} 
-        }]])
-    });
-
-    const relatedAtom = makeAtom({
-        id: id2,
-        protocols: new Map([['mock', { 
-            trailers: { [TEST_ID_KEY]: [id2] },
-            unauthorized: {} 
-        }]])
-    });
+const relatedAtom = makeAtom({
+    id: id2,
+    protocols: makeStubProtocolMap([
+        ['mock', makeStubProtocolState({ trailers: { [TEST_ID_KEY]: [id2] } })]
+    ])
+});
 
     // Mock orchestrator to return the entire expanded set in one call
     vi.mocked(Discovery.findAtomsByIds).mockResolvedValue([rootAtom, relatedAtom]);

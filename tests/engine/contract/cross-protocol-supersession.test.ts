@@ -1,9 +1,14 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { resolveSupersession } from '../../../src/engine/core/logic/supersession.js';
-import { type Atom,ProtocolMap } from '../../../src/engine/core/types/domain.js';
+import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
+import { type Atom } from '../../../src/engine/core/types/domain.js';
 import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
-import { makeStubProtocolContext,TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
+import { 
+    makeStubProtocolContext,
+    makeStubProtocolMap,
+    makeStubProtocolState,
+    TEST_PROTOCOL_DEFINITION } from '../../../src/engine/testing.js';
 
 const TEST_ID_KEY = "Mock-id";
 const LORE_ID_KEY = "Lore-id";
@@ -34,8 +39,8 @@ function makeAtomCustom(options: {
     subject: 'test commit',
     body: '',
     rawTrailers: '',
-    protocols: new ProtocolMap([
-      [pName, { trailers, unauthorized: {} }]
+    protocols: makeStubProtocolMap([
+      [pName, makeStubProtocolState({ trailers })]
     ]),
     filesChanged: [],
   };
@@ -45,12 +50,10 @@ describe('Supersession Logic Cross-Protocol', () => {
   let protocols: ProtocolMap<ProtocolContext>;
 
   beforeEach(() => {
-    protocols = new ProtocolMap();
     // Use different namespaces to avoid root permissive conflict
     const mock = makeStubProtocolContext({ ...TEST_PROTOCOL_DEFINITION, namespace: 'mock' });
     const lore = makeStubProtocolContext({ ...LORE_DEFINITION, namespace: 'lore' });
-    protocols.set(mock.name, mock);
-    protocols.set(lore.name, lore);
+    protocols = makeStubProtocolMap([mock, lore]);
   });
 
   it('should resolve supersession across protocols (Lore supersedes Mock)', () => {

@@ -66,6 +66,6 @@ export function registerConfigCommand(
       };
 
       const formatter = getFormatter();
-      logger.result(formatter.formatConfig(formattable));
+      logger.result(formatter.formatConfigResult(formattable));
     });
 }

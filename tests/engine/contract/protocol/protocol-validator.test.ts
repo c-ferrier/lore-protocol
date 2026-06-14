@@ -1,7 +1,7 @@
 import { describe, expect,it } from 'vitest';
 
 import { validateProtocolState, validateProtocolTrailer } from '../../../../src/engine/core/logic/validation.js';
-import { makeStubProtocolContext, TEST_ID_KEY,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext, makeStubProtocolState, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('ProtocolValidator', () => {
   it('should report missing required trailers as errors in strict mode', () => {
@@ -13,10 +13,9 @@ describe('ProtocolValidator', () => {
         } 
     });
     
-    const state = {
-        trailers: {},
-        unauthorized: {}
-    };
+    const state = makeStubProtocolState({
+        trailers: {}
+    });
 
     const issues = validateProtocolState(state, protocol.def);
     const idIssue = issues.find(i => i.field === TEST_ID_KEY);
@@ -36,10 +35,9 @@ describe('ProtocolValidator', () => {
         } 
     });
     
-    const state = {
-        trailers: {},
-        unauthorized: {}
-    };
+    const state = makeStubProtocolState({
+        trailers: {}
+    });
 
     const issues = validateProtocolState(state, protocol.def);
     const idIssue = issues.find(i => i.field === TEST_ID_KEY);
@@ -67,10 +65,10 @@ describe('ProtocolValidator', () => {
   it('should report unauthorized trailers in non-permissive mode', () => {
     const protocol = makeStubProtocolContext({ permissive: false });
 
-    const state = {
+    const state = makeStubProtocolState({
         trailers: { [TEST_ID_KEY]: ['abc'] },
         unauthorized: { 'Typo': ['val'] }
-    };
+    });
 
     const issues = validateProtocolState(state, protocol.def);
     const typoIssue = issues.find(i => i.field === 'Typo');

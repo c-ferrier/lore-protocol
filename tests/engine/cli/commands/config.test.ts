@@ -19,7 +19,7 @@ describe('Config Command', () => {
     protocols = new ProtocolMap<ProtocolContext>();
     logger = new TestLogger();
     formatter = makeMockFormatter();
-    formatter.formatConfig.mockReturnValue('formatted');
+    formatter.formatConfigResult.mockReturnValue('formatted');
 
     const lore = makeStubProtocolContext({ 
         name: 'Lore', 
@@ -50,7 +50,7 @@ describe('Config Command', () => {
   it('should pass all protocols to the formatter by default', async () => {
     await program.parseAsync(['node', 'test', 'config']);
     
-    const result = formatter.formatConfig.mock.calls[0][0];
+    const result = formatter.formatConfigResult.mock.calls[0][0];
     expect(result.protocols).toHaveLength(2);
     expect(result.protocols[0].trailers).toHaveProperty('Confidence');
     expect(result.protocols[0].trailers).toHaveProperty('Legacy');
@@ -60,7 +60,7 @@ describe('Config Command', () => {
   it('should filter by protocol name (case-insensitive substring)', async () => {
     await program.parseAsync(['node', 'test', 'config', '--protocol', 'lo']);
     
-    const result = formatter.formatConfig.mock.calls[0][0];
+    const result = formatter.formatConfigResult.mock.calls[0][0];
     expect(result.protocols).toHaveLength(1);
     expect(result.protocols[0].name).toBe('lore');
   });
@@ -68,7 +68,7 @@ describe('Config Command', () => {
   it('should filter by trailer type (core)', async () => {
     await program.parseAsync(['node', 'test', 'config', '--trailer-type', 'core']);
     
-    const result = formatter.formatConfig.mock.calls[0][0];
+    const result = formatter.formatConfigResult.mock.calls[0][0];
     expect(result.protocols[0].trailers).toHaveProperty('Confidence');
     expect(result.protocols[0].trailers).not.toHaveProperty('Legacy');
   });
@@ -76,7 +76,7 @@ describe('Config Command', () => {
   it('should filter by trailer type (custom)', async () => {
     await program.parseAsync(['node', 'test', 'config', '--trailer-type', 'custom']);
     
-    const result = formatter.formatConfig.mock.calls[0][0];
+    const result = formatter.formatConfigResult.mock.calls[0][0];
     expect(result.protocols[0].trailers).not.toHaveProperty('Confidence');
     expect(result.protocols[0].trailers).toHaveProperty('Legacy');
   });
@@ -84,7 +84,7 @@ describe('Config Command', () => {
   it('should filter by trailer name (case-insensitive substring)', async () => {
     await program.parseAsync(['node', 'test', 'config', '--trailer-name', 'conf']);
     
-    const result = formatter.formatConfig.mock.calls[0][0];
+    const result = formatter.formatConfigResult.mock.calls[0][0];
     expect(result.protocols[0].trailers).toHaveProperty('Confidence');
     expect(result.protocols[0].trailers).not.toHaveProperty('Legacy');
   });

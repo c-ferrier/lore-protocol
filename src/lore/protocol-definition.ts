@@ -39,7 +39,7 @@ export const LoreProtocolDefinition: ProtocolDefinition = {
   name: 'Lore',
   version: '1.0',
   namespace: '', // Lore is the root protocol by default
-  strict: false, permissive: true,
+  strict: true, permissive: false,
   identityKey: 'Lore-id',
   trailers: {
     'Lore-id': {

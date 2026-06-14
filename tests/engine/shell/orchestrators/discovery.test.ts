@@ -9,6 +9,8 @@ import {
     makeQueryTarget,
     makeRawCommit,
     makeStubProtocolContext,
+    makeStubProtocolMap,
+    makeStubProtocolState,
     TEST_ID_KEY, 
     TEST_PROTOCOL_DEFINITION 
 } from '../../../../src/engine/testing.js';
@@ -32,9 +34,8 @@ describe('Discovery Orchestrator', () => {
 
   beforeEach(() => {
     git = makeMockGitClient();
-    protocols = new ProtocolMap();
     const mock = makeStubProtocolContext(RICH_DEF);
-    protocols.set('mock', mock);
+    protocols = makeStubProtocolMap([mock]);
   });
 
   function getInfra(overrides: Partial<DiscoveryInfra> = {}) {
@@ -156,7 +157,7 @@ describe('Discovery Orchestrator', () => {
       git.queryStream.mockImplementation(async function* () { yield commit; });
 
       const infra = getInfra();
-      const result = await findAtomById(infra, { id: 'a1b2c3d4' });
+      const result = await findAtomById(infra, { protocol: 'mock', id: 'a1b2c3d4' });
       expect(result).toBeDefined();
       expect(result?.commitHash).toBe(commit.hash);
     });
@@ -164,7 +165,7 @@ describe('Discovery Orchestrator', () => {
     it('should return null if no atom matches the Mock-id', async () => {
       git.queryStream.mockImplementation(async function* () { yield* []; });
       const infra = getInfra();
-      const result = await findAtomById(infra, { id: 'a1b2c3d4' });
+      const result = await findAtomById(infra, { protocol: 'mock', id: 'a1b2c3d4' });
       expect(result).toBeNull();
     });
   });
@@ -176,7 +177,7 @@ describe('Discovery Orchestrator', () => {
       git.queryStream.mockImplementation(async function* () { yield* [commit1, commit2]; });
 
       const infra = getInfra();
-      const results = await findAtomsByIds(infra, [{ id: 'a1b2c3d4' }, { id: 'b2c3d4e5' }]);
+      const results = await findAtomsByIds(infra, [{ protocol: 'mock', id: 'a1b2c3d4' }, { protocol: 'mock', id: 'b2c3d4e5' }]);
       expect(results).toHaveLength(2);
     });
 
@@ -184,9 +185,7 @@ describe('Discovery Orchestrator', () => {
         const p1 = makeStubProtocolContext({ name: 'P1', namespace: 'ns1', identityKey: 'P1-id', trailers: { 'P1-id': { description: 'ID', multivalue: false, validation: 'none' } } });
         const p2 = makeStubProtocolContext({ name: 'P2', namespace: 'ns2', identityKey: 'P2-id', trailers: { 'P2-id': { description: 'ID', multivalue: false, validation: 'none' } } });
         
-        const protocols = new ProtocolMap<ProtocolContext>();
-        protocols.set('p1', p1);
-        protocols.set('p2', p2);
+        const protocols = makeStubProtocolMap([p1, p2]);
 
         const infra = getInfra({ protocols });
         const commit1 = makeRawCommit({ trailers: 'ns1: P1-id: aaaa1111', subject: 't' });
@@ -211,10 +210,9 @@ describe('Discovery Orchestrator', () => {
 
       const initial = makeAtom({
           commitHash: 'h1',
-          protocols: new ProtocolMap([['mock', { 
-              trailers: { [TEST_ID_KEY]: ['aaaa1111'], 'Related': ['bbbb2222'] },
-              unauthorized: {}
-          }]])
+          protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ 
+              trailers: { [TEST_ID_KEY]: ['aaaa1111'], 'Related': ['bbbb2222'] }
+          })]])
       });
 
       const infra = getInfra();
@@ -238,10 +236,9 @@ describe('Discovery Orchestrator', () => {
 
       const initial = makeAtom({
           commitHash: 'h1',
-          protocols: new ProtocolMap([['mock', { 
-              trailers: { [TEST_ID_KEY]: ['aaaa1111'], 'Related': ['bbbb2222'] },
-              unauthorized: {}
-          }]])
+          protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ 
+              trailers: { [TEST_ID_KEY]: ['aaaa1111'], 'Related': ['bbbb2222'] }
+          })]])
       });
 
       const infra = getInfra();
@@ -264,10 +261,9 @@ describe('Discovery Orchestrator', () => {
         const infra = getInfra();
         const initial = makeAtom({ 
             commitHash: 'h1', 
-            protocols: new ProtocolMap([['mock', { 
-                trailers: { [TEST_ID_KEY]: [id1], 'Related': [id2] },
-                unauthorized: {}
-            }]])
+            protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ 
+                trailers: { [TEST_ID_KEY]: [id1], 'Related': [id2] }
+            })]])
         });
 
         const resolved = await resolveFollowLinks(infra, [initial], 10);

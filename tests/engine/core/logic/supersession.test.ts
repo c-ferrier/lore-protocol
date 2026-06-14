@@ -2,13 +2,13 @@ import { beforeEach,describe, expect, it } from 'vitest';
 
 import { filterActiveAtoms,resolveSupersession } from '../../../../src/engine/core/logic/supersession.js';
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
-import { makeAtom, makeStubProtocolContext, type ProtocolContext } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState, type ProtocolContext } from '../../../../src/engine/testing.js';
 
 describe('Supersession Logic (Pure Functions)', () => {
   let protocols: ProtocolMap<ProtocolContext>;
 
   beforeEach(() => {
-    protocols = new ProtocolMap<ProtocolContext>();
+    protocols = makeStubProtocolMap();
   });
 
   it('should resolve a direct supersession chain', () => {
@@ -81,10 +81,10 @@ describe('Supersession Logic (Pure Functions)', () => {
     protocols.set(p2.name, p2);
 
     const a1 = makeAtom({ 
-        protocols: new Map([['alpha', { trailers: { 'Id': ['a1'] }, unauthorized: {} }]]) 
+        protocols: makeStubProtocolMap([['alpha', makeStubProtocolState({ trailers: { 'Id': ['a1'] } })]]) 
     });
     const a2 = makeAtom({ 
-        protocols: new Map([['beta', { trailers: { 'Id': ['b1'], 'Supersedes': ['alpha/a1'] }, unauthorized: {} }]]) 
+        protocols: makeStubProtocolMap([['beta', makeStubProtocolState({ trailers: { 'Id': ['b1'], 'Supersedes': ['alpha/a1'] } })]]) 
     });
 
     const map = resolveSupersession([a1, a2], protocols);

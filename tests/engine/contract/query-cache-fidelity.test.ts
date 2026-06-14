@@ -6,10 +6,18 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as HydrationLogic from '../../../src/engine/core/logic/hydration.js';
 import { createTargetFromIdentities } from '../../../src/engine/core/logic/query-targets.js';
-import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { QueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { findAtoms } from '../../../src/engine/shell/orchestrators/discovery.js';
-import { makeAtom, makeQueryTarget, makeRawCommit,makeStubProtocolContext, type ProtocolContext } from '../../../src/engine/testing.js';
+import { 
+    makeAtom, 
+    makeQueryTarget, 
+    makeRawCommit,
+    makeStubProtocolContext, 
+    makeStubProtocolMap,
+    makeStubProtocolState,
+    type ProtocolContext,
+    ProtocolMap
+} from '../../../src/engine/testing.js';
 import { type MockedGitClient } from '../../mock-types.js';
 import { makeMockGitClient, makeMockInfra } from '../engine-test-utils.js';
 
@@ -24,10 +32,9 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
     mkdirSync(testDir, { recursive: true });
 
     git = makeMockGitClient();
-    protocols = new ProtocolMap();
     const protocol = makeStubProtocolContext();
-    protocols.set(protocol.name, protocol);
-    
+    protocols = makeStubProtocolMap([protocol]);
+
     cache = new QueryCache(testDir, 100, 'test-fingerprint');
   });
 
@@ -50,18 +57,18 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
     });
 
     vi.mocked(git.resolveRef).mockResolvedValue(headHash);
-    
+
     const mockAtomState = makeAtom({ 
         commitHash: 'abc', 
         filesChanged: commit.filesChanged,
-        protocols: new Map([['mock', { trailers: { 'Mock-id': ['id1'] }, unauthorized: {} }]]) 
+        protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ trailers: { 'Mock-id': ['id1'] } })]])
     });
 
     // 1. First run: Perform full Discovery + Fetch
     vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit]; });
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
     vi.spyOn(cache, 'get').mockResolvedValue(null);
-    
+
     const target = makeQueryTarget('src/logic.ts');
     const infra = getInfra();
     await findAtoms(infra, target, { cache: true });
@@ -72,16 +79,16 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
     vi.spyOn(cache, 'get').mockResolvedValue(['abc']);
     vi.mocked(git.getLogStream).mockImplementation(async function* () { yield 'abc\nsrc/logic.ts'; });
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
-    
+
     const result = await findAtoms(infra, target, { cache: true });
-    
+
     // VERIFICATION A: Physical Integrity
     // Discovery is skipped, but FETCH still gets full records (including files)
     expect(result).toHaveLength(1);
     expect(git.queryStream).not.toHaveBeenCalled();
     expect(git.getLogStream).toHaveBeenCalled();
     expect(result[0].filesChanged).toEqual(['src/logic.ts']);
-    
+
     // VERIFICATION B: Logical Truth
     // 'Smart Atom' projection must still happen even on cache hit
     expect(result[0].protocols.get('mock')?.supersession).toBeDefined();
@@ -94,7 +101,7 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
 
     const mockAtomState = makeAtom({ 
         id,
-        protocols: new Map([['mock', { trailers: { 'Mock-id': [id] }, unauthorized: {} }]])
+        protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ trailers: { 'Mock-id': [id] } })]])
     });
 
     vi.mocked(git.resolveRef).mockResolvedValue(headHash);
@@ -106,7 +113,7 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
     // 1. Initial run: Fill cache
     vi.spyOn(infra.identityIndex, 'get').mockResolvedValue([]);
     vi.mocked(infra.git.filterAliveHashes).mockResolvedValue([]);
-    const target = createTargetFromIdentities([{ id }]);
+    const target = createTargetFromIdentities([{ protocol: 'mock', id }]);
 
     await findAtoms(infra, target, { cache: true });
     expect(git.queryStream).toHaveBeenCalledTimes(1);

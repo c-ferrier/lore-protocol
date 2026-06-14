@@ -125,13 +125,13 @@ async function validateReferenceExistence(
 
   // Report missing IDs
   for (const { key, identity } of identitiesToCheck) {
-    const lookupKey = `${(identity.protocol || protocolName).toLowerCase()}/${identity.id}`;
+    const lookupKey = `${identity.protocol}/${identity.id}`;
     if (!foundKeys.has(lookupKey)) {
       issues.push({
         severity: ctx.def.strict ? 'error' : 'warning',
         rule: 'reference-exists',
         field: key,
-        message: `[${ctx.def.name.toLowerCase()}] Referenced id "${identity.id}"${identity.protocol ? ` in protocol "${identity.protocol}"` : ''} in ${key} was not found in history`,
+        message: `[${ctx.def.name.toLowerCase()}] Referenced ID "${identity.id}" in protocol "${identity.protocol}" for ${key} was not found in history`,
       });
     }
   }

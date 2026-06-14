@@ -1,8 +1,7 @@
 import { describe, expect,it } from 'vitest';
 
 import { extractReferenceIds, hydrateAtoms } from '../../../../src/engine/core/logic/hydration.js';
-import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
-import { makeAtom, makeRawCommit,makeStubProtocolContext, type ProtocolContext,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeAtom, makeRawCommit,makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('Hydration Logic (Pure Functions)', () => {
   const protocol = makeStubProtocolContext({
@@ -16,8 +15,7 @@ describe('Hydration Logic (Pure Functions)', () => {
     }
   });
 
-  const protocols = new ProtocolMap<ProtocolContext>();
-  protocols.set(protocol.name, protocol);
+  const protocols = makeStubProtocolMap([protocol]);
 
   describe('hydrateAtoms (Trailer Stripping)', () => {
     const hydrate = (body: string, trailers: string, localProtocols = protocols) => {
@@ -57,9 +55,7 @@ describe('Hydration Logic (Pure Functions)', () => {
         }
       });
 
-      const localProtocols = new ProtocolMap<ProtocolContext>();
-      localProtocols.set(p1.name, p1);
-      localProtocols.set(p2.name, p2);
+      const localProtocols = makeStubProtocolMap([p1, p2]);
 
       const raw = makeRawCommit({
         trailers: 'p1: P1-id: 1\np1: Authorized: val\nOrphan: stray\nP2-id: 2'
@@ -100,9 +96,7 @@ describe('Hydration Logic (Pure Functions)', () => {
 
     it('should handle multiple protocols in trailer block', () => {
         const p2 = makeStubProtocolContext({ name: 'fred', namespace: 'fred', identityKey: 'Fred-id' });
-        const localProtocols = new ProtocolMap<ProtocolContext>();
-        localProtocols.set(protocol.name, protocol);
-        localProtocols.set(p2.name, p2);
+        const localProtocols = makeStubProtocolMap([protocol, p2]);
         const trailers = 'Id: 12345678\nfred: Fred-id: abcdefgh';
         const body = 'Message.\n\nId: 12345678\nfred: Fred-id: abcdefgh';
         const raw = makeRawCommit({ trailers, body });
@@ -119,22 +113,20 @@ describe('Hydration Logic (Pure Functions)', () => {
                   'Related': { description: 'R', multivalue: true, validation: 'reference' as const, isCore: true }
               }
           }); 
-          const localProtocols = new ProtocolMap<ProtocolContext>();
-          localProtocols.set(mockProtocol.name, mockProtocol);
+          const localProtocols = makeStubProtocolMap([mockProtocol]);
 
           const atom = makeAtom({
-              protocols: new Map([['mock', { 
+              protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ 
                   trailers: {
-                      'Mock-id': ['atom1'],
-                      'Related': ['atom2', 'atom3']
-                  },
-                  unauthorized: {}
-              }]])
+                      'Mock-id': ['aaaa1111'],
+                      'Related': ['aaaa2222', 'aaaa3333']
+                  }
+              })]])
           });
           const ids = extractReferenceIds([atom], localProtocols);
           expect(ids).toHaveLength(2);
-          expect(ids.map(i => i.id)).toContain('atom2');
-          expect(ids.map(i => i.id)).toContain('atom3');
+          expect(ids.map(i => i.id)).toContain('aaaa2222');
+          expect(ids.map(i => i.id)).toContain('aaaa3333');
       });
 
       it('should handle qualified references (protocol/id)', () => {
@@ -147,12 +139,10 @@ describe('Hydration Logic (Pure Functions)', () => {
               } 
           });
           const p2 = makeStubProtocolContext({ name: 'p2', namespace: 'p2', identityKey: 'id' });
-          const localProtocols = new ProtocolMap<ProtocolContext>();
-          localProtocols.set(p1.name, p1);
-          localProtocols.set(p2.name, p2);
+          const localProtocols = makeStubProtocolMap([p1, p2]);
 
           const atom = makeAtom({
-              protocols: new Map([['p1', { trailers: { 'Ref': ['p2/target'] }, unauthorized: {} }]])
+              protocols: makeStubProtocolMap([['p1', makeStubProtocolState({ trailers: { 'Ref': ['p2/target'] } })]])
           });
 
           const ids = extractReferenceIds([atom], localProtocols);
@@ -167,11 +157,10 @@ describe('Hydration Logic (Pure Functions)', () => {
                   'Ref': { description: 'R', multivalue: true, validation: 'reference' as const } 
               } 
           });
-          const localProtocols = new ProtocolMap<ProtocolContext>();
-          localProtocols.set(p1.name, p1);
+          const localProtocols = makeStubProtocolMap([p1]);
 
-          const a1 = makeAtom({ protocols: new Map([['p1', { trailers: { 'Ref': ['shared'] }, unauthorized: {} }]]) });
-          const a2 = makeAtom({ protocols: new Map([['p1', { trailers: { 'Ref': ['shared'] }, unauthorized: {} }]]) });
+          const a1 = makeAtom({ protocols: makeStubProtocolMap([['p1', makeStubProtocolState({ trailers: { 'Ref': ['shared'] } })]]) });
+          const a2 = makeAtom({ protocols: makeStubProtocolMap([['p1', makeStubProtocolState({ trailers: { 'Ref': ['shared'] } })]]) });
 
           const ids = extractReferenceIds([a1, a2], localProtocols);
           expect(ids).toHaveLength(1);
@@ -181,8 +170,7 @@ describe('Hydration Logic (Pure Functions)', () => {
 
   it('should hydrate multiple commits into Atoms', () => {
     const p1 = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
-    const localProtocols = new ProtocolMap<ProtocolContext>();
-    localProtocols.set(p1.name, p1);
+    const localProtocols = makeStubProtocolMap([p1]);
 
     const c1 = makeRawCommit({ hash: 'h1', trailers: 'Mock-id: a1b2c3d4' });
     const c2 = makeRawCommit({ hash: 'h2', trailers: 'Mock-id: e5f6a7b8' });

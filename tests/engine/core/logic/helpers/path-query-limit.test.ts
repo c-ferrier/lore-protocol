@@ -2,9 +2,9 @@ import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import {         executePathQuery,type PathQueryCommandOptions,
     type PathQueryDeps } from '../../../../../src/engine/cli/commands/helpers/path-query.js';
-import { type Atom, ProtocolMap, type ProtocolState } from '../../../../../src/engine/core/types/domain.js';
+import { type Atom } from '../../../../../src/engine/core/types/domain.js';
 import * as Discovery from '../../../../../src/engine/shell/orchestrators/discovery.js';
-import { TEST_ENGINE_CONFIG } from '../../../../../src/engine/testing.js';
+import { makeStubProtocolMap, makeStubProtocolState, TEST_ENGINE_CONFIG } from '../../../../../src/engine/testing.js';
 import { type MockedOutputFormatter } from '../../../../mock-types.js';
 import { makeMockFormatter, makeMockInfra, TestLogger } from '../../../engine-test-utils.js';
 
@@ -17,14 +17,14 @@ vi.mock('../../../../../src/engine/shell/orchestrators/discovery.js', () => ({
 
 function makeLocalAtom(id: string, supersedes: string[] = []): Atom {
 
-  const protocols = new ProtocolMap<ProtocolState>();
-  protocols.set('mock', {
-    trailers: {
-      [TEST_ID_KEY]: [id],
-      Supersedes: supersedes,
-    },
-    unauthorized: {}
-  });
+  const protocols = makeStubProtocolMap([
+    ['mock', makeStubProtocolState({
+      trailers: {
+        [TEST_ID_KEY]: [id],
+        Supersedes: supersedes,
+      }
+    })]
+  ]);
 
   return {
     commitHash: `hash_${id}`,
@@ -41,13 +41,11 @@ function makeLocalAtom(id: string, supersedes: string[] = []): Atom {
 describe('executePathQuery — --limit as post-supersession result cap', () => {
   let infra: PathQueryDeps;
   let formatter: MockedOutputFormatter;
-  let formattedOutput: string;
   let logger: TestLogger;
 
   beforeEach(() => {
     vi.clearAllMocks();
     formatter = makeMockFormatter();
-    formattedOutput = '';
     logger = new TestLogger();
 
     formatter.formatAtom.mockImplementation((atom) => `ATOM:${atom.commitHash}`);
@@ -79,7 +77,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     const atoms = [a1, a2, a3, a4, a5];
     vi.mocked(Discovery.findAtomsStream).mockReturnValue((async function* () {
         for (const a of atoms) yield a;
-    })() as any);
+    })() as AsyncGenerator<Atom>);
 
     const options: PathQueryCommandOptions = { limit: 2 };
     await executePathQuery('src/test.ts', options, infra, 'context', 'all');
@@ -97,7 +95,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
   it('should not pass limit to Discovery (only maxCommits)', async () => {
     vi.mocked(Discovery.findAtomsStream).mockReturnValue((async function* () {
         yield* [];
-    })() as any);
+    })() as AsyncGenerator<Atom>);
 
     const options: PathQueryCommandOptions = { limit: 5, maxCommits: 100 };
     await executePathQuery('src/test.ts', options, infra, 'context', 'all');
@@ -115,7 +113,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
 
     vi.mocked(Discovery.findAtomsStream).mockReturnValue((async function* () {
         for (const a of atoms) yield a;
-    })() as any);
+    })() as AsyncGenerator<Atom>);
 
     const options: PathQueryCommandOptions = {};
     await executePathQuery('src/test.ts', options, infra, 'context', 'all');
@@ -130,7 +128,7 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
 
     vi.mocked(Discovery.findAtomsStream).mockReturnValue((async function* () {
         for (const a of atoms) yield a;
-    })() as any);
+    })() as AsyncGenerator<Atom>);
 
     const options: PathQueryCommandOptions = { limit: 0 };
     await executePathQuery('src/test.ts', options, infra, 'context', 'all');

@@ -15,7 +15,7 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 *   **The Host Protocol:** Exactly *one* primary protocol (e.g., Lore for engineering) is granted the root namespace. All other secondary protocols (e.g., Product, Security) are forced into strict key namespaces.
 *   **Trailer Keys vs. Trailer Values:**
     *   *Keys dictate edge ownership (Parser):* `Prod/Depends-on:` means the Product protocol owns this relationship. The `/` ensures perfect hierarchical parsing.
-    *   *Values dictate target nodes (Router):* `lore:a1b2c3d4` (Absolute URI) means the engine must query the Lore sub-graph. Unprefixed values (`p-999`) implicitly resolve to the protocol that owns the key. The `:` acts as the routing boundary.
+    *   *Values dictate target nodes (Router):* `lore/a1b2c3d4` (Absolute URI) means the engine must query the Lore sub-graph. Unprefixed values (`a1b2c3d4`) implicitly resolve to the protocol that owns the key (Implicit Sovereignty). The `/` acts as the routing boundary.
 *   **Example of a Perfect Cross-Domain Node:**
     ```text
     Lore-id: a1b2c3d4                 <-- Host protocol (Root)
@@ -57,6 +57,14 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 *   **Action**: Promoted logical identities to first-class `IQueryTarget` handles and unified all search paths (Path, ID, Range, Blame) into a single authoritative `find()` pipeline. Implemented **Batch Hydration**, where multiple cache hits are resolved in a single physical Git pass, and **Batch Discovery**, where missing IDs are grepped in a single query.
 *   **Result**: Neutralized the N+1 Git subprocess bottleneck. Complex discovery (e.g., `lore trace`) is now O(1) physical cost per BFS level, making it up to 5x faster on large cached repositories.
 
+### Phase 4.1: Persistent Identity Index (Discovery Sovereignty)
+*   **Action**: Implemented an append-only log in `.atom/cache/identity/index.log` that maps `QualifiedID -> Hashes`. Added a "Reality Check" bypass that uses `git rev-list --no-walk` to verify reachability in O(1) physical cost.
+*   **Result**: Discovery of logical IDs is now near-zero latency, even after branch switches or rebases, once the node has been seen once by the engine.
+
+### Phase 4.2: Strict Core & Edge-Bound Qualification (The "No Guessing" Rule)
+*   **Action**: Enforced mandatory `protocol/id` logical addressing in the AST. Implemented the **"Namespace Rental Agreement"** model where the `system` protocol acts as the permissive anchor for the root namespace. Decoupled command registration from the core lifecycle.
+*   **Result**: The core orchestrator is now a 100% deterministic graph router. We eliminated all ambiguous "fuzzy" guessing loops, ensuring absolute logical integrity for cross-protocol links and O(1) routing performance for physical hashes.
+
 ### Phase 2: Drift Bottleneck & Concurrency Control
 *   **Action**: Implemented the "Bounded Time Window Stream" optimization in `AtomRepository.getAtomDrift`, replacing O(N*M) subprocesses with a single O(1) bulk file discovery pass. Enforced a **Global Concurrency Guard** (20-process semaphore) in the `GitClient` to protect the OS from process exhaustion.
 *   **Result**: Staleness analysis is now high-performance and system-safe regardless of repository size or parallel request volume. Enclosed the Git driver within the shell layer, achieving 100% command-level storage agnosticism.
@@ -72,6 +80,30 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 - **Default**: Bulleted list of first-line summaries (Human-readable).
 - **Full Mode**: Concatenate full atom bodies with structured `[Atom ID]` headers.
 **Value**: Turns the `squash` output into a rich "evidence payload" for LLMs to generate holistic PR descriptions and final commits.
+
+### PHASE 8.5: Scale & Streaming JSON (Memory Safety)
+**Urgency**: High | **Importance**: High | **Difficulty**: Medium
+**Concept**: Prevent memory exhaustion when exporting large repositories.
+**Action**: Refactor the **Lore-specific** JSON formatter to utilize a streaming model.
+**Value**: The core `atom` engine already utilizes NDJSON for O(1) memory safety. This phase addresses the Lore compatibility shim, which currently buffers the entire repository in memory to maintain the monolithic 0.5.0 schema.
+
+### PHASE 14: Layered Hydration (The "Resolution Tax" Fix)
+**Urgency**: Medium | **Importance**: High | **Difficulty**: Medium
+**Concept**: Defer expensive data-quality checks (like reference resolution) to the presentation layer.
+**Action**: Update the `findAtoms` pipeline to perform 'Light Hydration' (IDs and Relationships only) during the initial scan, and 'Deep Hydration' (Full validation and Reference checking) only for the subset of atoms being rendered or exported.
+**Value**: Eliminates the O(N) CPU tax on global surveys of massive repositories caused by the Phase 4.2 data quality improvements.
+
+### PHASE 0.1.0: Cross-Platform Hardening (Windows Fidelity)
+**Urgency**: High | **Importance**: Medium | **Difficulty**: Low
+**Concept**: Ensure the engine's physical driver works correctly on all major operating systems.
+**Action**: Audit and update path normalization (`normalizePathToRoot`) and Git CLI argument builders to handle Windows backslashes and shell differences. Add CI coverage for Windows.
+**Value**: Opens the engine to the global developer community beyond the Unix ecosystem.
+
+### PHASE 13: Surveyor Health Indicators (Visible Data Quality)
+**Urgency**: Low | **Importance**: Medium | **Difficulty**: Low
+**Concept**: Surface the logical integrity of the graph to the user during standard surveying.
+**Action**: Update the `LoreTextFormatter` to display a `⚠` warning next to trailers that have `invalidReferences` (malformed or unregistered IDs).
+**Value**: Provides immediate feedback on "Broken Links" during standard usage without requiring an explicit `validate` command.
 
 ### PHASE 7.7: Strict CLI Guardrails (Typo Prevention)
 **Urgency**: Low | **Importance**: Medium | **Difficulty**: Low
@@ -90,25 +122,6 @@ To support a true heterogeneous graph (multiple protocols interacting in the sam
 *   **Encapsulation**: This logic remains entirely within the `EngineBootstrapper`. Downstream commands and repositories remain agnostic of physical anchoring.
 **Value**: Provides a frictionless "Global CLI" experience where users can query projects from anywhere without manual `cd` operations.
 
-
-### PHASE 4.1: Persistent Identity Index (Discovery Sovereignty)
-**Urgency**: Medium | **Importance**: High | **Difficulty**: Medium
-**Concept:** Transition from commit-bound "Temporal Caching" to a long-lived "Logical Index" that survives repository updates.
-**Action:** Implement an append-only log in `.atom/` that maps `Lore-id -> Last Seen Commit Hash`.
-*   **Mechanism**: On every lookup, check the index first.
-*   **Verification**: Use Git only to verify reachability (`git cat-file -e <hash>`). If the hash exists and is part of the current branch, accept it as truth.
-*   **Post-Commit Hook**: Automatically append new nodes to the index during `lore commit`.
-**Value:** Eliminates the "First Run Pain" after a commit. Tracing a decision through history becomes a near-zero latency operation regardless of repository size or history depth.
-
-### PHASE 4.2: Strict Core & Edge-Bound Qualification (The "No Guessing" Rule)
-**Urgency**: Medium | **Importance**: High | **Difficulty**: Medium
-**Concept:** The Core Orchestrator must become 100% strict and deterministic, operating exclusively on fully qualified Absolute URIs (e.g., `lore/a1b2c3d4`). The responsibility for "guessing" intent (unqualified ID resolution) shifts entirely to the external boundaries (CLI Layer and Edge Extraction Layer).
-**Action:** 
-*   **AST Enforcement**: Make `protocol: string` required on the `QueryIdentity` AST interface.
-*   **CLI Delegation**: The CLI command layer (`src/engine/cli`) becomes responsible for translating raw user input (`lore why 12345678`) into qualified URIs based on the invoked binary context (`lore` implies `lore/12345678`; `atom` implies `system:git/12345678`).
-*   **Extraction Delegation**: The hydration layer (`extractReferenceIds`) must use the context of the defining trailer (e.g., the protocol that owns the `Depends-on` key) to qualify implicit values before passing them to the Orchestrator.
-*   **Core Deletion**: Remove the legacy "Three-Pass" brute-force and fuzzy scanning loops from the Core `Discovery` orchestrator entirely.
-**Value:** Prevents ambiguous graph resolution, simplifies the core codebase, and establishes a rigid, cacheable foundation for the Persistent Identity Index.
 
 ### PHASE 3: Hosted Protocol Registry
 **Urgency**: Medium | **Importance**: High | **Difficulty**: Medium

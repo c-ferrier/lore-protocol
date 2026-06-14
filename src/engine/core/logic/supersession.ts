@@ -46,7 +46,7 @@ export function resolveSupersession(
       for (const ref of state.trailers.Supersedes || []) {
         try {
           const targetIdentity = resolveProtocolIdentity(protocols, ref, pName);
-          const targetPName = targetIdentity.protocol || pName;
+          const targetPName = targetIdentity.protocol;
           const targetQualifiedId = `${targetPName.toLowerCase()}/${targetIdentity.id}`;
 
           const targetStatusMap = pMap.get(targetPName.toLowerCase());
@@ -104,7 +104,7 @@ function resolveTransitiveChain(
     for (const ref of state.trailers.Supersedes || []) {
       try {
         const targetIdentity = resolveProtocolIdentity(protocols, ref, pName);
-        const targetPName = targetIdentity.protocol || pName;
+        const targetPName = targetIdentity.protocol;
         const targetQualifiedId = `${targetPName.toLowerCase()}/${targetIdentity.id}`;
 
         const targetStatusMap = globalStatusMap.get(targetPName.toLowerCase());

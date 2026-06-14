@@ -28,6 +28,8 @@ export interface ProtocolState {
   readonly trailers: Trailers;
   /** Trailers that were associated with this protocol but not authorized by schema */
   readonly unauthorized: Trailers;
+  /** References found in trailers that could not be qualified to a logical URI */
+  readonly invalidReferences: Trailers;
   /** Internalized supersession status (attached by the repository during discovery) */
   supersession?: SupersessionStatus;
 }

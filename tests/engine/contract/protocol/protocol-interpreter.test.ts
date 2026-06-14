@@ -2,8 +2,14 @@ import { describe, expect,it } from 'vitest';
 
 import { getProtocolIdentity } from '../../../../src/engine/core/logic/identity.js';
 import { getStaleSignals } from '../../../../src/engine/core/logic/staleness.js';
-import { ProtocolMap } from '../../../../src/engine/core/types/domain.js';
-import { makeAtom, makeStubProtocolContext, normalizeTrailers,TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { 
+    makeAtom, 
+    makeStubProtocolContext, 
+    makeStubProtocolMap, 
+    makeStubProtocolState,
+    normalizeTrailers,
+    TEST_PROTOCOL_DEFINITION 
+} from '../../../../src/engine/testing.js';
 
 describe('Protocol Interpreter Logic (via Pure Functions)', () => {
 
@@ -21,11 +27,8 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
   });
 
   it('should ingest unknown trailers in permissive mode', () => {
-    const protocol = makeStubProtocolContext({ ...TEST_PROTOCOL_DEFINITION, permissive: true });
-    
-    const raw = {
-      'Unknown': ['value']
-    };
+    const protocol = makeStubProtocolContext({ ...TEST_PROTOCOL_DEFINITION, permissive: true, strict: false });
+    const raw = { 'Unknown': ['value'] };
 
     const state = normalizeTrailers(raw, protocol);
     expect(state.trailers['Unknown']).toEqual(['value']);
@@ -52,10 +55,9 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
   it('should extract identity from protocol state', () => {
     const protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
     
-    const state = {
-      trailers: { 'Mock-id': ['a1b2c3d4'] },
-      unauthorized: {}
-    };
+    const state = makeStubProtocolState({
+      trailers: { 'Mock-id': ['a1b2c3d4'] }
+    });
 
     expect(getProtocolIdentity(state, protocol)).toBe('a1b2c3d4');
     expect(getProtocolIdentity(null, protocol)).toBeNull();
@@ -73,7 +75,7 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
   });
 
   it('should respect claimed keys in permissive mode', () => {
-    const protocol = makeStubProtocolContext({ ...TEST_PROTOCOL_DEFINITION, permissive: true });
+    const protocol = makeStubProtocolContext({ ...TEST_PROTOCOL_DEFINITION, permissive: true, strict: false });
     
     const raw = {
       'Other': ['value']
@@ -113,7 +115,7 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
       });
       
       const atom = makeAtom({
-        protocols: new ProtocolMap([['mock', { trailers: { Confidence: ['low'] }, unauthorized: {} }]])
+        protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ trailers: { Confidence: ['low'] } })]])
       });
 
       const signals = getStaleSignals(protocol, atom, new Date(), new Map());
@@ -136,7 +138,7 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
       });
       
       const atom = makeAtom({
-        protocols: new ProtocolMap([['mock', { trailers: { Deadline: ['[until: 2024-01-01]'] }, unauthorized: {} }]])
+        protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ trailers: { Deadline: ['[until: 2024-01-01]'] } })]])
       });
 
       const later = new Date('2024-02-01');
@@ -159,7 +161,7 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
       });
       
       const atom = makeAtom({
-        protocols: new ProtocolMap([['mock', { trailers: { 'Mock-id': ['a1b2c3d4'], Ref: ['old-id'] }, unauthorized: {} }]])
+        protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ trailers: { 'Mock-id': ['a1b2c3d4'], Ref: ['old-id'] } })]])
       });
 
       const globalMap = new Map([
@@ -188,7 +190,7 @@ describe('Protocol Interpreter Logic (via Pure Functions)', () => {
           // Use a valid hex ID so isValidIdentity passes
           const validId = 'abcdef12';
           const atom = makeAtom({
-            protocols: new ProtocolMap([['mock', { trailers: { 'Mock-id': [validId], Ref: ['old-id'] }, unauthorized: {} }]])
+            protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ trailers: { 'Mock-id': [validId], Ref: ['old-id'] } })]])
           });
     
           const globalMap = new Map([

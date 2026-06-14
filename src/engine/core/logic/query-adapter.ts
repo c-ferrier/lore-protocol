@@ -107,8 +107,14 @@ function evaluateFilter(actual: readonly string[], op: FilterOperator, expected:
  * Determines if this protocol claims a block of raw trailers.
  */
 export function claimsTrailers(rawTrailers: string, ctx: ProtocolContext): boolean {
-    const { def, isRoot } = ctx;
+    if (!rawTrailers || rawTrailers.trim() === '') return false;
+    
+    const { def, isRoot, permissive } = ctx;
     const lines = rawTrailers.split('\n');
+
+    // Catch-all Rule: A permissive protocol claims ANY commit with trailers 
+    // in its namespace scope to ensure ad-hoc metadata is captured.
+    if (permissive) return true;
 
     if (!isRoot) {
         const pattern = new RegExp(`^${escapeRegex(def.namespace)}:`, 'i');

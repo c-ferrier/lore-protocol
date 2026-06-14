@@ -124,6 +124,19 @@ export function validateProtocolState(
         });
     }
   }
+
+  // 3. Report Invalid References (captured during extraction)
+  for (const [key, values] of Object.entries(state.invalidReferences)) {
+    for (const val of values) {
+      issues.push({
+        severity: def.strict ? 'error' : 'warning',
+        rule: 'invalid-reference-uri',
+        field: key,
+        message: `[${def.name.toLowerCase()}] Malformed or ambiguous reference in "${key}": "${val}"`
+      });
+    }
+  }
+
   return issues;
 }
 
@@ -199,10 +212,10 @@ export function validateProtocolTrailer(
     }
 
     try {
+      // Implicit Sovereignty: unqualified references in trailers default to the owner of the key
       const identity = resolveProtocolIdentity(protocols, value, def.name);
-      if (!identity) return { valid: false, rule: 'unknown-protocol-prefix' };
-
-      const targetCtx = protocols.get(identity.protocol || def.name);
+      const targetCtx = protocols.get(identity.protocol.toLowerCase());
+      
       if (targetCtx && !isValidProtocolIdentity(identity.id, targetCtx.def)) {
           return {
               valid: false,

@@ -2,10 +2,9 @@ import { Command } from 'commander';
 import { afterEach,describe, expect, it, vi } from 'vitest';
 
 import { registerLogCommand } from '../../../../src/engine/cli/commands/log.js';
-import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import { type Atom } from '../../../../src/engine/core/types/domain.js';
 import * as Discovery from '../../../../src/engine/shell/orchestrators/discovery.js';
-import { makeAtom, makeStubProtocolContext,type ProtocolContext,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { makeMockFormatter, makeMockInfra, TestLogger } from '../../engine-test-utils.js';
 
 vi.mock('../../../../src/engine/shell/orchestrators/discovery.js', () => ({
@@ -44,9 +43,7 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
   const program = new Command();
   program.exitOverride();
 
-  const protocol = makeStubProtocolContext(TEST_PROTOCOL_DEFINITION);
-  const protocols = new ProtocolMap<ProtocolContext>();
-  protocols.set(protocol.name, protocol);
+  const protocols = makeStubProtocolMap([makeStubProtocolContext(TEST_PROTOCOL_DEFINITION)]);
 
   const infra = makeMockInfra({
     getFormatter: () => formatter,
@@ -68,7 +65,9 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
   it('accepts a positional path and routes through findAtoms()', async () => {
     const matching = makeAtom({ 
-        protocols: new Map([['mock', { trailers: { [TEST_ID_KEY]: ['match0002'] }, unauthorized: {} }]]),
+        protocols: makeStubProtocolMap([
+            ['mock', makeStubProtocolState({ trailers: { [TEST_ID_KEY]: ['match0002'] } })]
+        ]),
         filesChanged: ['src/main.ts'],
         subject: 'feat(main): change' 
     });
@@ -86,10 +85,13 @@ describe('registerLogCommand (agnostic path arguments)', () => {
 
   it('accepts the `--` pass-through and routes identically', async () => {
     const matching = makeAtom({
-      protocols: new Map([['mock', { trailers: { [TEST_ID_KEY]: ['match0002'] }, unauthorized: {} }]]),
+      protocols: makeStubProtocolMap([
+          ['mock', makeStubProtocolState({ trailers: { [TEST_ID_KEY]: ['match0002'] } })]
+      ]),
       filesChanged: ['src/main.ts'],
     });
     const h = buildHarness([matching], [matching]);
+
 
     await h.program.parseAsync(['node', 'atom', 'log', '--', 'src/main.ts']);
 

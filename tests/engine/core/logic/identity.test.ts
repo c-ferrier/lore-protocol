@@ -61,7 +61,7 @@ describe('Identity Logic (Pure Functions)', () => {
 
   describe('getProtocolIdentity', () => {
       it('should extract the first value of the identity key', () => {
-          const state = { trailers: { 'Lore-id': ['a1b2c3d4'] }, unauthorized: {} };
+          const state = { trailers: { 'Lore-id': ['a1b2c3d4'] }, unauthorized: {}, invalidReferences: {} };
           expect(getProtocolIdentity(state, rootProtocol)).toBe('a1b2c3d4');
       });
 
@@ -70,7 +70,7 @@ describe('Identity Logic (Pure Functions)', () => {
       });
 
       it('should return null if identity key is missing', () => {
-          const state = { trailers: {}, unauthorized: {} };
+          const state = { trailers: {}, unauthorized: {}, invalidReferences: {} };
           expect(getProtocolIdentity(state, rootProtocol)).toBeNull();
       });
   });

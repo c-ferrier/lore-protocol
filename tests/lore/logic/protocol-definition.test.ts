@@ -2,7 +2,7 @@ import { describe, expect,it } from 'vitest';
 
 import { getStaleSignals } from '../../../src/engine/core/logic/staleness.js';
 import { type Atom, ProtocolMap,type SupersessionStatus } from '../../../src/engine/core/types/domain.js';
-import { makeStubProtocolContext } from '../../../src/engine/testing.js';
+import { makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState } from '../../../src/engine/testing.js';
 import { LORE_STALE_SIGNAL } from '../../../src/lore/constants.js';
 import { LoreProtocolDefinition } from '../../../src/lore/protocol-definition.js';
 
@@ -16,8 +16,8 @@ describe('LoreProtocolDefinition Declarative Triggers', () => {
     subject: 's',
     body: '',
     rawTrailers: '',
-    protocols: new ProtocolMap([
-      ['lore', { trailers: loreTrailers, unauthorized: {} }]
+    protocols: makeStubProtocolMap([
+      ['lore', makeStubProtocolState({ trailers: loreTrailers })]
     ]),
     filesChanged: []
   });

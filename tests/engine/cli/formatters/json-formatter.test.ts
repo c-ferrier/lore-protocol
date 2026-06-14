@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { JsonFormatter } from '../../../../src/engine/cli/formatters/json-formatter.js';
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
-import type { ProtocolState } from '../../../../src/engine/core/types/domain.js';
 import type { 
     FormattableDoctorResult, 
     FormattableQueryResult, 
@@ -14,6 +13,8 @@ import type { ProtocolContext } from '../../../../src/engine/core/types/protocol
 import { 
     makeAtom, 
     makeStubProtocolContext, 
+    makeStubProtocolMap,
+    makeStubProtocolState,
     MOCK_CORE_TRAILERS,
     TEST_ID_KEY, 
     TEST_PROTOCOL_DEFINITION} from '../../../../src/engine/testing.js';
@@ -24,9 +25,8 @@ describe('JsonFormatter', () => {
   let formatter: JsonFormatter;
 
   beforeEach(() => {
-    protocols = new ProtocolMap<ProtocolContext>();
     protocol = makeStubProtocolContext();
-    protocols.set(protocol.name, protocol);
+    protocols = makeStubProtocolMap([protocol]);
     formatter = new JsonFormatter(protocols);
   });
 
@@ -79,7 +79,6 @@ describe('JsonFormatter', () => {
     });
 
     it('should use canonical trailer keys inside protocol object (symmetry)', () => {
-      const protocols = new ProtocolMap<ProtocolContext>();
       const protocol = makeStubProtocolContext({
           ...TEST_PROTOCOL_DEFINITION,
           trailers: {
@@ -87,7 +86,7 @@ describe('JsonFormatter', () => {
               'Confidence': { description: 'c', multivalue: false, validation: 'none' as const }
           }
       });
-      protocols.set(protocol.name, protocol);
+      const protocols = makeStubProtocolMap([protocol]);
       const dataFormatter = new JsonFormatter(protocols);
       const atom = makeAtom({
         trailers: {
@@ -113,12 +112,11 @@ describe('JsonFormatter', () => {
 
     it('should include protocol-specific supersession data', () => {
       const atom = makeAtom({
-        protocols: new Map<string, ProtocolState>([
-          ['mock', { 
+        protocols: makeStubProtocolMap([
+          ['mock', makeStubProtocolState({ 
             trailers: { [TEST_ID_KEY]: ['a1b2c3d4'] },
-            unauthorized: {},
             supersession: { superseded: true, supersededBy: ['e5f6a7b8'] }
-          }]
+          })]
         ])
       });
       const data: FormattableQueryResult = {
@@ -215,8 +213,7 @@ describe('JsonFormatter', () => {
           ...TEST_PROTOCOL_DEFINITION,
           trailers: { ...TEST_PROTOCOL_DEFINITION.trailers, ...MOCK_CORE_TRAILERS }
       });
-      const protocols = new ProtocolMap<ProtocolContext>();
-      protocols.set(protocol.name, protocol);
+      const protocols = makeStubProtocolMap([protocol]);
       const formatter = new JsonFormatter(protocols);
       const trailers: Record<string, string[]> = {
         [TEST_ID_KEY]: ['id'],
@@ -225,8 +222,8 @@ describe('JsonFormatter', () => {
         'Custom': ['V1'],            // Custom (defaults to array)
       };
       const atom = makeAtom({
-        protocols: new Map<string, ProtocolState>([
-          ['mock', { trailers, unauthorized: {} }]
+        protocols: makeStubProtocolMap([
+          ['mock', makeStubProtocolState({ trailers })]
         ])
       });
       const data: FormattableQueryResult = {

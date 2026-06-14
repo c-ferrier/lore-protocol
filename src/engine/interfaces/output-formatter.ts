@@ -22,7 +22,7 @@ export interface IOutputFormatter {
   formatStalenessResult(data: FormattableStalenessResult): string;
   formatTraceResult(data: FormattableTraceResult): string;
   formatDoctorResult(data: FormattableDoctorResult): string;
-  formatConfig(data: FormattableConfigResult): string;
+  formatConfigResult(data: FormattableConfigResult): string;
   formatSuccess(message: string, data?: Record<string, unknown>): string;
   formatError(code: number, messages: readonly ErrorMessage[]): string;
 

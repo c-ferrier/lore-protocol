@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect,it } from 'vitest';
 
 import { createQueryTarget, createTargetFromIdentities, getCacheFingerprint, getGitBlameArgs, getGitLogArgs } from '../../../../src/engine/core/logic/query-targets.js';
+import type { QueryIdentity } from '../../../../src/engine/core/types/query.js';
 
 describe('Query Target Logic (Pure Functions)', () => {
   const context = {
@@ -69,17 +70,17 @@ describe('Query Target Logic (Pure Functions)', () => {
 
   describe('createTargetFromIdentities', () => {
       it('should create a target from multiple qualified identities', () => {
-          const ids = [{ protocol: 'p1', id: 'a1' }, { protocol: 'p2', id: 'b2' }];
+          const ids: QueryIdentity[] = [{ protocol: 'p1', id: 'a1' }, { protocol: 'p2', id: 'b2' }];
           const target = createTargetFromIdentities(ids);
           expect(target.type).toBe('identity');
           expect(target.identities).toEqual(ids);
           expect(target.raw).toEqual(['p1/a1', 'p2/b2']);
       });
 
-      it('should handle unqualified identities', () => {
-          const ids = [{ protocol: undefined, id: 'a1' }];
+      it('should handle identities with protocol', () => {
+          const ids: QueryIdentity[] = [{ protocol: 'mock', id: 'a1' }];
           const target = createTargetFromIdentities(ids);
-          expect(target.raw).toEqual(['a1']);
+          expect(target.raw).toEqual(['mock/a1']);
       });
   });
 

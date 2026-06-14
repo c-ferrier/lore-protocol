@@ -2,7 +2,8 @@ import type { Atom } from './domain.js';
 
 export interface QueryIdentity {
   readonly id: string;
-  readonly protocol?: string;
+  readonly protocol: string;
+  readonly remote?: string;
 }
 
 export type QueryTargetType = 'global' | 'path' | 'line-range' | 'identity' | 'revision' | 'commit';

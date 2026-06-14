@@ -8,6 +8,8 @@ import {
     makeAtom,
     makeRawCommit, 
     makeStubProtocolContext, 
+    makeStubProtocolMap,
+    makeStubProtocolState,
     type ProtocolContext
 } from '../../../../src/engine/testing.js';
 import { 
@@ -33,8 +35,7 @@ describe('Commit Validation (Shell Orchestrator)', () => {
   let protocols: ProtocolMap<ProtocolContext>;
   
   beforeEach(() => {
-    protocols = new ProtocolMap();
-    protocols.set(protocol.name, protocol);
+    protocols = makeStubProtocolMap([protocol]);
   });
 
   const getInfra = (overrides = {}) => makeMockInfra({
@@ -77,7 +78,7 @@ describe('Commit Validation (Shell Orchestrator)', () => {
   it('should identify atoms when references exist', async () => {
     vi.mocked(Discovery.findAtomsByIds).mockResolvedValue([makeAtom({
         commitHash: 'h1',
-        protocols: new Map([['test', { trailers: { 'Test-id': ['T-456'] }, unauthorized: {} }]])
+        protocols: makeStubProtocolMap([['test', makeStubProtocolState({ trailers: { 'Test-id': ['T-456'] } })]])
     })]);
 
     const raw = makeRawCommit({

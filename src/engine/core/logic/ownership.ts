@@ -7,16 +7,16 @@ import type { ProtocolContext } from '../types/protocol-definition.js';
 export function authorizeKey(key: string, ctx: ProtocolContext): string | null {
   const lowerKey = key.toLowerCase();
   
-  // 1. Exact match in caseMap (canonical trailers)
+  // 1. Exact match in caseMap (Explicitly Rented/Authorized)
   const canonical = ctx.caseMap.get(lowerKey);
   if (canonical) return canonical;
 
-  // 2. Namespace bucket match
+  // 2. Namespace bucket match (Storage Routing)
   if (ctx.storageNamespace !== '' && lowerKey === ctx.storageNamespace.toLowerCase()) {
       return ctx.storageNamespace;
   }
 
-  // 3. Permissive fallback
+  // 3. Permissive Fallback (Catch-all for this namespace)
   if (ctx.permissive) {
       return key;
   }

@@ -92,6 +92,17 @@ export { analyzeStaleness } from './shell/orchestrators/staleness.js';
 export { validateCommits } from './shell/orchestrators/validation.js';
 
 // --- CLI Commands & Adapters ---
+export {
+    registerCacheCommand,
+    registerCommitCommand,
+    registerConfigCommand,
+    registerDoctorCommand,
+    registerLogCommand,
+    registerSquashCommand,
+    registerStaleCommand,
+    registerTraceCommand,
+    registerValidateCommand
+} from './cli/commands/index.js';
 export { execute,runCli } from './index-impl.js';
 export { EngineBootstrapper, type EngineInfra,type EngineOptions } from './services/engine-bootstrapper.js';
 
@@ -113,6 +124,7 @@ export {
     ENGINE_CONFIG_FILENAME, 
     ENGINE_DIR_NAME, 
     GLOBAL_CACHE_KEY, 
+    SYSTEM_PROTOCOL,
     TRAILER_UI_COLORS,
     TRAILER_UI_KINDS} from './util/constants.js';
 export { ConfigurationError,ProtocolError } from './util/errors.js';

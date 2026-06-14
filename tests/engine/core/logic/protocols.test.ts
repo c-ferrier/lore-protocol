@@ -135,7 +135,7 @@ describe('Protocols Logic (Pure Functions)', () => {
     const alpha = makeStubProtocolContext({ name: 'Alpha', namespace: 'alpha' });
     const protocols = makeStubProtocolMap([alpha]);
 
-    const identity = resolveProtocolIdentity(protocols, 'alpha/1234');
+    const identity = resolveProtocolIdentity(protocols, 'alpha/1234', 'system');
     expect(identity).toEqual({ protocol: 'alpha', id: '1234' });
   });
 
@@ -143,8 +143,8 @@ describe('Protocols Logic (Pure Functions)', () => {
     const root = makeStubProtocolContext({ name: 'Root', namespace: '' });
     const protocols = makeStubProtocolMap([root]);
     
-    const identity = resolveProtocolIdentity(protocols, '1234');
-    expect(identity).toEqual({ protocol: 'root', id: '1234' });
+    const identity = resolveProtocolIdentity(protocols, 'abcdef12', 'root');
+    expect(identity).toEqual({ protocol: 'root', id: 'abcdef12' });
   });
 
   describe('resolveProtocolKey', () => {

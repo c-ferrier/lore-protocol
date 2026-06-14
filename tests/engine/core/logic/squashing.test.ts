@@ -2,13 +2,13 @@ import { beforeEach,describe, expect, it } from 'vitest';
 
 import { squashAtoms } from '../../../../src/engine/core/logic/squashing.js';
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
-import { makeAtom, makeStubProtocolContext, type ProtocolContext,ProtocolState, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState, type ProtocolContext, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 
 describe('Squashing Logic (Pure Functions)', () => {
   let protocols: ProtocolMap<ProtocolContext>;
 
   beforeEach(() => {
-    protocols = new ProtocolMap<ProtocolContext>();
+    protocols = makeStubProtocolMap();
   });
 
   it('should throw error for empty atoms list', () => {
@@ -120,9 +120,9 @@ describe('Squashing Logic (Pure Functions)', () => {
 
     const a1 = makeAtom({ 
         id: 'id1', 
-        protocols: new ProtocolMap<ProtocolState>([
-            ['alpha', { trailers: { 'A-id': ['a1'], 'Status': ['active'] }, unauthorized: {} }],
-            ['beta', { trailers: { 'B-id': ['b1'], 'Priority': ['high'] }, unauthorized: {} }]
+        protocols: makeStubProtocolMap([
+            ['alpha', makeStubProtocolState({ trailers: { 'A-id': ['a1'], 'Status': ['active'] } })],
+            ['beta', makeStubProtocolState({ trailers: { 'B-id': ['b1'], 'Priority': ['high'] } })]
         ])
     });
 

@@ -22,6 +22,7 @@ import type { IConfigLoader } from './interfaces/config-loader.js';
 import type { IGitClient, RawCommit as IGitRawCommit, StorageQuery } from './interfaces/git-client.js';
 import type { IIdentityIndex } from './interfaces/identity-index.js';
 import type { ILogger } from './interfaces/logger.js';
+import type { ErrorMessage } from './interfaces/output-formatter.js';
 import type { IOutputFormatter } from './interfaces/output-formatter.js';
 import type { IPrompt } from './interfaces/prompt.js';
 import type { IQueryCache } from './interfaces/query-cache.js';
@@ -145,11 +146,31 @@ export function makeStubProtocolContext(
     return createProtocolContext(finalized);
 }
 
+/** Stub Protocol State factory for tests. */
+export function makeStubProtocolState(overrides: Partial<ProtocolState> = {}): ProtocolState {
+    return {
+        trailers: overrides.trailers || {},
+        unauthorized: overrides.unauthorized || {},
+        invalidReferences: overrides.invalidReferences || {},
+        ...overrides
+    };
+}
+
 /** Standard ProtocolMap factory for tests. */
-export function makeStubProtocolMap(protocols: ProtocolContext[] = []): ProtocolMap<ProtocolContext> {
-  const map = new ProtocolMap<ProtocolContext>();
-  for (const p of protocols) {
-    map.set(p.name, p);
+export function makeStubProtocolMap(): ProtocolMap<ProtocolContext>;
+export function makeStubProtocolMap<T>(items: (T | [string, T])[]): ProtocolMap<T>;
+export function makeStubProtocolMap(items: unknown[] = []): ProtocolMap<unknown> {
+  const map = new ProtocolMap<unknown>();
+  for (const item of items) {
+    if (Array.isArray(item)) {
+        // [string, T] format (ProtocolState)
+        map.set(item[0].toLowerCase(), item[1]);
+    } else if (item && typeof item === 'object') {
+        // T format (ProtocolContext)
+        const p = item as { name?: string; def?: { name: string } };
+        const name = p.name || p.def?.name || 'unknown';
+        map.set(name.toLowerCase(), p);
+    }
   }
   return map;
 }
@@ -229,15 +250,15 @@ export function makeStubFormatter(): IOutputFormatter {
         formatStalenessResult: () => 'Mock Staleness Result',
         formatTraceResult: () => 'Mock Trace Result',
         formatConfigResult: () => 'Mock Config Result',
-        formatConfig: () => 'Mock Config Result',
         formatDoctorResult: () => 'Mock Doctor Result',
         formatSuccess: (msg: string) => `Success: ${msg}`,
-        formatError: (_code: number, messages: readonly { message: string }[]) => `Error: ${messages[0]?.message}`,
+        formatError: (_code: number, messages: readonly ErrorMessage[]) => `Error: ${messages[0]?.message}`,
         formatHeader: (target: string, type: string, _visibleTrailers?: readonly string[] | 'all') => `Mock Header: ${target} (${type})`,
         formatAtom: (atom: Atom, _visibleTrailers?: readonly string[] | 'all') => `Mock Atom: ${atom.commitHash}`,
         formatFooter: () => 'Mock Footer',
-    } as unknown as IOutputFormatter;
+    };
 }
+
 
 /** Stub Config Loader. */
 export function makeStubConfigLoader(overrides: Partial<IConfigLoader> = {}): IConfigLoader {
@@ -330,7 +351,10 @@ export function makeAtom(overrides: Partial<Atom> & { id?: string; trailers?: Re
             
         for (const [name, state] of entries) {
             protocols.set(name.toLowerCase(), {
-                ...state as ProtocolState
+                trailers: {},
+                unauthorized: {},
+                invalidReferences: {},
+                ...(state as object)
             } as ProtocolState);
         }
     } else {
@@ -338,7 +362,8 @@ export function makeAtom(overrides: Partial<Atom> & { id?: string; trailers?: Re
         const rawTrailers = overrides.trailers || { [TEST_ID_KEY]: [id] };
         protocols.set('mock', {
             trailers: rawTrailers,
-            unauthorized: {}
+            unauthorized: {},
+            invalidReferences: {}
         });
     }
 

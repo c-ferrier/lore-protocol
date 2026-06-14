@@ -1,7 +1,7 @@
 import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
-import { makeAtom, makeStubProtocolContext, type ProtocolContext } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState, type ProtocolContext } from '../../../../src/engine/testing.js';
 import { LoreJsonFormatter } from '../../../../src/lore/formatters/lore-json-formatter.js';
 
 describe('LoreJsonFormatter', () => {
@@ -9,7 +9,6 @@ describe('LoreJsonFormatter', () => {
   let formatter: LoreJsonFormatter;
 
   beforeEach(() => {
-    protocols = new ProtocolMap();
     const lore = makeStubProtocolContext({ 
         name: 'lore', 
         identityKey: 'Lore-id',
@@ -18,7 +17,7 @@ describe('LoreJsonFormatter', () => {
             'Scope-risk': { description: 'S', multivalue: false, validation: 'none' as const }
         }
     });
-    protocols.set(lore.name, lore);
+    protocols = makeStubProtocolMap([lore]);
     formatter = new LoreJsonFormatter(protocols);
   });
 
@@ -26,7 +25,7 @@ describe('LoreJsonFormatter', () => {
     const atom = makeAtom({
       subject: 'feat: add login',
       date: new Date('2025-01-15T10:00:00Z'),
-      protocols: new ProtocolMap([['lore', { trailers: { 'Lore-id': ['aaaa1111'] }, unauthorized: {} }]])
+      protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ trailers: { 'Lore-id': ['aaaa1111'] } })]])
     });
 
     const output = JSON.parse(formatter.formatQueryResult({
@@ -45,7 +44,7 @@ describe('LoreJsonFormatter', () => {
 
   it('should include lore_id at the top level and inside trailers (Lore 0.5.0 Parity)', () => {
       const atom = makeAtom({
-        protocols: new ProtocolMap([['lore', { trailers: { 'Lore-id': ['aaaa1111'] }, unauthorized: {} }]])
+        protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ trailers: { 'Lore-id': ['aaaa1111'] } })]])
       });
   
       const output = JSON.parse(formatter.formatQueryResult({
@@ -65,13 +64,12 @@ describe('LoreJsonFormatter', () => {
 
   it('should snake_case trailer keys in output (Lore 0.5.0 Parity)', () => {
     const atom = makeAtom({
-      protocols: new ProtocolMap([['lore', { 
+      protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ 
           trailers: {
             'Confidence': ['high'],
             'Scope-risk': ['moderate'],
-          },
-          unauthorized: {}
-      }]])
+          }
+      })]])
     });
 
     const output = JSON.parse(formatter.formatQueryResult({

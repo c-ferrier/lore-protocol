@@ -59,7 +59,7 @@ intent_max_length = 42
     expect(config.validation.subjectMaxLength).toBe(42);
   });
 
-  it('should enable permissive mode if only standard trailers are used', async () => {
+  it('should disable permissive mode for Lore (renter) in the shared root namespace', async () => {
     writeFileSync(loreConfigPath, `
 [protocol]
 version = "1.0"
@@ -70,8 +70,11 @@ version = "1.0"
         configFileName: 'config.toml' 
     });
     const lore = infra.protocols.get('lore')!;
+    const system = infra.protocols.get('system')!;
+    
     expect(lore).toBeDefined();
-    expect(lore.permissive).toBe(true);
+    expect(lore.permissive).toBe(false); // Lore is strict
+    expect(system.permissive).toBe(true); // System is the catch-all anchor
   });
 
   it('should disable permissive mode (auto-lockdown) if custom trailers are added', async () => {

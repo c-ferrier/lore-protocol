@@ -17,6 +17,14 @@ import {
     type ProtocolDefinition,
     runCli, TerminalPrompt, 
     type TrailerDefinition    } from '../engine/index.js';
+import { 
+    registerCommitCommand,
+    registerDoctorCommand,
+    registerLogCommand,
+    registerSquashCommand,
+    registerStaleCommand,
+    registerTraceCommand,
+    registerValidateCommand} from '../engine/index.js';
 import { registerConstraintsCommand } from './commands/constraints.js';
 import { registerContextCommand } from './commands/context.js';
 import { registerDirectivesCommand } from './commands/directives.js';
@@ -66,7 +74,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
     textFormatterFactory: (protocols, opts: { color: boolean }) => new LoreTextFormatter(protocols, opts),
 
     // Rebranding Surface: Hide internal engine parts not in 0.5.0
-    hiddenCommands: ['cache', 'config'],
+    hiddenCommands: ['cache', 'config', 'trace'],
     hiddenGlobalOptions: ['--no-cache', '--context', '--format'],
 
     // Hook: Merge legacy .lore/config.toml settings into engine config
@@ -80,16 +88,14 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
         const loreOverrides: Partial<ProtocolDefinition> = {
             version: legacyData.protocol?.version || '1.0',
             strict: legacyData.validation?.strict !== undefined ? legacyData.validation.strict : false,
+            permissive: false, // Lore is a strict renter; System is the permissive anchor
             trailers: {}
         };
 
-        const standardTrailers = new Set(Object.keys(LoreProtocolDefinition.trailers));
-        let hasCustomTrailers = false;
         const trailerMap = loreOverrides.trailers as Record<string, TrailerDefinition>;
 
         // Translate legacy custom arrays
         for (const key of legacyData.trailers?.custom || []) {
-            if (!standardTrailers.has(key)) hasCustomTrailers = true;
             trailerMap[key] = {
                 description: `Custom project trailer: ${key}`,
                 multivalue: true,
@@ -99,7 +105,6 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
 
         // Translate legacy required arrays
         for (const key of legacyData.trailers?.required || []) {
-            if (!standardTrailers.has(key)) hasCustomTrailers = true;
             if (trailerMap[key]) {
                 trailerMap[key] = { ...trailerMap[key], required: true };
             } else {
@@ -111,8 +116,6 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
                 };
             }
         }
-
-        (loreOverrides as unknown as { permissive: boolean }).permissive = !hasCustomTrailers;
         
         return {
             ...result,
@@ -127,6 +130,15 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
 
   const { program, getFormatter, infra, config } = await runCli(options);
   const { logger } = infra;
+
+  // 8. Register Core Commands (Explicit Shim Injection)
+  registerLogCommand(program, infra);
+  registerStaleCommand(program, infra);
+  registerTraceCommand(program, infra, 'lore'); // Inject Lore bias
+  registerCommitCommand(program, infra);
+  registerValidateCommand(program, infra);
+  registerSquashCommand(program, infra);
+  registerDoctorCommand(program, infra);
 
   // Non-blocking update checks for both the wrapper and the library
   if (config.cli.updateCheck) {

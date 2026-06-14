@@ -54,7 +54,7 @@ export class TextFormatter implements IOutputFormatter {
     return lines.join('\n').trimEnd();
   }
 
-  formatConfig(data: FormattableConfigResult): string {
+  formatConfigResult(data: FormattableConfigResult): string {
     const lines: string[] = [`Active Protocol Configurations (Engine v${data.engineVersion})`, ''];
 
     for (const p of data.protocols) {
@@ -194,25 +194,7 @@ export class TextFormatter implements IOutputFormatter {
         }
     }
 
-    // 2. Render Ad-hoc Fallback (Dim color)
-    const rawLines = atom.rawTrailers.split('\n');
-    for (const line of rawLines) {
-        const match = line.match(/^([A-Za-z0-9][A-Za-z0-9-]*):\s*(.*)$/);
-        if (match) {
-            const key = match[1];
-            const val = match[2];
-            const lowerKey = key.toLowerCase();
-
-            if (!renderedKeys.has(lowerKey)) {
-                if (visibleTrailers === 'all' || visibleTrailers.includes(key)) {
-                    trailerLines.push(this.c.dim(`  ${key}: ${val}`));
-                    renderedKeys.add(lowerKey);
-                }
-            }
-        }
-    }
-
-    // 3. Supersession
+    // 2. Supersession
     for (const [pName, state] of atom.protocols) {
         if (state.supersession?.superseded) {
             const killers = state.supersession.supersededBy.map(h => h.slice(0, 8)).join(', ');

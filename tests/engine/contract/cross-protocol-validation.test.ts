@@ -81,7 +81,7 @@ describe('Cross-Protocol Reference Validation', () => {
     const results = await validateCommits(hydrateAtoms([rawCommit], protocols, { includeAllCommits: true }), infra);
     const issue = results[0].issues.find(i => i.rule === 'unknown-protocol-prefix');
     expect(issue).toBeDefined();
-    expect(issue?.message).toContain('Unknown protocol prefix: "ghost"');
+    expect(issue?.message).toContain('Unknown protocol: "ghost"');
   });
 
   it('should flag cross-protocol links when crossProtocol is false', async () => {

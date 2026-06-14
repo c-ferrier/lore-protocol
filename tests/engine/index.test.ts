@@ -9,14 +9,14 @@ import { hydrateAtoms } from '../../src/engine/core/logic/hydration.js';
 import { type CommitCommandOptions,parseFlagsToInput } from '../../src/engine/core/logic/input-interpretation.js';
 import { ProtocolMap } from '../../src/engine/core/models/protocol-map.js';
 import { type EngineConfig } from '../../src/engine/core/types/config.js';
-import { type Atom, type ProtocolState, type Trailers } from '../../src/engine/core/types/domain.js';
+import { type Atom, type Trailers } from '../../src/engine/core/types/domain.js';
 import { type FormattableQueryResult } from '../../src/engine/core/types/output.js';
 import { type ProtocolContext, type ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
 import { runCli } from '../../src/engine/index-impl.js';
 import * as rootResolver from '../../src/engine/shell/fs/root-resolver.js';
 import { findAtoms } from '../../src/engine/shell/orchestrators/discovery.js';
 import { validateCommits } from '../../src/engine/shell/orchestrators/validation.js';
-import { makeQueryTarget, makeStubProtocolContext, TEST_ENGINE_CONFIG, TEST_ID_KEY,TEST_PROTOCOL_DEFINITION } from '../../src/engine/testing.js';
+import { makeQueryTarget, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState, TEST_ENGINE_CONFIG, TEST_ID_KEY,TEST_PROTOCOL_DEFINITION } from '../../src/engine/testing.js';
 import { ENGINE_CONFIG_FILENAME } from '../../src/engine/util/constants.js';
 import { makeMockGitClient, makeMockInfra,makeMockPrompt } from './engine-test-utils.js';
 
@@ -128,7 +128,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
   let protocols: ProtocolMap<ProtocolContext>;
 
   beforeEach(() => {
-    protocols = new ProtocolMap<ProtocolContext>();
+    protocols = makeStubProtocolMap();
   });
 
   it('should flow custom trailers from CLI flags to JSON output via metadata', async () => {
@@ -172,8 +172,8 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       body: '',
       rawTrailers: '',
       filesChanged: [],
-      protocols: new ProtocolMap<ProtocolState>([
-        ['mock', { trailers, unauthorized: {} }]
+      protocols: makeStubProtocolMap([
+        ['mock', makeStubProtocolState({ trailers })]
       ]),
     };
     const data: FormattableQueryResult = {
@@ -238,8 +238,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       }
     };
     const fredProtocol = makeStubProtocolContext(fredDef);
-    const protocols = new ProtocolMap<ProtocolContext>();
-    protocols.set(fredProtocol.name, fredProtocol);
+    const protocols = makeStubProtocolMap([fredProtocol]);
 
     // 2. Mock Storage to return a Fred commit
     const mockGit = makeMockGitClient();

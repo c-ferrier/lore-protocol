@@ -19,7 +19,7 @@ describe('Engine registerInitCommand', () => {
     formatStalenessResult: vi.fn(),
     formatTraceResult: vi.fn(),
     formatDoctorResult: vi.fn(),
-    formatConfig: vi.fn(),
+    formatConfigResult: vi.fn(),
   } as unknown as MockedOutputFormatter;
 
   let logger: TestLogger;

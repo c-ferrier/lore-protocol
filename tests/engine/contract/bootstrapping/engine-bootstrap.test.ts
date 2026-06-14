@@ -38,6 +38,19 @@ vi.mock('../../../../src/engine/shell/fs/protocol-loader.js', () => ({
 }));
 
 
+import { 
+  registerCacheCommand, 
+  registerCommitCommand, 
+  registerConfigCommand,
+  registerDoctorCommand,
+  registerLogCommand, 
+  registerSquashCommand,
+  registerStaleCommand, 
+  registerTraceCommand, 
+  registerValidateCommand, 
+  SYSTEM_PROTOCOL 
+} from '../../../../src/engine/index.js';
+
 describe('EngineBootstrapper', () => {
   const options = {
     binaryName: 'test-cli',
@@ -62,7 +75,17 @@ describe('EngineBootstrapper', () => {
 
   it('should register all expected commands', async () => {
     const bootstrapper = new EngineBootstrapper(options);
-    const { program } = await bootstrapper.bootstrap('/mock', []);
+    const { program, infra } = await bootstrapper.bootstrap('/mock', []);
+
+    registerLogCommand(program, infra);
+    registerStaleCommand(program, infra);
+    registerTraceCommand(program, infra, SYSTEM_PROTOCOL);
+    registerCommitCommand(program, infra);
+    registerValidateCommand(program, infra);
+    registerSquashCommand(program, infra);
+    registerCacheCommand(program, infra);
+    registerConfigCommand(program, infra);
+    registerDoctorCommand(program, infra);
 
     const commandNames = program.commands.map(c => c.name());
     expect(commandNames).toContain('log');

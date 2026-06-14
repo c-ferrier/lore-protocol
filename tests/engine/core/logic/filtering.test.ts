@@ -3,15 +3,13 @@ import { beforeEach,describe, expect, it } from 'vitest';
 import { filterAtoms, resolveFilters, resolveFilterStrings } from '../../../../src/engine/core/logic/filtering.js';
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
-import { makeAtom, makeStubProtocolContext } from '../../../../src/engine/testing.js';
+import { makeAtom, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState } from '../../../../src/engine/testing.js';
 
 describe('Filtering Logic (Pure Functions)', () => {
   let protocols: ProtocolMap<ProtocolContext>;
   let protocol: ProtocolContext;
 
   beforeEach(() => {
-    protocols = new ProtocolMap();
-    
     // P1: Root protocol
     protocol = makeStubProtocolContext({
         name: 'mock',
@@ -21,7 +19,6 @@ describe('Filtering Logic (Pure Functions)', () => {
             'Confidence': { description: 'C', multivalue: false, validation: 'none' as const }
         }
     });
-    protocols.set(protocol.name, protocol);
 
     // P2: Namespaced protocol
     const fredProtocol = makeStubProtocolContext({
@@ -32,7 +29,8 @@ describe('Filtering Logic (Pure Functions)', () => {
             'Team': { description: 'T', multivalue: false, validation: 'none' as const }
         }
     });
-    protocols.set(fredProtocol.name, fredProtocol);
+
+    protocols = makeStubProtocolMap([protocol, fredProtocol]);
   });
 
   describe('resolveFilters', () => {
@@ -188,8 +186,8 @@ describe('Filtering Logic (Pure Functions)', () => {
             subject: 'fix: bug',
             body: 'Detailed notes.'
         });
-        atom.protocols.set('mock', { trailers: { 'Confidence': ['low'] }, unauthorized: {} });
-        atom.protocols.set('fred', { trailers: { 'Team': ['backend'] }, unauthorized: {} });
+        atom.protocols.set('mock', makeStubProtocolState({ trailers: { 'Confidence': ['low'] } }));
+        atom.protocols.set('fred', makeStubProtocolState({ trailers: { 'Team': ['backend'] } }));
 
         expect(filterAtoms([atom], { text: 'bug' }, protocols)).toHaveLength(1);
         expect(filterAtoms([atom], { text: 'notes' }, protocols)).toHaveLength(1);
@@ -200,8 +198,8 @@ describe('Filtering Logic (Pure Functions)', () => {
 
     it('should aggregate AND filters across multiple protocols', () => {
         const atom = makeAtom({});
-        atom.protocols.set('mock', { trailers: { 'Confidence': ['high'] }, unauthorized: {} });
-        atom.protocols.set('fred', { trailers: { 'Team': ['alpha'] }, unauthorized: {} });
+        atom.protocols.set('mock', makeStubProtocolState({ trailers: { 'Confidence': ['high'] } }));
+        atom.protocols.set('fred', makeStubProtocolState({ trailers: { 'Team': ['alpha'] } }));
 
         // Match: Both true
         expect(filterAtoms([atom], { 
@@ -216,7 +214,7 @@ describe('Filtering Logic (Pure Functions)', () => {
 
     it('should evaluate qualified namespace paths correctly', () => {
         const atom = makeAtom({});
-        atom.protocols.set('fred', { trailers: { 'Team': ['alpha'] }, unauthorized: {} });
+        atom.protocols.set('fred', makeStubProtocolState({ trailers: { 'Team': ['alpha'] } }));
   
         const results = filterAtoms([atom], {
             filters: resolveFilters({ 'fred/team': 'alpha' }, protocols)

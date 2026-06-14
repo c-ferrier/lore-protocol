@@ -1,11 +1,12 @@
 import { ProtocolHydrator } from '../../shell/fs/protocol-hydrator.js';
+import { SYSTEM_PROTOCOL } from '../../util/constants.js';
 import { ProtocolError } from '../../util/errors.js';
 import { ProtocolMap } from '../models/protocol-map.js';
 import type { TrailerDefinition } from '../types/config.js';
 import type { FormattableTrailerDefinition } from '../types/output.js';
-import type {ProtocolContext, ProtocolDefinition } from '../types/protocol-definition.js';
+import type { ProtocolContext, ProtocolDefinition } from '../types/protocol-definition.js';
+import type { QueryIdentity } from '../types/query.js';
 import { authorizeKey } from './ownership.js';
-import { isValidProtocolIdentity } from './validation.js';
 
 /**
  * Transforms a serializable ProtocolDefinition into an operationally optimized ProtocolContext.
@@ -97,9 +98,15 @@ export function getClaimedProtocolKeys(protocols: ProtocolMap<ProtocolContext>):
 
 /**
  * Returns the protocol context that owns the root (unprefixed) namespace.
+ * Prioritizes logical protocols over the physical 'system' layer.
  */
 export function getRootProtocol(protocols: ProtocolMap<ProtocolContext>): ProtocolContext | undefined {
-    return Array.from(protocols.values()).find(p => p.isRoot);
+    const allRoot = Array.from(protocols.values()).filter(p => p.isRoot);
+    if (allRoot.length === 0) return undefined;
+
+    // Prefer non-system root protocols
+    const logicalRoot = allRoot.find(p => p.name !== SYSTEM_PROTOCOL);
+    return logicalRoot || allRoot[0];
 }
 
 /**
@@ -122,39 +129,31 @@ export function resolveProtocolKey(protocols: ProtocolMap<ProtocolContext>, key:
 }
 
 /**
- * Resolves a raw trailer value into a qualified QueryIdentity.
+ * Resolves a raw string ID into a qualified QueryIdentity.
+ * 
+ * PURE RESOLUTION (Phase 4.2):
+ * 1. If ID contains '/', resolve explicitly via the protocol's logical name.
+ * 2. Otherwise, use the mandatory defaultProtocol provided by the caller context.
  */
 export function resolveProtocolIdentity(
     protocols: ProtocolMap<ProtocolContext>, 
-    id: string, 
-    contextProtocol?: string
-): { id: string; protocol: string } {
+    id: string,
+    defaultProtocol: string
+): QueryIdentity {
+    // 1. Strict Logical URI (protocol/id)
     if (id.includes('/')) {
       const [prefix, suffix] = id.split('/', 2);
-      // Prefix can be name OR namespace
-      const ctx = protocols.get(prefix) || Array.from(protocols.values()).find(c => c.storageNamespace.toLowerCase() === prefix.toLowerCase());
+      const ctx = protocols.get(prefix.toLowerCase());
+      
       if (!ctx) {
-        throw new ProtocolError(`Unknown protocol prefix: "${prefix}" in identity "${id}"`, 1);
+          throw new ProtocolError(`Unknown protocol: "${prefix}" in identity "${id}"`, 1);
       }
       return { id: suffix, protocol: ctx.name };
     }
 
-    if (contextProtocol) {
-      const ctx = protocols.get(contextProtocol);
-      if (ctx && isValidProtocolIdentity(id, ctx.def)) {
-        return { id, protocol: ctx.name };
-      }
-    }
-
-    // Deterministic lookup: who owns this ID format?
-    for (const ctx of protocols.values()) {
-        if (isValidProtocolIdentity(id, ctx.def)) return { id, protocol: ctx.name };
-    }
-
-    const root = getRootProtocol(protocols);
-    if (!root) throw new ProtocolError(`Cannot resolve reference "${id}": no global protocol defined`, 1);
-    
-    return { id, protocol: root.name };
+    // 2. Contextual Default
+    // No guessing or regex looping. The caller provides the intended bias.
+    return { id, protocol: defaultProtocol.toLowerCase() };
 }
 
 /**

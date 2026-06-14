@@ -6,7 +6,7 @@ import {
     getIdentityPattern, 
     getSearchPatterns, 
     matchesFilters} from '../../../../src/engine/core/logic/query-adapter.js';
-import { makeStubProtocolContext } from '../../../../src/engine/testing.js';
+import { makeStubProtocolContext, makeStubProtocolState } from '../../../../src/engine/testing.js';
 
 describe('Query Adapter Logic (Pure Functions)', () => {
   const rootCtx = makeStubProtocolContext({
@@ -62,19 +62,19 @@ describe('Query Adapter Logic (Pure Functions)', () => {
 
   describe('matchesFilters', () => {
     it('should match simple equality', () => {
-      const state = { trailers: { 'Lore-id': ['a1b2c3d4'] }, unauthorized: {} };
+      const state = makeStubProtocolState({ trailers: { 'Lore-id': ['a1b2c3d4'] } });
       const filters = [{ protocol: 'root', key: 'Lore-id', op: 'eq' as const, value: 'a1b2c3d4' }];
       expect(matchesFilters(state, filters, rootCtx)).toBe(true);
     });
 
     it('should match "has" operator', () => {
-      const state = { trailers: { 'Lore-id': ['a1b2c3d4'] }, unauthorized: {} };
+      const state = makeStubProtocolState({ trailers: { 'Lore-id': ['a1b2c3d4'] } });
       const filters = [{ protocol: 'root', key: 'Lore-id', op: 'has' as const, value: 'true' }];
       expect(matchesFilters(state, filters, rootCtx)).toBe(true);
     });
 
     it('should return false on mismatch', () => {
-      const state = { trailers: { 'Lore-id': ['a1b2c3d4'] }, unauthorized: {} };
+      const state = makeStubProtocolState({ trailers: { 'Lore-id': ['a1b2c3d4'] } });
       const filters = [{ protocol: 'root', key: 'Lore-id', op: 'eq' as const, value: 'other' }];
       expect(matchesFilters(state, filters, rootCtx)).toBe(false);
     });
