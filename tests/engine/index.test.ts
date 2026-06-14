@@ -8,7 +8,6 @@ import { JsonFormatter } from '../../src/engine/cli/formatters/json-formatter.js
 import { hydrateAtoms } from '../../src/engine/core/logic/hydration.js';
 import { type CommitCommandOptions,parseFlagsToInput } from '../../src/engine/core/logic/input-interpretation.js';
 import { ProtocolMap } from '../../src/engine/core/models/protocol-map.js';
-import { type EngineConfig } from '../../src/engine/core/types/config.js';
 import { type Atom, type Trailers } from '../../src/engine/core/types/domain.js';
 import { type FormattableQueryResult } from '../../src/engine/core/types/output.js';
 import { type ProtocolContext, type ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
@@ -16,7 +15,7 @@ import { runCli } from '../../src/engine/index-impl.js';
 import * as rootResolver from '../../src/engine/shell/fs/root-resolver.js';
 import { findAtoms } from '../../src/engine/shell/orchestrators/discovery.js';
 import { validateCommits } from '../../src/engine/shell/orchestrators/validation.js';
-import { makeQueryTarget, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState, TEST_ENGINE_CONFIG, TEST_ID_KEY,TEST_PROTOCOL_DEFINITION } from '../../src/engine/testing.js';
+import { makeQueryTarget, makeStubEngineConfig, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState, TEST_ENGINE_CONFIG, TEST_ID_KEY,TEST_PROTOCOL_DEFINITION } from '../../src/engine/testing.js';
 import { ENGINE_CONFIG_FILENAME } from '../../src/engine/util/constants.js';
 import { makeMockGitClient, makeMockInfra,makeMockPrompt } from './engine-test-utils.js';
 
@@ -32,15 +31,9 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     permissive: false,
     trailers: {}
   };
-  const MOCK_BOOTSTRAP_CONFIG: EngineConfig = {
-    validation: { maxMessageLines: 50, subjectMaxLength: 72 },
-    stale: { olderThan: '6m', driftThreshold: 20 },
-    output: { defaultFormat: 'text' },
-    follow: { maxDepth: 3 },
-    cache: { query: true, identity: true, pruneThreshold: 100 },
+  const MOCK_BOOTSTRAP_CONFIG = makeStubEngineConfig({
     cli: { updateCheck: false },
-    protocols: {}
-  };
+  });
   beforeAll(() => {
     mkdirSync(join(testDir, 'engine-test-dir'), { recursive: true });
     mkdirSync(testDir, { recursive: true });

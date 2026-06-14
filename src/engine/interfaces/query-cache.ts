@@ -32,9 +32,11 @@ export interface IQueryCache {
   ): Promise<void>;
 
   /**
-   * Perform deferred cleanup of old cache files based on LRU (atime).
+   * Perform cleanup of old cache files.
+   * Purges all entries that do not start with any of the provided `keepHashes`.
+   * Commonly used with the current HEAD hash to invalidate old branch/rebase data.
    */
-  prune(): Promise<void>;
+  prune(keepHashes: readonly string[]): Promise<void>;
 
   /**
    * Completely clear the query cache directory.

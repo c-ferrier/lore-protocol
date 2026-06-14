@@ -94,7 +94,6 @@ export interface EngineConfig {
   readonly cache: {
     readonly query: boolean;
     readonly identity: boolean;
-    readonly pruneThreshold: number;
   };
   readonly cli: {
     readonly updateCheck: boolean;
@@ -115,7 +114,7 @@ export const ENGINE_CONFIG_SCHEMA: Record<string, string[]> = {
   stale: ['olderThan', 'driftThreshold'],
   output: ['defaultFormat'],
   follow: ['maxDepth'],
-  cache: ['query', 'identity', 'pruneThreshold'],
+  cache: ['query', 'identity'],
   cli: ['updateCheck'],
   protocols: [], // Dynamic section
 };

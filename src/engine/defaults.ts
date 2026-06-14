@@ -21,7 +21,6 @@ export const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   cache: {
     query: true,
     identity: true,
-    pruneThreshold: 100,
   },
   cli: {
     updateCheck: true,

@@ -4,9 +4,6 @@ export const DEFAULT_QUERY_LIMIT = 20;
 /** Default max git commits to scan when looking for protocol atoms */
 export const DEFAULT_MAX_COMMITS = 1000;
 
-/** Default max number of query cache entries to keep (LRU pruning threshold) */
-export const DEFAULT_CACHE_PRUNE_THRESHOLD = 100;
-
 /** Prompt strings for interactive mode (Subject and Body only) */
 export const PROMPT_STRINGS = {
   SUBJECT: 'Subject (why the change was made):',

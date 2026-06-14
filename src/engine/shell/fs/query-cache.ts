@@ -1,10 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readdir, readFile, rename, rm, stat, unlink, utimes, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, unlink, utimes, writeFile } from 'node:fs/promises';
 import { dirname,join } from 'node:path';
 
 import type { QueryOptions } from '../../core/types/query.js';
 import type { IQueryCache } from '../../interfaces/query-cache.js';
-import { DEFAULT_CACHE_PRUNE_THRESHOLD } from '../../util/constants.js';
 
 const HEX_HASH = /^[0-9a-f]{7,64}$/i;
 
@@ -20,7 +19,6 @@ const HEX_HASH = /^[0-9a-f]{7,64}$/i;
 export class QueryCache implements IQueryCache {
   constructor(
     private readonly cacheDir: string,
-    private readonly pruneThreshold: number = DEFAULT_CACHE_PRUNE_THRESHOLD,
     private readonly protocolFingerprint: string = '',
   ) {}
 
@@ -100,39 +98,22 @@ export class QueryCache implements IQueryCache {
     }
   }
 
-  async prune(): Promise<void> {
+  async prune(keepHashes: readonly string[]): Promise<void> {
     try {
       const files = await readdir(this.cacheDir);
       
-      // Filter out non-cache files
-      const cacheFiles = files.filter(f => !f.startsWith('.') && !f.includes('.tmp.'));
-      
-      if (cacheFiles.length <= this.pruneThreshold) return;
+      // Filter out non-cache files and those that should be kept
+      const toDelete = files.filter(f => {
+          // Ignore temp files and hidden files
+          if (f.startsWith('.') || f.includes('.tmp.')) return false;
+          
+          // If the file starts with any of the keepHashes, keep it.
+          // Format is {headHash}-{queryHash}
+          return !keepHashes.some(hash => f.startsWith(`${hash}-`));
+      });
 
-      // Get stats for all files to find oldest by access time
-      const stats = await Promise.all(
-        cacheFiles.map(async (name) => {
-          const path = join(this.cacheDir, name);
-          try {
-            const s = await stat(path);
-            return { name, atime: s.atimeMs };
-          } catch (e: unknown) {
-            if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
-            throw e;
-          }
-        }),
-      );
-
-      const validStats = stats.filter((s): s is { name: string; atime: number } => s !== null);
-      
-      // Sort by atime ascending (oldest first)
-      validStats.sort((a, b) => a.atime - b.atime);
-
-      // Delete until we are under the threshold
-      const toDelete = validStats.slice(0, validStats.length - this.pruneThreshold);
-      
       await Promise.all(
-        toDelete.map(s => unlink(join(this.cacheDir, s.name)).catch(() => {})),
+        toDelete.map(name => unlink(join(this.cacheDir, name)).catch(() => {})),
       );
     } catch (error: unknown) {
       // Don't let prune failures crash the app
@@ -220,7 +201,7 @@ export class NullQueryCache implements IQueryCache {
     // No-op
   }
 
-  async prune(): Promise<void> {
+  async prune(_keepHashes: readonly string[]): Promise<void> {
     // No-op
   }
 

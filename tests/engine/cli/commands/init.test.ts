@@ -4,9 +4,8 @@ import { Command } from 'commander';
 import { beforeEach,describe, expect, it, vi } from 'vitest';
 
 import { registerInitCommand } from '../../../../src/engine/cli/commands/init.js';
-import { EngineConfig } from '../../../../src/engine/core/types/config.js';
 import { type MockedOutputFormatter } from '../../../mock-types.js';
-import { TestLogger } from '../../engine-test-utils.js';
+import { makeStubEngineConfig, TestLogger } from '../../engine-test-utils.js';
 
 vi.mock('node:fs/promises');
 
@@ -24,24 +23,8 @@ describe('Engine registerInitCommand', () => {
 
   let logger: TestLogger;
 
-  const MOCK_CONFIG: EngineConfig = {
-    cache: { 
-        query: true,
-        identity: true,
-        pruneThreshold: 100
-    },
-    cli: { 
-        updateCheck: true, 
-    },
-    validation: { 
-        subjectMaxLength: 72,
-        maxMessageLines: 50
-    },
-    stale: { olderThan: '6m', driftThreshold: 20 },
-    output: { defaultFormat: 'text' },
-    follow: { maxDepth: 3 },
-    protocols: {}
-  };
+  const MOCK_CONFIG = makeStubEngineConfig();
+
 
   const MOCK_DEPS = {
     getFormatter: () => formatter,

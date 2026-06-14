@@ -34,8 +34,8 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
     git = makeMockGitClient();
     const protocol = makeStubProtocolContext();
     protocols = makeStubProtocolMap([protocol]);
+    cache = new QueryCache(testDir, 'test-fingerprint');
 
-    cache = new QueryCache(testDir, 100, 'test-fingerprint');
   });
 
   afterAll(() => {

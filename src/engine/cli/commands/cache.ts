@@ -14,8 +14,9 @@ export function registerCacheCommand(
     .command('cache')
     .description('Manage the local caches')
     .option('--clean', 'Clear the identity index and query caches')
+    .option('--prune', 'Remove query cache entries not matching the current HEAD')
     .action(async (options) => {
-      const { getFormatter, logger, cache, identityIndex } = infra;
+      const { getFormatter, logger, cache, identityIndex, git } = infra;
       const formatter = getFormatter();
 
       if (options.clean) {
@@ -26,6 +27,20 @@ export function registerCacheCommand(
         } catch (error: unknown) {
           const message = error instanceof Error ? error.message : String(error);
           logger.error(formatter.formatError(1, [{ severity: 'error', message: `Failed to clear cache: ${message}` }]));
+          process.exitCode = 1;
+          return;
+        }
+        return;
+      }
+
+      if (options.prune) {
+        try {
+          const head = await git.resolveRef('HEAD');
+          await cache.prune([head]);
+          logger.info(formatter.formatSuccess(`Successfully pruned query cache (kept entries for HEAD: ${head.slice(0, 8)}).`));
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error);
+          logger.error(formatter.formatError(1, [{ severity: 'error', message: `Failed to prune cache: ${message}` }]));
           process.exitCode = 1;
           return;
         }

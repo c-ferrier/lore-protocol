@@ -27,7 +27,8 @@ import { DynamicProtocolLoader, ProtocolLoader } from '../shell/fs/protocol-load
 import { NullQueryCache, QueryCache } from '../shell/fs/query-cache.js';
 import { resolveProtocolRoot } from '../shell/fs/root-resolver.js';
 import { GitClient } from '../shell/git/git-client.js';
-import { CACHE_DIR, DEFAULT_CACHE_PRUNE_THRESHOLD, PROTOCOLS_DIR_NAME, QUERY_CACHE_DIR } from '../util/constants.js';
+import { CACHE_DIR, PROTOCOLS_DIR_NAME, QUERY_CACHE_DIR } from '../util/constants.js';
+
 
 /**
  * Shared Infrastructure Bag for functional orchestration.
@@ -154,7 +155,6 @@ export class EngineBootstrapper {
     const queryCache: IQueryCache = (config.cache.query && useCache)
       ? new QueryCache(
           join(activeRoot, this.options.engineDirName, CACHE_DIR, QUERY_CACHE_DIR),
-          config.cache.pruneThreshold || DEFAULT_CACHE_PRUNE_THRESHOLD,
           `engine@${getEngineVersion()};${fingerprint}`,
         )
       : new NullQueryCache();

@@ -22,7 +22,7 @@ describe('QueryCache Implementation', () => {
 
   beforeEach(async () => {
     tempDir = await mkdtemp(join(tmpdir(), 'query-cache-test-'));
-    cache = new QueryCache(tempDir, 100, F1);
+    cache = new QueryCache(tempDir, F1);
   });
 
   afterEach(async () => {
@@ -100,21 +100,24 @@ describe('QueryCache Implementation', () => {
       expect(r2).toEqual(['h2']);
     });
 
-    it('should prune old entries based on LRU threshold', async () => {
-        const smallCache = new QueryCache(tempDir, 2, F1);
+    it('should purge entries that do not match the keepHashes', async () => {
         const options = getMockOptions();
         const H3 = '9991234567890abcdef1234567890abcdef1234';
     
-        await smallCache.set(H1, ['--1'].join(' '), options, ['v1']);
-        await new Promise(r => setTimeout(r, 10)); 
-        await smallCache.set(H2, ['--2'].join(' '), options, ['v2']);
-        await new Promise(r => setTimeout(r, 10));
-        await smallCache.set(H3, ['--3'].join(' '), options, ['v3']);
+        await cache.set(H1, 'q1', options, ['v1']);
+        await cache.set(H2, 'q2', options, ['v2']);
+        await cache.set(H3, 'q3', options, ['v3']);
     
-        await smallCache.prune();
+        // Prune: keep only H1 and H2
+        await cache.prune([H1, H2]);
     
         const files = await readdir(tempDir);
-        expect(files.length).toBeLessThanOrEqual(2);
+        // Should have 2 files (q1 and q2 for H1 and H2)
+        expect(files.length).toBe(2);
+        
+        expect(await cache.get(H1, 'q1', options)).toEqual(['v1']);
+        expect(await cache.get(H2, 'q2', options)).toEqual(['v2']);
+        expect(await cache.get(H3, 'q3', options)).toBeNull();
     });
   });
 
@@ -199,7 +202,7 @@ describe('QueryCache Implementation', () => {
     it('should invalidate cache if fingerprint changes', async () => {
       await cache.set(H1, '--', getMockOptions(), ['h1']);
       
-      const otherCache = new QueryCache(tempDir, 100, 'v2-fingerprint');
+      const otherCache = new QueryCache(tempDir, 'v2-fingerprint');
       expect(await otherCache.get(H1, ['--'].join(' '), getMockOptions())).toBeNull();
     });
 

@@ -59,17 +59,31 @@ export function assertIsolatedEngine(dir: string = TEST_ENGINE_DIR) {
     }
 }
 
-/** A standard, valid engine configuration. */
+/** Global default engine config for tests. */
 export const TEST_ENGINE_CONFIG: EngineConfig = {
-  validation: { maxMessageLines: 50, subjectMaxLength: 50 },
+  validation: { maxMessageLines: 50, subjectMaxLength: 72 },
   stale: { olderThan: '6m', driftThreshold: 20 },
   output: { defaultFormat: 'text' },
-  follow: { maxDepth: 5 },
-  cache: { query: true, identity: true, pruneThreshold: 100 },
-  cli: { updateCheck: false },
-
-  protocols: {},
+  follow: { maxDepth: 3 },
+  cache: { query: true, identity: true },
+  cli: { updateCheck: true },
+  protocols: {}
 };
+
+/** Stub Engine Config factory for tests. */
+export function makeStubEngineConfig(overrides: Partial<EngineConfig> = {}): EngineConfig {
+    return {
+        ...TEST_ENGINE_CONFIG,
+        ...overrides,
+        validation: { ...TEST_ENGINE_CONFIG.validation, ...overrides.validation },
+        stale: { ...TEST_ENGINE_CONFIG.stale, ...overrides.stale },
+        output: { ...TEST_ENGINE_CONFIG.output, ...overrides.output },
+        follow: { ...TEST_ENGINE_CONFIG.follow, ...overrides.follow },
+        cache: { ...TEST_ENGINE_CONFIG.cache, ...overrides.cache },
+        cli: { ...TEST_ENGINE_CONFIG.cli, ...overrides.cli },
+        protocols: { ...TEST_ENGINE_CONFIG.protocols, ...overrides.protocols }
+    };
+}
 
 /** A generic root, permissive protocol schema definition. */
 export const TEST_PROTOCOL_DEFINITION: ProtocolDefinition = {

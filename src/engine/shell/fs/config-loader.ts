@@ -29,7 +29,6 @@ const CAMEL_TO_SNAKE: Record<string, Record<string, string>> = {
   cache: {
     query: 'query',
     identity: 'identity',
-    pruneThreshold: 'prune_threshold',
   },
   cli: {
     updateCheck: 'update_check',

@@ -6,15 +6,11 @@ import { mkdir, mkdtemp, rm,writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const MOCK_ENGINE_CONFIG = {
-  validation: { maxMessageLines: 50, subjectMaxLength: 72 },
-  stale: { olderThan: '6m', driftThreshold: 20 },
-  output: { defaultFormat: 'text' as const },
-  follow: { maxDepth: 3 },
-  cache: { query: true, identity: true, pruneThreshold: 100 },
+import { makeStubEngineConfig } from '../../../../src/engine/testing.js';
+
+const MOCK_ENGINE_CONFIG = makeStubEngineConfig({
   cli: { updateCheck: false },
-  protocols: {},
-};
+});
 
 describe('EngineConfigLoader', () => {
   let loader: EngineConfigLoader;
