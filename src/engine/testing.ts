@@ -15,6 +15,7 @@ import { ProtocolMap } from './core/models/protocol-map.js';
 import type { CommitInput } from './core/types/commit.js';
 import type { EngineConfig, TrailerDefinition,TrailerUiColor, TrailerUiKind } from './core/types/config.js';
 import type { Atom, ProtocolState } from './core/types/domain.js';
+export type { Atom, ProtocolState };
 import type { ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
 export type { ProtocolContext,ProtocolDefinition };
 import type { QueryOptions,QueryTargetAST } from './core/types/query.js';
@@ -43,8 +44,6 @@ export {
     normalizeTrailers,
     ownsKey,
     ProtocolMap};
-
-export type { ProtocolState };
 
 /** Key for the standard baseline protocol ID. */
 export const TEST_ID_KEY = 'Mock-id';
@@ -259,7 +258,6 @@ export function makeStubGitClient(overrides: Partial<IGitClient> = {}): IGitClie
 /** Stub Formatter for CLI tests. */
 export function makeStubFormatter(): IOutputFormatter {
     return {
-        formatQueryResult: () => 'Mock Query Result',
         formatValidationResult: () => 'Mock Validation Result',
         formatStalenessResult: () => 'Mock Staleness Result',
         formatTraceResult: () => 'Mock Trace Result',
@@ -267,9 +265,9 @@ export function makeStubFormatter(): IOutputFormatter {
         formatDoctorResult: () => 'Mock Doctor Result',
         formatSuccess: (msg: string) => `Success: ${msg}`,
         formatError: (_code: number, messages: readonly ErrorMessage[]) => `Error: ${messages[0]?.message}`,
-        formatHeader: (target: string, type: string, _visibleTrailers?: readonly string[] | 'all') => `Mock Header: ${target} (${type})`,
-        formatAtom: (atom: Atom, _visibleTrailers?: readonly string[] | 'all') => `Mock Atom: ${atom.commitHash}`,
-        formatFooter: () => 'Mock Footer',
+        formatQueryHeader: (target: string, type: string, _visibleTrailers?: readonly string[] | 'all') => `Mock Header: ${target} (${type})`,
+        formatQueryAtom: (atom: Atom, _visibleTrailers?: readonly string[] | 'all') => `Mock Atom: ${atom.commitHash}`,
+        formatQueryFooter: () => 'Mock Footer',
     };
 }
 

@@ -59,16 +59,9 @@ describe('Lore Wrapper Rebranding Flow', () => {
 
     // 4. Format using the Lore-specific formatter
     const formatter = new LoreJsonFormatter(protocols);
-    const json = JSON.parse(formatter.formatQueryResult({
-      result: {
-        atoms: [atom],
-        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: null, newest: null },
-        command: 'search',
-        target: 'all',
-        targetType: 'global'
-      },
-      visibleTrailers: 'all',
-    }));
+    formatter.formatQueryHeader('all', 'global');
+    formatter.formatQueryAtom(atom);
+    const json = JSON.parse(formatter.formatQueryFooter({ total: 1, filtered: 1, oldest: null, newest: null }));
 
     // 5. Verify Lore Branding (Flat keys, no .protocols nesting)
     expect(json.lore_version).toBe('0.6.0');

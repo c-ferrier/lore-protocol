@@ -6,7 +6,6 @@ import type { Trailers } from '../../../../src/engine/core/types/domain.js';
 import type { 
     FormattableConfigResult,
     FormattableDoctorResult, 
-    FormattableQueryResult, 
     FormattableStalenessResult, 
     FormattableTraceResult, 
     FormattableValidationResult 
@@ -16,8 +15,7 @@ import {
     makeAtom, 
     makeStubProtocolContext, 
     makeStubProtocolMap,
-    makeStubProtocolState,
-    TEST_ID_KEY } from '../../../../src/engine/testing.js';
+    makeStubProtocolState } from '../../../../src/engine/testing.js';
 
 describe('TextFormatter', () => {
   let protocols: ProtocolMap<ProtocolContext>;
@@ -30,51 +28,15 @@ describe('TextFormatter', () => {
     formatter = new TextFormatter(protocols, { color: false });
   });
 
-  describe('formatQueryResult', () => {
-    it('should strike-through the header for superseded atoms', () => {
-      const atom = makeAtom({
-        commitHash: 'abc1234567890',
-        protocols: makeStubProtocolMap([
-          ['mock', makeStubProtocolState({ 
-            trailers: { [TEST_ID_KEY]: ['abc1234'] },
-            supersession: { superseded: true, supersededBy: ['e5f6a7b8'] }
-          })]
-        ])
-      });
-
-      const data: FormattableQueryResult = {
-        result: {
-          command: 'log',
-          target: 'src/auth.ts',
-          targetType: 'path',
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-        },
-        visibleTrailers: 'all',
-      };
-
-      const output = formatter.formatQueryResult(data);
-      expect(output).toContain('abc1234');
-      expect(output).toContain('(superseded by e5f6a7b8)');
+  describe('formatQueryHeader', () => {
+    it('should format the query header with target and type', () => {
+        const output = formatter.formatQueryHeader('src/auth.ts', 'path');
+        expect(output).toContain('Query: src/auth.ts (path)');
     });
+  });
 
-    it('should show "No decision atoms found." when empty', () => {
-      const data: FormattableQueryResult = {
-        result: {
-          command: 'log',
-          target: 'src/auth.ts',
-          targetType: 'path',
-          atoms: [],
-          meta: { totalAtoms: 0, filteredAtoms: 0, oldest: null, newest: null },
-        },
-        visibleTrailers: 'all',
-      };
-
-      const output = formatter.formatQueryResult(data);
-      expect(output).toContain('No decision atoms found.');
-    });
-
-    it('should format atoms with header and trailers', () => {
+  describe('formatQueryAtom', () => {
+    it('should format atoms with date and author', () => {
       const atom = makeAtom({
         commitHash: 'abc1234',
         date: new Date('2025-01-15T10:00:00Z'),
@@ -84,18 +46,8 @@ describe('TextFormatter', () => {
           Confidence: ['high'],
         }
       });
-      const data: FormattableQueryResult = {
-        result: {
-          command: 'log',
-          target: 'src/auth.ts',
-          targetType: 'path',
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-        },
-        visibleTrailers: 'all',
-      };
 
-      const output = formatter.formatQueryResult(data);
+      const output = formatter.formatQueryAtom(atom);
       expect(output).toContain('abc1234');
       expect(output).toContain('2025-01-15');
       expect(output).toContain('alice@example.com');
@@ -110,81 +62,9 @@ describe('TextFormatter', () => {
           Confidence: ['high'],
         }
       });
-      const data: FormattableQueryResult = {
-        result: {
-          command: 'log',
-          target: 'src/auth.ts',
-          targetType: 'path',
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-        },
-        visibleTrailers: ['Constraint'],
-      };
-
-      const output = formatter.formatQueryResult(data);
+      const output = formatter.formatQueryAtom(atom, ['Constraint']);
       expect(output).toContain('Constraint: Must use OAuth2');
       expect(output).not.toContain('Confidence:');
-    });
-
-    it('should render unregistered (adhoc) trailers in dim color', () => {
-      const atom = makeAtom({
-        trailers: {
-          'Assisted-by': ['Gemini'],
-        }
-      });
-
-      const data: FormattableQueryResult = {
-        result: {
-          command: 'search',
-          target: 'all',
-          targetType: 'global',
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-        },
-        visibleTrailers: 'all',
-      };
-
-      const coloredFormatter = new TextFormatter(protocols, { color: true });
-      const output = coloredFormatter.formatQueryResult(data);
-
-      expect(output).toContain('Assisted-by:');
-      expect(output).toContain('Gemini');
-      // eslint-disable-next-line no-control-regex
-      expect(output).toMatch(new RegExp('\\x1b\\['));
-    });
-
-    it('should show body text when present', () => {
-      const atom = makeAtom({ body: 'Detailed explanation here.' });
-      const data: FormattableQueryResult = {
-        result: {
-          command: 'log',
-          target: 'src/auth.ts',
-          targetType: 'path',
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-        },
-        visibleTrailers: 'all',
-      };
-
-      const output = formatter.formatQueryResult(data);
-      expect(output).toContain('Detailed explanation here.');
-    });
-
-    it('should show meta summary at bottom', () => {
-      const atom = makeAtom();
-      const data: FormattableQueryResult = {
-        result: {
-          command: 'log',
-          target: 'src/auth.ts',
-          targetType: 'path',
-          atoms: [atom],
-          meta: { totalAtoms: 5, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-        },
-        visibleTrailers: 'all',
-      };
-
-      const output = formatter.formatQueryResult(data);
-      expect(output).toContain('1 of 5 atoms shown');
     });
 
     it('should display trailers from multiple protocols with prefixes', () => {
@@ -205,23 +85,46 @@ describe('TextFormatter', () => {
         identityKey: 'Fred-id',
         trailers: { 'Status': { description: 'S', multivalue: true, validation: 'none' } }
       });
-      protocols.set(fredProtocol.name, fredProtocol);
+      protocols.set(fredProtocol.name.toLowerCase(), fredProtocol);
 
-      const data: FormattableQueryResult = {
-        result: {
-          command: 'search',
-          target: 'all',
-          targetType: 'global',
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-        },
-        visibleTrailers: 'all',
-      };
-
-      const output = formatter.formatQueryResult(data);
+      const output = formatter.formatQueryAtom(atom);
       expect(output).toContain('[mock] Confidence: high');
       expect(output).toContain('[fred] Status: active');
       expect(output).toContain('[fred] Fred-id: f8ed5678');
+    });
+
+    it('should show body text when present', () => {
+      const atom = makeAtom({ body: 'Detailed explanation here.' });
+      const output = formatter.formatQueryAtom(atom);
+      expect(output).toContain('Detailed explanation here.');
+    });
+
+    it('should render unregistered (adhoc) trailers', () => {
+      const atom = makeAtom({
+        trailers: {
+          'Assisted-by': ['Gemini'],
+        }
+      });
+
+      const output = formatter.formatQueryAtom(atom);
+      expect(output).toContain('Assisted-by:');
+      expect(output).toContain('Gemini');
+    });
+
+    it('should support colored output', () => {
+      const coloredFormatter = new TextFormatter(protocols, { color: true });
+      const atom = makeAtom({ commitHash: 'abc12345' });
+      const output = coloredFormatter.formatQueryAtom(atom);
+      
+      // Check for bold/color ANSI codes
+      expect(output).toContain('\x1b[');
+    });
+  });
+
+  describe('formatQueryFooter', () => {
+    it('should show summary counts', () => {
+        const output = formatter.formatQueryFooter({ total: 10, filtered: 2, oldest: null, newest: null });
+        expect(output).toContain('2 of 10 atoms shown');
     });
   });
 

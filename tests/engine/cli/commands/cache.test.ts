@@ -2,11 +2,11 @@ import { Command } from 'commander';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerCacheCommand } from '../../../../src/engine/cli/commands/cache.js';
-import { type MockedOutputFormatter } from '../../../mock-types.js';
+import { type MockedEngineInfra, MockedOutputFormatter } from '../../../mock-types.js';
 import { makeMockInfra, TestLogger } from '../../engine-test-utils.js';
 
 describe('Engine registerCacheCommand', () => {
-  let infra: any;
+  let infra: MockedEngineInfra;
   let logger: TestLogger;
   let formatter: MockedOutputFormatter;
 
@@ -19,9 +19,9 @@ describe('Engine registerCacheCommand', () => {
     } as unknown as MockedOutputFormatter;
 
     infra = makeMockInfra({
-      getFormatter: () => formatter,
+      getFormatter: vi.fn(() => formatter),
       logger,
-    });
+    }) as MockedEngineInfra;
   });
 
   it('should clear caches when --clean is used', async () => {

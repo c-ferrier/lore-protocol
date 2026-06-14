@@ -2,7 +2,6 @@ import type { Atom } from '../core/types/domain.js';
 import type {
   FormattableConfigResult,
   FormattableDoctorResult,
-  FormattableQueryResult,
   FormattableStalenessResult,
   FormattableTraceResult,
   FormattableValidationResult,
@@ -17,7 +16,6 @@ export interface ErrorMessage {
 
 export interface IOutputFormatter {
   // --- Standard Monolithic Formatters ---
-  formatQueryResult(data: FormattableQueryResult): string;
   formatValidationResult(data: FormattableValidationResult): string;
   formatStalenessResult(data: FormattableStalenessResult): string;
   formatTraceResult(data: FormattableTraceResult): string;
@@ -26,8 +24,8 @@ export interface IOutputFormatter {
   formatSuccess(message: string, data?: Record<string, unknown>): string;
   formatError(code: number, messages: readonly ErrorMessage[]): string;
 
-  // --- Streaming Lifecycle Hooks ---
-  formatHeader(target: string, type: string, visibleTrailers?: readonly string[] | 'all'): string;
-  formatAtom(atom: Atom, visibleTrailers?: readonly string[] | 'all'): string;
-  formatFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string;
+  // --- Streaming Query Lifecycle Hooks ---
+  formatQueryHeader(target: string, type: string, visibleTrailers?: readonly string[] | 'all'): string;
+  formatQueryAtom(atom: Atom, visibleTrailers?: readonly string[] | 'all'): string;
+  formatQueryFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string;
 }

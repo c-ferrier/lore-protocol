@@ -32,12 +32,13 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
 
   const capturedAtoms: Atom[] = [];
   const formatter = makeMockFormatter();
-  formatter.formatAtom.mockImplementation((atom: Atom) => {
+  formatter.formatQueryAtom.mockImplementation((atom: Atom) => {
       capturedAtoms.push(atom);
       return '';
   });
-  formatter.formatHeader.mockReturnValue('');
-  formatter.formatFooter.mockReturnValue('');
+  formatter.formatQueryHeader.mockReturnValue('');
+  formatter.formatQueryFooter.mockReturnValue('');
+
 
   const logger = new TestLogger();
   const program = new Command();

@@ -4,7 +4,6 @@ import { type Atom, ProtocolMap } from '../../core/types/domain.js';
 import type {
   FormattableConfigResult,
   FormattableDoctorResult,
-  FormattableQueryResult,
   FormattableStalenessResult,
   FormattableTraceResult,
   FormattableValidationResult,
@@ -31,28 +30,6 @@ export class TextFormatter implements IOutputFormatter {
 
 
 
-
-  formatQueryResult(data: FormattableQueryResult): string {
-    const { result } = data;
-    const lines: string[] = [];
-
-    if (result.atoms.length === 0) {
-        return this.c.dim('No decision atoms found.');
-    }
-
-    for (const atom of result.atoms) {
-      lines.push(this.formatAtom(atom, data.visibleTrailers));
-      lines.push('');
-    }
-
-    lines.push(this.formatFooter({
-        total: result.meta.totalAtoms,
-        filtered: result.meta.filteredAtoms,
-        oldest: result.meta.oldest,
-        newest: result.meta.newest
-    }));
-    return lines.join('\n').trimEnd();
-  }
 
   formatConfigResult(data: FormattableConfigResult): string {
     const lines: string[] = [`Active Protocol Configurations (Engine v${data.engineVersion})`, ''];
@@ -152,11 +129,11 @@ export class TextFormatter implements IOutputFormatter {
     return lines.join('\n');
   }
 
-  formatHeader(target: string, type: string, _visibleTrailers?: readonly string[] | 'all'): string {
+  formatQueryHeader(target: string, type: string, _visibleTrailers?: readonly string[] | 'all'): string {
     return `Query: ${this.c.bold(target)} (${type})\n`;
   }
 
-  formatAtom(atom: Atom, visibleTrailers: readonly string[] | 'all' = 'all'): string {
+  formatQueryAtom(atom: Atom, visibleTrailers: readonly string[] | 'all' = 'all'): string {
     const lines: string[] = [];
     const dateStr = atom.date.toISOString().slice(0, 10);
     const header = `── ${atom.commitHash.slice(0, 7)} (${dateStr}, ${atom.author}) `;
@@ -206,7 +183,7 @@ export class TextFormatter implements IOutputFormatter {
     return lines.join('\n');
   }
 
-  formatFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
+  formatQueryFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
     return `${meta.filtered} of ${meta.total} atoms shown`;
   }
 }

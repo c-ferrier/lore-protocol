@@ -103,7 +103,6 @@ export function makeMockFormatter(overrides: Partial<IOutputFormatter> = {}): Mo
     const stub = makeStubFormatter();
     return {
         ...stub,
-        formatQueryResult: vi.fn(stub.formatQueryResult),
         formatValidationResult: vi.fn(stub.formatValidationResult),
         formatStalenessResult: vi.fn(stub.formatStalenessResult),
         formatTraceResult: vi.fn(stub.formatTraceResult),
@@ -111,9 +110,9 @@ export function makeMockFormatter(overrides: Partial<IOutputFormatter> = {}): Mo
         formatDoctorResult: vi.fn(stub.formatDoctorResult),
         formatSuccess: vi.fn(stub.formatSuccess),
         formatError: vi.fn(stub.formatError),
-        formatHeader: vi.fn(stub.formatHeader),
-        formatAtom: vi.fn(stub.formatAtom),
-        formatFooter: vi.fn(stub.formatFooter),
+        formatQueryHeader: vi.fn(stub.formatQueryHeader),
+        formatQueryAtom: vi.fn(stub.formatQueryAtom),
+        formatQueryFooter: vi.fn(stub.formatQueryFooter),
         ...overrides
     } as unknown as MockedOutputFormatter;
 }

@@ -25,16 +25,7 @@ describe('LoreTextFormatter', () => {
       protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ trailers: { 'Confidence': ['high'] } })]])
     });
 
-    const output = formatter.formatQueryResult({
-      result: {
-        command: 'log',
-        target: 'all',
-        targetType: 'global',
-        atoms: [atom],
-        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-      },
-      visibleTrailers: 'all',
-    });
+    const output = formatter.formatQueryAtom(atom);
 
     expect(output).toContain('Confidence: high');
     expect(output).not.toContain('[lore]');
@@ -46,16 +37,7 @@ describe('LoreTextFormatter', () => {
       protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ trailers: { 'Lore-id': ['aaaa1111'] } })]])
     });
 
-    const output = formatter.formatQueryResult({
-      result: {
-        command: 'log',
-        target: 'all',
-        targetType: 'global',
-        atoms: [atom],
-        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-      },
-      visibleTrailers: 'all',
-    });
+    const output = formatter.formatQueryAtom(atom);
 
     expect(output).toContain('  Line 1');
     expect(output).toContain('\nLine 2');
@@ -77,34 +59,14 @@ describe('LoreTextFormatter', () => {
       protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ trailers: { 'Lore-id': ['aaaa1111'] } })]])
     });
 
-    const output = formatter.formatQueryResult({
-      result: {
-        command: 'log',
-        target: 'all',
-        targetType: 'global',
-        atoms: [atom],
-        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-      },
-      visibleTrailers: 'all',
-    });
+    const output = formatter.formatQueryAtom(atom);
 
     expect(output).toContain('feat: minimal');
     expect(output).not.toContain('Confidence:');
   });
 
   it('should match the footer format exactly (Lore 0.5.0 Parity)', () => {
-    const atom = makeAtom();
-    const output = formatter.formatQueryResult({
-      result: {
-        command: 'log',
-        target: 'all',
-        targetType: 'global',
-        atoms: [atom],
-        meta: { totalAtoms: 5, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-      },
-      visibleTrailers: 'all',
-    });
-
+    const output = formatter.formatQueryFooter({ total: 5, filtered: 1, oldest: null, newest: null });
     expect(output).toContain('1 of 5 atoms shown');
   });
 });

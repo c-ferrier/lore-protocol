@@ -8,7 +8,6 @@ import {
     type ErrorMessage,
     type FormattableConfigResult,
     type FormattableDoctorResult, 
-    type FormattableQueryResult, 
     type FormattableStalenessResult, 
     type FormattableTraceResult,
     type FormattableValidationResult,
@@ -51,12 +50,12 @@ export class LoreTextFormatter implements IOutputFormatter {
       return this.base.formatConfigResult(data);
   }
 
-  formatHeader(_target: string, _type: string, _visibleTrailers?: readonly string[] | 'all'): string {
+  formatQueryHeader(_target: string, _type: string, _visibleTrailers?: readonly string[] | 'all'): string {
       // Lore 0.5.0 Parity: No Query header
       return '';
   }
 
-  formatAtom(atom: Atom, visibleTrailers: readonly string[] | 'all' = 'all'): string {
+  formatQueryAtom(atom: Atom, visibleTrailers: readonly string[] | 'all' = 'all'): string {
       // 1. Identity Promotion & Author Stripping for Lore branding
       const trailersRaw = atom.rawTrailers.split('\n');
       let idFromRaw = '';
@@ -178,32 +177,8 @@ export class LoreTextFormatter implements IOutputFormatter {
       return lines.join('\n');
   }
 
-  formatFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
+  formatQueryFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
       return `${meta.filtered} of ${meta.total} atoms shown`;
-  }
-
-  /**
-   * Monolithic wrapper delegates to streaming hooks.
-   */
-  formatQueryResult(data: FormattableQueryResult): string {
-    const { result } = data;
-    const lines: string[] = [];
-
-    if (result.atoms.length === 0) {
-      return this.c.dim('No decision atoms found.');
-    }
-
-    const renderedAtoms = result.atoms.map(atom => this.formatAtom(atom, data.visibleTrailers));
-    lines.push(renderedAtoms.join('\n')); // formatAtom already adds the trailing blank line
-
-    lines.push(this.formatFooter({
-        total: result.meta.totalAtoms,
-        filtered: result.meta.filteredAtoms,
-        oldest: result.meta.oldest,
-        newest: result.meta.newest
-    }));
-
-    return lines.join('\n').trimEnd();
   }
 
   formatStalenessResult(data: FormattableStalenessResult): string {

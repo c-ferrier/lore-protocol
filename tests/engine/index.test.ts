@@ -9,7 +9,6 @@ import { hydrateAtoms } from '../../src/engine/core/logic/hydration.js';
 import { type CommitCommandOptions,parseFlagsToInput } from '../../src/engine/core/logic/input-interpretation.js';
 import { ProtocolMap } from '../../src/engine/core/models/protocol-map.js';
 import { type Atom, type Trailers } from '../../src/engine/core/types/domain.js';
-import { type FormattableQueryResult } from '../../src/engine/core/types/output.js';
 import { type ProtocolContext, type ProtocolDefinition } from '../../src/engine/core/types/protocol-definition.js';
 import { runCli } from '../../src/engine/index-impl.js';
 import * as rootResolver from '../../src/engine/shell/fs/root-resolver.js';
@@ -169,21 +168,11 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
         ['mock', makeStubProtocolState({ trailers })]
       ]),
     };
-    const data: FormattableQueryResult = {
-      result: {
-        command: 'context',
-        target: 't',
-        targetType: 'path',
-        atoms: [atom],
-        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-      },
-      visibleTrailers: 'all',
-    };
     // 4. Verify Formatter serializes it correctly
     const formatter = new JsonFormatter(protocols);
-    const output = JSON.parse(formatter.formatQueryResult(data));
+    const output = JSON.parse(formatter.formatQueryAtom(atom));
     // Key should be CANONICAL in JSON inside the protocol's trailers object
-    expect(output.results[0].protocols.mock.trailers['Ticket-ID']).toEqual(['PROJ-123', 'PROJ-456']);
+    expect(output.data.protocols.mock.trailers['Ticket-ID']).toEqual(['PROJ-123', 'PROJ-456']);
   });
 
   it('should handle a hybrid flow of core and custom trailers simultaneously', async () => {
@@ -262,20 +251,11 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     expect(fredState.trailers['Fred-id']).toEqual(['aabbccdd']);
     // 5. Format to JSON using the Engine's generic formatter
     const formatter = new JsonFormatter(protocols);
-    const json = JSON.parse(formatter.formatQueryResult({
-      result: {
-        atoms,
-        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: null, newest: null },
-        command: 'search',
-        target: 'all',
-        targetType: 'global'
-      },
-      visibleTrailers: 'all',
-    }));
-    // 6. Verify Agnostic Structure (Data is in .protocols.fred)
-    expect(json.results[0].commit).toBe('abc12345');
-    expect(json.results[0].protocols.fred.id).toBe('aabbccdd');
-    expect(json.results[0].protocols.fred.trailers.Status).toBe('active');
+    const json = JSON.parse(formatter.formatQueryAtom(atom));
+    // 6. Verify Agnostic Structure (Data is in .data.protocols.fred)
+    expect(json.data.commit).toBe('abc12345');
+    expect(json.data.protocols.fred.id).toBe('aabbccdd');
+    expect(json.data.protocols.fred.trailers.Status).toBe('active');
     // 7. Validation Integration (Ensures Validator respects custom definition)
     const results = await validateCommits(hydrateAtoms([rawFredCommit], protocols, { includeAllCommits: true }), { 
       ...infra,

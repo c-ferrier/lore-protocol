@@ -75,13 +75,13 @@ export async function executePathQuery(
   });
 
   const formatter = getFormatter();
-  
+
   // 1. Output Header
-  const header = formatter.formatHeader(target.raw ? target.raw.toString() : 'all', target.type, visibleTrailers);
+  const header = formatter.formatQueryHeader(target.raw ? target.raw.toString() : 'all', target.type, visibleTrailers);
   if (header) logger.result(header);
 
   const stream = findAtomsStream(infra, target, queryOptions);
-  
+
   let totalCount = 0;
   let filteredCount = 0;
   let oldest: Date | null = null;
@@ -98,28 +98,29 @@ export async function executePathQuery(
           }
           if (isSuperseded) continue;
       }
-      
+
       // 2. Result Limit check (after logical filtering)
       if (queryOptions.limit && filteredCount >= queryOptions.limit) continue;
 
       filteredCount++;
-      
+
       // 3. Stats tracking
       if (!oldest || atom.date < oldest) oldest = atom.date;
       if (!newest || atom.date > newest) newest = atom.date;
 
       // 4. Output Atom Progressive
-      const atomOutput = formatter.formatAtom(atom, visibleTrailers);
+      const atomOutput = formatter.formatQueryAtom(atom, visibleTrailers);
       if (atomOutput) logger.result(atomOutput);
   }
 
   // 3. Output Footer
-  const footer = formatter.formatFooter({ 
-      total: totalCount, 
+  const footer = formatter.formatQueryFooter({
+      total: totalCount,
       filtered: filteredCount,
       oldest,
       newest
   });
+
   if (footer) logger.result(footer);
 }
 

@@ -4,7 +4,6 @@ import type { Atom, ProtocolState } from '../../core/types/domain.js';
 import type {
   FormattableConfigResult,
   FormattableDoctorResult,
-  FormattableQueryResult,
   FormattableStalenessResult,
   FormattableTraceResult,
   FormattableValidationResult,
@@ -27,41 +26,6 @@ export class JsonFormatter implements IOutputFormatter {
    */
   protected getSubjectKey(): string {
     return 'subject';
-  }
-
-  formatQueryResult(data: FormattableQueryResult): string {
-    const { result, visibleTrailers } = data;
-    const subjectKey = this.getSubjectKey();
-
-    const results = result.atoms.map((atom) => {
-      return {
-        commit: atom.commitHash,
-        date: atom.date.toISOString(),
-        author: atom.author,
-        [subjectKey]: atom.subject,
-        body: atom.body,
-        protocols: this.serializeProtocols(atom, visibleTrailers),
-        files_changed: [...atom.filesChanged],
-      };
-    });
-
-    return JSON.stringify(
-      {
-        version: '1.0',
-        command: result.command,
-        target: result.target,
-        target_type: result.targetType,
-        meta: {
-          total_atoms: result.meta.totalAtoms,
-          filtered_atoms: result.meta.filteredAtoms,
-          oldest: result.meta.oldest?.toISOString() ?? null,
-          newest: result.meta.newest?.toISOString() ?? null,
-        },
-        results,
-      },
-      null,
-      2,
-    );
   }
 
   formatValidationResult(data: FormattableValidationResult): string {
@@ -206,11 +170,11 @@ export class JsonFormatter implements IOutputFormatter {
     return JSON.stringify(data, null, 2);
   }
 
-  formatHeader(target: string, type: string, _visibleTrailers?: readonly string[] | 'all'): string {
+  formatQueryHeader(target: string, type: string, _visibleTrailers?: readonly string[] | 'all'): string {
       return JSON.stringify({ type: 'header', version: '1.0', target, target_type: type });
   }
 
-  formatAtom(atom: Atom, visibleTrailers: readonly string[] | 'all' = 'all'): string {
+  formatQueryAtom(atom: Atom, visibleTrailers: readonly string[] | 'all' = 'all'): string {
     const subjectKey = this.getSubjectKey();
     return JSON.stringify({
         type: 'atom',
@@ -226,7 +190,7 @@ export class JsonFormatter implements IOutputFormatter {
     });
   }
 
-  formatFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
+  formatQueryFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
     return JSON.stringify({
         type: 'footer',
         meta: {

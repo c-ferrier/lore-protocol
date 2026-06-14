@@ -4,7 +4,6 @@ import { JsonFormatter } from '../../../../src/engine/cli/formatters/json-format
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import type { 
     FormattableDoctorResult, 
-    FormattableQueryResult, 
     FormattableStalenessResult, 
     FormattableTraceResult, 
     FormattableValidationResult 
@@ -30,108 +29,59 @@ describe('JsonFormatter', () => {
     formatter = new JsonFormatter(protocols);
   });
 
-  describe('formatQueryResult', () => {
-    it('should use "subject" key by default and include protocols map', () => {
-      const atom = makeAtom({
-          commitHash: 'abc1234567890',
-          date: new Date('2025-01-15T10:00:00Z'),
-          id: 'a1b2c3d4'
-      });
-      const data: FormattableQueryResult = {
-        result: {
-          command: 'log',
-          target: 'all',
-          targetType: 'global',
-          atoms: [atom],
-          meta: { totalAtoms: 5, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-        },
-        visibleTrailers: 'all',
-      };
-      const output = formatter.formatQueryResult(data);
-      const parsed = JSON.parse(output);
-      expect(parsed.version).toBe('1.0');
-      expect(parsed.meta.total_atoms).toBe(5);
-      expect(parsed.meta.filtered_atoms).toBe(1);
-      expect(parsed.results[0].protocols.mock.id).toBe('a1b2c3d4');
-      expect(parsed.results[0].protocols.mock.version).toBe('1.0');
-      expect(parsed.results[0].commit).toBe('abc1234567890');
+  describe('formatQueryHeader', () => {
+    it('should format a valid NDJSON header', () => {
+      const output = formatter.formatQueryHeader('all', 'global');
+      const json = JSON.parse(output);
+      expect(json.type).toBe('header');
+      expect(json.target).toBe('all');
+      expect(json.target_type).toBe('global');
+    });
+  });
+
+  describe('formatQueryAtom', () => {
+    it('should format a valid NDJSON atom line', () => {
+      const atom = makeAtom({ commitHash: 'abc1234567890', subject: 'feat: json' });
+      const output = formatter.formatQueryAtom(atom);
+      const json = JSON.parse(output);
+      
+      expect(json.type).toBe('atom');
+      expect(json.data.commit).toBe('abc1234567890');
+      expect(json.data.subject).toBe('feat: json');
     });
 
-    it('should include filtered trailers inside protocol object', () => {
-      const atom = makeAtom({
-        trailers: {
-          Constraint: ['Must use OAuth2'],
-          Confidence: ['high'],
-        },
-      });
-      const data: FormattableQueryResult = {
-        result: {
-          command: 'log', target: 'all', targetType: 'global',
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-        },
-        visibleTrailers: ['Constraint'],
-      };
-      const output = formatter.formatQueryResult(data);
-      const parsed = JSON.parse(output);
-      expect(parsed.results[0].protocols.mock.trailers.Constraint).toEqual(['Must use OAuth2']);
-      expect(parsed.results[0].protocols.mock.trailers.Confidence).toBeUndefined();
+    it('should serialize protocol data with identity', () => {
+        const atom = makeAtom({ 
+            protocols: makeStubProtocolMap([
+                ['mock', makeStubProtocolState({ trailers: { 'Mock-id': ['m1'] } })]
+            ]) 
+        });
+        const output = formatter.formatQueryAtom(atom);
+        const json = JSON.parse(output);
+        expect(json.data.protocols.mock.id).toBe('m1');
     });
 
-    it('should use canonical trailer keys inside protocol object (symmetry)', () => {
-      const protocol = makeStubProtocolContext({
-          ...TEST_PROTOCOL_DEFINITION,
-          trailers: {
-              ...TEST_PROTOCOL_DEFINITION.trailers,
-              'Confidence': { description: 'c', multivalue: false, validation: 'none' as const }
-          }
-      });
-      const protocols = makeStubProtocolMap([protocol]);
-      const dataFormatter = new JsonFormatter(protocols);
-      const atom = makeAtom({
-        trailers: {
-          [TEST_ID_KEY]: ['abcd1234'],
-          Confidence: ['high'],
-          'Depends-on': ['aabbccdd'],
-        },
-      });
-      const data: FormattableQueryResult = {
-        result: {
-          command: 'log', target: 'all', targetType: 'global',
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-        },
-        visibleTrailers: 'all',
-      };
-      const output = dataFormatter.formatQueryResult(data);
-      const parsed = JSON.parse(output);
-      const mock = parsed.results[0].protocols.mock;
-      expect(mock.trailers.Confidence).toBe('high');
-      expect(mock.trailers['Depends-on']).toEqual(['aabbccdd']);
-    });
+    it('should use subject key branding', () => {
+        const atom = makeAtom({ subject: 'branded subject' });
+        const brandedFormatter = new (class extends JsonFormatter {
+            protected override getSubjectKey(): string {
+                return 'branded_subject';
+            }
+        })(protocols);
 
-    it('should include protocol-specific supersession data', () => {
-      const atom = makeAtom({
-        protocols: makeStubProtocolMap([
-          ['mock', makeStubProtocolState({ 
-            trailers: { [TEST_ID_KEY]: ['a1b2c3d4'] },
-            supersession: { superseded: true, supersededBy: ['e5f6a7b8'] }
-          })]
-        ])
-      });
-      const data: FormattableQueryResult = {
-        result: {
-          command: 'log', target: 'all', targetType: 'global',
-          atoms: [atom],
-          meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-        },
-        visibleTrailers: 'all',
-      };
-      const output = formatter.formatQueryResult(data);
-      const parsed = JSON.parse(output);
-      const mock = parsed.results[0].protocols.mock;
-      expect(mock.superseded).toBe(true);
-      expect(mock.superseded_by).toEqual(['e5f6a7b8']);
+        const output = brandedFormatter.formatQueryAtom(atom);
+        const json = JSON.parse(output);
+        expect(json.data.branded_subject).toBe('branded subject');
+    });
+  });
+
+  describe('formatQueryFooter', () => {
+    it('should format a valid NDJSON footer', () => {
+        const output = formatter.formatQueryFooter({ total: 10, filtered: 5, oldest: null, newest: null });
+        const json = JSON.parse(output);
+        expect(json.type).toBe('footer');
+        expect(json.meta.total_atoms).toBe(10);
+        expect(json.meta.filtered_atoms).toBe(5);
     });
   });
 
@@ -226,12 +176,8 @@ describe('JsonFormatter', () => {
           ['mock', makeStubProtocolState({ trailers })]
         ])
       });
-      const data: FormattableQueryResult = {
-        result: { atoms: [atom], meta: { totalAtoms: 1, filteredAtoms: 1, oldest: null, newest: null }, command: 'log', target: 't', targetType: 'path' },
-        visibleTrailers: 'all',
-      };
-      const output = JSON.parse(formatter.formatQueryResult(data));
-      const mock = output.results[0].protocols.mock;
+      const output = JSON.parse(formatter.formatQueryAtom(atom));
+      const mock = output.data.protocols.mock;
       expect(mock.trailers.Confidence).toBe('high');        // Canonical Key + Coerced to scalar
       expect(mock.trailers.Constraint).toEqual(['C1', 'C2']); // Canonical Key + Remained array
       expect(mock.trailers.Custom).toEqual(['V1']);           // Remained array

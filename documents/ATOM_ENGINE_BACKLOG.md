@@ -31,12 +31,13 @@
 
 ### MILESTONE 0.0.1: Alpha Readiness (Operational Stability)
 **Action**: Implement the final stability pillars for the initial internal alpha.
-*   **High-Fidelity Test Mocks (Zero-Cast)**: Refactor `makeMockInfra` to return `MockedEngineInfra`. Eliminate `vi.mocked()` and `as any` casts to reach "Senior Grade" DX and prevent ghost bugs.
+*   **High-Fidelity Test Mocks (Zero-Cast)**: Refactor `makeMockInfra` to return `MockedEngineInfra`. Eliminate the 100+ instances of `vi.mocked()` and redundant `as any` casts to reach a "Senior Grade" DX and prevent ghost bugs.
 *   **Lore-JSON Scaling (Memory Safety)**: Refactor the `LoreJsonFormatter` compatibility shim to use a streaming model to prevent memory exhaustion on enterprise repos.
 *   **Cross-Platform Physical Audit**: Audit path normalization and Git CLI builders for Windows backslash and shell compatibility.
 
 ### MILESTONE 0.0.X: Stability & Refinement (The "Professional" Utility)
 **Action**: Polish the operational experience and add core UX features.
+*   **Decomposed Formatter Types**: Replace the monolithic `FormattableQueryResult` with discrete `FormattableQueryHeader`, `FormattableQueryAtom`, and `FormattableQueryFooter` types. This aligns the data structures with the atomic streaming hooks and eliminates unnecessary data passing.
 *   **Identity Auto-Detection**: Implement a fallback mechanism to pull `user.name` and `user.email` from the local `.gitconfig` when creating atoms.
 *   **Surveyor Health Indicators**: Update CLI formatters to display a `⚠` warning next to trailers that have `invalidReferences` (malformed or unregistered IDs).
 *   **High-Fidelity Narrative Squashing**: Implement a `--full` flag for `squash` to concatenate full atom bodies into a rich "evidence payload" for AI PR descriptions.

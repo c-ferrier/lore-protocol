@@ -4,7 +4,6 @@ import {
     type ErrorMessage,
     type FormattableConfigResult,
     type FormattableDoctorResult, 
-    type FormattableQueryResult, 
     type FormattableStalenessResult, 
     type FormattableTraceResult, 
     type FormattableValidationResult, 
@@ -30,30 +29,10 @@ export class LoreJsonFormatter implements IOutputFormatter {
   constructor(private readonly protocols: ProtocolMap<ProtocolContext>) {}
 
   /**
-   * Monolithic entry point (Legacy/Direct calls)
-   */
-  formatQueryResult(data: FormattableQueryResult): string {
-      const { result, visibleTrailers } = data;
-      return this.reconstructMonolithic(
-          result.atoms,
-          result.command,
-          result.target,
-          result.targetType,
-          {
-              total: result.meta.totalAtoms,
-              filtered: result.meta.filteredAtoms,
-              oldest: result.meta.oldest,
-              newest: result.meta.newest
-          },
-          visibleTrailers
-      );
-  }
-
-  /**
    * Streaming Hook: Header
    * Buffers metadata, returns nothing.
    */
-  formatHeader(target: string, type: string, visibleTrailers?: readonly string[] | 'all'): string {
+  formatQueryHeader(target: string, type: string, visibleTrailers?: readonly string[] | 'all'): string {
       this.bufferedAtoms = [];
       this.currentHeader = { target, type, visibleTrailers: visibleTrailers || 'all' };
       return '';
@@ -63,7 +42,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
    * Streaming Hook: Atom
    * Buffers the atom, returns nothing.
    */
-  formatAtom(atom: Atom): string {
+  formatQueryAtom(atom: Atom): string {
       this.bufferedAtoms.push(atom);
       return '';
   }
@@ -72,7 +51,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
    * Streaming Hook: Footer
    * Performs the final reconstruction and flushes the monolithic JSON.
    */
-  formatFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
+  formatQueryFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
       const output = this.reconstructMonolithic(
           this.bufferedAtoms,
           'log', // Defaults to log for streaming commands

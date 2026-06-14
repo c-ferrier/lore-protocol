@@ -15,16 +15,7 @@ describe('LoreTextFormatter — Author Display Parity', () => {
       date: new Date('2026-05-25T12:00:00Z'),
     });
 
-    const output = formatter.formatQueryResult({
-      result: {
-        command: 'log',
-        target: 'all',
-        targetType: 'global',
-        atoms: [atom],
-        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-      },
-      visibleTrailers: 'all',
-    });
+    const output = formatter.formatQueryAtom(atom);
 
     expect(output).toContain('cole.ferrier@gmail.com');
     expect(output).not.toContain('Cole Ferrier');
@@ -39,16 +30,7 @@ describe('LoreTextFormatter — Author Display Parity', () => {
       date: new Date('2026-05-25T12:00:00Z'),
     });
 
-    const output = formatter.formatQueryResult({
-      result: {
-        command: 'log',
-        target: 'all',
-        targetType: 'global',
-        atoms: [atom],
-        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-      },
-      visibleTrailers: 'all',
-    });
+    const output = formatter.formatQueryAtom(atom);
 
     expect(output).toContain('cole.ferrier@gmail.com');
   });
@@ -62,16 +44,7 @@ describe('LoreTextFormatter — Author Display Parity', () => {
       date: new Date('2026-05-25T12:00:00Z'),
     });
 
-    const output = formatter.formatQueryResult({
-      result: {
-        command: 'log',
-        target: 'all',
-        targetType: 'global',
-        atoms: [atom],
-        meta: { totalAtoms: 1, filteredAtoms: 1, oldest: atom.date, newest: atom.date },
-      },
-      visibleTrailers: 'all',
-    });
+    const output = formatter.formatQueryAtom(atom);
 
     expect(output).toContain('Unknown Author');
   });
