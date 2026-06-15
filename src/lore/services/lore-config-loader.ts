@@ -20,7 +20,7 @@ export class LoreConfigLoader {
       if (!(await this.exists())) return null;
 
       const content = await readFile(this.configPath, 'utf-8');
-      return parseToml(content) as LoreConfig;
+      return parseToml(content);
     } catch {
       return null;
     }

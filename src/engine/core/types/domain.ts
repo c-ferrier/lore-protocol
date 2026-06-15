@@ -1,3 +1,4 @@
+import { STALE_SIGNALS } from '../../util/constants.js';
 import { ProtocolMap, type ProtocolName } from '../models/protocol-map.js';
 
 export { ProtocolMap };
@@ -70,4 +71,4 @@ export interface StaleReason {
 }
 
 /** The set of signals that indicate an atom may be stale. */
-export type StaleSignal = 'age' | 'drift' | 'orphaned-dep' | string;
+export type StaleSignal = (typeof STALE_SIGNALS)[keyof typeof STALE_SIGNALS] | (string & {});

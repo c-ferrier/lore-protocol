@@ -106,7 +106,7 @@ export class EngineConfigLoader implements IConfigLoader<EngineConfig> {
 
   private async parseConfigFile(configPath: string): Promise<Record<string, unknown>> {
     const content = await readFile(configPath, 'utf-8');
-    return parseToml(content) as Record<string, unknown>;
+    return parseToml(content);
   }
 
   private buildConfig(parsed: Record<string, unknown>): EngineConfig {

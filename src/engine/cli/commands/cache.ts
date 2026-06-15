@@ -2,24 +2,30 @@ import type { Command } from 'commander';
 
 import type { EngineInfra } from '../../services/engine-bootstrapper.js';
 
+interface CacheCommandOptions {
+    readonly clean?: boolean;
+    readonly prune?: boolean;
+}
+
 /**
  * Register the ` cache` command.
  * Provides management utilities for the local sharded cache.
  */
 export function registerCacheCommand(
   program: Command,
-  infra: EngineInfra,
+  infra: EngineInfra
 ): void {
   program
     .command('cache')
     .description('Manage the local caches')
     .option('--clean', 'Clear the identity index and query caches')
     .option('--prune', 'Remove query cache entries not matching the current HEAD')
-    .action(async (options) => {
+    .action(async (options: CacheCommandOptions) => {
       const { getFormatter, logger, cache, identityIndex, git } = infra;
       const formatter = getFormatter();
 
       if (options.clean) {
+
         try {
           await cache.clear();
           await identityIndex.clear();

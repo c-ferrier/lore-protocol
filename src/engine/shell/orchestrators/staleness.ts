@@ -57,10 +57,10 @@ export async function analyzeStaleness(
       }
 
       if (reasons.length > 0) {
-        return { atom, reasons } as StaleAtomReport;
+        return { atom, reasons };
       }
       return null;
     });
 
-    return results.filter((r): r is StaleAtomReport => r !== null);
+    return results.filter((r): r is { atom: Atom; reasons: StaleReason[] } => r !== null);
   }

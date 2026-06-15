@@ -57,7 +57,7 @@ export class InteractiveInputReader implements ICommitInputReader {
     for (const collector of this.collectors) {
       const result = await collector.collect(this.prompt);
       if (result.value !== undefined) {
-        const values = Array.isArray(result.value) ? result.value : [result.value as string];
+        const values = Array.isArray(result.value) ? result.value : [result.value];
         if (values.length > 0) {
           const protocolName = result.protocolName;
           const pMap = trailersMap.get(protocolName) ?? {};
@@ -67,6 +67,6 @@ export class InteractiveInputReader implements ICommitInputReader {
       }
     }
 
-    return trailersMap as CommitInput['trailers'];
+    return trailersMap;
   }
 }

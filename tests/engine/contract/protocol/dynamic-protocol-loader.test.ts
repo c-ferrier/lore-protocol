@@ -71,14 +71,14 @@ directives = ["follow"]
     const proto = await loader.loadFromFile(protoPath);
     expect(proto).toBeDefined();
     
-    const conf = proto!.trailers.Confidence;
+    const conf = proto.trailers.Confidence;
     expect(conf.multivalue).toBe(false);
     expect(conf.validation).toBe('values');
     expect(Object.keys(conf.values!)).toEqual(['low', 'high']);
     expect(conf.ui?.kind).toBe('risk');
     expect(conf.ui?.color).toBe('yellow');
 
-    const ref = proto!.trailers.Ref;
+    const ref = proto.trailers.Ref;
     expect(ref.validation).toBe('pattern');
     expect(ref.pattern).toBe('^[0-9a-f]{8}$');
     expect(ref.directives).toEqual(['follow']);

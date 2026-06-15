@@ -36,7 +36,7 @@ export function createQueryTarget(
 
   // 2. Partition inputs into Scopes and Anchors
   for (const item of items) {
-      if (!item) continue;
+      if (typeof item !== 'string' || !item) continue;
 
       // 2a. Line Range (file:line-line)
       const lrMatch = /^(.*):(\d+)(?:-(\d+))?$/.exec(item);
@@ -46,8 +46,13 @@ export function createQueryTarget(
           }
 
           const filePath = lrMatch[1];
-          const start = parseInt(lrMatch[2], 10);
-          const end = lrMatch[3] ? parseInt(lrMatch[3], 10) : start;
+          const startStr = lrMatch[2];
+          const endStr = lrMatch[3];
+          
+          if (!filePath || !startStr) continue;
+
+          const start = parseInt(startStr, 10);
+          const end = endStr ? parseInt(endStr, 10) : start;
           const resolved = normalizePathToRoot(filePath, context.cwd, context.protocolRoot);
           
           lineRange = { file: resolved, start, end };

@@ -13,7 +13,7 @@ describe('Lore Compatibility Command Registration', () => {
 
   beforeEach(() => {
     program = new Command();
-    deps = makeMockLoreInfra() as unknown as PathQueryDeps;
+    deps = makeMockLoreInfra();
     
     // Spy on the shared helper
     vi.spyOn(engineExports, 'executePathQuery').mockResolvedValue(undefined);

@@ -157,7 +157,7 @@ export class TextFormatter implements IOutputFormatter {
         const prefix = `[${pName}] `;
         
         // Authorized
-        for (const [key, values] of Object.entries(state.trailers) as [string, readonly string[]][]) {
+        for (const [key, values] of Object.entries(state.trailers)) {
             if (visibleTrailers !== 'all' && !visibleTrailers.includes(key)) continue;
             for (const v of values) {
                 trailerLines.push(`  ${prefix}${this.c.bold(`${key}:`)} ${v}`);
@@ -166,7 +166,7 @@ export class TextFormatter implements IOutputFormatter {
         }
         
         // Unauthorized/Rejected
-        for (const [key, values] of Object.entries(state.unauthorized) as [string, readonly string[]][]) {
+        for (const [key, values] of Object.entries(state.unauthorized)) {
             if (visibleTrailers !== 'all' && !visibleTrailers.includes(key)) continue;
             for (const v of values) {
                 trailerLines.push(`  ${prefix}${this.c.yellow('⚠')} ${this.c.bold(`${key}:`)} ${v}`);

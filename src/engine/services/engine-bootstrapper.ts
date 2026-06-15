@@ -174,7 +174,8 @@ export class EngineBootstrapper {
     // 6. Formatter factory
     const getFormatter = (options?: { visibleTrailers?: readonly string[] | 'all' }): IOutputFormatter => {
       const opts = program.opts();
-      const isJson = opts.json || opts.format === 'json';
+      const isJson = Boolean(opts.json) || opts.format === 'json';
+      const useColor = typeof opts.color === 'boolean' ? opts.color : false;
 
       if (isJson) {
         return this.options.jsonFormatterFactory
@@ -182,8 +183,8 @@ export class EngineBootstrapper {
           : new JsonFormatter(protocolMap);
       } else {
         return this.options.textFormatterFactory
-          ? this.options.textFormatterFactory(protocolMap, { color: opts.color, ...options })
-          : new TextFormatter(protocolMap, { color: opts.color });
+          ? this.options.textFormatterFactory(protocolMap, { color: useColor, ...options })
+          : new TextFormatter(protocolMap, { color: useColor });
       }
     };
 // 7. Consolidate into Infrastructure Bag

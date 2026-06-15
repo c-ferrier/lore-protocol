@@ -55,7 +55,7 @@ export function getProtocolStaleSignals(
     for (const [key, tDef] of Object.entries(ctx.def.trailers)) {
       if (!tDef?.stale_if) continue;
 
-      const conditions = Array.isArray(tDef.stale_if) ? tDef.stale_if : [tDef.stale_if];
+      const conditions = (Array.isArray(tDef.stale_if) ? tDef.stale_if : [tDef.stale_if]) as StaleIfCondition[];
       
       // Search with case-insensitivity against state.trailers
       const actualKey = Object.keys(state.trailers).find(k => k.toLowerCase() === key.toLowerCase()) || key;

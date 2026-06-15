@@ -121,9 +121,9 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
             ...result,
             protocols: {
                 ...result.protocols,
-                lore: loreOverrides as Partial<ProtocolDefinition>
+                lore: loreOverrides
             }
-        } as EngineConfig;
+        };
     },
     ...overrides
   };
@@ -197,7 +197,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
           for (const [key, tDef] of Object.entries(loreProtocol.def.trailers)) {
               if (key === loreProtocol.def.identityKey) continue;
 
-              const def = tDef as TrailerDefinition;
+              const def = tDef;
               const flagName = def.cli?.flag || key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
               cmd.option(`--${flagName} <value...>`, `[lore] ${def.description}`);
           }
@@ -250,11 +250,11 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
               const opts = thisCommand.opts();
               if (opts.intent) thisCommand.setOptionValue('subject', opts.intent);
 
-              const trailerArray: string[] = opts.trailer || [];
+              const trailerArray: string[] = (opts.trailer as string[]) || [];
               if (loreProtocol) {
                   for (const [key, tDef] of Object.entries(loreProtocol.def.trailers)) {
                       if (key === loreProtocol.def.identityKey) continue;
-                      const def = tDef as TrailerDefinition;
+                      const def = tDef;
                       const flagName = def.cli?.flag || key.toLowerCase().replace(/[^a-z0-9]+/g, '-');
                       const camelFlag = camelCase(flagName);
                       if (opts[camelFlag]) {
@@ -344,10 +344,10 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
 
           cmd.hook('preAction', (thisCommand) => {
               const opts = thisCommand.opts();
-              const filterArray: string[] = opts.filter || [];
-              if (opts.confidence) filterArray.push(`Confidence=${opts.confidence}`);
-              if (opts.scopeRisk) filterArray.push(`Scope-risk=${opts.scopeRisk}`);
-              if (opts.reversibility) filterArray.push(`Reversibility=${opts.reversibility}`);
+              const filterArray: string[] = (opts.filter as string[]) || [];
+              if (opts.confidence) filterArray.push(`Confidence=${opts.confidence as string}`);
+              if (opts.scopeRisk) filterArray.push(`Scope-risk=${opts.scopeRisk as string}`);
+              if (opts.reversibility) filterArray.push(`Reversibility=${opts.reversibility as string}`);
               if (filterArray.length > 0) thisCommand.setOptionValue('filter', filterArray);
           });
       }
@@ -359,7 +359,7 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
           
           cmd.hook('preAction', (thisCommand) => {
               const opts = thisCommand.opts();
-              const signals: string[] = opts.signals || [];
+              const signals: string[] = (opts.signals as string[]) || [];
               if (opts.lowConfidence) signals.push('low-confidence');
               thisCommand.setOptionValue('signals', signals);
           });

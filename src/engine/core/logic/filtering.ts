@@ -79,7 +79,7 @@ function parseFilterKey(raw: string): { protocol: string | null, key: string, op
     const opStr = parts[1].toLowerCase();
     
     if (opStr === 'eq' || opStr === 'has') {
-      op = opStr as FilterOperator;
+      op = opStr;
     }
   }
 

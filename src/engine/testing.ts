@@ -153,7 +153,7 @@ export function makeStubProtocolContext(
         trailers
     };
 
-    const finalized = ProtocolLoader.applyOverrides([baseDef as ProtocolDefinition], { 
+    const finalized = ProtocolLoader.applyOverrides([baseDef], { 
         [name.toLowerCase()]: configOverrides
     })[0];
     
@@ -178,7 +178,8 @@ export function makeStubProtocolMap(items: unknown[] = []): ProtocolMap<unknown>
   for (const item of items) {
     if (Array.isArray(item)) {
         // [string, T] format (ProtocolState)
-        map.set(item[0].toLowerCase(), item[1]);
+        const key = String(item[0]).toLowerCase();
+        map.set(key, item[1]);
     } else if (item && typeof item === 'object') {
         // T format (ProtocolContext)
         const p = item as { name?: string; def?: { name: string } };
@@ -233,7 +234,7 @@ export function makeQueryTarget(val: string | string[] | Partial<QueryTargetAST>
         raw: 'all',
         resolvedPaths: [],
         ...val
-    } as QueryTargetAST;
+    };
 }
 
 /** Stub Git Client for I/O tests. Framework-agnostic. */
@@ -253,7 +254,7 @@ export function makeStubGitClient(overrides: Partial<IGitClient> = {}): IGitClie
     getHeadMessage: async () => 'feat: head',
     getFilesChanged: async () => new Map(),
     ...overrides,
-  } as IGitClient;
+  };
 }
 
 /** Stub Formatter for CLI tests. */
@@ -280,7 +281,7 @@ export function makeStubConfigLoader(overrides: Partial<IConfigLoader> = {}): IC
         loadFromFile: async () => TEST_ENGINE_CONFIG,
         findConfigPath: async () => null,
         ...overrides
-    } as IConfigLoader;
+    };
 }
 
 /** Stub Query Cache. */
@@ -291,7 +292,7 @@ export function makeStubQueryCache(overrides: Partial<IQueryCache> = {}): IQuery
         prune: async () => {},
         clear: async () => {},
         ...overrides
-    } as IQueryCache;
+    };
 }
 
 /** Stub Identity Index. */
@@ -350,7 +351,7 @@ export function makeStubInfra(overrides: Partial<EngineInfra> = {}): EngineInfra
         cwd: '/mock-repo',
         baseTarget: makeQueryTarget(),
         ...overrides
-    } as EngineInfra;
+    };
 }
 
 /** Atom Factory for high-level logic tests. */
@@ -368,7 +369,7 @@ export function makeAtom(overrides: Partial<Atom> & { id?: string; trailers?: Re
                 unauthorized: {},
                 invalidReferences: {},
                 ...(state as object)
-            } as ProtocolState);
+            });
         }
     } else {
         const id = overrides.id || 'a1b2c3d4';

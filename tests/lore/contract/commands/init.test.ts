@@ -41,7 +41,8 @@ describe('registerInitCommand', () => {
 
     vi.mocked(fs.access).mockRejectedValue(new Error('ENOENT'));
     vi.mocked(fs.readFile).mockImplementation(async (path) => {
-        if (path.toString().endsWith('.gitignore')) throw new Error('ENOENT');
+        const pathStr = typeof path === 'string' ? path : (path as Buffer).toString('utf-8');
+        if (pathStr.endsWith('.gitignore')) throw new Error('ENOENT');
         return '';
     });
 
@@ -66,7 +67,7 @@ describe('registerInitCommand', () => {
     );
     
     // 4. Gitignore
-    const gitignoreCalls = vi.mocked(fs.writeFile).mock.calls.filter(c => c[0].toString().endsWith('.gitignore'));
+    const gitignoreCalls = vi.mocked(fs.writeFile).mock.calls.filter(c => (typeof c[0] === 'string' ? c[0] : (c[0] as Buffer).toString('utf-8')).endsWith('.gitignore'));
     expect(gitignoreCalls[gitignoreCalls.length - 1][1]).toContain('.atom/cache');
   });
 
@@ -92,7 +93,8 @@ update_check = true
 `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
     vi.mocked(fs.readFile).mockImplementation(async (path) => {
-      if (path.toString().endsWith('.gitignore')) return '.atom/cache\n';
+        const pathStr = typeof path === 'string' ? path : (path as Buffer).toString('utf-8');
+        if (pathStr.endsWith('.gitignore')) return '.atom/cache\n';
       return fullConfig;
     });
 
@@ -109,7 +111,8 @@ update_check = true
     const minimalConfig = `[protocol]\nversion = "1.0"\n`;
     vi.mocked(fs.access).mockResolvedValue(undefined);
     vi.mocked(fs.readFile).mockImplementation(async (path) => {
-      if (path.toString().endsWith('.gitignore')) return '.atom/cache\n';
+        const pathStr = typeof path === 'string' ? path : (path as Buffer).toString('utf-8');
+        if (pathStr.endsWith('.gitignore')) return '.atom/cache\n';
       return minimalConfig;
     });
 
@@ -134,7 +137,8 @@ strict = false
 `;
     vi.mocked(fs.access).mockResolvedValue(undefined);
     vi.mocked(fs.readFile).mockImplementation(async (path) => {
-      if (path.toString().endsWith('.gitignore')) return '.atom/cache\n';
+        const pathStr = typeof path === 'string' ? path : (path as Buffer).toString('utf-8');
+        if (pathStr.endsWith('.gitignore')) return '.atom/cache\n';
       return partialConfig;
     });
 

@@ -108,7 +108,7 @@ export class GitClient implements IGitClient {
 
     let buffer = '';
     for await (const chunk of child.stdout) {
-        buffer += chunk.toString();
+        buffer += (chunk as Buffer | string).toString();
         const records = buffer.split(GIT_RECORD_SEP);
         
         // Final element is the partial record for next chunk

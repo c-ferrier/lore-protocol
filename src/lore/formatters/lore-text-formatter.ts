@@ -39,7 +39,7 @@ export class LoreTextFormatter implements IOutputFormatter {
    * Lore 0.5.0 Parity: success messages should be "Commit created: <hash>"
    */
   formatSuccess(message: string, data?: Record<string, unknown>): string {
-    if (data?.hash) {
+    if (data?.hash && typeof data.hash === 'string') {
         return this.c.green(`Commit created: ${data.hash}`);
     }
     return this.c.green(message);
@@ -118,13 +118,13 @@ export class LoreTextFormatter implements IOutputFormatter {
 
               const values = loreState.trailers[key];
               if (!values) continue;
-              for (const v of values as readonly string[]) {
+              for (const v of values) {
                   trailerLines.push(`  ${this.c.bold(`${key}:`)} ${v}`);
                   renderedTrailers = true;
               }
           }
           // Unauthorized (Typos in Lore namespace)
-          for (const [key, values] of Object.entries(loreState.unauthorized) as [string, readonly string[]][]) {
+          for (const [key, values] of Object.entries(loreState.unauthorized)) {
               if (key.toLowerCase() === 'lore-id') continue;
               for (const v of values) {
                   trailerLines.push(`  ${this.c.yellow('⚠')} ${this.c.bold(`${key}:`)} ${v}`);
@@ -146,7 +146,7 @@ export class LoreTextFormatter implements IOutputFormatter {
 
               const values = systemState.trailers[key];
               if (!values) continue;
-              for (const v of values as readonly string[]) {
+              for (const v of values) {
                   trailerLines.push(`  ${this.c.bold(`${key}:`)} ${v}`);
                   renderedTrailers = true;
               }

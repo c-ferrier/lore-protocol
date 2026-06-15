@@ -21,7 +21,7 @@ export function generateId(ctx: ProtocolContext): AtomId {
     case 'none':
       throw new ConfigurationError(`Protocol "${def.name}" does not support automatic identity generation (generator is 'none').`);
     default:
-      throw new ConfigurationError(`Unknown generator strategy "${strategy}" for protocol "${def.name}".`);
+      throw new ConfigurationError(`Unknown generator strategy "${strategy as string}" for protocol "${def.name}".`);
   }
 }
 

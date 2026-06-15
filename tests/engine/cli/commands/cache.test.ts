@@ -21,7 +21,7 @@ describe('Engine registerCacheCommand', () => {
     infra = makeMockInfra({
       getFormatter: vi.fn(() => formatter),
       logger,
-    }) as MockedEngineInfra;
+    });
   });
 
   it('should clear caches when --clean is used', async () => {

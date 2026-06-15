@@ -53,6 +53,6 @@ export function snakeCase(text: string): string {
 export function camelCase(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[-_ ]+([a-z0-9])/g, (_, char) => char.toUpperCase())
-    .replace(/^([A-Z])/, (char) => char.toLowerCase());
+    .replace(/[-_ ]+([a-z0-9])/g, (_: string, char: string) => char.toUpperCase())
+    .replace(/^([A-Z])/, (char: string) => char.toLowerCase());
 }

@@ -96,7 +96,7 @@ export function parseFlagsToInput(options: CommitCommandOptions, protocols: Prot
     return {
       subject: options.subject ?? '',
       body: options.body,
-      trailers: trailersMap as CommitInput['trailers'],
+      trailers: trailersMap,
     };
 }
 

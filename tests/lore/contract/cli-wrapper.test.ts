@@ -6,7 +6,6 @@ import { afterAll,beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { getRootProtocol, makeStubProtocolContext, type ProtocolContext } from '../../../src/engine/testing.js';
-import type { LoreConfig } from '../../../src/lore/defaults.js';
 import { LoreConfigLoader } from '../../../src/lore/services/lore-config-loader.js';
 import { buildLoreCli } from '../lore-test-utils.js';
 
@@ -75,7 +74,7 @@ describe('Lore CLI Wrapper (Compatibility Layer)', () => {
         })
       };
 
-      vi.spyOn(LoreConfigLoader.prototype, 'load').mockImplementation(localLoader.load as unknown as () => Promise<LoreConfig>);
+      vi.spyOn(LoreConfigLoader.prototype, 'load').mockImplementation(localLoader.load);
 
       const { program } = await buildLoreCli();
       

@@ -143,7 +143,7 @@ export class QueryCache implements IQueryCache {
         // Sort arrays of primitives to ensure order-independence for multiple filter values
         const items = obj.map(normalize);
         if (items.every(item => typeof item === 'string' || typeof item === 'number')) {
-            return (items as (string | number)[]).sort();
+            return (items).sort();
         }
         return items;
       }

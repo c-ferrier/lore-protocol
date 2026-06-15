@@ -62,7 +62,7 @@ export function makeMockGitClient(overrides: Partial<IGitClient> = {}): MockedGi
         queryStream: vi.fn(stub.queryStream),
         filterAliveHashes: vi.fn(stub.filterAliveHashes),
         commit: vi.fn(stub.commit)
-    } as unknown as MockedGitClient;
+    };
 }
 
 export function makeMockProtocolMap(protocols: ProtocolContext[] = []): ProtocolMap<ProtocolContext> {
@@ -77,7 +77,7 @@ export function makeMockQueryCache(overrides: Partial<IQueryCache> = {}): Mocked
         set: vi.fn(stub.set),
         prune: vi.fn(stub.prune),
         clear: vi.fn(stub.clear)
-    } as unknown as MockedQueryCache;
+    };
 }
 
 export function makeMockIdentityIndex(overrides: Partial<IIdentityIndex> = {}): MockedIdentityIndex {
@@ -87,7 +87,7 @@ export function makeMockIdentityIndex(overrides: Partial<IIdentityIndex> = {}): 
         get: vi.fn(stub.get),
         append: vi.fn(stub.append),
         clear: vi.fn(stub.clear)
-    } as unknown as MockedIdentityIndex;
+    };
 }
 
 export function makeMockConfigLoader(overrides: Partial<import('../../src/engine/interfaces/config-loader.js').IConfigLoader<unknown>> = {}): MockedConfigLoader {
@@ -97,7 +97,7 @@ export function makeMockConfigLoader(overrides: Partial<import('../../src/engine
         loadForPath: vi.fn(stub.loadForPath),
         loadFromFile: vi.fn(stub.loadFromFile),
         findConfigPath: vi.fn(async () => null),
-    } as unknown as MockedConfigLoader;
+    };
 }
 
 export function makeMockFormatter(overrides: Partial<IOutputFormatter> = {}): MockedOutputFormatter {
