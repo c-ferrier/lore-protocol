@@ -33,7 +33,7 @@ describe('Discovery Cache Interaction', () => {
   };
 
   it('should utilize hydrateAtoms logic module', async () => {
-    vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [mockCommit]; });
+    git.queryStream.mockImplementation(async function* () { yield* [mockCommit]; });
     const mockAtoms = [makeAtom({ commitHash: mockCommit.hash })];
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue(mockAtoms);
 

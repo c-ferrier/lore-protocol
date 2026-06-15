@@ -1,4 +1,4 @@
-import { beforeEach,describe, expect, it, vi } from 'vitest';
+import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import type { ProtocolContext } from '../../../../src/engine/core/types/protocol-definition.js';
@@ -14,14 +14,14 @@ import {
     TEST_ID_KEY, 
     TEST_PROTOCOL_DEFINITION 
 } from '../../../../src/engine/testing.js';
-import { type MockedGitClient } from '../../../mock-types.js'; 
+import { type MockedEngineInfra, type MockedGitClient } from '../../../mock-types.js'; 
 import { makeMockGitClient, makeMockInfra, makeQueryOptions } from '../../engine-test-utils.js'; 
 
 describe('Discovery Orchestrator', () => {
   let git: MockedGitClient;
   let protocols: ProtocolMap<ProtocolContext>;
 
-  // Richer protocol definition for relationship tests
+  // ... (RICH_DEF remains same)
   const RICH_DEF = {
       ...TEST_PROTOCOL_DEFINITION,
       trailers: {
@@ -38,12 +38,12 @@ describe('Discovery Orchestrator', () => {
     protocols = makeStubProtocolMap([mock]);
   });
 
-  function getInfra(overrides: Partial<DiscoveryInfra> = {}) {
+  function getInfra(overrides: Partial<DiscoveryInfra> = {}): MockedEngineInfra {
     return makeMockInfra({
         git,
         protocols,
         ...overrides
-    }) as DiscoveryInfra;
+    });
   }
 
   describe('findAtoms', () => {
@@ -54,7 +54,7 @@ describe('Discovery Orchestrator', () => {
       const infra = getInfra();
       await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });
       
-      const query = vi.mocked(git.queryStream).mock.calls[0][0];
+      const query = git.queryStream.mock.calls[0][0];
       const discoverySet = query.regexPatterns![0];
       expect(discoverySet.some(p => p.startsWith('^Mock-id: '))).toBe(true);
       expect(discoverySet.some(p => p.startsWith('^fred:'))).toBe(true);
@@ -76,7 +76,7 @@ describe('Discovery Orchestrator', () => {
       const infra = getInfra();
       await findAtoms(infra, makeQueryTarget('src/main.ts'), makeQueryOptions({ since: '2025-01-01', until: '2025-01-31' }));
       
-      const queryOpts = vi.mocked(git.queryStream).mock.calls[0][0];
+      const queryOpts = git.queryStream.mock.calls[0][0];
       expect(queryOpts.sinceDate).toBeInstanceOf(Date);
       expect(queryOpts.untilDate).toBeInstanceOf(Date);
     });
@@ -96,7 +96,7 @@ describe('Discovery Orchestrator', () => {
     it('should pass author filter to GitClient.query', async () => {
       const infra = getInfra();
       await findAtoms(infra, makeQueryTarget('src/main.ts'), makeQueryOptions({ author: 'dev@example.com' }));
-      const queryOpts = vi.mocked(git.queryStream).mock.calls[0][0];
+      const queryOpts = git.queryStream.mock.calls[0][0];
       expect(queryOpts.author).toBe('dev@example.com');
     });
 
@@ -130,7 +130,7 @@ describe('Discovery Orchestrator', () => {
     it('should handle multi-file targets correctly', async () => {
       const infra = getInfra();
       await findAtoms(infra, makeQueryTarget(['src/main.ts', 'src/auth.ts']));
-      const queryOpts = vi.mocked(git.queryStream).mock.calls[0][0];
+      const queryOpts = git.queryStream.mock.calls[0][0];
       expect(queryOpts.paths).toEqual(['src/main.ts', 'src/auth.ts']);
     });
   });

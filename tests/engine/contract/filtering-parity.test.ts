@@ -1,4 +1,4 @@
-import { beforeEach,describe, expect, it, vi } from 'vitest';
+import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import type { ProtocolContext } from '../../../src/engine/core/types/protocol-definition.js';
@@ -35,7 +35,7 @@ describe('Discovery Filtering Parity', () => {
       const infra = getInfra();
       await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });
       
-      const query = vi.mocked(git.queryStream).mock.calls[0][0];
+      const query = git.queryStream.mock.calls[0][0];
 
       // Top level is list of lists
       expect(query.regexPatterns![0].some((p: string) => p.includes(TEST_ID_KEY))).toBe(true);
@@ -49,7 +49,7 @@ describe('Discovery Filtering Parity', () => {
       const infra = getInfra();
       await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, options);
 
-      const query = vi.mocked(git.queryStream).mock.calls[0][0];
+      const query = git.queryStream.mock.calls[0][0];
 
       expect(query.author).toBe('alice');
       // Scope should be its own AND condition
@@ -63,7 +63,7 @@ describe('Discovery Filtering Parity', () => {
       const infra = getInfra();
       await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, options);
       
-      const query = vi.mocked(git.queryStream).mock.calls[0][0];
+      const query = git.queryStream.mock.calls[0][0];
 
       // should contain the discovery pattern for Constraint
       expect(query.regexPatterns!.some((set: readonly string[]) => set.some(p => p.includes('Constraint: ')))).toBe(true);
@@ -78,7 +78,7 @@ describe('Discovery Filtering Parity', () => {
       const infra = getInfra();
       await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, options);
       
-      const query = vi.mocked(git.queryStream).mock.calls[0][0];
+      const query = git.queryStream.mock.calls[0][0];
 
       expect(query.regexPatterns!.some((set: readonly string[]) => set.some(p => p.includes('Confidence: high')))).toBe(true);
     });
@@ -90,7 +90,7 @@ describe('Discovery Filtering Parity', () => {
       const infra = getInfra();
       await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, options);
       
-      const query = vi.mocked(git.queryStream).mock.calls[0][0];
+      const query = git.queryStream.mock.calls[0][0];
 
       expect(query.regexPatterns!.some((set: readonly string[]) => set.includes('bug fix'))).toBe(true);
     });
@@ -102,7 +102,7 @@ describe('Discovery Filtering Parity', () => {
       const infra = getInfra();
       await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, options);
 
-      const query = vi.mocked(git.queryStream).mock.calls[0][0];
+      const query = git.queryStream.mock.calls[0][0];
 
       // Characters should be escaped
       expect(query.regexPatterns!.some((set: readonly string[]) => set.some(p => p.includes('auth\\) \\| grep \\(')))).toBe(true);
@@ -123,7 +123,7 @@ describe('Discovery Filtering Parity', () => {
         filesChanged: []
       };
 
-      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit1, commit2]; });
+      git.queryStream.mockImplementation(async function* () { yield* [commit1, commit2]; });
 
       const infra = getInfra();
       const results = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { author: 'alice' });
@@ -144,7 +144,7 @@ describe('Discovery Filtering Parity', () => {
         filesChanged: []
       };
 
-      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit1, commit2]; });
+      git.queryStream.mockImplementation(async function* () { yield* [commit1, commit2]; });
 
       const infra = getInfra();
       const results = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { author: 'alice', filters: { Confidence: 'high' } });
@@ -165,7 +165,7 @@ describe('Discovery Filtering Parity', () => {
         filesChanged: []
       };
 
-      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit1, commit2]; });
+      git.queryStream.mockImplementation(async function* () { yield* [commit1, commit2]; });
 
       const infra = getInfra();
       const results = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] }, { text: 'target word' });
@@ -188,7 +188,7 @@ describe('Discovery Filtering Parity', () => {
         filesChanged: []
       };
 
-      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit1, commit2]; });
+      git.queryStream.mockImplementation(async function* () { yield* [commit1, commit2]; });
 
       const infra = getInfra();
       // Filter by Alice AND scope auth AND Confidence high

@@ -233,8 +233,8 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
       trailers: 'fred: Fred-id: aabbccdd\nfred: Status: active',
       filesChanged: ['src/fred.ts']
     };
-    vi.mocked(mockGit.queryStream).mockImplementation(async function* () { yield* [rawFredCommit]; });
-    vi.mocked(mockGit.getFilesChanged).mockResolvedValue(new Map([['abc12345', ['src/fred.ts']]]));
+    mockGit.queryStream.mockImplementation(async function* () { yield* [rawFredCommit]; });
+    mockGit.getFilesChanged.mockResolvedValue(new Map([['abc12345', ['src/fred.ts']]]));
     
     // 3. Setup Infra
     const infra = makeMockInfra({

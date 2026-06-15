@@ -30,6 +30,7 @@ import {
     TEST_ENGINE_CONFIG} from '../../src/engine/testing.js';
 import { 
     MockedConfigLoader,
+    MockedEngineInfra,
     MockedGitClient,
     MockedIdentityIndex,
     MockedInputResolver,
@@ -170,22 +171,20 @@ export class TestLogger implements ILogger {
 }
 
 /** Helper to create a fully mocked Infrastructure Bag. */
-export function makeMockInfra(overrides: Partial<EngineInfra> = {}): EngineInfra {
+export function makeMockInfra(overrides: Partial<EngineInfra> = {}): MockedEngineInfra {
     return {
-        git: makeMockGitClient(),
-        cache: makeMockQueryCache(),
-        identityIndex: makeMockIdentityIndex(),
-        protocols: makeMockProtocolMap(),
-        config: TEST_ENGINE_CONFIG,
-        logger: new TestLogger(),
-        prompt: makeMockPrompt(),
-        getFormatter: () => makeMockFormatter(),
-        defaultProtocol: 'system',
-        protocolRoot: '/mock-repo',
-        cwd: '/mock-repo',
-        baseTarget: makeQueryTarget(),
-        ...overrides
-    } as EngineInfra;
+        git: (overrides.git as MockedGitClient) || makeMockGitClient(),
+        cache: (overrides.cache as MockedQueryCache) || makeMockQueryCache(),
+        identityIndex: (overrides.identityIndex as MockedIdentityIndex) || makeMockIdentityIndex(),
+        protocols: overrides.protocols || makeMockProtocolMap(),
+        config: overrides.config || TEST_ENGINE_CONFIG,
+        logger: overrides.logger || new TestLogger(),
+        prompt: (overrides.prompt as MockedPrompt) || makeMockPrompt(),
+        getFormatter: vi.fn(overrides.getFormatter || (() => makeMockFormatter())),
+        protocolRoot: overrides.protocolRoot || '/mock-repo',
+        cwd: overrides.cwd || '/mock-repo',
+        baseTarget: overrides.baseTarget || makeQueryTarget(),
+    };
 }
 
 // Re-exports of foundational test data/types from the SDK

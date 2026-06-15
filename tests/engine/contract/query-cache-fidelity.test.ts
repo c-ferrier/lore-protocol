@@ -56,7 +56,7 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
       filesChanged: ['src/logic.ts'] 
     });
 
-    vi.mocked(git.resolveRef).mockResolvedValue(headHash);
+    git.resolveRef.mockResolvedValue(headHash);
 
     const mockAtomState = makeAtom({ 
         commitHash: 'abc', 
@@ -65,7 +65,7 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
     });
 
     // 1. First run: Perform full Discovery + Fetch
-    vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit]; });
+    git.queryStream.mockImplementation(async function* () { yield* [commit]; });
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
     vi.spyOn(cache, 'get').mockResolvedValue(null);
 
@@ -75,9 +75,9 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
     expect(git.queryStream).toHaveBeenCalledTimes(1);
 
     // 2. Second run: Cache should hit (skipping query)
-    vi.mocked(git.queryStream).mockClear();
+    git.queryStream.mockClear();
     vi.spyOn(cache, 'get').mockResolvedValue(['abc']);
-    vi.mocked(git.getLogStream).mockImplementation(async function* () { yield 'abc\nsrc/logic.ts'; });
+    git.getLogStream.mockImplementation(async function* () { yield 'abc\nsrc/logic.ts'; });
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
 
     const result = await findAtoms(infra, target, { cache: true });
@@ -104,24 +104,24 @@ describe('Discovery Cache Combined Fidelity (Contract)', () => {
         protocols: makeStubProtocolMap([['mock', makeStubProtocolState({ trailers: { 'Mock-id': [id] } })]])
     });
 
-    vi.mocked(git.resolveRef).mockResolvedValue(headHash);
-    vi.mocked(git.getLogStream).mockImplementation(async function* () { yield 'hash123'; });
+    git.resolveRef.mockResolvedValue(headHash);
+    git.getLogStream.mockImplementation(async function* () { yield 'hash123'; });
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
 
     const infra = getInfra();
 
     // 1. Initial run: Fill cache
     vi.spyOn(infra.identityIndex, 'get').mockResolvedValue([]);
-    vi.mocked(infra.git.filterAliveHashes).mockResolvedValue([]);
+    infra.git.filterAliveHashes.mockResolvedValue([]);
     const target = createTargetFromIdentities([{ protocol: 'mock', id }]);
 
     await findAtoms(infra, target, { cache: true });
     expect(git.queryStream).toHaveBeenCalledTimes(1);
 
     // 2. Second run: Cache hit
-    vi.mocked(git.queryStream).mockClear();
+    git.queryStream.mockClear();
     vi.spyOn(infra.identityIndex, 'get').mockResolvedValue(['hash123']);
-    vi.mocked(infra.git.filterAliveHashes).mockResolvedValue(['hash123']);
+    infra.git.filterAliveHashes.mockResolvedValue(['hash123']);
     vi.spyOn(HydrationLogic, 'hydrateAtoms').mockReturnValue([mockAtomState]);
 
     const result = await findAtoms(infra, target, { cache: true });

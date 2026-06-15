@@ -1,4 +1,4 @@
-import { beforeEach,describe, expect, it, vi } from 'vitest';
+import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { type Atom } from '../../../src/engine/core/types/domain.js';
@@ -35,7 +35,7 @@ describe('Discovery Batch Disambiguation', () => {
         filesChanged: []
     };
 
-    vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [c1, c2]; });
+    git.queryStream.mockImplementation(async function* () { yield* [c1, c2]; });
 
     const infra = makeMockInfra({ git, protocols });
     const results = await findAtomsByIds(infra, [
@@ -48,7 +48,7 @@ describe('Discovery Batch Disambiguation', () => {
     expect(results.find((a: Atom) => a.commitHash === 'h2')?.protocols.has('beta')).toBe(true);
     
     // Verify query patterns
-    const query = vi.mocked(git.queryStream).mock.calls[0][0];
+    const query = git.queryStream.mock.calls[0][0];
     expect(query.regexPatterns).toContainEqual(['^alpha: Alpha-id: aaaa1111\\s*$', '^beta: Beta-id: bbbb2222\\s*$']);
   });
 });

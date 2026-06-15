@@ -28,8 +28,8 @@ describe('resolveCommitInput', () => {
 
     it('should prefer interactive over file when both are set', async () => {
       const options = { interactive: true, file: 'config.json' };
-      vi.mocked(prompt.askText).mockResolvedValue('inter-subject');
-      vi.mocked(prompt.askConfirm).mockResolvedValue(false);
+      prompt.askText.mockResolvedValue('inter-subject');
+      prompt.askConfirm.mockResolvedValue(false);
       const result = await resolveCommitInput(options, { prompt, protocols, config: TEST_ENGINE_CONFIG });
       expect(result.subject).toBe('inter-subject');
     });

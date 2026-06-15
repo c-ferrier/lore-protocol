@@ -39,7 +39,7 @@ describe('Engine registerCacheCommand', () => {
     const program = new Command();
     registerCacheCommand(program, infra);
     
-    vi.mocked(infra.git.resolveRef).mockResolvedValue('abcd1234');
+    infra.git.resolveRef.mockResolvedValue('abcd1234');
 
     await program.parseAsync(['node', 'test', 'cache', '--prune']);
 
@@ -52,7 +52,7 @@ describe('Engine registerCacheCommand', () => {
     const program = new Command();
     registerCacheCommand(program, infra);
     
-    vi.mocked(infra.git.resolveRef).mockRejectedValue(new Error('Git fail'));
+    infra.git.resolveRef.mockRejectedValue(new Error('Git fail'));
 
     await program.parseAsync(['node', 'test', 'cache', '--prune']);
 

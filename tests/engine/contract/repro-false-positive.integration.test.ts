@@ -1,4 +1,4 @@
-import { beforeEach,describe, expect, it, vi } from 'vitest';
+import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
@@ -41,7 +41,7 @@ describe('Discovery False Positive Repro', () => {
       filesChanged: []
     };
 
-    vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit]; });
+    git.queryStream.mockImplementation(async function* () { yield* [commit]; });
 
     const infra = getInfra();
     // Should return null because trailers didn't match targetId
@@ -60,7 +60,7 @@ describe('Discovery False Positive Repro', () => {
       filesChanged: []
     };
 
-    vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit]; });
+    git.queryStream.mockImplementation(async function* () { yield* [commit]; });
 
     const infra = getInfra();
     // Should return 0 atoms because although Git might return the commit due to subject text,

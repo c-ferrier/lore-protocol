@@ -24,6 +24,7 @@
 *   **Phase 4.2 (Strict Core)**: Enforced mandatory `protocol/id` addressing and implemented the 'Namespace Rental Agreement' with a System anchor.
 *   **Phase 2 (Drift & Semaphore)**: Optimized discovery via Bounded Time Window Streams and enforced subprocess concurrency guards.
 *   **Phase 0.0.0 (Cache GC)**: Replaced legacy LRU pruning with a HEAD-relative purging strategy to ensure data relevance.
+*   **Test Infra (Zero-Cast)**: Refactored `MockedEngineInfra` and factories to return first-class mock handles, eliminating `vi.mocked()` boilerplate.
 
 ---
 
@@ -31,7 +32,6 @@
 
 ### MILESTONE 0.0.1: Alpha Readiness (Operational Stability)
 **Action**: Implement the final stability pillars for the initial internal alpha.
-*   **High-Fidelity Test Mocks (Zero-Cast)**: Refactor `makeMockInfra` to return `MockedEngineInfra`. Eliminate the 100+ instances of `vi.mocked()` and redundant `as any` casts to reach a "Senior Grade" DX and prevent ghost bugs.
 *   **Lore-JSON Scaling (Memory Safety)**: Refactor the `LoreJsonFormatter` compatibility shim to use a streaming model to prevent memory exhaustion on enterprise repos.
 *   **Cross-Platform Physical Audit**: Audit path normalization and Git CLI builders for Windows backslash and shell compatibility.
 

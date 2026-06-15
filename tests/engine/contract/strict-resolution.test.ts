@@ -21,11 +21,11 @@ describe('Phase 4.2: Strict Resolution & System Protocol', () => {
         vi.spyOn(infra.identityIndex, 'get');
         
         // Mock git.filterAliveHashes to return the hash
-        vi.mocked(infra.git.filterAliveHashes).mockResolvedValue([hash]);
+        infra.git.filterAliveHashes.mockResolvedValue([hash]);
         
         // Mock git.getLogStream (used by fetchCommitsByHashes)
         const FIELD_SEP = '\u001F';
-        vi.mocked(infra.git.getLogStream).mockReturnValue((async function* () {
+        infra.git.getLogStream.mockReturnValue((async function* () {
             yield `${hash}${FIELD_SEP}2026-01-01${FIELD_SEP}author${FIELD_SEP}subject${FIELD_SEP}body${FIELD_SEP}${FIELD_SEP}\n`;
         })() as AsyncIterable<string>);
 
@@ -58,7 +58,7 @@ describe('Phase 4.2: Strict Resolution & System Protocol', () => {
         const infra = makeMockInfra({ protocols });
         
         const hash = 'h1';
-        vi.mocked(infra.git.queryStream).mockReturnValue((async function* () {
+        infra.git.queryStream.mockReturnValue((async function* () {
             // Commit with both Lore and Ad-hoc trailers
             yield {
                 hash,

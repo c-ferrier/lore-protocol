@@ -1,4 +1,4 @@
-import { beforeEach,describe, expect, it, vi } from 'vitest';
+import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
@@ -46,7 +46,7 @@ describe('Discovery Refinement', () => {
         trailers: trailers,
         filesChanged: [],
       };
-      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [raw]; });
+      git.queryStream.mockImplementation(async function* () { yield* [raw]; });
 
       const infra = makeMockInfra({ git, protocols });
       const [atom] = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });
@@ -64,7 +64,7 @@ describe('Discovery Refinement', () => {
         trailers: trailers,
         filesChanged: [],
       };
-      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [raw]; });
+      git.queryStream.mockImplementation(async function* () { yield* [raw]; });
 
       const infra = makeMockInfra({ git, protocols });
       const [atom] = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });
@@ -83,7 +83,7 @@ describe('Discovery Refinement', () => {
         trailers: trailers,
         filesChanged: [],
       };
-      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [raw]; });
+      git.queryStream.mockImplementation(async function* () { yield* [raw]; });
 
       const infra = makeMockInfra({ git, protocols });
       const [atom] = await findAtoms(infra, { type: 'global', raw: 'all', resolvedPaths: [] });
@@ -115,7 +115,7 @@ describe('Discovery Refinement', () => {
         filesChanged: [],
       };
 
-      vi.mocked(git.queryStream)
+      git.queryStream
         .mockImplementationOnce(async function* () { yield commitA; })
         .mockImplementationOnce(async function* () { yield commitB; });
 
@@ -129,7 +129,7 @@ describe('Discovery Refinement', () => {
       expect(ids).toContain('bbbbbbbb');
       
       // Verification: Second call to Git was for the linked ID
-      const secondCallQuery = vi.mocked(git.queryStream).mock.calls[1][0];
+      const secondCallQuery = git.queryStream.mock.calls[1][0];
       expect(secondCallQuery.regexPatterns).toContainEqual(['^Mock-id: bbbbbbbb\\s*$']);
     });
   });
@@ -149,7 +149,7 @@ describe('Discovery Refinement', () => {
         filesChanged: [],
       };
 
-      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit]; });
+      git.queryStream.mockImplementation(async function* () { yield* [commit]; });
 
       const infra = makeMockInfra({ git, protocols });
       const result = await findAtomById(infra, { protocol: 'mock', id: targetId });
@@ -169,7 +169,7 @@ describe('Discovery Refinement', () => {
         filesChanged: [],
       };
 
-      vi.mocked(git.queryStream).mockImplementation(async function* () { yield* [commit]; });
+      git.queryStream.mockImplementation(async function* () { yield* [commit]; });
 
       const infra = makeMockInfra({ git, protocols });
       const result = await findAtomById(infra, { protocol: 'mock', id: targetId });

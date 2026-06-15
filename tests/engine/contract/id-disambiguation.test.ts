@@ -1,4 +1,4 @@
-import { beforeEach,describe, expect, it, vi } from 'vitest';
+import { beforeEach,describe, expect, it } from 'vitest';
 
 import { ProtocolMap } from '../../../src/engine/core/models/protocol-map.js';
 import { type RawCommit } from '../../../src/engine/interfaces/git-client.js';
@@ -66,7 +66,7 @@ describe('Discovery Identity Disambiguation', () => {
     expect(state.trailers['Alpha-id'][0]).toBe(targetId);
     
     // Ensure we used a specific regex pattern
-    const query = vi.mocked(git.queryStream).mock.calls[0][0];
+    const query = git.queryStream.mock.calls[0][0];
     const found = query.regexPatterns!.some((set: readonly string[]) => 
         set.some(p => p.includes('alpha: Alpha-id: 12345678'))
     );
