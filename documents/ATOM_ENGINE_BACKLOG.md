@@ -25,14 +25,14 @@
 *   **Phase 2 (Drift & Semaphore)**: Optimized discovery via Bounded Time Window Streams and enforced subprocess concurrency guards.
 *   **Phase 0.0.0 (Cache GC)**: Replaced legacy LRU pruning with a HEAD-relative purging strategy to ensure data relevance.
 *   **Test Infra (Zero-Cast)**: Refactored `MockedEngineInfra` and factories to return first-class mock handles, eliminating `vi.mocked()` boilerplate.
+*   **Lore-JSON Scaling**: Refactored the compatibility shim to use an O(1) memory-safe streaming proxy for 0.5.0 parity.
 
 ---
 
 ## 3. OPEN ROADMAP: Release Targets
 
 ### MILESTONE 0.0.1: Alpha Readiness (Operational Stability)
-**Action**: Implement the final stability pillars for the initial internal alpha.
-*   **Lore-JSON Scaling (Memory Safety)**: Refactor the `LoreJsonFormatter` compatibility shim to use a streaming model to prevent memory exhaustion on enterprise repos.
+**Action**: Implement the final stability pillar for the initial internal alpha.
 *   **Cross-Platform Physical Audit**: Audit path normalization and Git CLI builders for Windows backslash and shell compatibility.
 
 ### MILESTONE 0.0.X: Stability & Refinement (The "Professional" Utility)
