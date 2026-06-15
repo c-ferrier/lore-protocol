@@ -109,7 +109,7 @@ export function registerCommitCommand(
     const input = await resolveCommitInput(options, { prompt, protocols: protocolMap, config });
 
     // Validate input before building
-    const validationIssues = await validateFormatting(input, config, protocolMap);
+    const validationIssues = validateFormatting(input, config, protocolMap);
     const errors = validationIssues.filter(i => i.severity === 'error');
     if (errors.length > 0) {
         throw new ProtocolError(`Validation failed:\n${errors.map(e => `  - ${e.message}`).join('\n')}`, 1);

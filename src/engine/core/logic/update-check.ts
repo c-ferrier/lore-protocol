@@ -8,11 +8,11 @@ import updateNotifier from 'simple-update-notifier';
  * - Respects CI, TTY, and explicit environment variables.
  * - Requires explicit packageName to support forks and separate artifacts.
  */
-export async function checkForUpdates(options: {
+export function checkForUpdates(options: {
     packageName: string;
     currentVersion: string;
     configEnabled: boolean;
-}): Promise<void> {
+}): void {
   const { packageName, currentVersion, configEnabled } = options;
 
   // 1. Environmental Blockers

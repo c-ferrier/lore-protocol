@@ -27,7 +27,7 @@ vi.mock('../../../../src/engine/core/logic/commit-formatting.js', async (importO
     return {
         ...actual,
         formatCommit: vi.fn(actual.formatCommit),
-        validateFormatting: vi.fn().mockResolvedValue([])
+        validateFormatting: vi.fn().mockReturnValue([])
     };
 });
 

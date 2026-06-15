@@ -121,14 +121,14 @@ export function formatCommit(
 }
 
 /**
- * Validate a commit without writing it. 
+ * Validate a commit without writing it.
  * Performs structural bounds checking on the formatting process.
  */
-export async function validateFormatting(
+export function validateFormatting(
   input: CommitInput, 
   config: EngineConfig, 
   protocols: ProtocolMap<ProtocolContext>
-): Promise<ValidationIssue[]> {
+): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const validatedProtocols = new Set<string>();
   const lowerClaimed = getClaimedProtocolKeys(protocols);

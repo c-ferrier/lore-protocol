@@ -47,12 +47,11 @@ async function main() {
   registerDoctorCommand(program, infra);
 
   // Non-blocking update check for the core engine
-  void checkForUpdates({
-    packageName: getEnginePackageName(), 
+  checkForUpdates({
+    packageName: getEnginePackageName(),
     currentVersion: getEnginePublishedVersion(),
     configEnabled: config.cli.updateCheck
   });
-
   await execute(program, getFormatter);
 }
 

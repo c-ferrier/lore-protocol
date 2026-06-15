@@ -27,7 +27,8 @@ describe('Strict Namespaced Validation', () => {
         }]]),
     });
 
-    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, protocols);
+    const issues = validateFormatting(input,
+ TEST_ENGINE_CONFIG, protocols);
     
     // Should report that 'Orphan' is not allowed
     expect(issues.some(i => i.severity === 'error' && i.rule === 'unauthorized-trailer' && i.field === 'fred:Orphan')).toBe(true);
@@ -48,7 +49,8 @@ describe('Strict Namespaced Validation', () => {
         }]])
     });
 
-    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, protocols);
+    const issues = validateFormatting(input,
+ TEST_ENGINE_CONFIG, protocols);
     const errors = issues.filter(i => i.severity === 'error');
     expect(errors).toHaveLength(0);
   });
@@ -78,7 +80,8 @@ describe('Strict Namespaced Validation', () => {
         }]])
     });
 
-    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, protocols);
+    const issues = validateFormatting(input,
+ TEST_ENGINE_CONFIG, protocols);
     expect(issues.some(i => i.rule === 'fred-id-present' && i.field === 'fred:Mock-id')).toBe(true);
   });
 
@@ -98,7 +101,8 @@ describe('Strict Namespaced Validation', () => {
         }]]),
     });
 
-    const issues = await validateFormatting(input, TEST_ENGINE_CONFIG, protocols);
+    const issues = validateFormatting(input,
+ TEST_ENGINE_CONFIG, protocols);
     expect(issues.some(i => i.rule === 'unauthorized-trailer' && i.field === 'fred:Unknown-key')).toBe(true);
   });
 });

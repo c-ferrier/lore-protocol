@@ -142,19 +142,18 @@ export async function buildLoreCli(overrides: Partial<EngineOptions> = {}) {
 
   // Non-blocking update checks for both the wrapper and the library
   if (config.cli.updateCheck) {
-    void checkForUpdates({
+    checkForUpdates({
         packageName: getLorePackageName(),
         currentVersion: getLorePublishedVersion(),
         configEnabled: true
     });
-    
-    void checkForUpdates({
+
+    checkForUpdates({
         packageName: getEnginePackageName(),
         currentVersion: getEnginePublishedVersion(),
         configEnabled: true
     });
   }
-
   // --- REBRANDING WRAPPER (Commander level) ---
   
   // Register Lore-specific commands

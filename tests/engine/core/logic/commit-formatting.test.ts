@@ -137,7 +137,8 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
         trailers: new ProtocolMap<Record<string, string[]>>([['mock', { Confidence: ['high'] }]])
       });
 
-      const issues = await validateFormatting(input, engineConfig, protocols);
+      const issues = validateFormatting(input,
+ engineConfig, protocols);
       expect(issues).toHaveLength(0);
     });
 
@@ -151,7 +152,8 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
             body: 'Line 1\nLine 2\nLine 3'
         });
 
-        const issues = await validateFormatting(input, config, protocols);
+        const issues = validateFormatting(input,
+ config, protocols);
         expect(issues.some(i => i.rule === 'message-length')).toBe(true);
     });
 
@@ -167,7 +169,8 @@ describe('Commit Formatting Logic (Pure Functions)', () => {
         localProtocols.set(genProtocol.name, genProtocol);
 
         const input = makeCommitInput({ subject: 'test', trailers: new ProtocolMap<Record<string, string[]>>() });
-        const issues = await validateFormatting(input, engineConfig, localProtocols);
+        const issues = validateFormatting(input,
+ engineConfig, localProtocols);
         
         // gen-id-present should be filtered out
         expect(issues.some(i => i.rule === 'gen-id-present')).toBe(false);

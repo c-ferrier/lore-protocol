@@ -19,7 +19,7 @@ export function registerConfigCommand(
     .option('--trailer-type <type>', 'Filter trailers by type (core, custom, all)', 'all')
     .option('--trailer-name <name>', 'Filter trailers by name (case-insensitive contains)')
     .option('--protocol <name>', 'Filter configuration by protocol name (case-insensitive contains)')
-    .action(async (options: { trailerType: string; trailerName?: string; protocol?: string }) => {
+    .action((options: { trailerType: string; trailerName?: string; protocol?: string }) => {
       const { getFormatter, protocols: protocolMap, logger } = infra;
       
       const trailerType = options.trailerType.toLowerCase();
