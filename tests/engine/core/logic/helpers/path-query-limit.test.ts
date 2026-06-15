@@ -85,11 +85,11 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     // Expected: a3, a4 (a1, a2 are superseded, a5 is over limit)
     const atomLogs = logger.resultLogs.filter(l => l.startsWith('ATOM:'));
     expect(atomLogs).toHaveLength(2);
-    expect(atomLogs).toContain('ATOM:hash_cccc3333');
-    expect(atomLogs).toContain('ATOM:hash_dddd4444');
+    expect(atomLogs).toContain('ATOM:hash_cccc3333\n');
+    expect(atomLogs).toContain('ATOM:hash_dddd4444\n');
 
     const footerLog = logger.resultLogs.find(l => l.startsWith('FOOTER:'))!;
-    expect(footerLog).toBe('FOOTER:2/5');
+    expect(footerLog).toBe('FOOTER:2/5\n');
   });
 
   it('should not pass limit to Discovery (only maxCommits)', async () => {

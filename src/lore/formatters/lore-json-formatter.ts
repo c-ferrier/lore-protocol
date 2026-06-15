@@ -23,134 +23,128 @@ import {
  * This sacrifices zero-latency printing for absolute legacy parity.
  */
 export class LoreJsonFormatter implements IOutputFormatter {
-  private bufferedAtoms: Atom[] = [];
+  private isFirstAtom = true;
   private currentHeader: { target: string; type: string; visibleTrailers: readonly string[] | 'all' } | null = null;
 
   constructor(private readonly protocols: ProtocolMap<ProtocolContext>) {}
 
   /**
    * Streaming Hook: Header
-   * Buffers metadata, returns nothing.
+   * Emits the opening of the JSON document.
    */
   formatQueryHeader(target: string, type: string, visibleTrailers?: readonly string[] | 'all'): string {
-      this.bufferedAtoms = [];
+      this.isFirstAtom = true;
       this.currentHeader = { target, type, visibleTrailers: visibleTrailers || 'all' };
-      return '';
+      
+      const loreProtocol = this.protocols.get('lore');
+      const version = loreProtocol?.def.version ?? '1.0';
+
+      const header = {
+          lore_version: version,
+          command: 'log', // Match 0.5.0 default
+          target: target === 'all' || type === 'global' ? 'all' : target,
+          target_type: type,
+      };
+
+      // Open the object and the results array
+      // We must strip the closing brace of the stringified header to append "results"
+      const headerStr = JSON.stringify(header, null, 2);
+      return headerStr.substring(0, headerStr.length - 2) + ',\n  "results": [';
   }
 
   /**
    * Streaming Hook: Atom
-   * Buffers the atom, returns nothing.
+   * Emits a single atom object, handling comma separation.
    */
   formatQueryAtom(atom: Atom): string {
-      this.bufferedAtoms.push(atom);
-      return '';
+      const data = this.formatSingleAtomObject(atom, this.currentHeader?.visibleTrailers || 'all');
+      const comma = this.isFirstAtom ? '' : ',';
+      this.isFirstAtom = false;
+
+      // Indent the individual atom JSON to match 0.5.0 nested structure
+      const atomStr = JSON.stringify(data, null, 2)
+          .split('\n')
+          .map(line => '    ' + line)
+          .join('\n');
+
+      return `${comma}\n${atomStr}`;
   }
 
   /**
    * Streaming Hook: Footer
-   * Performs the final reconstruction and flushes the monolithic JSON.
+   * Closes the results array and appends the meta object.
    */
   formatQueryFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
-      const output = this.reconstructMonolithic(
-          this.bufferedAtoms,
-          'log', // Defaults to log for streaming commands
-          this.currentHeader?.target || 'all',
-          this.currentHeader?.type || 'global',
-          meta,
-          this.currentHeader?.visibleTrailers || 'all'
-      );
+      const metaObj = {
+          total_atoms: meta.total,
+          filtered_atoms: meta.filtered,
+          oldest: meta.oldest?.toISOString() ?? null,
+          newest: meta.newest?.toISOString() ?? null
+      };
+
+      const output = `\n  ],\n  "meta": ${JSON.stringify(metaObj, null, 2).split('\n').map((l, i) => i === 0 ? l : '  ' + l).join('\n')}\n}`;
       
-      // Reset state for next potential run in same process
-      this.bufferedAtoms = [];
+      // Reset state
       this.currentHeader = null;
+      this.isFirstAtom = true;
       
       return output;
   }
 
   /**
-   * Internal logic to build the exact 0.5.0 Lore JSON structure.
+   * Internal logic to transform a single Atom into the 0.5.0 Result Object.
    */
-  private reconstructMonolithic(
-      atoms: readonly Atom[],
-      command: string,
-      target: string,
-      targetType: string,
-      meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null },
-      visibleTrailers: readonly string[] | 'all' = 'all'
-  ): string {
+  private formatSingleAtomObject(atom: Atom, visibleTrailers: readonly string[] | 'all'): any {
     const loreProtocol = this.protocols.get('lore');
-    const version = loreProtocol?.def.version ?? '1.0';
+    const loreState = atom.protocols.get('lore');
+    const loreId = (loreState && loreProtocol) ? getProtocolIdentity(loreState, loreProtocol) : null;
+    const status = (loreState && loreState.supersession) ? loreState.supersession : { superseded: false, supersededBy: [] };
 
-    const results = atoms.map((atom) => {
-      const loreState = atom.protocols.get('lore');
-      const loreId = (loreState && loreProtocol) ? getProtocolIdentity(loreState, loreProtocol) : null;
-      const status = (loreState && loreState.supersession) ? loreState.supersession : { superseded: false, supersededBy: [] };
+    const trailers: Record<string, string | string[] | null> = {};
+    
+    // 1. Lore Trailers
+    if (loreState && loreProtocol) {
+        for (const [key, values] of Object.entries(loreState.trailers)) {
+            if (visibleTrailers !== 'all' && !visibleTrailers.includes(key)) continue;
 
-      const trailers: Record<string, string | string[] | null> = {};
-      
-      // 1. Lore Trailers
-      if (loreState && loreProtocol) {
-          for (const [key, values] of Object.entries(loreState.trailers)) {
-              // Apply visibility filter
-              if (visibleTrailers !== 'all' && !visibleTrailers.includes(key)) continue;
+            const def = loreProtocol.def.trailers[key];
+            const isScalar = def && !def.multivalue;
+            trailers[snakeCase(key)] = isScalar ? values[0] : [...values];
+        }
+    }
 
-              const def = loreProtocol.def.trailers[key];
-              const isScalar = def && !def.multivalue;
-              trailers[snakeCase(key)] = isScalar ? values[0] : [...values];
-          }
-      }
+    // 2. System Trailers (Ad-hoc and Git-native)
+    const systemState = atom.protocols.get(SYSTEM_PROTOCOL);
+    const systemProtocol = this.protocols.get(SYSTEM_PROTOCOL);
+    if (systemState && systemProtocol) {
+        for (const [key, values] of Object.entries(systemState.trailers)) {
+            if (visibleTrailers !== 'all' && !visibleTrailers.includes(key)) continue;
 
-      // 2. System Trailers (Ad-hoc and Git-native)
-      const systemState = atom.protocols.get(SYSTEM_PROTOCOL);
-      const systemProtocol = this.protocols.get(SYSTEM_PROTOCOL);
-      if (systemState && systemProtocol) {
-          for (const [key, values] of Object.entries(systemState.trailers)) {
-              // Apply visibility filter
-              if (visibleTrailers !== 'all' && !visibleTrailers.includes(key)) continue;
+            const sKey = snakeCase(key);
+            if (trailers[sKey] !== undefined) continue;
 
-              // If it's already in trailers (collided with lore), skip it
-              const sKey = snakeCase(key);
-              if (trailers[sKey] !== undefined) continue;
+            const def = systemProtocol.def.trailers[key];
+            const isScalar = !def || !def.multivalue;
+            trailers[sKey] = isScalar ? values[0] : [...values];
+        }
+    }
 
-              const def = systemProtocol.def.trailers[key];
-              const isScalar = !def || !def.multivalue; // Standard git trailers are scalar
-              trailers[sKey] = isScalar ? values[0] : [...values];
-          }
-      }
+    if (loreId) trailers.lore_id = loreId;
 
-      // 0.5.0 included lore_id inside trailers too
-      if (loreId) trailers.lore_id = loreId;
-
-      return {
-        lore_id: loreId,
-        commit: atom.commitHash,
-        date: atom.date.toISOString(),
-        author: atom.author.includes('<') 
-            ? atom.author.match(/<([^>]+)>/)?.[1] || atom.author 
-            : atom.author,
-        intent: atom.subject,
-        body: atom.body,
-        trailers,
-        files_changed: [...atom.filesChanged],
-        superseded: status.superseded,
-        superseded_by: status.supersededBy?.[0] ?? null,
-      };
-    });
-
-    return JSON.stringify({
-      lore_version: version,
-      command,
-      target: target === 'all' || targetType === 'global' ? 'all' : target,
-      target_type: targetType,
-      meta: {
-        total_atoms: meta.total,
-        filtered_atoms: meta.filtered,
-        oldest: meta.oldest?.toISOString() ?? null,
-        newest: meta.newest?.toISOString() ?? null,
-      },
-      results
-    }, null, 2);
+    return {
+      lore_id: loreId,
+      commit: atom.commitHash,
+      date: atom.date.toISOString(),
+      author: atom.author.includes('<') 
+          ? atom.author.match(/<([^>]+)>/)?.[1] || atom.author 
+          : atom.author,
+      intent: atom.subject,
+      body: atom.body,
+      trailers,
+      files_changed: [...atom.filesChanged],
+      superseded: status.superseded,
+      superseded_by: status.supersededBy?.[0] ?? null,
+    };
   }
 
   formatValidationResult(data: FormattableValidationResult): string {

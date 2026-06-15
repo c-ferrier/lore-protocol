@@ -4,11 +4,15 @@ import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js'
 import { type Atom,makeAtom, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState, type ProtocolContext } from '../../../../src/engine/testing.js';
 import { LoreJsonFormatter } from '../../../../src/lore/formatters/lore-json-formatter.js';
 
+import { TestLogger } from '../../../engine/engine-test-utils.js';
+
 describe('LoreJsonFormatter', () => {
   let protocols: ProtocolMap<ProtocolContext>;
   let formatter: LoreJsonFormatter;
+  let logger: TestLogger;
 
   beforeEach(() => {
+    logger = new TestLogger();
     const lore = makeStubProtocolContext({ 
         name: 'lore', 
         identityKey: 'Lore-id',
@@ -22,9 +26,16 @@ describe('LoreJsonFormatter', () => {
   });
 
   const formatQueryResult = (atom: Atom) => {
-    formatter.formatQueryHeader('all', 'global');
-    formatter.formatQueryAtom(atom);
-    return JSON.parse(formatter.formatQueryFooter({ total: 1, filtered: 1, oldest: null, newest: null }));
+    const header = formatter.formatQueryHeader('all', 'global');
+    if (header) logger.result(header);
+    
+    const body = formatter.formatQueryAtom(atom);
+    if (body) logger.result(body);
+    
+    const footer = formatter.formatQueryFooter({ total: 1, filtered: 1, oldest: null, newest: null });
+    if (footer) logger.result(footer);
+    
+    return JSON.parse(logger.results.join(''));
   };
 
   it('should include intent key in the output (Lore 0.5.0 Parity)', () => {
@@ -67,16 +78,26 @@ describe('LoreJsonFormatter', () => {
     const a1 = makeAtom({ commitHash: 'h1' });
     const a2 = makeAtom({ commitHash: 'h2' });
 
-    // 1. Header should return nothing (reset/init phase)
-    expect(formatter.formatQueryHeader('all', 'global')).toBe('');
+    // 1. Header should log the opening of the document
+    const header = formatter.formatQueryHeader('all', 'global');
+    if (header) logger.result(header);
+    expect(logger.results[0]).toContain('"results": [');
     
-    // 2. Atoms should return nothing (buffering phase)
-    expect(formatter.formatQueryAtom(a1)).toBe('');
-    expect(formatter.formatQueryAtom(a2)).toBe('');
+    // 2. Atoms should log stringified objects
+    const atom1 = formatter.formatQueryAtom(a1);
+    if (atom1) logger.result(atom1);
+    const atom2 = formatter.formatQueryAtom(a2);
+    if (atom2) logger.result(atom2);
     
-    // 3. Footer should return the final monolithic document (flush phase)
-    const output = JSON.parse(formatter.formatQueryFooter({ total: 2, filtered: 2, oldest: null, newest: null }));
+    expect(logger.results[1]).toContain('"h1"');
+    expect(logger.results[2]).toContain('"h2"');
+    
+    // 3. Footer should log the closing and metadata
+    const footer = formatter.formatQueryFooter({ total: 2, filtered: 2, oldest: null, newest: null });
+    if (footer) logger.result(footer);
+    expect(logger.results[3]).toContain('"total_atoms": 2');
 
+    const output = JSON.parse(logger.results.join(''));
     expect(output.results).toHaveLength(2);
     expect(output.results[0].commit).toBe('h1');
     expect(output.results[1].commit).toBe('h2');

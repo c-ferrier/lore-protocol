@@ -6,7 +6,7 @@ import { NullQueryCache } from '../../../src/engine/shell/fs/query-cache.js';
 import { findAtoms } from '../../../src/engine/shell/orchestrators/discovery.js';
 import { makeQueryTarget,makeStubProtocolContext, type ProtocolContext } from '../../../src/engine/testing.js';
 import { LoreJsonFormatter } from '../../../src/lore/formatters/lore-json-formatter.js';
-import { makeMockGitClient, makeMockInfra } from '../../engine/engine-test-utils.js';
+import { makeMockGitClient, makeMockInfra, TestLogger } from '../../engine/engine-test-utils.js';
 
 /**
  * ARCHITECTURAL TEST: Wrapper Rebranding
@@ -58,10 +58,19 @@ describe('Lore Wrapper Rebranding Flow', () => {
     const atom = atoms[0];
 
     // 4. Format using the Lore-specific formatter
+    const logger = new TestLogger();
     const formatter = new LoreJsonFormatter(protocols);
-    formatter.formatQueryHeader('all', 'global');
-    formatter.formatQueryAtom(atom);
-    const json = JSON.parse(formatter.formatQueryFooter({ total: 1, filtered: 1, oldest: null, newest: null }));
+    
+    const header = formatter.formatQueryHeader('all', 'global');
+    if (header) logger.result(header);
+    
+    const body = formatter.formatQueryAtom(atom);
+    if (body) logger.result(body);
+    
+    const footer = formatter.formatQueryFooter({ total: 1, filtered: 1, oldest: null, newest: null });
+    if (footer) logger.result(footer);
+
+    const json = JSON.parse(logger.results.join(''));
 
     // 5. Verify Lore Branding (Flat keys, no .protocols nesting)
     expect(json.lore_version).toBe('0.6.0');

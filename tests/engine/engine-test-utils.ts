@@ -158,14 +158,14 @@ export class TestLogger implements ILogger {
     trace() {}
     debug() {}
     info(msg: string) { 
-        this.logs.push(msg); 
-        this.infoLogs.push(msg);
+        this.logs.push(msg + '\n'); 
+        this.infoLogs.push(msg + '\n');
     }
-    warn(msg: string) { this.warnings.push(msg); }
-    error(msg: string) { this.errors.push(msg); }
+    warn(msg: string) { this.warnings.push(msg + '\n'); }
+    error(msg: string) { this.errors.push(msg + '\n'); }
     result(msg: string) { 
-        this.results.push(msg); 
-        this.resultLogs.push(msg);
+        this.results.push(msg + '\n'); 
+        this.resultLogs.push(msg + '\n');
     }
     child() { return this; }
 }
