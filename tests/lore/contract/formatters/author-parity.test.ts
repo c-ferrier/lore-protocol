@@ -15,7 +15,7 @@ describe('LoreTextFormatter — Author Display Parity', () => {
       date: new Date('2026-05-25T12:00:00Z'),
     });
 
-    const output = formatter.formatQueryAtom(atom);
+    const output = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
 
     expect(output).toContain('cole.ferrier@gmail.com');
     expect(output).not.toContain('Cole Ferrier');
@@ -30,7 +30,7 @@ describe('LoreTextFormatter — Author Display Parity', () => {
       date: new Date('2026-05-25T12:00:00Z'),
     });
 
-    const output = formatter.formatQueryAtom(atom);
+    const output = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
 
     expect(output).toContain('cole.ferrier@gmail.com');
   });
@@ -44,7 +44,7 @@ describe('LoreTextFormatter — Author Display Parity', () => {
       date: new Date('2026-05-25T12:00:00Z'),
     });
 
-    const output = formatter.formatQueryAtom(atom);
+    const output = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
 
     expect(output).toContain('Unknown Author');
   });

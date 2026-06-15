@@ -25,6 +25,7 @@
 *   **Phase 2 (Drift & Semaphore)**: Optimized discovery via Bounded Time Window Streams and enforced subprocess concurrency guards.
 *   **Phase 0.0.0 (Cache GC)**: Replaced legacy LRU pruning with a HEAD-relative purging strategy to ensure data relevance.
 *   **Test Infra (Zero-Cast)**: Refactored `MockedEngineInfra` and factories to return first-class mock handles, eliminating `vi.mocked()` boilerplate.
+*   **Decomposed Formatter Types**: Replaced monolithic `FormattableQueryResult` with discrete, semantic Header/Atom/Footer types for streaming hooks.
 *   **Lore-JSON Scaling**: Refactored the compatibility shim to use an O(1) memory-safe streaming proxy for 0.5.0 parity.
 
 ---
@@ -37,8 +38,8 @@
 
 ### MILESTONE 0.0.X: Stability & Refinement (The "Professional" Utility)
 **Action**: Polish the operational experience and add core UX features.
-*   **Decomposed Formatter Types**: Replace the monolithic `FormattableQueryResult` with discrete `FormattableQueryHeader`, `FormattableQueryAtom`, and `FormattableQueryFooter` types. This aligns the data structures with the atomic streaming hooks and eliminates unnecessary data passing.
 *   **Identity Auto-Detection**: Implement a fallback mechanism to pull `user.name` and `user.email` from the local `.gitconfig` when creating atoms.
+
 *   **Surveyor Health Indicators**: Update CLI formatters to display a `⚠` warning next to trailers that have `invalidReferences` (malformed or unregistered IDs).
 *   **High-Fidelity Narrative Squashing**: Implement a `--full` flag for `squash` to concatenate full atom bodies into a rich "evidence payload" for AI PR descriptions.
 *   **Strict CLI Guardrails**: Prevent metadata loss by validating CLI flags against registered protocol schemas (typo prevention).

@@ -30,7 +30,7 @@ describe('TextFormatter', () => {
 
   describe('formatQueryHeader', () => {
     it('should format the query header with target and type', () => {
-        const output = formatter.formatQueryHeader('src/auth.ts', 'path');
+        const output = formatter.formatQueryHeader({ target: 'src/auth.ts', type: 'path', visibleTrailers: 'all' });
         expect(output).toContain('Query: src/auth.ts (path)');
     });
   });
@@ -47,7 +47,7 @@ describe('TextFormatter', () => {
         }
       });
 
-      const output = formatter.formatQueryAtom(atom);
+      const output = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
       expect(output).toContain('abc1234');
       expect(output).toContain('2025-01-15');
       expect(output).toContain('alice@example.com');
@@ -62,7 +62,7 @@ describe('TextFormatter', () => {
           Confidence: ['high'],
         }
       });
-      const output = formatter.formatQueryAtom(atom, ['Constraint']);
+      const output = formatter.formatQueryAtom({ atom, visibleTrailers: ['Constraint'] });
       expect(output).toContain('Constraint: Must use OAuth2');
       expect(output).not.toContain('Confidence:');
     });
@@ -87,7 +87,7 @@ describe('TextFormatter', () => {
       });
       protocols.set(fredProtocol.name.toLowerCase(), fredProtocol);
 
-      const output = formatter.formatQueryAtom(atom);
+      const output = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
       expect(output).toContain('[mock] Confidence: high');
       expect(output).toContain('[fred] Status: active');
       expect(output).toContain('[fred] Fred-id: f8ed5678');
@@ -95,7 +95,7 @@ describe('TextFormatter', () => {
 
     it('should show body text when present', () => {
       const atom = makeAtom({ body: 'Detailed explanation here.' });
-      const output = formatter.formatQueryAtom(atom);
+      const output = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
       expect(output).toContain('Detailed explanation here.');
     });
 
@@ -106,7 +106,7 @@ describe('TextFormatter', () => {
         }
       });
 
-      const output = formatter.formatQueryAtom(atom);
+      const output = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
       expect(output).toContain('Assisted-by:');
       expect(output).toContain('Gemini');
     });
@@ -114,7 +114,7 @@ describe('TextFormatter', () => {
     it('should support colored output', () => {
       const coloredFormatter = new TextFormatter(protocols, { color: true });
       const atom = makeAtom({ commitHash: 'abc12345' });
-      const output = coloredFormatter.formatQueryAtom(atom);
+      const output = coloredFormatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
       
       // Check for bold/color ANSI codes
       expect(output).toContain('\x1b[');

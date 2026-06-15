@@ -26,7 +26,7 @@ describe('Agnostic Output (Zero Protocols)', () => {
   describe('JsonFormatter', () => {
     it('should use "subject" key by default and return empty protocols map', () => {
       const formatter = new JsonFormatter(protocols);
-      const output = JSON.parse(formatter.formatQueryAtom(mockAtom));
+      const output = JSON.parse(formatter.formatQueryAtom({ atom: mockAtom, visibleTrailers: 'all' }));
 
       const data = output.data;
       expect(data.subject).toBe('feat: agnostic commit');
@@ -41,7 +41,7 @@ describe('Agnostic Output (Zero Protocols)', () => {
           }
       }
       const formatter = new CustomJsonFormatter(protocols);
-      const output = JSON.parse(formatter.formatQueryAtom(mockAtom));
+      const output = JSON.parse(formatter.formatQueryAtom({ atom: mockAtom, visibleTrailers: 'all' }));
 
       const data = output.data;
       expect(data.decision_intent).toBe('feat: agnostic commit');
@@ -52,7 +52,7 @@ describe('Agnostic Output (Zero Protocols)', () => {
   describe('TextFormatter', () => {
     it('should fallback to shortened commit hash when no protocols are registered', () => {
       const formatter = new TextFormatter(protocols, { color: false });
-      const output = formatter.formatQueryAtom(mockAtom);
+      const output = formatter.formatQueryAtom({ atom: mockAtom, visibleTrailers: 'all' });
 
       // Header should show first 7 chars of hash
       expect(output).toContain('abc1234');

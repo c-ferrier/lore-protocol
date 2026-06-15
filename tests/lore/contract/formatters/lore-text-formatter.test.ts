@@ -25,7 +25,7 @@ describe('LoreTextFormatter', () => {
       protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ trailers: { 'Confidence': ['high'] } })]])
     });
 
-    const output = formatter.formatQueryAtom(atom);
+    const output = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
 
     expect(output).toContain('Confidence: high');
     expect(output).not.toContain('[lore]');
@@ -37,7 +37,7 @@ describe('LoreTextFormatter', () => {
       protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ trailers: { 'Lore-id': ['aaaa1111'] } })]])
     });
 
-    const output = formatter.formatQueryAtom(atom);
+    const output = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
 
     expect(output).toContain('  Line 1');
     expect(output).toContain('\nLine 2');
@@ -59,7 +59,7 @@ describe('LoreTextFormatter', () => {
       protocols: makeStubProtocolMap([['lore', makeStubProtocolState({ trailers: { 'Lore-id': ['aaaa1111'] } })]])
     });
 
-    const output = formatter.formatQueryAtom(atom);
+    const output = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
 
     expect(output).toContain('feat: minimal');
     expect(output).not.toContain('Confidence:');

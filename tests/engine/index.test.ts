@@ -170,7 +170,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     };
     // 4. Verify Formatter serializes it correctly
     const formatter = new JsonFormatter(protocols);
-    const output = JSON.parse(formatter.formatQueryAtom(atom));
+    const output = JSON.parse(formatter.formatQueryAtom({ atom, visibleTrailers: 'all' }));
     // Key should be CANONICAL in JSON inside the protocol's trailers object
     expect(output.data.protocols.mock.trailers['Ticket-ID']).toEqual(['PROJ-123', 'PROJ-456']);
   });
@@ -251,7 +251,7 @@ describe('Engine Assembly (Agnostic Bootstrap)', () => {
     expect(fredState.trailers['Fred-id']).toEqual(['aabbccdd']);
     // 5. Format to JSON using the Engine's generic formatter
     const formatter = new JsonFormatter(protocols);
-    const json = JSON.parse(formatter.formatQueryAtom(atom));
+    const json = JSON.parse(formatter.formatQueryAtom({ atom, visibleTrailers: 'all' }));
     // 6. Verify Agnostic Structure (Data is in .data.protocols.fred)
     expect(json.data.commit).toBe('abc12345');
     expect(json.data.protocols.fred.id).toBe('aabbccdd');

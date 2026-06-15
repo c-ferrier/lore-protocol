@@ -1,7 +1,9 @@
-import type { Atom } from '../core/types/domain.js';
 import type {
   FormattableConfigResult,
   FormattableDoctorResult,
+  FormattableQueryAtom,
+  FormattableQueryFooter,
+  FormattableQueryHeader,
   FormattableStalenessResult,
   FormattableTraceResult,
   FormattableValidationResult,
@@ -9,8 +11,8 @@ import type {
 
 export interface ErrorMessage {
   readonly severity: 'error' | 'warning';
-  readonly field?: string;
   readonly rule?: string;
+  readonly field?: string;
   readonly message: string;
 }
 
@@ -25,7 +27,8 @@ export interface IOutputFormatter {
   formatError(code: number, messages: readonly ErrorMessage[]): string;
 
   // --- Streaming Query Lifecycle Hooks ---
-  formatQueryHeader(target: string, type: string, visibleTrailers?: readonly string[] | 'all'): string;
-  formatQueryAtom(atom: Atom, visibleTrailers?: readonly string[] | 'all'): string;
-  formatQueryFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string;
+  formatQueryHeader(data: FormattableQueryHeader): string;
+  formatQueryAtom(data: FormattableQueryAtom): string;
+  formatQueryFooter(data: FormattableQueryFooter): string;
 }
+

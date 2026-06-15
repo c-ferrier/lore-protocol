@@ -48,8 +48,9 @@ describe('executePathQuery — --limit as post-supersession result cap', () => {
     formatter = makeMockFormatter();
     logger = new TestLogger();
 
-    formatter.formatQueryAtom.mockImplementation((atom) => `ATOM:${atom.commitHash}`);
+    formatter.formatQueryAtom.mockImplementation((data) => `ATOM:${data.atom.commitHash}`);
     formatter.formatQueryFooter.mockImplementation((meta) => `FOOTER:${meta.filtered}/${meta.total}`);
+
 
     infra = makeMockInfra({
       getFormatter: () => formatter,

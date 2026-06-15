@@ -4,6 +4,9 @@ import type { Atom, ProtocolState } from '../../core/types/domain.js';
 import type {
   FormattableConfigResult,
   FormattableDoctorResult,
+  FormattableQueryAtom,
+  FormattableQueryFooter,
+  FormattableQueryHeader,
   FormattableStalenessResult,
   FormattableTraceResult,
   FormattableValidationResult,
@@ -170,11 +173,12 @@ export class JsonFormatter implements IOutputFormatter {
     return JSON.stringify(data, null, 2);
   }
 
-  formatQueryHeader(target: string, type: string, _visibleTrailers?: readonly string[] | 'all'): string {
-      return JSON.stringify({ type: 'header', version: '1.0', target, target_type: type });
+  formatQueryHeader(data: FormattableQueryHeader): string {
+      return JSON.stringify({ type: 'header', version: '1.0', target: data.target, target_type: data.type });
   }
 
-  formatQueryAtom(atom: Atom, visibleTrailers: readonly string[] | 'all' = 'all'): string {
+  formatQueryAtom(data: FormattableQueryAtom): string {
+    const { atom, visibleTrailers } = data;
     const subjectKey = this.getSubjectKey();
     return JSON.stringify({
         type: 'atom',
@@ -190,14 +194,14 @@ export class JsonFormatter implements IOutputFormatter {
     });
   }
 
-  formatQueryFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
+  formatQueryFooter(data: FormattableQueryFooter): string {
     return JSON.stringify({
         type: 'footer',
         meta: {
-            total_atoms: meta.total,
-            filtered_atoms: meta.filtered,
-            oldest: meta.oldest?.toISOString() ?? null,
-            newest: meta.newest?.toISOString() ?? null
+            total_atoms: data.total,
+            filtered_atoms: data.filtered,
+            oldest: data.oldest?.toISOString() ?? null,
+            newest: data.newest?.toISOString() ?? null
         }
     });
   }

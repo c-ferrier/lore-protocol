@@ -3,6 +3,7 @@ import { afterEach,describe, expect, it, vi } from 'vitest';
 
 import { registerLogCommand } from '../../../../src/engine/cli/commands/log.js';
 import { type Atom } from '../../../../src/engine/core/types/domain.js';
+import { type FormattableQueryAtom } from '../../../../src/engine/core/types/output.js';
 import * as Discovery from '../../../../src/engine/shell/orchestrators/discovery.js';
 import { makeAtom, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState, TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../../../src/engine/testing.js';
 import { makeMockFormatter, makeMockInfra, TestLogger } from '../../engine-test-utils.js';
@@ -32,8 +33,8 @@ function buildHarness(atoms: Atom[], filteredAtoms?: Atom[]): Harness {
 
   const capturedAtoms: Atom[] = [];
   const formatter = makeMockFormatter();
-  formatter.formatQueryAtom.mockImplementation((atom: Atom) => {
-      capturedAtoms.push(atom);
+  formatter.formatQueryAtom.mockImplementation((data: FormattableQueryAtom) => {
+      capturedAtoms.push(data.atom);
       return '';
   });
   formatter.formatQueryHeader.mockReturnValue('');

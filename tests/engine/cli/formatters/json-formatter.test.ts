@@ -31,7 +31,7 @@ describe('JsonFormatter', () => {
 
   describe('formatQueryHeader', () => {
     it('should format a valid NDJSON header', () => {
-      const output = formatter.formatQueryHeader('all', 'global');
+      const output = formatter.formatQueryHeader({ target: 'all', type: 'global', visibleTrailers: 'all' });
       const json = JSON.parse(output);
       expect(json.type).toBe('header');
       expect(json.target).toBe('all');
@@ -42,7 +42,7 @@ describe('JsonFormatter', () => {
   describe('formatQueryAtom', () => {
     it('should format a valid NDJSON atom line', () => {
       const atom = makeAtom({ commitHash: 'abc1234567890', subject: 'feat: json' });
-      const output = formatter.formatQueryAtom(atom);
+      const output = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
       const json = JSON.parse(output);
       
       expect(json.type).toBe('atom');
@@ -56,7 +56,7 @@ describe('JsonFormatter', () => {
                 ['mock', makeStubProtocolState({ trailers: { 'Mock-id': ['m1'] } })]
             ]) 
         });
-        const output = formatter.formatQueryAtom(atom);
+        const output = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
         const json = JSON.parse(output);
         expect(json.data.protocols.mock.id).toBe('m1');
     });
@@ -69,7 +69,7 @@ describe('JsonFormatter', () => {
             }
         })(protocols);
 
-        const output = brandedFormatter.formatQueryAtom(atom);
+        const output = brandedFormatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
         const json = JSON.parse(output);
         expect(json.data.branded_subject).toBe('branded subject');
     });
@@ -176,7 +176,7 @@ describe('JsonFormatter', () => {
           ['mock', makeStubProtocolState({ trailers })]
         ])
       });
-      const output = JSON.parse(formatter.formatQueryAtom(atom));
+      const output = JSON.parse(formatter.formatQueryAtom({ atom, visibleTrailers: 'all' }));
       const mock = output.data.protocols.mock;
       expect(mock.trailers.Confidence).toBe('high');        // Canonical Key + Coerced to scalar
       expect(mock.trailers.Constraint).toEqual(['C1', 'C2']); // Canonical Key + Remained array

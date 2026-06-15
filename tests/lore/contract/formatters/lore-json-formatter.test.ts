@@ -3,7 +3,6 @@ import { beforeEach,describe, expect, it } from 'vitest';
 import { ProtocolMap } from '../../../../src/engine/core/models/protocol-map.js';
 import { type Atom,makeAtom, makeStubProtocolContext, makeStubProtocolMap, makeStubProtocolState, type ProtocolContext } from '../../../../src/engine/testing.js';
 import { LoreJsonFormatter } from '../../../../src/lore/formatters/lore-json-formatter.js';
-
 import { TestLogger } from '../../../engine/engine-test-utils.js';
 
 describe('LoreJsonFormatter', () => {
@@ -26,10 +25,10 @@ describe('LoreJsonFormatter', () => {
   });
 
   const formatQueryResult = (atom: Atom) => {
-    const header = formatter.formatQueryHeader('all', 'global');
+    const header = formatter.formatQueryHeader({ target: 'all', type: 'global', visibleTrailers: 'all' });
     if (header) logger.result(header);
     
-    const body = formatter.formatQueryAtom(atom);
+    const body = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
     if (body) logger.result(body);
     
     const footer = formatter.formatQueryFooter({ total: 1, filtered: 1, oldest: null, newest: null });
@@ -79,14 +78,14 @@ describe('LoreJsonFormatter', () => {
     const a2 = makeAtom({ commitHash: 'h2' });
 
     // 1. Header should log the opening of the document
-    const header = formatter.formatQueryHeader('all', 'global');
+    const header = formatter.formatQueryHeader({ target: 'all', type: 'global', visibleTrailers: 'all' });
     if (header) logger.result(header);
     expect(logger.results[0]).toContain('"results": [');
     
     // 2. Atoms should log stringified objects
-    const atom1 = formatter.formatQueryAtom(a1);
+    const atom1 = formatter.formatQueryAtom({ atom: a1, visibleTrailers: 'all' });
     if (atom1) logger.result(atom1);
-    const atom2 = formatter.formatQueryAtom(a2);
+    const atom2 = formatter.formatQueryAtom({ atom: a2, visibleTrailers: 'all' });
     if (atom2) logger.result(atom2);
     
     expect(logger.results[1]).toContain('"h1"');

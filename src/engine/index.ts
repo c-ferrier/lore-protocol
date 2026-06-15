@@ -23,19 +23,20 @@ export type {
     DoctorCheck,
     FormattableConfigResult,
     FormattableDoctorResult,
-    FormattableQueryResult,
+    FormattableQueryAtom,
+    FormattableQueryFooter,
+    FormattableQueryHeader,
     FormattableStalenessResult,
     FormattableTraceResult,
     FormattableTrailerDefinition,
     FormattableValidationResult,
-    QueryMeta,
-    QueryResult, 
     ValidationIssue} from './core/types/output.js';
 export type { IIdentityResolver,ProtocolContext, ProtocolDefinition } from './core/types/protocol-definition.js';
 export type { 
     FilterOperator,
     QualifiedFilter, 
     QueryIdentity, 
+    QueryMeta,
     QueryOptions,    QueryTargetAST} from './core/types/query.js';
 
 // --- Primary Public Interfaces ---

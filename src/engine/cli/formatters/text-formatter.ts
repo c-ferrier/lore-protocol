@@ -1,9 +1,12 @@
 import chalk, { type ChalkInstance } from 'chalk';
 
-import { type Atom, ProtocolMap } from '../../core/types/domain.js';
+import { ProtocolMap } from '../../core/types/domain.js';
 import type {
   FormattableConfigResult,
   FormattableDoctorResult,
+  FormattableQueryAtom,
+  FormattableQueryFooter,
+  FormattableQueryHeader,
   FormattableStalenessResult,
   FormattableTraceResult,
   FormattableValidationResult,
@@ -129,11 +132,12 @@ export class TextFormatter implements IOutputFormatter {
     return lines.join('\n');
   }
 
-  formatQueryHeader(target: string, type: string, _visibleTrailers?: readonly string[] | 'all'): string {
-    return `Query: ${this.c.bold(target)} (${type})\n`;
+  formatQueryHeader(data: FormattableQueryHeader): string {
+    return `Query: ${this.c.bold(data.target)} (${data.type})\n`;
   }
 
-  formatQueryAtom(atom: Atom, visibleTrailers: readonly string[] | 'all' = 'all'): string {
+  formatQueryAtom(data: FormattableQueryAtom): string {
+    const { atom, visibleTrailers } = data;
     const lines: string[] = [];
     const dateStr = atom.date.toISOString().slice(0, 10);
     const header = `── ${atom.commitHash.slice(0, 7)} (${dateStr}, ${atom.author}) `;
@@ -153,7 +157,7 @@ export class TextFormatter implements IOutputFormatter {
         const prefix = `[${pName}] `;
         
         // Authorized
-        for (const [key, values] of Object.entries(state.trailers)) {
+        for (const [key, values] of Object.entries(state.trailers) as [string, readonly string[]][]) {
             if (visibleTrailers !== 'all' && !visibleTrailers.includes(key)) continue;
             for (const v of values) {
                 trailerLines.push(`  ${prefix}${this.c.bold(`${key}:`)} ${v}`);
@@ -162,7 +166,7 @@ export class TextFormatter implements IOutputFormatter {
         }
         
         // Unauthorized/Rejected
-        for (const [key, values] of Object.entries(state.unauthorized)) {
+        for (const [key, values] of Object.entries(state.unauthorized) as [string, readonly string[]][]) {
             if (visibleTrailers !== 'all' && !visibleTrailers.includes(key)) continue;
             for (const v of values) {
                 trailerLines.push(`  ${prefix}${this.c.yellow('⚠')} ${this.c.bold(`${key}:`)} ${v}`);
@@ -174,7 +178,7 @@ export class TextFormatter implements IOutputFormatter {
     // 2. Supersession
     for (const [pName, state] of atom.protocols) {
         if (state.supersession?.superseded) {
-            const killers = state.supersession.supersededBy.map(h => h.slice(0, 8)).join(', ');
+            const killers = state.supersession.supersededBy.map((h: string) => h.slice(0, 8)).join(', ');
             trailerLines.push(`  [${pName}] ${this.c.dim(`(superseded by ${killers})`)}`);
         }
     }
@@ -183,7 +187,7 @@ export class TextFormatter implements IOutputFormatter {
     return lines.join('\n');
   }
 
-  formatQueryFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
-    return `${meta.filtered} of ${meta.total} atoms shown`;
+  formatQueryFooter(data: FormattableQueryFooter): string {
+    return `${data.filtered} of ${data.total} atoms shown`;
   }
 }

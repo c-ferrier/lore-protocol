@@ -1,12 +1,22 @@
-import type { Atom, StaleReason } from './domain.js';
-import type { QueryMeta,QueryResult } from './query.js';
-
-export type { QueryMeta,QueryResult };
 import type { TrailerUiColor,TrailerUiKind, ValueDefinition } from './config.js';
+import type { Atom, StaleReason } from './domain.js';
 
-export interface FormattableQueryResult {
-  readonly result: QueryResult;
-  readonly visibleTrailers: readonly string[] | 'all';
+export interface FormattableQueryHeader {
+    readonly target: string;
+    readonly type: string;
+    readonly visibleTrailers: readonly string[] | 'all';
+}
+
+export interface FormattableQueryAtom {
+    readonly atom: Atom;
+    readonly visibleTrailers: readonly string[] | 'all';
+}
+
+export interface FormattableQueryFooter {
+    readonly total: number;
+    readonly filtered: number;
+    readonly oldest: Date | null;
+    readonly newest: Date | null;
 }
 
 export interface FormattableValidationResult {

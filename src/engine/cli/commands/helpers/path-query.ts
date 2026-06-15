@@ -77,7 +77,11 @@ export async function executePathQuery(
   const formatter = getFormatter();
 
   // 1. Output Header
-  const header = formatter.formatQueryHeader(target.raw ? target.raw.toString() : 'all', target.type, visibleTrailers);
+  const header = formatter.formatQueryHeader({
+      target: target.raw ? target.raw.toString() : 'all',
+      type: target.type,
+      visibleTrailers
+  });
   if (header) logger.result(header);
 
   const stream = findAtomsStream(infra, target, queryOptions);
@@ -109,7 +113,7 @@ export async function executePathQuery(
       if (!newest || atom.date > newest) newest = atom.date;
 
       // 4. Output Atom Progressive
-      const atomOutput = formatter.formatQueryAtom(atom, visibleTrailers);
+      const atomOutput = formatter.formatQueryAtom({ atom, visibleTrailers });
       if (atomOutput) logger.result(atomOutput);
   }
 

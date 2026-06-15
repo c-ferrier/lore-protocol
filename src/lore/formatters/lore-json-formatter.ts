@@ -4,6 +4,9 @@ import {
     type ErrorMessage,
     type FormattableConfigResult,
     type FormattableDoctorResult, 
+    type FormattableQueryAtom,
+    type FormattableQueryFooter,
+    type FormattableQueryHeader,
     type FormattableStalenessResult, 
     type FormattableTraceResult, 
     type FormattableValidationResult, 
@@ -32,9 +35,9 @@ export class LoreJsonFormatter implements IOutputFormatter {
    * Streaming Hook: Header
    * Emits the opening of the JSON document.
    */
-  formatQueryHeader(target: string, type: string, visibleTrailers?: readonly string[] | 'all'): string {
+  formatQueryHeader(data: FormattableQueryHeader): string {
       this.isFirstAtom = true;
-      this.currentHeader = { target, type, visibleTrailers: visibleTrailers || 'all' };
+      this.currentHeader = data;
       
       const loreProtocol = this.protocols.get('lore');
       const version = loreProtocol?.def.version ?? '1.0';
@@ -42,8 +45,8 @@ export class LoreJsonFormatter implements IOutputFormatter {
       const header = {
           lore_version: version,
           command: 'log', // Match 0.5.0 default
-          target: target === 'all' || type === 'global' ? 'all' : target,
-          target_type: type,
+          target: data.target === 'all' || data.type === 'global' ? 'all' : data.target,
+          target_type: data.type,
       };
 
       // Open the object and the results array
@@ -56,13 +59,13 @@ export class LoreJsonFormatter implements IOutputFormatter {
    * Streaming Hook: Atom
    * Emits a single atom object, handling comma separation.
    */
-  formatQueryAtom(atom: Atom): string {
-      const data = this.formatSingleAtomObject(atom, this.currentHeader?.visibleTrailers || 'all');
+  formatQueryAtom(data: FormattableQueryAtom): string {
+      const result = this.formatSingleAtomObject(data.atom, data.visibleTrailers);
       const comma = this.isFirstAtom ? '' : ',';
       this.isFirstAtom = false;
 
       // Indent the individual atom JSON to match 0.5.0 nested structure
-      const atomStr = JSON.stringify(data, null, 2)
+      const atomStr = JSON.stringify(result, null, 2)
           .split('\n')
           .map(line => '    ' + line)
           .join('\n');
@@ -74,12 +77,12 @@ export class LoreJsonFormatter implements IOutputFormatter {
    * Streaming Hook: Footer
    * Closes the results array and appends the meta object.
    */
-  formatQueryFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
+  formatQueryFooter(data: FormattableQueryFooter): string {
       const metaObj = {
-          total_atoms: meta.total,
-          filtered_atoms: meta.filtered,
-          oldest: meta.oldest?.toISOString() ?? null,
-          newest: meta.newest?.toISOString() ?? null
+          total_atoms: data.total,
+          filtered_atoms: data.filtered,
+          oldest: data.oldest?.toISOString() ?? null,
+          newest: data.newest?.toISOString() ?? null
       };
 
       const output = `\n  ],\n  "meta": ${JSON.stringify(metaObj, null, 2).split('\n').map((l, i) => i === 0 ? l : '  ' + l).join('\n')}\n}`;
@@ -94,7 +97,7 @@ export class LoreJsonFormatter implements IOutputFormatter {
   /**
    * Internal logic to transform a single Atom into the 0.5.0 Result Object.
    */
-  private formatSingleAtomObject(atom: Atom, visibleTrailers: readonly string[] | 'all'): any {
+  private formatSingleAtomObject(atom: Atom, visibleTrailers: readonly string[] | 'all'): Record<string, unknown> {
     const loreProtocol = this.protocols.get('lore');
     const loreState = atom.protocols.get('lore');
     const loreId = (loreState && loreProtocol) ? getProtocolIdentity(loreState, loreProtocol) : null;

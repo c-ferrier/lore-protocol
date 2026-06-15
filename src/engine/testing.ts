@@ -18,6 +18,7 @@ import type { Atom, ProtocolState } from './core/types/domain.js';
 export type { Atom, ProtocolState };
 import type { ProtocolContext,ProtocolDefinition } from './core/types/protocol-definition.js';
 export type { ProtocolContext,ProtocolDefinition };
+import type { FormattableQueryAtom, FormattableQueryHeader } from './core/types/output.js';
 import type { QueryOptions,QueryTargetAST } from './core/types/query.js';
 import type { IConfigLoader } from './interfaces/config-loader.js';
 import type { IGitClient, RawCommit as IGitRawCommit, StorageQuery } from './interfaces/git-client.js';
@@ -265,8 +266,8 @@ export function makeStubFormatter(): IOutputFormatter {
         formatDoctorResult: () => 'Mock Doctor Result',
         formatSuccess: (msg: string) => `Success: ${msg}`,
         formatError: (_code: number, messages: readonly ErrorMessage[]) => `Error: ${messages[0]?.message}`,
-        formatQueryHeader: (target: string, type: string, _visibleTrailers?: readonly string[] | 'all') => `Mock Header: ${target} (${type})`,
-        formatQueryAtom: (atom: Atom, _visibleTrailers?: readonly string[] | 'all') => `Mock Atom: ${atom.commitHash}`,
+        formatQueryHeader: (data: FormattableQueryHeader) => `Mock Header: ${data.target} (${data.type})`,
+        formatQueryAtom: (data: FormattableQueryAtom) => `Mock Atom: ${data.atom.commitHash}`,
         formatQueryFooter: () => 'Mock Footer',
     };
 }

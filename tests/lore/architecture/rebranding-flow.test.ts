@@ -61,10 +61,10 @@ describe('Lore Wrapper Rebranding Flow', () => {
     const logger = new TestLogger();
     const formatter = new LoreJsonFormatter(protocols);
     
-    const header = formatter.formatQueryHeader('all', 'global');
+    const header = formatter.formatQueryHeader({ target: 'all', type: 'global', visibleTrailers: 'all' });
     if (header) logger.result(header);
     
-    const body = formatter.formatQueryAtom(atom);
+    const body = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
     if (body) logger.result(body);
     
     const footer = formatter.formatQueryFooter({ total: 1, filtered: 1, oldest: null, newest: null });

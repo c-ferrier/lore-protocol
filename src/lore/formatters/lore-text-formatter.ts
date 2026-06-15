@@ -8,6 +8,9 @@ import {
     type ErrorMessage,
     type FormattableConfigResult,
     type FormattableDoctorResult, 
+    type FormattableQueryAtom,
+    type FormattableQueryFooter,
+    type FormattableQueryHeader,
     type FormattableStalenessResult, 
     type FormattableTraceResult,
     type FormattableValidationResult,
@@ -50,12 +53,13 @@ export class LoreTextFormatter implements IOutputFormatter {
       return this.base.formatConfigResult(data);
   }
 
-  formatQueryHeader(_target: string, _type: string, _visibleTrailers?: readonly string[] | 'all'): string {
+  formatQueryHeader(_data: FormattableQueryHeader): string {
       // Lore 0.5.0 Parity: No Query header
       return '';
   }
 
-  formatQueryAtom(atom: Atom, visibleTrailers: readonly string[] | 'all' = 'all'): string {
+  formatQueryAtom(data: FormattableQueryAtom): string {
+      const { atom, visibleTrailers } = data;
       // 1. Identity Promotion & Author Stripping for Lore branding
       const trailersRaw = atom.rawTrailers.split('\n');
       let idFromRaw = '';
@@ -114,13 +118,13 @@ export class LoreTextFormatter implements IOutputFormatter {
 
               const values = loreState.trailers[key];
               if (!values) continue;
-              for (const v of values) {
+              for (const v of values as readonly string[]) {
                   trailerLines.push(`  ${this.c.bold(`${key}:`)} ${v}`);
                   renderedTrailers = true;
               }
           }
           // Unauthorized (Typos in Lore namespace)
-          for (const [key, values] of Object.entries(loreState.unauthorized)) {
+          for (const [key, values] of Object.entries(loreState.unauthorized) as [string, readonly string[]][]) {
               if (key.toLowerCase() === 'lore-id') continue;
               for (const v of values) {
                   trailerLines.push(`  ${this.c.yellow('⚠')} ${this.c.bold(`${key}:`)} ${v}`);
@@ -142,7 +146,7 @@ export class LoreTextFormatter implements IOutputFormatter {
 
               const values = systemState.trailers[key];
               if (!values) continue;
-              for (const v of values) {
+              for (const v of values as readonly string[]) {
                   trailerLines.push(`  ${this.c.bold(`${key}:`)} ${v}`);
                   renderedTrailers = true;
               }
@@ -177,8 +181,8 @@ export class LoreTextFormatter implements IOutputFormatter {
       return lines.join('\n');
   }
 
-  formatQueryFooter(meta: { total: number; filtered: number; oldest: Date | null; newest: Date | null }): string {
-      return `${meta.filtered} of ${meta.total} atoms shown`;
+  formatQueryFooter(data: FormattableQueryFooter): string {
+      return `${data.filtered} of ${data.total} atoms shown`;
   }
 
   formatStalenessResult(data: FormattableStalenessResult): string {
