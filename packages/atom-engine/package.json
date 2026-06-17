@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "description": "Agnostic core for structured decision context discovery and management",
   "type": "module",
+  "bin": {
+    "atom": "./bin/atom.js"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
