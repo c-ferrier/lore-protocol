@@ -1,51 +1,21 @@
 {
-  "name": "lore-protocol",
+  "name": "lore-monorepo",
+  "private": true,
   "version": "0.0.0",
-  "description": "CLI tool for the Lore protocol — structured decision context in git commits",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Ian-stetsenko/lore-protocol"
-  },
+  "description": "Monorepo for Atom Engine and Lore Protocol",
   "type": "module",
-  "bin": {
-    "lore": "./bin/lore.js",
-    "atom": "./bin/atom.js"
-  },
-  "files": [
-    "bin/",
-    "dist/",
-    "schemas/",
-    "skills/"
+  "workspaces": [
+    "packages/*"
   ],
   "engines": {
     "node": ">=22.0.0"
   },
   "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "eslint src/ tests/",
-    "format": "prettier --write src/ tests/",
-    "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build && npm run typecheck && npm run test"
-  },
-  "keywords": [
-    "git",
-    "cli",
-    "lore",
-    "decision-records",
-    "ai-agents",
-    "commit-messages",
-    "institutional-knowledge"
-  ],
-  "author": "Ivan Stetsenko <dev.ivan.stetsenko@gmail.com>",
-  "license": "MIT",
-  "dependencies": {
-    "chalk": "^5.6.2",
-    "commander": "^15.0.0",
-    "simple-update-notifier": "^2.0.0",
-    "smol-toml": "^1.6.1"
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint packages/*/src packages/*/tests",
+    "format": "prettier --write packages/*/src packages/*/tests",
+    "typecheck": "npm run typecheck --workspaces --if-present"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -58,8 +28,5 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.60.1",
     "vitest": "^4.1.8"
-  },
-  "allowScripts": {
-    "esbuild@0.27.7": true
   }
 }

@@ -1,0 +1,92 @@
+import { execSync } from 'node:child_process';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { afterAll, beforeAll, beforeEach,describe, expect, it } from 'vitest';
+
+import { createQueryTarget } from '../../src/core/logic/query-targets.js';
+import { ProtocolMap } from '../../src/core/models/protocol-map.js';
+import { EngineInfra } from '../../src/services/engine-bootstrapper.js';
+import { NullQueryCache } from '../../src/shell/fs/query-cache.js';
+import { GitClient } from '../../src/shell/git/git-client.js';
+import { findAtoms } from '../../src/shell/orchestrators/discovery.js';
+import { makeStubProtocolContext, type ProtocolContext,TEST_ID_KEY, TEST_PROTOCOL_DEFINITION } from '../../src/testing.js';
+import { makeMockInfra } from '../engine-test-utils.js';
+
+describe('Multi-Target Atom Discovery', () => {
+  let testDir: string;
+  let git: GitClient;
+  let infra: EngineInfra;
+
+  beforeAll(() => {
+    testDir = join(process.cwd(), 'temp-multi-target-test');
+    rmSync(testDir, { recursive: true, force: true });
+    mkdirSync(testDir, { recursive: true });
+
+    const run = (cmd: string) => execSync(cmd, { cwd: testDir, stdio: 'pipe' });
+
+    run('git init');
+    run('git config user.name "Test User"');
+    run('git config user.email "test@example.com"');
+
+    // 1. Atom touching fileA
+    writeFileSync(join(testDir, 'fileA.ts'), 'A');
+    run('git add fileA.ts');
+    run(`git commit -m "feat(a): atom A\n\n${TEST_ID_KEY}: 0000000a"`);
+
+    // 2. Atom touching file B
+    writeFileSync(join(testDir, 'fileB.ts'), 'B');
+    run('git add fileB.ts');
+    run(`git commit -m "feat(b): atom B\n\n${TEST_ID_KEY}: 0000000b"`);
+
+    // 3. Atom touching both A and B
+    writeFileSync(join(testDir, 'fileA.ts'), 'A2');
+    writeFileSync(join(testDir, 'fileB.ts'), 'B2');
+    run('git add fileA.ts fileB.ts');
+    run(`git commit -m "feat(ab): atom AB\n\n${TEST_ID_KEY}: 000000ab"`);
+
+    // 4. Atom touching unrelated file
+    writeFileSync(join(testDir, 'fileC.ts'), 'C');
+    run('git add fileC.ts');
+    run(`git commit -m "feat(c): atom C\n\n${TEST_ID_KEY}: 0000000c"`);
+
+  });
+
+  beforeEach(() => {
+    git = new GitClient(testDir);
+    const protocols = new ProtocolMap<ProtocolContext>();
+    protocols.set('mock', makeStubProtocolContext(TEST_PROTOCOL_DEFINITION));
+    
+    infra = makeMockInfra({
+      git,
+      protocols,
+      cache: new NullQueryCache(),
+      protocolRoot: testDir,
+      cwd: testDir,
+    });
+  });
+
+  afterAll(() => {
+    rmSync(testDir, { recursive: true, force: true });
+  });
+
+  it('should find atoms touching any of the provided targets', async () => {
+    const context = { cwd: testDir, protocolRoot: testDir, isScoped: false };
+    const result = await findAtoms(infra, createQueryTarget(['fileA.ts', 'fileB.ts'], context));
+    
+    // Should find A, B, and AB, but NOT C.
+    expect(result).toHaveLength(3);
+    const ids = result.map(a => a.protocols.get('mock')?.trailers[TEST_ID_KEY]?.[0]);
+    expect(ids).toContain('0000000a');
+    expect(ids).toContain('0000000b');
+    expect(ids).toContain('000000ab');
+    expect(ids).not.toContain('0000000c');
+  });
+
+  it('should return empty array if none of the targets have protocol atoms', async () => {
+    const context = { cwd: testDir, protocolRoot: testDir, isScoped: false };
+    const result = await findAtoms(infra, createQueryTarget(['non-existent.ts'], context));
+
+    expect(result).toHaveLength(0);
+  });
+});

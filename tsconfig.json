@@ -15,8 +15,12 @@
     "declarationMap": false,
     "sourceMap": true,
     "isolatedModules": true,
-    "types": ["node"]
-  },
-  "include": ["src/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+    "types": ["node"],
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@c-ferrier/atom-engine": ["packages/atom-engine/src/index.ts"],
+      "@c-ferrier/atom-engine/testing": ["packages/atom-engine/src/testing.ts"]
+    }
+  }
 }

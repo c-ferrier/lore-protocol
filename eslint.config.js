@@ -9,14 +9,19 @@ export default tseslint.config(
   {
     languageOptions: {
       parserOptions: {
-        project: ['./tsconfig.json'],
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },
   },
   {
     // Ignore build artifacts and node_modules
-    ignores: ['dist/**', 'node_modules/**', 'bin/**', 'src/engine/util/rebase-editor.js'],
+    ignores: [
+        '**/dist/**', 
+        '**/node_modules/**', 
+        'bin/**', 
+        'packages/atom-engine/src/util/rebase-editor.js'
+    ],
   },
   {
     plugins: {

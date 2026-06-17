@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist"
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "bin/**/*.ts", "../atom-engine/src/types/globals.d.ts"]
+}

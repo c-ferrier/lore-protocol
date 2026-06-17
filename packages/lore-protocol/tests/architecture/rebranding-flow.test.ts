@@ -1,0 +1,81 @@
+import { ProtocolMap } from '@c-ferrier/atom-engine/testing';
+import { type ProtocolDefinition } from '@c-ferrier/atom-engine/testing';
+import { NullQueryCache } from '@c-ferrier/atom-engine/testing';
+import { findAtoms } from '@c-ferrier/atom-engine/testing';
+import { makeQueryTarget,makeStubProtocolContext, type ProtocolContext } from '@c-ferrier/atom-engine/testing';
+import { describe, expect, it } from 'vitest';
+
+import { makeMockGitClient, makeMockInfra, TestLogger } from '../../../atom-engine/tests/engine-test-utils.js';
+import { LoreJsonFormatter } from '../../src/formatters/lore-json-formatter.js';
+
+/**
+ * ARCHITECTURAL TEST: Wrapper Rebranding
+ * 
+ * Verifies that the Lore wrapper can successfully rebrand the generic engine
+ * output into the opinionated "Lore" 0.5.0 format.
+ */
+describe('Lore Wrapper Rebranding Flow', () => {
+  it('should rebrand the generic engine output into Lore flat JSON', async () => {
+    // 1. Define a protocol named 'Lore'
+    const loreDef: ProtocolDefinition = {
+      name: 'Lore',
+      version: '0.6.0',
+      namespace: '', 
+      identityKey: 'Lore-id',
+      strict: true,
+      permissive: false,
+      trailers: {
+        'Lore-id': { description: 'ID', multivalue: false, validation: 'none' },
+        'Status': { description: 'S', multivalue: false, validation: 'none' }
+      }
+    };
+
+    const loreProtocol = makeStubProtocolContext(loreDef);
+    const protocols = new ProtocolMap<ProtocolContext>();
+    protocols.set(loreProtocol.name, loreProtocol);
+
+    // 2. Mock Storage to return a Lore commit
+    const git = makeMockGitClient();
+    const rawCommit = {
+      hash: 'abc12345',
+      date: new Date().toISOString(),
+      author: 'dev@example.com',
+      subject: 'feat: change',
+      body: '',
+      trailers: 'Lore-id: aabbccdd\nStatus: active',
+      filesChanged: ['src/main.ts']
+    };
+    git.queryStream.mockImplementation(async function* () { yield* [rawCommit]; });
+
+    // 3. Setup Infra
+    const infra = makeMockInfra({
+      git,
+      protocols,
+      cache: new NullQueryCache(),
+    });
+
+    const atoms = await findAtoms(infra, makeQueryTarget());
+    const atom = atoms[0];
+
+    // 4. Format using the Lore-specific formatter
+    const logger = new TestLogger();
+    const formatter = new LoreJsonFormatter(protocols);
+    
+    const header = formatter.formatQueryHeader({ target: 'all', type: 'global', visibleTrailers: 'all' });
+    if (header) logger.result(header);
+    
+    const body = formatter.formatQueryAtom({ atom, visibleTrailers: 'all' });
+    if (body) logger.result(body);
+    
+    const footer = formatter.formatQueryFooter({ total: 1, filtered: 1, oldest: null, newest: null });
+    if (footer) logger.result(footer);
+
+    const json = JSON.parse(logger.results.join(''));
+
+    // 5. Verify Lore Branding (Flat keys, no .protocols nesting)
+    expect(json.lore_version).toBe('0.6.0');
+    expect(json.results[0].commit).toBe('abc12345');
+    expect(json.results[0].lore_id).toBe('aabbccdd');
+    expect(json.results[0].trailers.status).toBe('active');
+  });
+});
